@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600&display=swap"><style>body{margin:0;background:#f0eee9;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif}a{color:#2a78d6}a:hover{color:#1b5aa8}.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 20px}.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px;text-decoration:none}.dv-tname{font:600 13px/1.2 'Helvetica Neue',Helvetica,sans-serif;color:#1a1a1a}.dv-opts{display:flex;flex-wrap:nowrap;gap:36px;align-items:flex-start}.dv-opt{flex:none;display:flex;flex-direction:column;gap:14px;scroll-margin-top:16px}.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 11px/1.3 'Helvetica Neue',Helvetica,sans-serif;color:rgba(0,0,0,.55)}.dv-card{max-width:100%;border:1px solid rgba(0,0,0,.1);border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.07);overflow:hidden}.dv-opt:target .dv-oid{background:#2a78d6;color:#fff}.dv-next{margin:22px 0 0;font:12px/1.5 'Helvetica Neue',Helvetica,sans-serif;color:rgba(0,0,0,.5)}.dv-tl{font:600 9.5px ui-monospace,Menlo,monospace;letter-spacing:.09em;text-transform:uppercase;color:rgba(0,0,0,.4)}</style></helmet>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><g id="s" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></g><symbol id="ic-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5 12 4l8 6.5V20H4z"></path></symbol><symbol id="ic-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"></path><path d="M9 12h6M9 16h5"></path></symbol><symbol id="ic-wallet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v12H3z"></path><path d="M15 13h4"></path></symbol><symbol id="ic-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"></circle><path d="M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5"></path><path d="M16 5.5a3 3 0 0 1 0 5"></path></symbol><symbol id="ic-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V11M10 20V4M16 20v-7M2 20h20"></path></symbol><symbol id="ic-percent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="2.2"></circle><circle cx="17" cy="17" r="2.2"></circle><path d="M5 19 19 5"></path></symbol><symbol id="ic-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 11v6M14 11v6"></path></symbol><symbol id="ic-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l5 5"></path></symbol><symbol id="ic-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V10a6 6 0 0 1 12 0v6l2 3H4z"></path><path d="M10 22h4"></path></symbol><symbol id="ic-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></symbol><symbol id="ic-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5M4 20h16"></path></symbol><symbol id="ic-filter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M6 12h12M10 18h4"></path></symbol><symbol id="ic-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L20 8l-4-4L4 16z"></path></symbol><symbol id="ic-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V6M6 12l6-6 6 6"></path></symbol><symbol id="ic-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v13M6 12l6 6 6-6"></path></symbol><symbol id="ic-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5.2 5.2l2.1 2.1M16.7 16.7l2.1 2.1M18.8 5.2l-2.1 2.1M7.3 16.7l-2.1 2.1"></path></symbol><symbol id="ic-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="1.5"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></symbol><symbol id="ic-building" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4h9v17M14 9h5v12M8 8h3M8 12h3M8 16h3"></path></symbol><symbol id="ic-dots" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="12" cy="19" r="1.6"></circle></symbol><symbol id="ic-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></symbol></defs></svg>
+
+<section class="dv-turn" id="t2">
+<div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname"><a class="dv-oid" href="#1a">1a</a> temelli tıklanabilir prototip · Raporlar ekranı · boş durumlar</span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="2a"><div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>Prototip — sol menüden Genel Bakış ↔ Raporlar geçişi çalışır</div>
+<div class="dv-card" style="width:1280px;background:#fdfdfe">
+<div style="display:grid;grid-template-columns:236px 1fr;min-height:840px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#171a1f">
+<div style="background:#fbfbfc;border-right:1px solid #e8eaee;padding:22px 16px;display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;align-items:center;gap:10px;padding:0 8px"><div style="width:28px;height:28px;border-radius:7px;background:oklch(0.55 0.14 250);display:flex;align-items:center;justify-content:center;color:#fff;font:600 13px/1 'Helvetica Neue',Helvetica,sans-serif">D</div><div style="font:600 14px/1.1 'Helvetica Neue',Helvetica,sans-serif;letter-spacing:-.01em">Defter</div></div>
+<div style="display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid #e3e6eb;border-radius:8px;background:#fff;color:#8b93a1"><svg width="15" height="15" style="flex:none"><use href="#ic-building"></use></svg><div style="font:400 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:#3d434d;flex:1">Yıldız Tekstil A.Ş.</div><svg width="13" height="13" style="flex:none;transform:rotate(90deg)"><use href="#ic-chevron"></use></svg></div>
+<div style="display:flex;flex-direction:column;gap:2px">
+<sc-for list="{{ navP }}" as="n" hint-placeholder-count="8"><div onClick="{{ n.on }}" style="display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:8px;cursor:pointer;font:400 13px/1 'Helvetica Neue',Helvetica,sans-serif;background:{{ n.bg }};color:{{ n.fg }}" style-hover="background:#f1f3f6"><svg width="17" height="17" style="flex:none;opacity:.85"><use href="{{ n.icon }}"></use></svg>{{ n.label }}</div></sc-for>
+</div>
+<div style="margin-top:auto;padding:13px;border:1px solid #e8eaee;border-radius:9px;background:#fff;display:flex;flex-direction:column;gap:7px">
+<div style="font:500 12px/1.3 'Helvetica Neue',Helvetica,sans-serif">KDV beyan dönemi</div>
+<div style="font:400 11.5px/1.45 'Helvetica Neue',Helvetica,sans-serif;color:#8b93a1">26 Ağustos'a 7 gün kaldı.</div>
+<div style="height:4px;border-radius:2px;background:#eef0f3;overflow:hidden"><div style="width:64%;height:100%;background:oklch(0.55 0.14 250)"></div></div>
+</div>
+</div>
+<div style="display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:16px;padding:0 28px;height:64px;border-bottom:1px solid #e8eaee;background:#fff">
+<div style="display:flex;align-items:center;gap:9px;flex:1;max-width:330px;padding:8px 11px;background:#f4f5f7;border-radius:8px;color:#98a0ad"><svg width="15" height="15"><use href="#ic-search"></use></svg><div style="font:400 12.5px/1 'Helvetica Neue',Helvetica,sans-serif">Fatura, cari veya işlem ara…</div></div>
+<div style="flex:1"></div>
+<div style="display:flex;align-items:center;gap:6px;padding:7px 11px;border:1px solid #e3e6eb;border-radius:8px;color:#5c636e;font:400 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:#f4f5f7"><svg width="14" height="14"><use href="#ic-calendar"></use></svg>1–31 Ağustos 2026</div>
+<div style="position:relative;color:#5c636e;cursor:pointer"><svg width="19" height="19"><use href="#ic-bell"></use></svg><div style="position:absolute;top:-1px;right:-1px;width:7px;height:7px;border-radius:4px;background:#d94a4a;border:1.5px solid #fff"></div></div>
+<div style="display:flex;align-items:center;gap:9px;padding-left:14px;border-left:1px solid #e8eaee"><div style="width:30px;height:30px;border-radius:15px;background:#dfe3ea;color:#5c636e;display:flex;align-items:center;justify-content:center;font:500 11.5px/1 'Helvetica Neue',Helvetica,sans-serif">SK</div><div><div style="font:500 12.5px/1.2 'Helvetica Neue',Helvetica,sans-serif">Selin Kaya</div><div style="font:400 11px/1.2 'Helvetica Neue',Helvetica,sans-serif;color:#98a0ad">Mali Müşavir</div></div></div>
+</div>
+
+<sc-if value="{{ isOv }}" hint-placeholder-val="{{ true }}">
+<div style="padding:26px 28px;display:flex;flex-direction:column;gap:20px">
+<div style="display:flex;align-items:flex-end;gap:16px">
+<div style="flex:1"><div style="font:600 20px/1.2 'Helvetica Neue',Helvetica,sans-serif;letter-spacing:-.015em">Genel Bakış</div><div style="font:400 12.5px/1.4 'Helvetica Neue',Helvetica,sans-serif;color:#8b93a1;margin-top:4px">Ağustos 2026 dönemi · son güncelleme 12 dk önce</div></div>
+<div style="display:flex;gap:8px">
+<div style="display:flex;align-items:center;gap:7px;padding:9px 13px;border-radius:8px;background:oklch(0.55 0.14 250);color:#fff;font:500 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:oklch(0.48 0.14 250)"><svg width="15" height="15"><use href="#ic-plus"></use></svg>Fatura Ekle</div>
+<div onClick="{{ goRep }}" style="display:flex;align-items:center;gap:7px;padding:9px 13px;border-radius:8px;border:1px solid #dfe3ea;background:#fff;color:#3d434d;font:500 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:#f4f5f7"><svg width="15" height="15"><use href="#ic-download"></use></svg>Rapor Oluştur</div>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+<sc-for list="{{ kpis }}" as="k" hint-placeholder-count="6"><div style="padding:16px 17px;border:1px solid #e8eaee;border-radius:10px;background:#fff;display:flex;flex-direction:column;gap:11px" style-hover="border-color:#cfd5de;box-shadow:0 2px 8px rgba(20,24,32,.05)">
+<div style="display:flex;align-items:center;gap:9px"><div style="width:26px;height:26px;border-radius:7px;background:#eef2fb;color:oklch(0.55 0.14 250);display:flex;align-items:center;justify-content:center"><svg width="15" height="15"><use href="{{ k.icon }}"></use></svg></div><div style="font:400 12px/1 'Helvetica Neue',Helvetica,sans-serif;color:#8b93a1;flex:1">{{ k.label }}</div></div>
+<div style="font:500 24px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:-.02em;font-variant-numeric:tabular-nums">{{ k.value }}</div>
+<div style="font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:#8b93a1">{{ k.sub }}</div>
+</div></sc-for>
+</div>
+<div style="display:grid;grid-template-columns:1.55fr 1fr;gap:14px">
+<div style="padding:18px 19px;border:1px solid #e8eaee;border-radius:10px;background:#fff">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px"><div style="font:500 13.5px/1 'Helvetica Neue',Helvetica,sans-serif">Gelir – Gider</div><div style="display:flex;gap:14px;font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:#8b93a1"><span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:2px;background:oklch(0.55 0.14 250)"></span>Gelir</span><span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:2px;background:#c9d3e4"></span>Gider</span></div></div>
+<div style="display:flex;align-items:flex-end;gap:22px;height:186px;padding-bottom:24px;border-bottom:1px solid #eef0f3">
+<sc-for list="{{ bars }}" as="b" hint-placeholder-count="6"><div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;justify-content:flex-end"><div style="display:flex;align-items:flex-end;gap:5px;width:100%;height:100%;justify-content:center"><div style="width:22px;border-radius:3px 3px 0 0;background:oklch(0.55 0.14 250);height:{{ b.inH }}"></div><div style="width:22px;border-radius:3px 3px 0 0;background:#c9d3e4;height:{{ b.exH }}"></div></div><div style="font:400 11px/1 'Helvetica Neue',Helvetica,sans-serif;color:#98a0ad">{{ b.m }}</div></div></sc-for>
+</div>
+</div>
+<div style="padding:16px 18px;border:1px solid #e8eaee;border-radius:10px;background:#fff;display:flex;flex-direction:column;gap:13px">
+<div style="font:500 13.5px/1 'Helvetica Neue',Helvetica,sans-serif">Son Hareketler</div>
+<sc-for list="{{ acts }}" as="a" hint-placeholder-count="5"><div style="display:flex;gap:11px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:12px;background:#f1f3f6;color:#5c636e;display:flex;align-items:center;justify-content:center;flex:none"><svg width="13" height="13"><use href="{{ a.icon }}"></use></svg></div><div style="flex:1"><div style="font:400 12px/1.4 'Helvetica Neue',Helvetica,sans-serif;color:#3d434d">{{ a.text }}</div><div style="font:400 11px/1.4 'Helvetica Neue',Helvetica,sans-serif;color:#a3aab6;margin-top:2px">{{ a.time }}</div></div></div></sc-for>
+</div>
+</div>
+<div style="border:1px solid #e8eaee;border-radius:10px;background:#fff;overflow:hidden">
+<div style="display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid #eef0f3"><div style="font:500 13.5px/1 'Helvetica Neue',Helvetica,sans-serif;flex:1">Faturalar</div><div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid #e3e6eb;border-radius:7px;color:#5c636e;font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:#f4f5f7"><svg width="13" height="13"><use href="#ic-filter"></use></svg>Durum: Tümü</div><div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid #e3e6eb;border-radius:7px;color:#5c636e;font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:#f4f5f7"><svg width="13" height="13"><use href="#ic-download"></use></svg>Dışa Aktar</div></div>
+<div style="display:grid;grid-template-columns:120px 1fr 100px 120px 104px 82px;padding:9px 18px;background:#fafbfc;border-bottom:1px solid #eef0f3;font:500 10.5px/1 'Helvetica Neue',Helvetica,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#98a0ad"><div>Fatura No</div><div>Cari</div><div>Tarih</div><div style="text-align:right">Tutar</div><div style="text-align:center">Durum</div><div style="text-align:right">İşlem</div></div>
+<sc-for list="{{ rowsL }}" as="r" hint-placeholder-count="6"><div style="display:grid;grid-template-columns:120px 1fr 100px 120px 104px 82px;align-items:center;padding:12px 18px;border-bottom:1px solid #f3f4f7" style-hover="background:#fafbfc">
+<div style="font:400 11.5px/1 ui-monospace,Menlo,monospace;color:#5c636e">{{ r.no }}</div>
+<div style="font:400 12.5px/1 'Helvetica Neue',Helvetica,sans-serif">{{ r.cari }}</div>
+<div style="font:400 12px/1 'Helvetica Neue',Helvetica,sans-serif;color:#8b93a1">{{ r.date }}</div>
+<div style="font:500 12.5px/1 ui-monospace,Menlo,monospace;text-align:right;font-variant-numeric:tabular-nums">{{ r.amount }}</div>
+<div style="text-align:center"><span style="display:inline-block;padding:4px 9px;border-radius:5px;font:500 11px/1 'Helvetica Neue',Helvetica,sans-serif;color:{{ r.sc }};background:{{ r.sb }}">{{ r.status }}</span></div>
+<div style="display:flex;gap:5px;justify-content:flex-end;color:#98a0ad"><span style="padding:5px;border-radius:6px;cursor:pointer;display:flex" style-hover="background:#eef0f3;color:#3d434d"><svg width="15" height="15"><use href="#ic-pencil"></use></svg></span><span style="padding:5px;border-radius:6px;cursor:pointer;display:flex" style-hover="background:#fdecec;color:#c33"><svg width="15" height="15"><use href="#ic-trash"></use></svg></span></div>
+</div></sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isRep }}" hint-placeholder-val="{{ false }}">
+<div style="padding:26px 28px;display:flex;flex-direction:column;gap:20px">
+<div style="display:flex;align-items:flex-end;gap:16px">
+<div style="flex:1"><div style="font:600 20px/1.2 'Helvetica Neue',Helvetica,sans-serif;letter-spacing:-.015em">Raporlar</div><div style="font:400 12.5px/1.4 'Helvetica Neue',Helvetica,sans-serif;color:#8b93a1;margin-top:4px">01.08.2026 – 31.08.2026 · Yıldız Tekstil A.Ş.</div></div>
+<div style="display:flex;gap:8px">
+<div style="display:flex;align-items:center;gap:7px;padding:9px 13px;border-radius:8px;border:1px solid #dfe3ea;background:#fff;color:#3d434d;font:500 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:#f4f5f7"><svg width="15" height="15"><use href="#ic-filter"></use></svg>Dönem &amp; Şirket</div>
+<div style="display:flex;align-items:center;gap:7px;padding:9px 13px;border-radius:8px;background:oklch(0.55 0.14 250);color:#fff;font:500 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:oklch(0.48 0.14 250)"><svg width="15" height="15"><use href="#ic-download"></use></svg>Rapor Oluştur</div>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+<div style="padding:18px 20px;border:1px solid #e8eaee;border-radius:10px;background:#fff">
+<div style="display:flex;align-items:center;gap:9px;margin-bottom:16px"><svg width="15" height="15" style="color:oklch(0.55 0.14 250)"><use href="#ic-chart"></use></svg><div style="font:500 13.5px/1 'Helvetica Neue',Helvetica,sans-serif;flex:1">Gelir Tablosu</div><span style="font:400 11px/1 ui-monospace,Menlo,monospace;color:#98a0ad">P&amp;L · Ağustos</span></div>
+<sc-for list="{{ pnl }}" as="p" hint-placeholder-count="7"><div style="display:flex;align-items:baseline;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f3f4f7"><span style="font:400 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:{{ p.col }}">{{ p.label }}</span><span style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1;font-weight:{{ p.fw }};color:{{ p.col }};font-variant-numeric:tabular-nums">{{ p.value }}</span></div></sc-for>
+</div>
+<div style="display:flex;flex-direction:column;gap:14px">
+<div style="padding:18px 20px;border:1px solid #e8eaee;border-radius:10px;background:#fff">
+<div style="display:flex;align-items:center;gap:9px;margin-bottom:16px"><svg width="15" height="15" style="color:oklch(0.55 0.14 250)"><use href="#ic-building"></use></svg><div style="font:500 13.5px/1 'Helvetica Neue',Helvetica,sans-serif;flex:1">Bilanço Özeti</div></div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<sc-for list="{{ bal }}" as="b" hint-placeholder-count="4"><div style="display:flex;flex-direction:column;gap:6px"><div style="display:flex;align-items:baseline;justify-content:space-between"><span style="font:400 12px/1 'Helvetica Neue',Helvetica,sans-serif;color:#5c636e">{{ b.label }}</span><span style="font:500 12px/1 ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums">{{ b.amount }}</span></div><div style="height:5px;border-radius:3px;background:#eef0f3;overflow:hidden"><div style="height:100%;background:oklch(0.55 0.14 250);width:{{ b.pct }}"></div></div></div></sc-for>
+</div>
+</div>
+<div style="padding:18px 20px;border:1px solid #e8eaee;border-radius:10px;background:#fff">
+<div style="display:flex;align-items:center;gap:9px;margin-bottom:14px"><svg width="15" height="15" style="color:oklch(0.55 0.14 250)"><use href="#ic-percent"></use></svg><div style="font:500 13.5px/1 'Helvetica Neue',Helvetica,sans-serif;flex:1">KDV Beyan Özeti</div><span style="padding:3px 8px;border-radius:5px;background:#fdf3e0;color:#8a5a00;font:500 10.5px/1.3 'Helvetica Neue',Helvetica,sans-serif">26.08'de son</span></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:9px">
+<sc-for list="{{ vat }}" as="v" hint-placeholder-count="4"><div style="padding:10px 11px;background:#fafbfc;border-radius:7px"><div style="font:400 11px/1.2 'Helvetica Neue',Helvetica,sans-serif;color:#8b93a1;margin-bottom:6px">{{ v.label }}</div><div style="font:500 13px/1 ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums">{{ v.value }}</div></div></sc-for>
+</div>
+</div>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:1.4fr 1fr;gap:14px">
+<div style="padding:18px 20px;border:1px solid #e8eaee;border-radius:10px;background:#fff">
+<div style="display:flex;align-items:center;gap:9px;margin-bottom:16px"><svg width="15" height="15" style="color:oklch(0.55 0.14 250)"><use href="#ic-up"></use></svg><div style="font:500 13.5px/1 'Helvetica Neue',Helvetica,sans-serif;flex:1">Nakit Akış Raporu</div><span style="font:400 11px/1 ui-monospace,Menlo,monospace;color:#98a0ad">Mar – Ağu</span></div>
+<svg width="100%" height="150" viewBox="0 0 400 150" preserveAspectRatio="none"><line x1="0" y1="37" x2="400" y2="37" stroke="#f0f2f5"></line><line x1="0" y1="75" x2="400" y2="75" stroke="#f0f2f5"></line><line x1="0" y1="113" x2="400" y2="113" stroke="#f0f2f5"></line><path d="M0 112 L66 94 L133 102 L200 66 L266 76 L333 40 L400 50 L400 150 L0 150 Z" fill="#eef2fb"></path><polyline fill="none" stroke="oklch(0.55 0.14 250)" stroke-width="2.2" points="0,112 66,94 133,102 200,66 266,76 333,40 400,50"></polyline></svg>
+<div style="display:flex;justify-content:space-between;margin-top:9px;font:400 11px/1 'Helvetica Neue',Helvetica,sans-serif;color:#98a0ad"><span>Mar</span><span>Nis</span><span>May</span><span>Haz</span><span>Tem</span><span>Ağu</span></div>
+<div style="display:flex;gap:22px;padding-top:16px;margin-top:16px;border-top:1px solid #f0f2f5">
+<div><div style="font:400 10.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:#98a0ad;margin-bottom:6px">Giriş</div><div style="font:500 14px/1 ui-monospace,Menlo,monospace">₺1.284.500</div></div>
+<div><div style="font:400 10.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:#98a0ad;margin-bottom:6px">Çıkış</div><div style="font:500 14px/1 ui-monospace,Menlo,monospace">₺842.300</div></div>
+<div><div style="font:400 10.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:#98a0ad;margin-bottom:6px">Net akış</div><div style="font:500 14px/1 ui-monospace,Menlo,monospace;color:#0f7b4f">+₺442.200</div></div>
+</div>
+</div>
+<div style="padding:18px 20px;border:1px solid #e8eaee;border-radius:10px;background:#fff">
+<div style="display:flex;align-items:center;gap:9px;margin-bottom:16px"><svg width="15" height="15" style="color:oklch(0.55 0.14 250)"><use href="#ic-users"></use></svg><div style="font:500 13.5px/1 'Helvetica Neue',Helvetica,sans-serif;flex:1">Cari Yaşlandırma</div></div>
+<div style="display:flex;flex-direction:column;gap:13px">
+<sc-for list="{{ aging }}" as="a" hint-placeholder-count="4"><div style="display:flex;flex-direction:column;gap:6px"><div style="display:flex;align-items:baseline;justify-content:space-between"><span style="font:400 12px/1 'Helvetica Neue',Helvetica,sans-serif;color:#5c636e">{{ a.label }}</span><span style="font:500 12px/1 ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums">{{ a.amount }}</span></div><div style="height:5px;border-radius:3px;background:#eef0f3;overflow:hidden"><div style="height:100%;background:oklch(0.55 0.14 250);width:{{ a.pct }}"></div></div></div></sc-for>
+</div>
+<div style="margin-top:16px;padding-top:14px;border-top:1px solid #f0f2f5;font:400 11.5px/1.5 'Helvetica Neue',Helvetica,sans-serif;color:#8b93a1">Toplam alacak ₺186.900 · %8'i 90 günü aştı.</div>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1.4fr;gap:14px">
+<div style="padding:18px 20px;border:1px solid #e8eaee;border-radius:10px;background:#fff">
+<div style="display:flex;align-items:center;gap:9px;margin-bottom:16px"><svg width="15" height="15" style="color:oklch(0.55 0.14 250)"><use href="#ic-wallet"></use></svg><div style="font:500 13.5px/1 'Helvetica Neue',Helvetica,sans-serif;flex:1">Gider Kategori Raporu</div></div>
+<div style="display:flex;align-items:center;gap:18px">
+<svg width="104" height="104" viewBox="0 0 100 100" style="flex:none;transform:rotate(-90deg)"><circle cx="50" cy="50" r="38" fill="none" stroke="#eef0f3" stroke-width="13"></circle><circle cx="50" cy="50" r="38" fill="none" stroke="oklch(0.55 0.14 250)" stroke-width="13" pathLength="100" stroke-dasharray="38 62" stroke-dashoffset="0"></circle><circle cx="50" cy="50" r="38" fill="none" stroke="oklch(0.65 0.11 250)" stroke-width="13" pathLength="100" stroke-dasharray="22 78" stroke-dashoffset="-38"></circle><circle cx="50" cy="50" r="38" fill="none" stroke="oklch(0.76 0.07 250)" stroke-width="13" pathLength="100" stroke-dasharray="18 82" stroke-dashoffset="-60"></circle><circle cx="50" cy="50" r="38" fill="none" stroke="#d9dee7" stroke-width="13" pathLength="100" stroke-dasharray="22 78" stroke-dashoffset="-78"></circle></svg>
+<div style="display:flex;flex-direction:column;gap:10px;flex:1">
+<sc-for list="{{ catsA }}" as="c" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:9px"><span style="width:8px;height:8px;border-radius:2px;background:{{ c.color }};flex:none"></span><span style="font:400 12px/1 'Helvetica Neue',Helvetica,sans-serif;color:#5c636e;flex:1">{{ c.label }}</span><span style="font:500 12px/1 ui-monospace,Menlo,monospace">{{ c.amount }}</span></div></sc-for>
+</div>
+</div>
+</div>
+<div style="border:1px solid #e8eaee;border-radius:10px;background:#fff;overflow:hidden">
+<div style="display:flex;align-items:center;gap:9px;padding:16px 20px;border-bottom:1px solid #eef0f3"><svg width="15" height="15" style="color:oklch(0.55 0.14 250)"><use href="#ic-doc"></use></svg><div style="font:500 13.5px/1 'Helvetica Neue',Helvetica,sans-serif;flex:1">Rapor Şablonları</div><span style="font:400 11px/1 'Helvetica Neue',Helvetica,sans-serif;color:#98a0ad">4 şablon</span></div>
+<sc-for list="{{ tmpl }}" as="t" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:12px;padding:13px 20px;border-bottom:1px solid #f3f4f7" style-hover="background:#fafbfc"><div style="width:28px;height:28px;border-radius:7px;background:#f1f3f6;color:#5c636e;display:flex;align-items:center;justify-content:center;flex:none"><svg width="14" height="14"><use href="#ic-doc"></use></svg></div><div style="flex:1"><div style="font:400 12.5px/1.2 'Helvetica Neue',Helvetica,sans-serif">{{ t.label }}</div><div style="font:400 11px/1.2 ui-monospace,Menlo,monospace;color:#98a0ad;margin-top:4px">{{ t.sub }}</div></div><span style="padding:6px;border-radius:6px;color:#98a0ad;cursor:pointer;display:flex" style-hover="background:#eef0f3;color:#3d434d"><svg width="15" height="15"><use href="#ic-download"></use></svg></span><span style="padding:6px;border-radius:6px;color:#98a0ad;cursor:pointer;display:flex" style-hover="background:#fdecec;color:#c33"><svg width="15" height="15"><use href="#ic-trash"></use></svg></span></div></sc-for>
+</div>
+</div>
+</div>
+</sc-if>
+</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="2b"><div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a>Boş durumlar — çöp kutusu ve ilk kullanım</div>
+<div style="display:flex;flex-direction:column;gap:20px">
+<div class="dv-card" style="width:600px;background:#fff">
+<div style="padding:16px 20px;border-bottom:1px solid #eef0f3;display:flex;align-items:center;gap:9px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif"><svg width="16" height="16" style="color:#5c636e"><use href="#ic-trash"></use></svg><div style="font:600 13.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:#171a1f;flex:1">Çöp Kutusu</div><div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid #e3e6eb;border-radius:7px;color:#a3aab6;font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif"><svg width="13" height="13"><use href="#ic-filter"></use></svg>Filtre</div></div>
+<div style="padding:56px 32px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif">
+<div style="width:52px;height:52px;border-radius:26px;background:#f4f5f7;color:#98a0ad;display:flex;align-items:center;justify-content:center"><svg width="24" height="24"><use href="#ic-trash"></use></svg></div>
+<div style="font:500 14.5px/1.3 'Helvetica Neue',Helvetica,sans-serif;color:#171a1f">Çöp kutusu boş</div>
+<div style="font:400 12.5px/1.6 'Helvetica Neue',Helvetica,sans-serif;color:#8b93a1;max-width:300px">Sildiğiniz fatura, gider ve cari kayıtları 30 gün burada bekler; sonra kalıcı olarak silinir.</div>
+<div style="display:flex;align-items:center;gap:7px;margin-top:6px;padding:9px 14px;border-radius:8px;border:1px solid #dfe3ea;color:#3d434d;font:500 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:#f4f5f7">Faturalara dön</div>
+</div>
+</div>
+<div class="dv-card" style="width:600px;background:#fff">
+<div style="padding:16px 20px;border-bottom:1px solid #eef0f3;display:flex;align-items:center;gap:9px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif"><svg width="16" height="16" style="color:#5c636e"><use href="#ic-doc"></use></svg><div style="font:600 13.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:#171a1f;flex:1">Faturalar</div></div>
+<div style="padding:52px 32px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif">
+<div style="width:52px;height:52px;border-radius:26px;background:#eef2fb;color:oklch(0.55 0.14 250);display:flex;align-items:center;justify-content:center"><svg width="24" height="24"><use href="#ic-doc"></use></svg></div>
+<div style="font:500 14.5px/1.3 'Helvetica Neue',Helvetica,sans-serif;color:#171a1f">Henüz fatura yok</div>
+<div style="font:400 12.5px/1.6 'Helvetica Neue',Helvetica,sans-serif;color:#8b93a1;max-width:320px">İlk faturanızı oluşturun veya mevcut kayıtlarınızı Excel / e-Fatura portalından içe aktarın.</div>
+<div style="display:flex;gap:8px;margin-top:6px">
+<div style="display:flex;align-items:center;gap:7px;padding:9px 14px;border-radius:8px;background:oklch(0.55 0.14 250);color:#fff;font:500 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:oklch(0.48 0.14 250)"><svg width="15" height="15"><use href="#ic-plus"></use></svg>Fatura Ekle</div>
+<div style="display:flex;align-items:center;gap:7px;padding:9px 14px;border-radius:8px;border:1px solid #dfe3ea;color:#3d434d;font:500 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:#f4f5f7"><svg width="15" height="15"><use href="#ic-download"></use></svg>İçe Aktar</div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;margin-top:22px;padding-top:22px;border-top:1px solid #f3f4f7;text-align:left">
+<div style="padding:12px 13px;border:1px solid #eef0f3;border-radius:8px"><div style="font:500 12px/1.3 'Helvetica Neue',Helvetica,sans-serif;color:#171a1f;margin-bottom:5px">1 · Şirket bilgileri</div><div style="font:400 11px/1.4 'Helvetica Neue',Helvetica,sans-serif;color:#98a0ad">Vergi no ve adres</div></div>
+<div style="padding:12px 13px;border:1px solid #eef0f3;border-radius:8px"><div style="font:500 12px/1.3 'Helvetica Neue',Helvetica,sans-serif;color:#171a1f;margin-bottom:5px">2 · Cari ekle</div><div style="font:400 11px/1.4 'Helvetica Neue',Helvetica,sans-serif;color:#98a0ad">Müşteri ve tedarikçi</div></div>
+<div style="padding:12px 13px;border:1px solid #eef0f3;border-radius:8px"><div style="font:500 12px/1.3 'Helvetica Neue',Helvetica,sans-serif;color:#171a1f;margin-bottom:5px">3 · Fatura kes</div><div style="font:400 11px/1.4 'Helvetica Neue',Helvetica,sans-serif;color:#98a0ad">KDV otomatik hesaplanır</div></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Sırada: "<a class="dv-oid" href="#2a">2a</a>'ya Faturalar ekranını da bağla" · "silme onay modalı ekle" · "<a class="dv-oid" href="#2a">2a</a>'nın koyu temasını da yap"</p>
+</section>
+
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Muhasebe paneli — üç konsept, açık ve koyu tema</span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1a"><div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Sade &amp; kurumsal — geniş boşluk, mavi vurgu</div>
+
+<div class="dv-tl">Açık tema</div>
+<div class="dv-card" style="width:1280px;background:#ffffff">
+<div style="display:grid;grid-template-columns:236px 1fr;min-height:880px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#171a1f">
+<div style="background:#fbfbfc;border-right:1px solid #e8eaee;padding:22px 16px;display:flex;flex-direction:column;gap:26px">
+<div style="display:flex;align-items:center;gap:10px;padding:0 8px"><div style="width:28px;height:28px;border-radius:7px;background:oklch(0.55 0.14 250);display:flex;align-items:center;justify-content:center;color:#fff;font:600 13px/1 'Helvetica Neue',Helvetica,sans-serif">D</div><div style="font:600 14px/1.1 'Helvetica Neue',Helvetica,sans-serif;letter-spacing:-.01em">Defter</div></div>
+<div style="display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid #e3e6eb;border-radius:8px;background:#fff;color:#8b93a1"><svg width="15" height="15" style="flex:none"><use href="#ic-building"></use></svg><div style="font:400 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:#3d434d;flex:1">Yıldız Tekstil A.Ş.</div><svg width="13" height="13" style="flex:none;transform:rotate(90deg)"><use href="#ic-chevron"></use></svg></div>
+<div style="display:flex;flex-direction:column;gap:2px">
+<div style="display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:8px;background:oklch(0.55 0.14 250);color:#fff;font:500 13px/1 'Helvetica Neue',Helvetica,sans-serif"><svg width="17" height="17" style="flex:none"><use href="#ic-home"></use></svg>Genel Bakış</div>
+<sc-for list="{{ navRest }}" as="n" hint-placeholder-count="7"><div style="display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:8px;color:#5c636e;font:400 13px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:#f1f3f6;color:#171a1f"><svg width="17" height="17" style="flex:none;opacity:.75"><use href="{{ n.icon }}"></use></svg>{{ n.label }}</div></sc-for>
+</div>
+<div style="margin-top:auto;padding:14px;border:1px solid #e8eaee;border-radius:9px;background:#fff;display:flex;flex-direction:column;gap:7px">
+<div style="font:500 12px/1.3 'Helvetica Neue',Helvetica,sans-serif">KDV beyan dönemi</div>
+<div style="font:400 11.5px/1.45 'Helvetica Neue',Helvetica,sans-serif;color:#8b93a1">26 Ağustos'a 7 gün kaldı.</div>
+<div style="height:4px;border-radius:2px;background:#eef0f3;overflow:hidden"><div style="width:64%;height:100%;background:oklch(0.55 0.14 250)"></div></div>
+</div>
+</div>
+<div style="display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:16px;padding:0 28px;height:64px;border-bottom:1px solid #e8eaee">
+<div style="display:flex;align-items:center;gap:9px;flex:1;max-width:360px;padding:8px 11px;background:#f4f5f7;border-radius:8px;color:#98a0ad"><svg width="15" height="15"><use href="#ic-search"></use></svg><div style="font:400 12.5px/1 'Helvetica Neue',Helvetica,sans-serif">Fatura, cari veya işlem ara…</div></div>
+<div style="flex:1"></div>
+<div style="display:flex;align-items:center;gap:6px;padding:7px 11px;border:1px solid #e3e6eb;border-radius:8px;color:#5c636e;font:400 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:#f4f5f7"><svg width="14" height="14"><use href="#ic-calendar"></use></svg>1–31 Ağustos 2026</div>
+<div style="position:relative;color:#5c636e;cursor:pointer"><svg width="19" height="19"><use href="#ic-bell"></use></svg><div style="position:absolute;top:-1px;right:-1px;width:7px;height:7px;border-radius:4px;background:#d94a4a;border:1.5px solid #fff"></div></div>
+<div style="display:flex;align-items:center;gap:9px;padding-left:14px;border-left:1px solid #e8eaee"><div style="width:30px;height:30px;border-radius:15px;background:#dfe3ea;color:#5c636e;display:flex;align-items:center;justify-content:center;font:500 11.5px/1 'Helvetica Neue',Helvetica,sans-serif">SK</div><div><div style="font:500 12.5px/1.2 'Helvetica Neue',Helvetica,sans-serif">Selin Kaya</div><div style="font:400 11px/1.2 'Helvetica Neue',Helvetica,sans-serif;color:#98a0ad">Mali Müşavir</div></div></div>
+</div>
+<div style="padding:26px 28px;display:flex;flex-direction:column;gap:22px;background:#fdfdfe;flex:1">
+<div style="display:flex;align-items:flex-end;gap:16px">
+<div style="flex:1"><div style="font:600 20px/1.2 'Helvetica Neue',Helvetica,sans-serif;letter-spacing:-.015em">Genel Bakış</div><div style="font:400 12.5px/1.4 'Helvetica Neue',Helvetica,sans-serif;color:#8b93a1;margin-top:4px">Ağustos 2026 dönemi · son güncelleme 12 dk önce</div></div>
+<div style="display:flex;gap:8px">
+<div style="display:flex;align-items:center;gap:7px;padding:9px 13px;border-radius:8px;background:oklch(0.55 0.14 250);color:#fff;font:500 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:oklch(0.48 0.14 250)"><svg width="15" height="15"><use href="#ic-plus"></use></svg>Fatura Ekle</div>
+<div style="display:flex;align-items:center;gap:7px;padding:9px 13px;border-radius:8px;border:1px solid #dfe3ea;background:#fff;color:#3d434d;font:500 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:#f4f5f7"><svg width="15" height="15"><use href="#ic-wallet"></use></svg>Gider Ekle</div>
+<div style="display:flex;align-items:center;gap:7px;padding:9px 13px;border-radius:8px;border:1px solid #dfe3ea;background:#fff;color:#3d434d;font:500 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:#f4f5f7"><svg width="15" height="15"><use href="#ic-download"></use></svg>Rapor Oluştur</div>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+<sc-for list="{{ kpis }}" as="k" hint-placeholder-count="6"><div style="padding:16px 17px;border:1px solid #e8eaee;border-radius:10px;background:#fff;display:flex;flex-direction:column;gap:11px" style-hover="border-color:#cfd5de;box-shadow:0 2px 8px rgba(20,24,32,.05)">
+<div style="display:flex;align-items:center;gap:9px"><div style="width:26px;height:26px;border-radius:7px;background:#eef2fb;color:oklch(0.55 0.14 250);display:flex;align-items:center;justify-content:center"><svg width="15" height="15"><use href="{{ k.icon }}"></use></svg></div><div style="font:400 12px/1 'Helvetica Neue',Helvetica,sans-serif;color:#8b93a1;flex:1">{{ k.label }}</div></div>
+<div style="font:500 24px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:-.02em;font-variant-numeric:tabular-nums">{{ k.value }}</div>
+<div style="font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:#8b93a1">{{ k.sub }}</div>
+</div></sc-for>
+</div>
+<div style="display:grid;grid-template-columns:1.55fr 1fr;gap:14px">
+<div style="padding:18px 19px;border:1px solid #e8eaee;border-radius:10px;background:#fff">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px"><div style="font:500 13.5px/1 'Helvetica Neue',Helvetica,sans-serif">Gelir – Gider</div><div style="display:flex;gap:14px;font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:#8b93a1"><span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:2px;background:oklch(0.55 0.14 250)"></span>Gelir</span><span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:2px;background:#c9d3e4"></span>Gider</span></div></div>
+<div style="display:flex;align-items:flex-end;gap:22px;height:196px;padding-bottom:24px;border-bottom:1px solid #eef0f3">
+<sc-for list="{{ bars }}" as="b" hint-placeholder-count="6"><div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;justify-content:flex-end"><div style="display:flex;align-items:flex-end;gap:5px;width:100%;height:100%;justify-content:center"><div style="width:22px;border-radius:3px 3px 0 0;background:oklch(0.55 0.14 250);height:{{ b.inH }}"></div><div style="width:22px;border-radius:3px 3px 0 0;background:#c9d3e4;height:{{ b.exH }}"></div></div><div style="font:400 11px/1 'Helvetica Neue',Helvetica,sans-serif;color:#98a0ad">{{ b.m }}</div></div></sc-for>
+</div>
+</div>
+<div style="padding:18px 19px;border:1px solid #e8eaee;border-radius:10px;background:#fff;display:flex;flex-direction:column">
+<div style="font:500 13.5px/1 'Helvetica Neue',Helvetica,sans-serif;margin-bottom:14px">Gider Kategorileri</div>
+<div style="display:flex;align-items:center;gap:20px">
+<svg width="118" height="118" viewBox="0 0 100 100" style="flex:none;transform:rotate(-90deg)"><circle cx="50" cy="50" r="38" fill="none" stroke="#eef0f3" stroke-width="13"></circle><circle cx="50" cy="50" r="38" fill="none" stroke="oklch(0.55 0.14 250)" stroke-width="13" pathLength="100" stroke-dasharray="38 62" stroke-dashoffset="0"></circle><circle cx="50" cy="50" r="38" fill="none" stroke="oklch(0.65 0.11 250)" stroke-width="13" pathLength="100" stroke-dasharray="22 78" stroke-dashoffset="-38"></circle><circle cx="50" cy="50" r="38" fill="none" stroke="oklch(0.76 0.07 250)" stroke-width="13" pathLength="100" stroke-dasharray="18 82" stroke-dashoffset="-60"></circle><circle cx="50" cy="50" r="38" fill="none" stroke="#d9dee7" stroke-width="13" pathLength="100" stroke-dasharray="22 78" stroke-dashoffset="-78"></circle></svg>
+<div style="display:flex;flex-direction:column;gap:10px;flex:1">
+<sc-for list="{{ catsA }}" as="c" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:9px"><span style="width:8px;height:8px;border-radius:2px;background:{{ c.color }};flex:none"></span><span style="font:400 12px/1 'Helvetica Neue',Helvetica,sans-serif;color:#5c636e;flex:1">{{ c.label }}</span><span style="font:500 12px/1 ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums">{{ c.pct }}</span></div></sc-for>
+</div>
+</div>
+<div style="margin-top:auto;padding-top:16px;font:400 11.5px/1.5 'Helvetica Neue',Helvetica,sans-serif;color:#8b93a1">Toplam gider ₺842.300 · geçen aya göre %4,1 artış.</div>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:1.55fr 1fr;gap:14px">
+<div style="border:1px solid #e8eaee;border-radius:10px;background:#fff;overflow:hidden">
+<div style="display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid #eef0f3"><div style="font:500 13.5px/1 'Helvetica Neue',Helvetica,sans-serif;flex:1">Faturalar</div><div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid #e3e6eb;border-radius:7px;color:#5c636e;font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:#f4f5f7"><svg width="13" height="13"><use href="#ic-filter"></use></svg>Durum: Tümü</div><div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid #e3e6eb;border-radius:7px;color:#5c636e;font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:#f4f5f7"><svg width="13" height="13"><use href="#ic-download"></use></svg>Dışa Aktar</div></div>
+<div style="display:grid;grid-template-columns:110px 1fr 92px 108px 96px 76px;padding:9px 18px;background:#fafbfc;border-bottom:1px solid #eef0f3;font:500 10.5px/1 'Helvetica Neue',Helvetica,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#98a0ad"><div>Fatura No</div><div>Cari</div><div>Tarih</div><div style="text-align:right">Tutar</div><div style="text-align:center">Durum</div><div style="text-align:right">İşlem</div></div>
+<sc-for list="{{ rowsL }}" as="r" hint-placeholder-count="6"><div style="display:grid;grid-template-columns:110px 1fr 92px 108px 96px 76px;align-items:center;padding:12px 18px;border-bottom:1px solid #f3f4f7" style-hover="background:#fafbfc">
+<div style="font:400 11.5px/1 ui-monospace,Menlo,monospace;color:#5c636e">{{ r.no }}</div>
+<div style="font:400 12.5px/1 'Helvetica Neue',Helvetica,sans-serif">{{ r.cari }}</div>
+<div style="font:400 12px/1 'Helvetica Neue',Helvetica,sans-serif;color:#8b93a1">{{ r.date }}</div>
+<div style="font:500 12.5px/1 ui-monospace,Menlo,monospace;text-align:right;font-variant-numeric:tabular-nums">{{ r.amount }}</div>
+<div style="text-align:center"><span style="display:inline-block;padding:4px 9px;border-radius:5px;font:500 11px/1 'Helvetica Neue',Helvetica,sans-serif;color:{{ r.sc }};background:{{ r.sb }}">{{ r.status }}</span></div>
+<div style="display:flex;gap:5px;justify-content:flex-end;color:#98a0ad"><span style="padding:5px;border-radius:6px;cursor:pointer;display:flex" style-hover="background:#eef0f3;color:#3d434d"><svg width="15" height="15"><use href="#ic-pencil"></use></svg></span><span style="padding:5px;border-radius:6px;cursor:pointer;display:flex" style-hover="background:#fdecec;color:#c33"><svg width="15" height="15"><use href="#ic-trash"></use></svg></span></div>
+</div></sc-for>
+</div>
+<div style="border:1px solid #e8eaee;border-radius:10px;background:#fff;padding:16px 18px;display:flex;flex-direction:column;gap:14px">
+<div style="font:500 13.5px/1 'Helvetica Neue',Helvetica,sans-serif">Son Hareketler</div>
+<sc-for list="{{ acts }}" as="a" hint-placeholder-count="5"><div style="display:flex;gap:11px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:12px;background:#f1f3f6;color:#5c636e;display:flex;align-items:center;justify-content:center;flex:none"><svg width="13" height="13"><use href="{{ a.icon }}"></use></svg></div><div style="flex:1"><div style="font:400 12px/1.4 'Helvetica Neue',Helvetica,sans-serif;color:#3d434d">{{ a.text }}</div><div style="font:400 11px/1.4 'Helvetica Neue',Helvetica,sans-serif;color:#a3aab6;margin-top:2px">{{ a.time }}</div></div></div></sc-for>
+<div style="margin-top:auto;display:flex;align-items:center;gap:8px;padding:11px 12px;border:1px dashed #dfe3ea;border-radius:8px;color:#8b93a1;font:400 11.5px/1.4 'Helvetica Neue',Helvetica,sans-serif"><svg width="15" height="15" style="flex:none"><use href="#ic-trash"></use></svg>Çöp kutusunda 3 kayıt · 30 gün sonra silinir</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="dv-tl">Koyu tema</div>
+<div class="dv-card" style="width:1280px;background:#12141a;border-color:rgba(255,255,255,.09)">
+<div style="display:grid;grid-template-columns:236px 1fr;min-height:880px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#e7e9ee">
+<div style="background:#0e1015;border-right:1px solid rgba(255,255,255,.07);padding:22px 16px;display:flex;flex-direction:column;gap:26px">
+<div style="display:flex;align-items:center;gap:10px;padding:0 8px"><div style="width:28px;height:28px;border-radius:7px;background:oklch(0.62 0.15 250);display:flex;align-items:center;justify-content:center;color:#0e1015;font:600 13px/1 'Helvetica Neue',Helvetica,sans-serif">D</div><div style="font:600 14px/1.1 'Helvetica Neue',Helvetica,sans-serif;letter-spacing:-.01em">Defter</div></div>
+<div style="display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid rgba(255,255,255,.1);border-radius:8px;background:rgba(255,255,255,.03);color:#6e7684"><svg width="15" height="15" style="flex:none"><use href="#ic-building"></use></svg><div style="font:400 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:#c3c8d2;flex:1">Yıldız Tekstil A.Ş.</div><svg width="13" height="13" style="flex:none;transform:rotate(90deg)"><use href="#ic-chevron"></use></svg></div>
+<div style="display:flex;flex-direction:column;gap:2px">
+<div style="display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:8px;background:oklch(0.62 0.15 250);color:#0e1015;font:500 13px/1 'Helvetica Neue',Helvetica,sans-serif"><svg width="17" height="17" style="flex:none"><use href="#ic-home"></use></svg>Genel Bakış</div>
+<sc-for list="{{ navRest }}" as="n" hint-placeholder-count="7"><div style="display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:8px;color:#8b93a1;font:400 13px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(255,255,255,.05);color:#e7e9ee"><svg width="17" height="17" style="flex:none;opacity:.8"><use href="{{ n.icon }}"></use></svg>{{ n.label }}</div></sc-for>
+</div>
+<div style="margin-top:auto;padding:14px;border:1px solid rgba(255,255,255,.08);border-radius:9px;background:rgba(255,255,255,.03);display:flex;flex-direction:column;gap:7px">
+<div style="font:500 12px/1.3 'Helvetica Neue',Helvetica,sans-serif">KDV beyan dönemi</div>
+<div style="font:400 11.5px/1.45 'Helvetica Neue',Helvetica,sans-serif;color:#8b93a1">26 Ağustos'a 7 gün kaldı.</div>
+<div style="height:4px;border-radius:2px;background:rgba(255,255,255,.1);overflow:hidden"><div style="width:64%;height:100%;background:oklch(0.62 0.15 250)"></div></div>
+</div>
+</div>
+<div style="display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:16px;padding:0 28px;height:64px;border-bottom:1px solid rgba(255,255,255,.07)">
+<div style="display:flex;align-items:center;gap:9px;flex:1;max-width:360px;padding:8px 11px;background:rgba(255,255,255,.05);border-radius:8px;color:#6e7684"><svg width="15" height="15"><use href="#ic-search"></use></svg><div style="font:400 12.5px/1 'Helvetica Neue',Helvetica,sans-serif">Fatura, cari veya işlem ara…</div></div>
+<div style="flex:1"></div>
+<div style="display:flex;align-items:center;gap:6px;padding:7px 11px;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#c3c8d2;font:400 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(255,255,255,.05)"><svg width="14" height="14"><use href="#ic-calendar"></use></svg>1–31 Ağustos 2026</div>
+<div style="position:relative;color:#c3c8d2;cursor:pointer"><svg width="19" height="19"><use href="#ic-bell"></use></svg><div style="position:absolute;top:-1px;right:-1px;width:7px;height:7px;border-radius:4px;background:#f87171;border:1.5px solid #12141a"></div></div>
+<div style="display:flex;align-items:center;gap:9px;padding-left:14px;border-left:1px solid rgba(255,255,255,.07)"><div style="width:30px;height:30px;border-radius:15px;background:rgba(255,255,255,.09);color:#c3c8d2;display:flex;align-items:center;justify-content:center;font:500 11.5px/1 'Helvetica Neue',Helvetica,sans-serif">SK</div><div><div style="font:500 12.5px/1.2 'Helvetica Neue',Helvetica,sans-serif">Selin Kaya</div><div style="font:400 11px/1.2 'Helvetica Neue',Helvetica,sans-serif;color:#6e7684">Mali Müşavir</div></div></div>
+</div>
+<div style="padding:26px 28px;display:flex;flex-direction:column;gap:22px;flex:1">
+<div style="display:flex;align-items:flex-end;gap:16px">
+<div style="flex:1"><div style="font:600 20px/1.2 'Helvetica Neue',Helvetica,sans-serif;letter-spacing:-.015em">Genel Bakış</div><div style="font:400 12.5px/1.4 'Helvetica Neue',Helvetica,sans-serif;color:#8b93a1;margin-top:4px">Ağustos 2026 dönemi · son güncelleme 12 dk önce</div></div>
+<div style="display:flex;gap:8px">
+<div style="display:flex;align-items:center;gap:7px;padding:9px 13px;border-radius:8px;background:oklch(0.62 0.15 250);color:#0e1015;font:500 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:oklch(0.7 0.13 250)"><svg width="15" height="15"><use href="#ic-plus"></use></svg>Fatura Ekle</div>
+<div style="display:flex;align-items:center;gap:7px;padding:9px 13px;border-radius:8px;border:1px solid rgba(255,255,255,.12);color:#e7e9ee;font:500 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(255,255,255,.06)"><svg width="15" height="15"><use href="#ic-wallet"></use></svg>Gider Ekle</div>
+<div style="display:flex;align-items:center;gap:7px;padding:9px 13px;border-radius:8px;border:1px solid rgba(255,255,255,.12);color:#e7e9ee;font:500 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(255,255,255,.06)"><svg width="15" height="15"><use href="#ic-download"></use></svg>Rapor Oluştur</div>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+<sc-for list="{{ kpis }}" as="k" hint-placeholder-count="6"><div style="padding:16px 17px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:#171a21;display:flex;flex-direction:column;gap:11px" style-hover="border-color:rgba(255,255,255,.16)">
+<div style="display:flex;align-items:center;gap:9px"><div style="width:26px;height:26px;border-radius:7px;background:rgba(99,140,235,.16);color:oklch(0.72 0.12 250);display:flex;align-items:center;justify-content:center"><svg width="15" height="15"><use href="{{ k.icon }}"></use></svg></div><div style="font:400 12px/1 'Helvetica Neue',Helvetica,sans-serif;color:#8b93a1;flex:1">{{ k.label }}</div></div>
+<div style="font:500 24px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:-.02em;font-variant-numeric:tabular-nums">{{ k.value }}</div>
+<div style="font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:#6e7684">{{ k.sub }}</div>
+</div></sc-for>
+</div>
+<div style="display:grid;grid-template-columns:1.55fr 1fr;gap:14px">
+<div style="padding:18px 19px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:#171a21">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px"><div style="font:500 13.5px/1 'Helvetica Neue',Helvetica,sans-serif">Gelir – Gider</div><div style="display:flex;gap:14px;font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:#8b93a1"><span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:2px;background:oklch(0.62 0.15 250)"></span>Gelir</span><span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:2px;background:#3a4152"></span>Gider</span></div></div>
+<div style="display:flex;align-items:flex-end;gap:22px;height:196px;padding-bottom:24px;border-bottom:1px solid rgba(255,255,255,.07)">
+<sc-for list="{{ bars }}" as="b" hint-placeholder-count="6"><div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;justify-content:flex-end"><div style="display:flex;align-items:flex-end;gap:5px;width:100%;height:100%;justify-content:center"><div style="width:22px;border-radius:3px 3px 0 0;background:oklch(0.62 0.15 250);height:{{ b.inH }}"></div><div style="width:22px;border-radius:3px 3px 0 0;background:#3a4152;height:{{ b.exH }}"></div></div><div style="font:400 11px/1 'Helvetica Neue',Helvetica,sans-serif;color:#6e7684">{{ b.m }}</div></div></sc-for>
+</div>
+</div>
+<div style="padding:18px 19px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:#171a21;display:flex;flex-direction:column">
+<div style="font:500 13.5px/1 'Helvetica Neue',Helvetica,sans-serif;margin-bottom:14px">Gider Kategorileri</div>
+<div style="display:flex;align-items:center;gap:20px">
+<svg width="118" height="118" viewBox="0 0 100 100" style="flex:none;transform:rotate(-90deg)"><circle cx="50" cy="50" r="38" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="13"></circle><circle cx="50" cy="50" r="38" fill="none" stroke="oklch(0.62 0.15 250)" stroke-width="13" pathLength="100" stroke-dasharray="38 62" stroke-dashoffset="0"></circle><circle cx="50" cy="50" r="38" fill="none" stroke="oklch(0.72 0.12 250)" stroke-width="13" pathLength="100" stroke-dasharray="22 78" stroke-dashoffset="-38"></circle><circle cx="50" cy="50" r="38" fill="none" stroke="oklch(0.82 0.08 250)" stroke-width="13" pathLength="100" stroke-dasharray="18 82" stroke-dashoffset="-60"></circle><circle cx="50" cy="50" r="38" fill="none" stroke="#3a4152" stroke-width="13" pathLength="100" stroke-dasharray="22 78" stroke-dashoffset="-78"></circle></svg>
+<div style="display:flex;flex-direction:column;gap:10px;flex:1">
+<sc-for list="{{ catsD }}" as="c" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:9px"><span style="width:8px;height:8px;border-radius:2px;background:{{ c.color }};flex:none"></span><span style="font:400 12px/1 'Helvetica Neue',Helvetica,sans-serif;color:#c3c8d2;flex:1">{{ c.label }}</span><span style="font:500 12px/1 ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums">{{ c.pct }}</span></div></sc-for>
+</div>
+</div>
+<div style="margin-top:auto;padding-top:16px;font:400 11.5px/1.5 'Helvetica Neue',Helvetica,sans-serif;color:#8b93a1">Toplam gider ₺842.300 · geçen aya göre %4,1 artış.</div>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:1.55fr 1fr;gap:14px">
+<div style="border:1px solid rgba(255,255,255,.08);border-radius:10px;background:#171a21;overflow:hidden">
+<div style="display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid rgba(255,255,255,.07)"><div style="font:500 13.5px/1 'Helvetica Neue',Helvetica,sans-serif;flex:1">Faturalar</div><div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid rgba(255,255,255,.1);border-radius:7px;color:#c3c8d2;font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(255,255,255,.05)"><svg width="13" height="13"><use href="#ic-filter"></use></svg>Durum: Tümü</div><div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid rgba(255,255,255,.1);border-radius:7px;color:#c3c8d2;font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(255,255,255,.05)"><svg width="13" height="13"><use href="#ic-download"></use></svg>Dışa Aktar</div></div>
+<div style="display:grid;grid-template-columns:110px 1fr 92px 108px 96px 76px;padding:9px 18px;background:rgba(255,255,255,.03);border-bottom:1px solid rgba(255,255,255,.07);font:500 10.5px/1 'Helvetica Neue',Helvetica,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#6e7684"><div>Fatura No</div><div>Cari</div><div>Tarih</div><div style="text-align:right">Tutar</div><div style="text-align:center">Durum</div><div style="text-align:right">İşlem</div></div>
+<sc-for list="{{ rowsD }}" as="r" hint-placeholder-count="6"><div style="display:grid;grid-template-columns:110px 1fr 92px 108px 96px 76px;align-items:center;padding:12px 18px;border-bottom:1px solid rgba(255,255,255,.05)" style-hover="background:rgba(255,255,255,.03)">
+<div style="font:400 11.5px/1 ui-monospace,Menlo,monospace;color:#8b93a1">{{ r.no }}</div>
+<div style="font:400 12.5px/1 'Helvetica Neue',Helvetica,sans-serif">{{ r.cari }}</div>
+<div style="font:400 12px/1 'Helvetica Neue',Helvetica,sans-serif;color:#8b93a1">{{ r.date }}</div>
+<div style="font:500 12.5px/1 ui-monospace,Menlo,monospace;text-align:right;font-variant-numeric:tabular-nums">{{ r.amount }}</div>
+<div style="text-align:center"><span style="display:inline-block;padding:4px 9px;border-radius:5px;font:500 11px/1 'Helvetica Neue',Helvetica,sans-serif;color:{{ r.sc }};background:{{ r.sb }}">{{ r.status }}</span></div>
+<div style="display:flex;gap:5px;justify-content:flex-end;color:#6e7684"><span style="padding:5px;border-radius:6px;cursor:pointer;display:flex" style-hover="background:rgba(255,255,255,.08);color:#e7e9ee"><svg width="15" height="15"><use href="#ic-pencil"></use></svg></span><span style="padding:5px;border-radius:6px;cursor:pointer;display:flex" style-hover="background:rgba(248,113,113,.15);color:#f87171"><svg width="15" height="15"><use href="#ic-trash"></use></svg></span></div>
+</div></sc-for>
+</div>
+<div style="border:1px solid rgba(255,255,255,.08);border-radius:10px;background:#171a21;padding:16px 18px;display:flex;flex-direction:column;gap:14px">
+<div style="font:500 13.5px/1 'Helvetica Neue',Helvetica,sans-serif">Son Hareketler</div>
+<sc-for list="{{ acts }}" as="a" hint-placeholder-count="5"><div style="display:flex;gap:11px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:12px;background:rgba(255,255,255,.06);color:#c3c8d2;display:flex;align-items:center;justify-content:center;flex:none"><svg width="13" height="13"><use href="{{ a.icon }}"></use></svg></div><div style="flex:1"><div style="font:400 12px/1.4 'Helvetica Neue',Helvetica,sans-serif;color:#c3c8d2">{{ a.text }}</div><div style="font:400 11px/1.4 'Helvetica Neue',Helvetica,sans-serif;color:#6e7684;margin-top:2px">{{ a.time }}</div></div></div></sc-for>
+<div style="margin-top:auto;display:flex;align-items:center;gap:8px;padding:11px 12px;border:1px dashed rgba(255,255,255,.14);border-radius:8px;color:#8b93a1;font:400 11.5px/1.4 'Helvetica Neue',Helvetica,sans-serif"><svg width="15" height="15" style="flex:none"><use href="#ic-trash"></use></svg>Çöp kutusunda 3 kayıt · 30 gün sonra silinir</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1b"><div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Analitik — ikon rayı, yoğun veri, koyu-öncelikli</div>
+
+<div class="dv-tl">Koyu tema</div>
+<div class="dv-card" style="width:1320px;background:#0b0d10;border-color:rgba(255,255,255,.09)">
+<div style="display:grid;grid-template-columns:58px 1fr;min-height:880px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#e6e9ec">
+<div style="background:#08090b;border-right:1px solid rgba(255,255,255,.06);padding:14px 0;display:flex;flex-direction:column;align-items:center;gap:6px">
+<div style="width:30px;height:30px;border-radius:8px;background:oklch(0.66 0.13 250);color:#08090b;display:flex;align-items:center;justify-content:center;font:600 13px/1 'Helvetica Neue',Helvetica,sans-serif;margin-bottom:12px">D</div>
+<div style="width:34px;height:34px;border-radius:9px;background:rgba(90,140,230,.16);color:oklch(0.74 0.12 250);display:flex;align-items:center;justify-content:center"><svg width="17" height="17"><use href="#ic-home"></use></svg></div>
+<sc-for list="{{ navRest }}" as="n" hint-placeholder-count="7"><div title="{{ n.label }}" style="width:34px;height:34px;border-radius:9px;color:#69737d;display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:rgba(255,255,255,.06);color:#e6e9ec"><svg width="17" height="17"><use href="{{ n.icon }}"></use></svg></div></sc-for>
+<div style="margin-top:auto;width:30px;height:30px;border-radius:15px;background:rgba(255,255,255,.08);color:#c3c8d2;display:flex;align-items:center;justify-content:center;font:500 11px/1 'Helvetica Neue',Helvetica,sans-serif">SK</div>
+</div>
+<div style="display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:12px;padding:0 22px;height:54px;border-bottom:1px solid rgba(255,255,255,.06);background:#0d0f13">
+<div style="font:600 13.5px/1 'Helvetica Neue',Helvetica,sans-serif">Genel Bakış</div>
+<div style="width:1px;height:18px;background:rgba(255,255,255,.1)"></div>
+<div style="display:flex;align-items:center;gap:7px;color:#69737d"><svg width="14" height="14"><use href="#ic-search"></use></svg><span style="font:400 12px/1 'Helvetica Neue',Helvetica,sans-serif">Ara ⌘K</span></div>
+<div style="flex:1"></div>
+<sc-for list="{{ chips }}" as="c" hint-placeholder-count="4"><div style="padding:5px 10px;border:1px solid rgba(255,255,255,.09);border-radius:6px;font:400 11.5px/1.3 'Helvetica Neue',Helvetica,sans-serif;color:#aeb6bf;cursor:pointer" style-hover="border-color:oklch(0.66 0.13 250);color:oklch(0.80 0.10 250)">{{ c }}</div></sc-for>
+<div style="position:relative;color:#aeb6bf;margin-left:4px"><svg width="17" height="17"><use href="#ic-bell"></use></svg><div style="position:absolute;top:-1px;right:-1px;width:6px;height:6px;border-radius:3px;background:oklch(0.66 0.13 250)"></div></div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(6,1fr);border-bottom:1px solid rgba(255,255,255,.06);background:#0d0f13">
+<sc-for list="{{ kpis }}" as="k" hint-placeholder-count="6"><div style="padding:14px 16px;border-right:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;gap:8px" style-hover="background:rgba(255,255,255,.03)">
+<div style="display:flex;align-items:center;gap:7px;color:#69737d"><svg width="13" height="13"><use href="{{ k.icon }}"></use></svg><span style="font:400 10.5px/1.2 'Helvetica Neue',Helvetica,sans-serif;letter-spacing:.03em;text-transform:uppercase">{{ k.short }}</span></div>
+<div style="font:500 19px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:-.02em;font-variant-numeric:tabular-nums">{{ k.value }}</div>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="font:400 10.5px/1 ui-monospace,Menlo,monospace;color:{{ k.dc }}">{{ k.delta }}</span><svg width="52" height="16" viewBox="0 0 52 16" style="flex:none"><polyline fill="none" stroke="oklch(0.66 0.13 250)" stroke-width="1.4" points="{{ k.spark }}"></polyline></svg></div>
+</div></sc-for>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:rgba(255,255,255,.06)">
+<div style="background:#0b0d10;padding:16px 18px">
+<div style="font:500 12px/1 'Helvetica Neue',Helvetica,sans-serif;color:#aeb6bf;margin-bottom:14px">Aylık Gelir – Gider</div>
+<div style="display:flex;align-items:flex-end;gap:14px;height:150px">
+<sc-for list="{{ bars }}" as="b" hint-placeholder-count="6"><div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end"><div style="display:flex;align-items:flex-end;gap:3px;width:100%;height:100%;justify-content:center"><div style="width:13px;background:oklch(0.66 0.13 250);height:{{ b.inH }}"></div><div style="width:13px;background:#2b3238;height:{{ b.exH }}"></div></div><div style="font:400 10px/1 'Helvetica Neue',Helvetica,sans-serif;color:#69737d">{{ b.m }}</div></div></sc-for>
+</div>
+</div>
+<div style="background:#0b0d10;padding:16px 18px">
+<div style="font:500 12px/1 'Helvetica Neue',Helvetica,sans-serif;color:#aeb6bf;margin-bottom:14px">Nakit Akışı</div>
+<svg width="100%" height="150" viewBox="0 0 320 150" preserveAspectRatio="none"><path d="M0 110 L53 92 L106 100 L160 66 L213 74 L266 40 L320 50 L320 150 L0 150 Z" fill="rgba(90,140,230,.12)"></path><polyline fill="none" stroke="oklch(0.66 0.13 250)" stroke-width="2" points="0,110 53,92 106,100 160,66 213,74 266,40 320,50"></polyline><line x1="0" y1="149" x2="320" y2="149" stroke="rgba(255,255,255,.08)"></line></svg>
+</div>
+<div style="background:#0b0d10;padding:16px 18px;display:flex;flex-direction:column">
+<div style="font:500 12px/1 'Helvetica Neue',Helvetica,sans-serif;color:#aeb6bf;margin-bottom:14px">Gider Dağılımı</div>
+<div style="display:flex;align-items:center;gap:16px">
+<svg width="104" height="104" viewBox="0 0 100 100" style="flex:none;transform:rotate(-90deg)"><circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="10"></circle><circle cx="50" cy="50" r="40" fill="none" stroke="oklch(0.66 0.13 250)" stroke-width="10" pathLength="100" stroke-dasharray="38 62" stroke-dashoffset="0"></circle><circle cx="50" cy="50" r="40" fill="none" stroke="oklch(0.75 0.10 250)" stroke-width="10" pathLength="100" stroke-dasharray="22 78" stroke-dashoffset="-38"></circle><circle cx="50" cy="50" r="40" fill="none" stroke="oklch(0.84 0.07 250)" stroke-width="10" pathLength="100" stroke-dasharray="18 82" stroke-dashoffset="-60"></circle><circle cx="50" cy="50" r="40" fill="none" stroke="#2b3238" stroke-width="10" pathLength="100" stroke-dasharray="22 78" stroke-dashoffset="-78"></circle></svg>
+<div style="display:flex;flex-direction:column;gap:8px;flex:1">
+<sc-for list="{{ catsB }}" as="c" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:8px"><span style="width:7px;height:7px;border-radius:2px;background:{{ c.color }};flex:none"></span><span style="font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:#aeb6bf;flex:1">{{ c.label }}</span><span style="font:500 11.5px/1 ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums">{{ c.pct }}</span></div></sc-for>
+</div>
+</div>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 316px;flex:1;border-top:1px solid rgba(255,255,255,.06)">
+<div style="display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:8px;padding:11px 18px;border-bottom:1px solid rgba(255,255,255,.06);background:#0d0f13">
+<div style="display:flex;gap:2px;background:rgba(255,255,255,.05);border-radius:6px;padding:2px">
+<div style="padding:5px 11px;border-radius:4px;background:rgba(90,140,230,.18);color:oklch(0.80 0.10 250);font:500 11.5px/1 'Helvetica Neue',Helvetica,sans-serif">Faturalar</div>
+<div style="padding:5px 11px;border-radius:4px;color:#aeb6bf;font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(255,255,255,.06)">Cari Hesaplar</div>
+<div style="padding:5px 11px;border-radius:4px;color:#aeb6bf;font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(255,255,255,.06)">İşlem Geçmişi</div>
+</div>
+<div style="flex:1"></div>
+<div style="display:flex;align-items:center;gap:5px;padding:5px 9px;border:1px solid rgba(255,255,255,.09);border-radius:6px;color:#aeb6bf;font:400 11px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(255,255,255,.05)"><svg width="12" height="12"><use href="#ic-filter"></use></svg>Filtre</div>
+<div style="display:flex;align-items:center;gap:5px;padding:5px 9px;border:1px solid rgba(255,255,255,.09);border-radius:6px;color:#aeb6bf;font:400 11px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(255,255,255,.05)"><svg width="12" height="12"><use href="#ic-download"></use></svg>Aktar</div>
+<div style="display:flex;align-items:center;gap:5px;padding:5px 9px;border-radius:6px;background:rgba(248,113,113,.12);color:#f87171;font:400 11px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(248,113,113,.2)"><svg width="12" height="12"><use href="#ic-trash"></use></svg>Çöp Kutusuna At (2)</div>
+<div style="display:flex;align-items:center;gap:5px;padding:5px 9px;border-radius:6px;background:oklch(0.66 0.13 250);color:#08090b;font:500 11px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer"><svg width="12" height="12"><use href="#ic-plus"></use></svg>Fatura Ekle</div>
+</div>
+<div style="display:grid;grid-template-columns:30px 104px 1fr 82px 78px 96px 88px 64px;padding:8px 18px;background:#0d0f13;border-bottom:1px solid rgba(255,255,255,.06);font:500 10px/1 'Helvetica Neue',Helvetica,sans-serif;letter-spacing:.05em;text-transform:uppercase;color:#69737d"><div></div><div>No</div><div>Cari</div><div>Tarih</div><div style="text-align:right">KDV</div><div style="text-align:right">Tutar</div><div style="text-align:center">Durum</div><div style="text-align:right">İşlem</div></div>
+<sc-for list="{{ rowsB }}" as="r" hint-placeholder-count="6"><div style="display:grid;grid-template-columns:30px 104px 1fr 82px 78px 96px 88px 64px;align-items:center;padding:9px 18px;border-bottom:1px solid rgba(255,255,255,.045)" style-hover="background:rgba(90,140,230,.06)">
+<div><span style="display:block;width:13px;height:13px;border-radius:3px;border:1px solid rgba(255,255,255,.18)"></span></div>
+<div style="font:400 11px/1 ui-monospace,Menlo,monospace;color:#8b949e">{{ r.no }}</div>
+<div style="font:400 12px/1 'Helvetica Neue',Helvetica,sans-serif">{{ r.cari }}</div>
+<div style="font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:#8b949e">{{ r.date }}</div>
+<div style="font:400 11.5px/1 ui-monospace,Menlo,monospace;text-align:right;color:#8b949e;font-variant-numeric:tabular-nums">{{ r.kdv }}</div>
+<div style="font:500 12px/1 ui-monospace,Menlo,monospace;text-align:right;font-variant-numeric:tabular-nums">{{ r.amount }}</div>
+<div style="text-align:center"><span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:4px;font:500 10.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:{{ r.sc }};background:{{ r.sb }}">{{ r.status }}</span></div>
+<div style="display:flex;gap:3px;justify-content:flex-end;color:#69737d"><span style="padding:4px;border-radius:5px;cursor:pointer;display:flex" style-hover="background:rgba(255,255,255,.08);color:#e6e9ec"><svg width="14" height="14"><use href="#ic-pencil"></use></svg></span><span style="padding:4px;border-radius:5px;cursor:pointer;display:flex" style-hover="background:rgba(248,113,113,.16);color:#f87171"><svg width="14" height="14"><use href="#ic-trash"></use></svg></span></div>
+</div></sc-for>
+<div style="padding:10px 18px;display:flex;align-items:center;gap:10px;font:400 11px/1 'Helvetica Neue',Helvetica,sans-serif;color:#69737d"><span>148 kayıttan 6'sı gösteriliyor</span><div style="flex:1"></div><span style="padding:4px 8px;border:1px solid rgba(255,255,255,.09);border-radius:5px">1</span><span style="padding:4px 8px">2</span><span style="padding:4px 8px">3</span></div>
+</div>
+<div style="border-left:1px solid rgba(255,255,255,.06);background:#0d0f13;padding:16px;display:flex;flex-direction:column;gap:18px">
+<div><div style="font:500 12px/1 'Helvetica Neue',Helvetica,sans-serif;color:#aeb6bf;margin-bottom:12px">KDV / Vergi Özeti</div>
+<div style="display:flex;flex-direction:column;gap:9px">
+<sc-for list="{{ vat }}" as="v" hint-placeholder-count="4"><div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:rgba(255,255,255,.03);border-radius:6px"><span style="font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:#aeb6bf">{{ v.label }}</span><span style="font:500 11.5px/1 ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums">{{ v.value }}</span></div></sc-for>
+</div></div>
+<div><div style="font:500 12px/1 'Helvetica Neue',Helvetica,sans-serif;color:#aeb6bf;margin-bottom:12px">Son Hareketler</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<sc-for list="{{ acts }}" as="a" hint-placeholder-count="5"><div style="display:flex;gap:9px"><div style="width:22px;height:22px;border-radius:6px;background:rgba(255,255,255,.05);color:#aeb6bf;display:flex;align-items:center;justify-content:center;flex:none"><svg width="12" height="12"><use href="{{ a.icon }}"></use></svg></div><div><div style="font:400 11.5px/1.4 'Helvetica Neue',Helvetica,sans-serif;color:#c9cfd6">{{ a.text }}</div><div style="font:400 10.5px/1.4 ui-monospace,Menlo,monospace;color:#69737d;margin-top:2px">{{ a.time }}</div></div></div></sc-for>
+</div></div>
+<div style="margin-top:auto;padding:14px;border:1px dashed rgba(255,255,255,.12);border-radius:8px;display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center;color:#69737d"><svg width="20" height="20"><use href="#ic-trash"></use></svg><div style="font:500 11.5px/1.3 'Helvetica Neue',Helvetica,sans-serif;color:#aeb6bf">Çöp kutusu boş</div><div style="font:400 10.5px/1.4 'Helvetica Neue',Helvetica,sans-serif">Sildiğiniz kayıtlar 30 gün burada bekler.</div></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="dv-tl">Açık tema</div>
+<div class="dv-card" style="width:1320px;background:#f7f8f9">
+<div style="display:grid;grid-template-columns:58px 1fr;min-height:880px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1b1f24">
+<div style="background:#fff;border-right:1px solid #e5e8ec;padding:14px 0;display:flex;flex-direction:column;align-items:center;gap:6px">
+<div style="width:30px;height:30px;border-radius:8px;background:oklch(0.52 0.13 250);color:#fff;display:flex;align-items:center;justify-content:center;font:600 13px/1 'Helvetica Neue',Helvetica,sans-serif;margin-bottom:12px">D</div>
+<div style="width:34px;height:34px;border-radius:9px;background:oklch(0.95 0.03 250);color:oklch(0.45 0.12 250);display:flex;align-items:center;justify-content:center"><svg width="17" height="17"><use href="#ic-home"></use></svg></div>
+<sc-for list="{{ navRest }}" as="n" hint-placeholder-count="7"><div title="{{ n.label }}" style="width:34px;height:34px;border-radius:9px;color:#8b949e;display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:#f1f3f5;color:#1b1f24"><svg width="17" height="17"><use href="{{ n.icon }}"></use></svg></div></sc-for>
+<div style="margin-top:auto;width:30px;height:30px;border-radius:15px;background:#e7eaee;color:#5b636c;display:flex;align-items:center;justify-content:center;font:500 11px/1 'Helvetica Neue',Helvetica,sans-serif">SK</div>
+</div>
+<div style="display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:12px;padding:0 22px;height:54px;border-bottom:1px solid #e5e8ec;background:#fff">
+<div style="font:600 13.5px/1 'Helvetica Neue',Helvetica,sans-serif">Genel Bakış</div>
+<div style="width:1px;height:18px;background:#e5e8ec"></div>
+<div style="display:flex;align-items:center;gap:7px;color:#8b949e"><svg width="14" height="14"><use href="#ic-search"></use></svg><span style="font:400 12px/1 'Helvetica Neue',Helvetica,sans-serif">Ara ⌘K</span></div>
+<div style="flex:1"></div>
+<sc-for list="{{ chips }}" as="c" hint-placeholder-count="4"><div style="padding:5px 10px;border:1px solid #e0e4e9;border-radius:6px;font:400 11.5px/1.3 'Helvetica Neue',Helvetica,sans-serif;color:#5b636c;cursor:pointer" style-hover="border-color:oklch(0.52 0.13 250);color:oklch(0.45 0.12 250)">{{ c }}</div></sc-for>
+<div style="position:relative;color:#5b636c;margin-left:4px"><svg width="17" height="17"><use href="#ic-bell"></use></svg><div style="position:absolute;top:-1px;right:-1px;width:6px;height:6px;border-radius:3px;background:oklch(0.52 0.13 250)"></div></div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(6,1fr);border-bottom:1px solid #e5e8ec;background:#fff">
+<sc-for list="{{ kpis }}" as="k" hint-placeholder-count="6"><div style="padding:14px 16px;border-right:1px solid #eceff2;display:flex;flex-direction:column;gap:8px" style-hover="background:#fafbfc">
+<div style="display:flex;align-items:center;gap:7px;color:#8b949e"><svg width="13" height="13"><use href="{{ k.icon }}"></use></svg><span style="font:400 10.5px/1.2 'Helvetica Neue',Helvetica,sans-serif;letter-spacing:.03em;text-transform:uppercase">{{ k.short }}</span></div>
+<div style="font:500 19px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:-.02em;font-variant-numeric:tabular-nums">{{ k.value }}</div>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="font:400 10.5px/1 ui-monospace,Menlo,monospace;color:{{ k.dcL }}">{{ k.delta }}</span><svg width="52" height="16" viewBox="0 0 52 16" style="flex:none"><polyline fill="none" stroke="oklch(0.52 0.13 250)" stroke-width="1.4" points="{{ k.spark }}"></polyline></svg></div>
+</div></sc-for>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:#e5e8ec">
+<div style="background:#fff;padding:16px 18px">
+<div style="font:500 12px/1 'Helvetica Neue',Helvetica,sans-serif;color:#5b636c;margin-bottom:14px">Aylık Gelir – Gider</div>
+<div style="display:flex;align-items:flex-end;gap:14px;height:150px">
+<sc-for list="{{ bars }}" as="b" hint-placeholder-count="6"><div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end"><div style="display:flex;align-items:flex-end;gap:3px;width:100%;height:100%;justify-content:center"><div style="width:13px;background:oklch(0.52 0.13 250);height:{{ b.inH }}"></div><div style="width:13px;background:#d3dade;height:{{ b.exH }}"></div></div><div style="font:400 10px/1 'Helvetica Neue',Helvetica,sans-serif;color:#8b949e">{{ b.m }}</div></div></sc-for>
+</div>
+</div>
+<div style="background:#fff;padding:16px 18px">
+<div style="font:500 12px/1 'Helvetica Neue',Helvetica,sans-serif;color:#5b636c;margin-bottom:14px">Nakit Akışı</div>
+<svg width="100%" height="150" viewBox="0 0 320 150" preserveAspectRatio="none"><path d="M0 110 L53 92 L106 100 L160 66 L213 74 L266 40 L320 50 L320 150 L0 150 Z" fill="oklch(0.95 0.03 250)"></path><polyline fill="none" stroke="oklch(0.52 0.13 250)" stroke-width="2" points="0,110 53,92 106,100 160,66 213,74 266,40 320,50"></polyline><line x1="0" y1="149" x2="320" y2="149" stroke="#e5e8ec"></line></svg>
+</div>
+<div style="background:#fff;padding:16px 18px;display:flex;flex-direction:column">
+<div style="font:500 12px/1 'Helvetica Neue',Helvetica,sans-serif;color:#5b636c;margin-bottom:14px">Gider Dağılımı</div>
+<div style="display:flex;align-items:center;gap:16px">
+<svg width="104" height="104" viewBox="0 0 100 100" style="flex:none;transform:rotate(-90deg)"><circle cx="50" cy="50" r="40" fill="none" stroke="#eceff2" stroke-width="10"></circle><circle cx="50" cy="50" r="40" fill="none" stroke="oklch(0.52 0.13 250)" stroke-width="10" pathLength="100" stroke-dasharray="38 62" stroke-dashoffset="0"></circle><circle cx="50" cy="50" r="40" fill="none" stroke="oklch(0.64 0.11 250)" stroke-width="10" pathLength="100" stroke-dasharray="22 78" stroke-dashoffset="-38"></circle><circle cx="50" cy="50" r="40" fill="none" stroke="oklch(0.76 0.07 250)" stroke-width="10" pathLength="100" stroke-dasharray="18 82" stroke-dashoffset="-60"></circle><circle cx="50" cy="50" r="40" fill="none" stroke="#d3dade" stroke-width="10" pathLength="100" stroke-dasharray="22 78" stroke-dashoffset="-78"></circle></svg>
+<div style="display:flex;flex-direction:column;gap:8px;flex:1">
+<sc-for list="{{ catsBL }}" as="c" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:8px"><span style="width:7px;height:7px;border-radius:2px;background:{{ c.color }};flex:none"></span><span style="font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:#5b636c;flex:1">{{ c.label }}</span><span style="font:500 11.5px/1 ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums">{{ c.pct }}</span></div></sc-for>
+</div>
+</div>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 316px;flex:1;border-top:1px solid #e5e8ec">
+<div style="display:flex;flex-direction:column;background:#fff">
+<div style="display:flex;align-items:center;gap:8px;padding:11px 18px;border-bottom:1px solid #e5e8ec">
+<div style="display:flex;gap:2px;background:#f1f3f5;border-radius:6px;padding:2px">
+<div style="padding:5px 11px;border-radius:4px;background:#fff;color:oklch(0.45 0.12 250);font:500 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;box-shadow:0 1px 2px rgba(0,0,0,.06)">Faturalar</div>
+<div style="padding:5px 11px;border-radius:4px;color:#5b636c;font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="color:#1b1f24">Cari Hesaplar</div>
+<div style="padding:5px 11px;border-radius:4px;color:#5b636c;font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="color:#1b1f24">İşlem Geçmişi</div>
+</div>
+<div style="flex:1"></div>
+<div style="display:flex;align-items:center;gap:5px;padding:5px 9px;border:1px solid #e0e4e9;border-radius:6px;color:#5b636c;font:400 11px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:#f7f8f9"><svg width="12" height="12"><use href="#ic-filter"></use></svg>Filtre</div>
+<div style="display:flex;align-items:center;gap:5px;padding:5px 9px;border:1px solid #e0e4e9;border-radius:6px;color:#5b636c;font:400 11px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:#f7f8f9"><svg width="12" height="12"><use href="#ic-download"></use></svg>Aktar</div>
+<div style="display:flex;align-items:center;gap:5px;padding:5px 9px;border-radius:6px;background:#fdecec;color:#c0392b;font:400 11px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:#fbdcdc"><svg width="12" height="12"><use href="#ic-trash"></use></svg>Çöp Kutusuna At (2)</div>
+<div style="display:flex;align-items:center;gap:5px;padding:5px 9px;border-radius:6px;background:oklch(0.52 0.13 250);color:#fff;font:500 11px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer"><svg width="12" height="12"><use href="#ic-plus"></use></svg>Fatura Ekle</div>
+</div>
+<div style="display:grid;grid-template-columns:30px 104px 1fr 82px 78px 96px 88px 64px;padding:8px 18px;background:#fafbfc;border-bottom:1px solid #e5e8ec;font:500 10px/1 'Helvetica Neue',Helvetica,sans-serif;letter-spacing:.05em;text-transform:uppercase;color:#8b949e"><div></div><div>No</div><div>Cari</div><div>Tarih</div><div style="text-align:right">KDV</div><div style="text-align:right">Tutar</div><div style="text-align:center">Durum</div><div style="text-align:right">İşlem</div></div>
+<sc-for list="{{ rowsBL }}" as="r" hint-placeholder-count="6"><div style="display:grid;grid-template-columns:30px 104px 1fr 82px 78px 96px 88px 64px;align-items:center;padding:9px 18px;border-bottom:1px solid #f1f3f5" style-hover="background:oklch(0.98 0.012 250)">
+<div><span style="display:block;width:13px;height:13px;border-radius:3px;border:1px solid #cfd5db"></span></div>
+<div style="font:400 11px/1 ui-monospace,Menlo,monospace;color:#5b636c">{{ r.no }}</div>
+<div style="font:400 12px/1 'Helvetica Neue',Helvetica,sans-serif">{{ r.cari }}</div>
+<div style="font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:#8b949e">{{ r.date }}</div>
+<div style="font:400 11.5px/1 ui-monospace,Menlo,monospace;text-align:right;color:#8b949e;font-variant-numeric:tabular-nums">{{ r.kdv }}</div>
+<div style="font:500 12px/1 ui-monospace,Menlo,monospace;text-align:right;font-variant-numeric:tabular-nums">{{ r.amount }}</div>
+<div style="text-align:center"><span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:4px;font:500 10.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:{{ r.sc }};background:{{ r.sb }}">{{ r.status }}</span></div>
+<div style="display:flex;gap:3px;justify-content:flex-end;color:#8b949e"><span style="padding:4px;border-radius:5px;cursor:pointer;display:flex" style-hover="background:#eceff2;color:#1b1f24"><svg width="14" height="14"><use href="#ic-pencil"></use></svg></span><span style="padding:4px;border-radius:5px;cursor:pointer;display:flex" style-hover="background:#fdecec;color:#c0392b"><svg width="14" height="14"><use href="#ic-trash"></use></svg></span></div>
+</div></sc-for>
+<div style="padding:10px 18px;display:flex;align-items:center;gap:10px;font:400 11px/1 'Helvetica Neue',Helvetica,sans-serif;color:#8b949e"><span>148 kayıttan 6'sı gösteriliyor</span><div style="flex:1"></div><span style="padding:4px 8px;border:1px solid #e0e4e9;border-radius:5px;color:#1b1f24">1</span><span style="padding:4px 8px">2</span><span style="padding:4px 8px">3</span></div>
+</div>
+<div style="border-left:1px solid #e5e8ec;background:#fbfcfc;padding:16px;display:flex;flex-direction:column;gap:18px">
+<div><div style="font:500 12px/1 'Helvetica Neue',Helvetica,sans-serif;color:#5b636c;margin-bottom:12px">KDV / Vergi Özeti</div>
+<div style="display:flex;flex-direction:column;gap:9px">
+<sc-for list="{{ vat }}" as="v" hint-placeholder-count="4"><div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:#fff;border:1px solid #eceff2;border-radius:6px"><span style="font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:#5b636c">{{ v.label }}</span><span style="font:500 11.5px/1 ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums">{{ v.value }}</span></div></sc-for>
+</div></div>
+<div><div style="font:500 12px/1 'Helvetica Neue',Helvetica,sans-serif;color:#5b636c;margin-bottom:12px">Son Hareketler</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<sc-for list="{{ acts }}" as="a" hint-placeholder-count="5"><div style="display:flex;gap:9px"><div style="width:22px;height:22px;border-radius:6px;background:#f1f3f5;color:#5b636c;display:flex;align-items:center;justify-content:center;flex:none"><svg width="12" height="12"><use href="{{ a.icon }}"></use></svg></div><div><div style="font:400 11.5px/1.4 'Helvetica Neue',Helvetica,sans-serif;color:#2c3238">{{ a.text }}</div><div style="font:400 10.5px/1.4 ui-monospace,Menlo,monospace;color:#8b949e;margin-top:2px">{{ a.time }}</div></div></div></sc-for>
+</div></div>
+<div style="margin-top:auto;padding:14px;border:1px dashed #d7dce1;border-radius:8px;display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center;color:#8b949e"><svg width="20" height="20"><use href="#ic-trash"></use></svg><div style="font:500 11.5px/1.3 'Helvetica Neue',Helvetica,sans-serif;color:#5b636c">Çöp kutusu boş</div><div style="font:400 10.5px/1.4 'Helvetica Neue',Helvetica,sans-serif">Sildiğiniz kayıtlar 30 gün burada bekler.</div></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1c"><div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Premium — kağıt tonu, serif başlıklar, kehribar vurgu</div>
+
+<div class="dv-tl">Açık tema</div>
+<div class="dv-card" style="width:1280px;background:#f6f4ef;border-color:rgba(26,23,20,.12)">
+<div style="display:grid;grid-template-columns:252px 1fr;min-height:900px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1a1714">
+<div style="background:#efece5;border-right:1px solid rgba(26,23,20,.08);padding:26px 18px;display:flex;flex-direction:column;gap:28px">
+<div style="font:500 19px/1 Spectral,Georgia,serif;letter-spacing:-.01em;padding:0 6px">Defter<span style="color:oklch(0.62 0.13 60)">.</span></div>
+<div style="display:flex;flex-direction:column;gap:3px">
+<div style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:7px;background:#1a1714;color:#f6f4ef;font:500 13px/1 'Helvetica Neue',Helvetica,sans-serif"><svg width="16" height="16" style="flex:none"><use href="#ic-home"></use></svg>Genel Bakış</div>
+<sc-for list="{{ navRest }}" as="n" hint-placeholder-count="7"><div style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:7px;color:#6b625a;font:400 13px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(26,23,20,.05);color:#1a1714"><svg width="16" height="16" style="flex:none;opacity:.7"><use href="{{ n.icon }}"></use></svg>{{ n.label }}</div></sc-for>
+</div>
+<div style="margin-top:auto;display:flex;flex-direction:column;gap:12px">
+<div style="font:400 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.1em;text-transform:uppercase;color:#9a9188">Hızlı İşlem</div>
+<div style="display:flex;flex-direction:column;gap:7px">
+<div style="display:flex;align-items:center;gap:9px;padding:10px 12px;border-radius:7px;background:oklch(0.62 0.13 60);color:#1a1714;font:500 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:oklch(0.68 0.12 60)"><svg width="15" height="15"><use href="#ic-plus"></use></svg>Fatura Ekle</div>
+<div style="display:flex;align-items:center;gap:9px;padding:10px 12px;border-radius:7px;border:1px solid rgba(26,23,20,.14);color:#3a342e;font:500 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(26,23,20,.04)"><svg width="15" height="15"><use href="#ic-wallet"></use></svg>Gider Ekle</div>
+<div style="display:flex;align-items:center;gap:9px;padding:10px 12px;border-radius:7px;border:1px solid rgba(26,23,20,.14);color:#3a342e;font:500 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(26,23,20,.04)"><svg width="15" height="15"><use href="#ic-download"></use></svg>Rapor Oluştur</div>
+<div style="display:flex;align-items:center;gap:9px;padding:10px 12px;border-radius:7px;color:#96382e;font:500 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(150,56,46,.08)"><svg width="15" height="15"><use href="#ic-trash"></use></svg>Çöp Kutusuna At</div>
+</div>
+</div>
+</div>
+<div style="display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:16px;padding:0 36px;height:72px;border-bottom:1px solid rgba(26,23,20,.08)">
+<div style="display:flex;align-items:center;gap:9px;color:#9a9188"><svg width="16" height="16"><use href="#ic-search"></use></svg><div style="font:400 13px/1 'Helvetica Neue',Helvetica,sans-serif">Ara…</div></div>
+<div style="flex:1"></div>
+<div style="display:flex;align-items:center;gap:7px;padding:8px 12px;border-radius:7px;border:1px solid rgba(26,23,20,.12);color:#3a342e;font:400 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(26,23,20,.04)"><svg width="14" height="14"><use href="#ic-building"></use></svg>Yıldız Tekstil A.Ş.</div>
+<div style="display:flex;align-items:center;gap:7px;padding:8px 12px;border-radius:7px;border:1px solid rgba(26,23,20,.12);color:#3a342e;font:400 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(26,23,20,.04)"><svg width="14" height="14"><use href="#ic-calendar"></use></svg>Ağustos 2026</div>
+<div style="position:relative;color:#3a342e"><svg width="19" height="19"><use href="#ic-bell"></use></svg><div style="position:absolute;top:0;right:0;width:6px;height:6px;border-radius:3px;background:oklch(0.62 0.13 60)"></div></div>
+<div style="width:32px;height:32px;border-radius:16px;background:#1a1714;color:#f6f4ef;display:flex;align-items:center;justify-content:center;font:500 11.5px/1 'Helvetica Neue',Helvetica,sans-serif">SK</div>
+</div>
+<div style="padding:34px 36px;display:flex;flex-direction:column;gap:26px;flex:1">
+<div style="display:grid;grid-template-columns:1.15fr 1fr;gap:26px;align-items:stretch">
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="font:400 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.12em;text-transform:uppercase;color:#9a9188">Net Kâr · Ağustos 2026</div>
+<div style="font:400 62px/1.05 Spectral,Georgia,serif;letter-spacing:-.025em;font-variant-numeric:tabular-nums">₺442.200</div>
+<div style="display:flex;align-items:center;gap:8px;margin-top:2px"><span style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:5px;background:oklch(0.94 0.05 145);color:#2f6b47;font:500 11.5px/1 'Helvetica Neue',Helvetica,sans-serif"><svg width="12" height="12"><use href="#ic-up"></use></svg>%23,8</span><span style="font:400 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:#6b625a">geçen aya göre · ₺357.100</span></div>
+<div style="margin-top:22px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
+<sc-for list="{{ kpisC }}" as="k" hint-placeholder-count="4"><div style="padding:15px 16px;background:#fffdf8;border:1px solid rgba(26,23,20,.08);border-radius:9px;display:flex;flex-direction:column;gap:8px" style-hover="border-color:rgba(26,23,20,.18)">
+<div style="display:flex;align-items:center;gap:8px;color:#9a9188"><svg width="14" height="14"><use href="{{ k.icon }}"></use></svg><span style="font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:#6b625a">{{ k.label }}</span></div>
+<div style="font:400 22px/1 Spectral,Georgia,serif;font-variant-numeric:tabular-nums">{{ k.value }}</div>
+<div style="font:400 11px/1 'Helvetica Neue',Helvetica,sans-serif;color:#9a9188">{{ k.sub }}</div>
+</div></sc-for>
+</div>
+</div>
+<div style="padding:22px 24px;background:#fffdf8;border:1px solid rgba(26,23,20,.08);border-radius:11px;display:flex;flex-direction:column">
+<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:20px"><div style="font:500 15px/1 Spectral,Georgia,serif">Nakit Akışı</div><div style="font:400 11px/1 ui-monospace,Menlo,monospace;color:#9a9188">Mar – Ağu</div></div>
+<svg width="100%" height="190" viewBox="0 0 400 190" preserveAspectRatio="none"><line x1="0" y1="47" x2="400" y2="47" stroke="rgba(26,23,20,.07)"></line><line x1="0" y1="94" x2="400" y2="94" stroke="rgba(26,23,20,.07)"></line><line x1="0" y1="141" x2="400" y2="141" stroke="rgba(26,23,20,.07)"></line><path d="M0 140 L66 118 L133 128 L200 84 L266 94 L333 50 L400 62 L400 190 L0 190 Z" fill="oklch(0.62 0.13 60 / 0.1)"></path><polyline fill="none" stroke="oklch(0.62 0.13 60)" stroke-width="2.4" points="0,140 66,118 133,128 200,84 266,94 333,50 400,62"></polyline></svg>
+<div style="display:flex;justify-content:space-between;margin-top:10px;font:400 11px/1 'Helvetica Neue',Helvetica,sans-serif;color:#9a9188"><span>Mar</span><span>Nis</span><span>May</span><span>Haz</span><span>Tem</span><span>Ağu</span></div>
+<div style="margin-top:auto;padding-top:20px;display:flex;gap:24px;border-top:1px solid rgba(26,23,20,.07);margin-top:20px">
+<div><div style="font:400 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.08em;text-transform:uppercase;color:#9a9188;margin-bottom:6px">Gelir</div><div style="font:400 17px/1 Spectral,Georgia,serif">₺1.284.500</div></div>
+<div><div style="font:400 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.08em;text-transform:uppercase;color:#9a9188;margin-bottom:6px">Gider</div><div style="font:400 17px/1 Spectral,Georgia,serif">₺842.300</div></div>
+<div><div style="font:400 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.08em;text-transform:uppercase;color:#9a9188;margin-bottom:6px">KDV</div><div style="font:400 17px/1 Spectral,Georgia,serif">₺73.150</div></div>
+</div>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:1.55fr 1fr;gap:26px">
+<div style="background:#fffdf8;border:1px solid rgba(26,23,20,.08);border-radius:11px;overflow:hidden">
+<div style="display:flex;align-items:center;gap:10px;padding:18px 22px;border-bottom:1px solid rgba(26,23,20,.07)"><div style="font:500 15px/1 Spectral,Georgia,serif;flex:1">Faturalar</div><div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid rgba(26,23,20,.12);border-radius:6px;color:#3a342e;font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(26,23,20,.04)"><svg width="13" height="13"><use href="#ic-filter"></use></svg>Durum</div><div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid rgba(26,23,20,.12);border-radius:6px;color:#3a342e;font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(26,23,20,.04)"><svg width="13" height="13"><use href="#ic-download"></use></svg>Dışa Aktar</div></div>
+<sc-for list="{{ rowsC }}" as="r" hint-placeholder-count="6"><div style="display:grid;grid-template-columns:1fr 104px 112px 96px 72px;align-items:center;padding:16px 22px;border-bottom:1px solid rgba(26,23,20,.06)" style-hover="background:#f9f6f0">
+<div><div style="font:400 13.5px/1.2 'Helvetica Neue',Helvetica,sans-serif">{{ r.cari }}</div><div style="font:400 11px/1.2 ui-monospace,Menlo,monospace;color:#9a9188;margin-top:5px">{{ r.no }}</div></div>
+<div style="font:400 12px/1 'Helvetica Neue',Helvetica,sans-serif;color:#6b625a">{{ r.date }}</div>
+<div style="font:400 15px/1 Spectral,Georgia,serif;text-align:right;font-variant-numeric:tabular-nums">{{ r.amount }}</div>
+<div style="text-align:center"><span style="display:inline-block;padding:4px 9px;border-radius:20px;font:500 11px/1 'Helvetica Neue',Helvetica,sans-serif;color:{{ r.sc }};background:{{ r.sb }}">{{ r.status }}</span></div>
+<div style="display:flex;gap:4px;justify-content:flex-end;color:#9a9188"><span style="padding:5px;border-radius:6px;cursor:pointer;display:flex" style-hover="background:rgba(26,23,20,.06);color:#1a1714"><svg width="15" height="15"><use href="#ic-pencil"></use></svg></span><span style="padding:5px;border-radius:6px;cursor:pointer;display:flex" style-hover="background:rgba(150,56,46,.1);color:#96382e"><svg width="15" height="15"><use href="#ic-trash"></use></svg></span></div>
+</div></sc-for>
+</div>
+<div style="display:flex;flex-direction:column;gap:26px">
+<div style="padding:20px 22px;background:#fffdf8;border:1px solid rgba(26,23,20,.08);border-radius:11px">
+<div style="font:500 15px/1 Spectral,Georgia,serif;margin-bottom:18px">Gider Kategorileri</div>
+<div style="display:flex;flex-direction:column;gap:13px">
+<sc-for list="{{ catsC }}" as="c" hint-placeholder-count="4"><div style="display:flex;flex-direction:column;gap:7px"><div style="display:flex;align-items:baseline;justify-content:space-between"><span style="font:400 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:#3a342e">{{ c.label }}</span><span style="font:400 12.5px/1 ui-monospace,Menlo,monospace;color:#6b625a;font-variant-numeric:tabular-nums">{{ c.amount }}</span></div><div style="height:5px;border-radius:3px;background:rgba(26,23,20,.07);overflow:hidden"><div style="height:100%;background:{{ c.color }};width:{{ c.pct }}"></div></div></div></sc-for>
+</div>
+</div>
+<div style="padding:20px 22px;background:#fffdf8;border:1px solid rgba(26,23,20,.08);border-radius:11px;flex:1;display:flex;flex-direction:column;gap:15px">
+<div style="font:500 15px/1 Spectral,Georgia,serif">Son Hareketler</div>
+<sc-for list="{{ acts }}" as="a" hint-placeholder-count="5"><div style="display:flex;gap:11px;align-items:flex-start"><div style="width:25px;height:25px;border-radius:13px;background:#f1ede5;color:#6b625a;display:flex;align-items:center;justify-content:center;flex:none"><svg width="13" height="13"><use href="{{ a.icon }}"></use></svg></div><div><div style="font:400 12px/1.45 'Helvetica Neue',Helvetica,sans-serif;color:#3a342e">{{ a.text }}</div><div style="font:400 10.5px/1.4 ui-monospace,Menlo,monospace;color:#9a9188;margin-top:3px">{{ a.time }}</div></div></div></sc-for>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="dv-tl">Koyu tema</div>
+<div class="dv-card" style="width:1280px;background:#16130f;border-color:rgba(255,255,255,.1)">
+<div style="display:grid;grid-template-columns:252px 1fr;min-height:900px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#efe9e0">
+<div style="background:#100e0b;border-right:1px solid rgba(255,255,255,.06);padding:26px 18px;display:flex;flex-direction:column;gap:28px">
+<div style="font:500 19px/1 Spectral,Georgia,serif;letter-spacing:-.01em;padding:0 6px">Defter<span style="color:oklch(0.72 0.12 60)">.</span></div>
+<div style="display:flex;flex-direction:column;gap:3px">
+<div style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:7px;background:oklch(0.72 0.12 60);color:#16130f;font:500 13px/1 'Helvetica Neue',Helvetica,sans-serif"><svg width="16" height="16" style="flex:none"><use href="#ic-home"></use></svg>Genel Bakış</div>
+<sc-for list="{{ navRest }}" as="n" hint-placeholder-count="7"><div style="display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:7px;color:#a09689;font:400 13px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(255,255,255,.05);color:#efe9e0"><svg width="16" height="16" style="flex:none;opacity:.8"><use href="{{ n.icon }}"></use></svg>{{ n.label }}</div></sc-for>
+</div>
+<div style="margin-top:auto;display:flex;flex-direction:column;gap:12px">
+<div style="font:400 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.1em;text-transform:uppercase;color:#7d746a">Hızlı İşlem</div>
+<div style="display:flex;flex-direction:column;gap:7px">
+<div style="display:flex;align-items:center;gap:9px;padding:10px 12px;border-radius:7px;background:oklch(0.72 0.12 60);color:#16130f;font:500 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:oklch(0.8 0.1 60)"><svg width="15" height="15"><use href="#ic-plus"></use></svg>Fatura Ekle</div>
+<div style="display:flex;align-items:center;gap:9px;padding:10px 12px;border-radius:7px;border:1px solid rgba(255,255,255,.13);color:#efe9e0;font:500 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(255,255,255,.05)"><svg width="15" height="15"><use href="#ic-wallet"></use></svg>Gider Ekle</div>
+<div style="display:flex;align-items:center;gap:9px;padding:10px 12px;border-radius:7px;border:1px solid rgba(255,255,255,.13);color:#efe9e0;font:500 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(255,255,255,.05)"><svg width="15" height="15"><use href="#ic-download"></use></svg>Rapor Oluştur</div>
+<div style="display:flex;align-items:center;gap:9px;padding:10px 12px;border-radius:7px;color:#e58a7f;font:500 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(229,138,127,.1)"><svg width="15" height="15"><use href="#ic-trash"></use></svg>Çöp Kutusuna At</div>
+</div>
+</div>
+</div>
+<div style="display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:16px;padding:0 36px;height:72px;border-bottom:1px solid rgba(255,255,255,.06)">
+<div style="display:flex;align-items:center;gap:9px;color:#7d746a"><svg width="16" height="16"><use href="#ic-search"></use></svg><div style="font:400 13px/1 'Helvetica Neue',Helvetica,sans-serif">Ara…</div></div>
+<div style="flex:1"></div>
+<div style="display:flex;align-items:center;gap:7px;padding:8px 12px;border-radius:7px;border:1px solid rgba(255,255,255,.12);color:#d6cec3;font:400 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(255,255,255,.05)"><svg width="14" height="14"><use href="#ic-building"></use></svg>Yıldız Tekstil A.Ş.</div>
+<div style="display:flex;align-items:center;gap:7px;padding:8px 12px;border-radius:7px;border:1px solid rgba(255,255,255,.12);color:#d6cec3;font:400 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(255,255,255,.05)"><svg width="14" height="14"><use href="#ic-calendar"></use></svg>Ağustos 2026</div>
+<div style="position:relative;color:#d6cec3"><svg width="19" height="19"><use href="#ic-bell"></use></svg><div style="position:absolute;top:0;right:0;width:6px;height:6px;border-radius:3px;background:oklch(0.72 0.12 60)"></div></div>
+<div style="width:32px;height:32px;border-radius:16px;background:oklch(0.72 0.12 60);color:#16130f;display:flex;align-items:center;justify-content:center;font:500 11.5px/1 'Helvetica Neue',Helvetica,sans-serif">SK</div>
+</div>
+<div style="padding:34px 36px;display:flex;flex-direction:column;gap:26px;flex:1">
+<div style="display:grid;grid-template-columns:1.15fr 1fr;gap:26px;align-items:stretch">
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="font:400 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.12em;text-transform:uppercase;color:#7d746a">Net Kâr · Ağustos 2026</div>
+<div style="font:400 62px/1.05 Spectral,Georgia,serif;letter-spacing:-.025em;font-variant-numeric:tabular-nums">₺442.200</div>
+<div style="display:flex;align-items:center;gap:8px;margin-top:2px"><span style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:5px;background:rgba(74,222,128,.13);color:#6ee7a0;font:500 11.5px/1 'Helvetica Neue',Helvetica,sans-serif"><svg width="12" height="12"><use href="#ic-up"></use></svg>%23,8</span><span style="font:400 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:#a09689">geçen aya göre · ₺357.100</span></div>
+<div style="margin-top:22px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
+<sc-for list="{{ kpisC }}" as="k" hint-placeholder-count="4"><div style="padding:15px 16px;background:#1d1a15;border:1px solid rgba(255,255,255,.07);border-radius:9px;display:flex;flex-direction:column;gap:8px" style-hover="border-color:rgba(255,255,255,.16)">
+<div style="display:flex;align-items:center;gap:8px;color:#7d746a"><svg width="14" height="14"><use href="{{ k.icon }}"></use></svg><span style="font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:#a09689">{{ k.label }}</span></div>
+<div style="font:400 22px/1 Spectral,Georgia,serif;font-variant-numeric:tabular-nums">{{ k.value }}</div>
+<div style="font:400 11px/1 'Helvetica Neue',Helvetica,sans-serif;color:#7d746a">{{ k.sub }}</div>
+</div></sc-for>
+</div>
+</div>
+<div style="padding:22px 24px;background:#1d1a15;border:1px solid rgba(255,255,255,.07);border-radius:11px;display:flex;flex-direction:column">
+<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:20px"><div style="font:500 15px/1 Spectral,Georgia,serif">Nakit Akışı</div><div style="font:400 11px/1 ui-monospace,Menlo,monospace;color:#7d746a">Mar – Ağu</div></div>
+<svg width="100%" height="190" viewBox="0 0 400 190" preserveAspectRatio="none"><line x1="0" y1="47" x2="400" y2="47" stroke="rgba(255,255,255,.06)"></line><line x1="0" y1="94" x2="400" y2="94" stroke="rgba(255,255,255,.06)"></line><line x1="0" y1="141" x2="400" y2="141" stroke="rgba(255,255,255,.06)"></line><path d="M0 140 L66 118 L133 128 L200 84 L266 94 L333 50 L400 62 L400 190 L0 190 Z" fill="oklch(0.72 0.12 60 / 0.12)"></path><polyline fill="none" stroke="oklch(0.72 0.12 60)" stroke-width="2.4" points="0,140 66,118 133,128 200,84 266,94 333,50 400,62"></polyline></svg>
+<div style="display:flex;justify-content:space-between;margin-top:10px;font:400 11px/1 'Helvetica Neue',Helvetica,sans-serif;color:#7d746a"><span>Mar</span><span>Nis</span><span>May</span><span>Haz</span><span>Tem</span><span>Ağu</span></div>
+<div style="padding-top:20px;display:flex;gap:24px;border-top:1px solid rgba(255,255,255,.06);margin-top:20px">
+<div><div style="font:400 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.08em;text-transform:uppercase;color:#7d746a;margin-bottom:6px">Gelir</div><div style="font:400 17px/1 Spectral,Georgia,serif">₺1.284.500</div></div>
+<div><div style="font:400 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.08em;text-transform:uppercase;color:#7d746a;margin-bottom:6px">Gider</div><div style="font:400 17px/1 Spectral,Georgia,serif">₺842.300</div></div>
+<div><div style="font:400 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.08em;text-transform:uppercase;color:#7d746a;margin-bottom:6px">KDV</div><div style="font:400 17px/1 Spectral,Georgia,serif">₺73.150</div></div>
+</div>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:1.55fr 1fr;gap:26px">
+<div style="background:#1d1a15;border:1px solid rgba(255,255,255,.07);border-radius:11px;overflow:hidden">
+<div style="display:flex;align-items:center;gap:10px;padding:18px 22px;border-bottom:1px solid rgba(255,255,255,.06)"><div style="font:500 15px/1 Spectral,Georgia,serif;flex:1">Faturalar</div><div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid rgba(255,255,255,.12);border-radius:6px;color:#d6cec3;font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(255,255,255,.05)"><svg width="13" height="13"><use href="#ic-filter"></use></svg>Durum</div><div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid rgba(255,255,255,.12);border-radius:6px;color:#d6cec3;font:400 11.5px/1 'Helvetica Neue',Helvetica,sans-serif;cursor:pointer" style-hover="background:rgba(255,255,255,.05)"><svg width="13" height="13"><use href="#ic-download"></use></svg>Dışa Aktar</div></div>
+<sc-for list="{{ rowsD }}" as="r" hint-placeholder-count="6"><div style="display:grid;grid-template-columns:1fr 104px 112px 96px 72px;align-items:center;padding:16px 22px;border-bottom:1px solid rgba(255,255,255,.05)" style-hover="background:rgba(255,255,255,.03)">
+<div><div style="font:400 13.5px/1.2 'Helvetica Neue',Helvetica,sans-serif">{{ r.cari }}</div><div style="font:400 11px/1.2 ui-monospace,Menlo,monospace;color:#7d746a;margin-top:5px">{{ r.no }}</div></div>
+<div style="font:400 12px/1 'Helvetica Neue',Helvetica,sans-serif;color:#a09689">{{ r.date }}</div>
+<div style="font:400 15px/1 Spectral,Georgia,serif;text-align:right;font-variant-numeric:tabular-nums">{{ r.amount }}</div>
+<div style="text-align:center"><span style="display:inline-block;padding:4px 9px;border-radius:20px;font:500 11px/1 'Helvetica Neue',Helvetica,sans-serif;color:{{ r.sc }};background:{{ r.sb }}">{{ r.status }}</span></div>
+<div style="display:flex;gap:4px;justify-content:flex-end;color:#7d746a"><span style="padding:5px;border-radius:6px;cursor:pointer;display:flex" style-hover="background:rgba(255,255,255,.07);color:#efe9e0"><svg width="15" height="15"><use href="#ic-pencil"></use></svg></span><span style="padding:5px;border-radius:6px;cursor:pointer;display:flex" style-hover="background:rgba(229,138,127,.14);color:#e58a7f"><svg width="15" height="15"><use href="#ic-trash"></use></svg></span></div>
+</div></sc-for>
+</div>
+<div style="display:flex;flex-direction:column;gap:26px">
+<div style="padding:20px 22px;background:#1d1a15;border:1px solid rgba(255,255,255,.07);border-radius:11px">
+<div style="font:500 15px/1 Spectral,Georgia,serif;margin-bottom:18px">Gider Kategorileri</div>
+<div style="display:flex;flex-direction:column;gap:13px">
+<sc-for list="{{ catsCD }}" as="c" hint-placeholder-count="4"><div style="display:flex;flex-direction:column;gap:7px"><div style="display:flex;align-items:baseline;justify-content:space-between"><span style="font:400 12.5px/1 'Helvetica Neue',Helvetica,sans-serif;color:#d6cec3">{{ c.label }}</span><span style="font:400 12.5px/1 ui-monospace,Menlo,monospace;color:#a09689;font-variant-numeric:tabular-nums">{{ c.amount }}</span></div><div style="height:5px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden"><div style="height:100%;background:{{ c.color }};width:{{ c.pct }}"></div></div></div></sc-for>
+</div>
+</div>
+<div style="padding:20px 22px;background:#1d1a15;border:1px solid rgba(255,255,255,.07);border-radius:11px;flex:1;display:flex;flex-direction:column;gap:15px">
+<div style="font:500 15px/1 Spectral,Georgia,serif">Son Hareketler</div>
+<sc-for list="{{ acts }}" as="a" hint-placeholder-count="5"><div style="display:flex;gap:11px;align-items:flex-start"><div style="width:25px;height:25px;border-radius:13px;background:rgba(255,255,255,.06);color:#a09689;display:flex;align-items:center;justify-content:center;flex:none"><svg width="13" height="13"><use href="{{ a.icon }}"></use></svg></div><div><div style="font:400 12px/1.45 'Helvetica Neue',Helvetica,sans-serif;color:#d6cec3">{{ a.text }}</div><div style="font:400 10.5px/1.4 ui-monospace,Menlo,monospace;color:#7d746a;margin-top:3px">{{ a.time }}</div></div></div></sc-for>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Sırada: "<a class="dv-oid" href="#1b">1b</a>'yi Türkçe yerine İngilizce etiketlerle göster" · "<a class="dv-oid" href="#1c">1c</a> için Faturalar ve Çöp Kutusu ekranlarını da tasarla" · "<a class="dv-oid" href="#1a">1a</a>'yı tıklanabilir prototipe çevir"</p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;oklch(0.55 0.14 250)&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;oklch(0.55 0.14 250)&quot;,&quot;oklch(0.5 0.1 200)&quot;,&quot;oklch(0.5 0.12 155)&quot;,&quot;oklch(0.52 0.13 285)&quot;],&quot;section&quot;:&quot;Prototip (2a)&quot;}}">
+class Component extends DCLogic {
+  state = { screen: "ov" };
+  go(s) { return () => this.setState({ screen: s }); }
+  renderVals() {
+    const AC = this.props.accent ?? "oklch(0.55 0.14 250)";
+    const scr = this.state.screen;
+    const navP = [
+      { icon: "#ic-home", label: "Genel Bakış", k: "ov" },
+      { icon: "#ic-doc", label: "Faturalar", k: null },
+      { icon: "#ic-wallet", label: "Giderler", k: null },
+      { icon: "#ic-users", label: "Cari Hesaplar", k: null },
+      { icon: "#ic-chart", label: "Raporlar", k: "rep" },
+      { icon: "#ic-percent", label: "KDV / Vergi", k: null },
+      { icon: "#ic-trash", label: "Çöp Kutusu", k: null },
+      { icon: "#ic-gear", label: "Ayarlar", k: null }
+    ].map(n => ({
+      ...n,
+      on: n.k ? this.go(n.k) : undefined,
+      bg: n.k === scr ? AC : "transparent",
+      fg: n.k === scr ? "#fff" : (n.k ? "#5c636e" : "#a3aab6")
+    }));
+    const pnl = [
+      { label: "Brüt satışlar", value: "₺1.342.800", fw: "400", col: "#3d434d" },
+      { label: "Satış iadeleri", value: "−₺58.300", fw: "400", col: "#3d434d" },
+      { label: "Net satışlar", value: "₺1.284.500", fw: "500", col: "#171a1f" },
+      { label: "Satılan malın maliyeti", value: "−₺561.900", fw: "400", col: "#3d434d" },
+      { label: "Brüt kâr", value: "₺722.600", fw: "500", col: "#171a1f" },
+      { label: "Faaliyet giderleri", value: "−₺280.400", fw: "400", col: "#3d434d" },
+      { label: "Net kâr", value: "₺442.200", fw: "500", col: "#171a1f" }
+    ];
+    const bal = [
+      { label: "Dönen varlıklar", amount: "₺1.865.400", pct: "78%" },
+      { label: "Duran varlıklar", amount: "₺524.100", pct: "22%" },
+      { label: "Kısa vadeli yükümlülükler", amount: "₺712.300", pct: "42%" },
+      { label: "Özkaynaklar", amount: "₺1.677.200", pct: "70%" }
+    ];
+    const aging = [
+      { label: "0–30 gün", amount: "₺96.400", pct: "52%" },
+      { label: "31–60 gün", amount: "₺48.100", pct: "26%" },
+      { label: "61–90 gün", amount: "₺27.500", pct: "15%" },
+      { label: "90+ gün", amount: "₺14.900", pct: "8%" }
+    ];
+    const tmpl = [
+      { label: "Aylık gelir tablosu", sub: "PDF · Ağustos 2026" },
+      { label: "KDV beyan formu", sub: "XML · 26.08.2026 son gün" },
+      { label: "Cari hesap ekstresi", sub: "XLSX · tüm cariler" },
+      { label: "Gider kategori dökümü", sub: "XLSX · 214 kayıt" }
+    ];
+    const nav = [
+      { icon: "#ic-doc", label: "Faturalar" },
+      { icon: "#ic-wallet", label: "Giderler" },
+      { icon: "#ic-users", label: "Cari Hesaplar" },
+      { icon: "#ic-chart", label: "Raporlar" },
+      { icon: "#ic-percent", label: "KDV / Vergi" },
+      { icon: "#ic-trash", label: "Çöp Kutusu" },
+      { icon: "#ic-gear", label: "Ayarlar" }
+    ];
+    const kpis = [
+      { icon: "#ic-up", label: "Toplam Gelir", short: "Gelir", value: "₺1.284.500", sub: "%12,4 artış · 96 fatura", delta: "▲ %12,4", dc: "#6ee7a0", dcL: "#2f6b47", spark: "0,13 10,11 20,12 30,7 40,8 52,3" },
+      { icon: "#ic-down", label: "Toplam Gider", short: "Gider", value: "₺842.300", sub: "%4,1 artış · 214 kayıt", delta: "▲ %4,1", dc: "#f0b46b", dcL: "#8a5a00", spark: "0,10 10,9 20,11 30,8 40,9 52,7" },
+      { icon: "#ic-chart", label: "Net Kâr", short: "Net Kâr", value: "₺442.200", sub: "%23,8 artış", delta: "▲ %23,8", dc: "#6ee7a0", dcL: "#2f6b47", spark: "0,14 10,12 20,13 30,8 40,7 52,2" },
+      { icon: "#ic-doc", label: "Ödenmemiş Faturalar", short: "Ödenmemiş", value: "₺186.900", sub: "14 fatura · 3'ü gecikmiş", delta: "▼ %2,6", dc: "#f0b46b", dcL: "#8a5a00", spark: "0,5 10,7 20,6 30,9 40,8 52,11" },
+      { icon: "#ic-users", label: "Bekleyen Tahsilatlar", short: "Tahsilat", value: "₺97.400", sub: "8 cari hesap", delta: "▲ %1,9", dc: "#6ee7a0", dcL: "#2f6b47", spark: "0,9 10,8 20,10 30,6 40,7 52,5" },
+      { icon: "#ic-percent", label: "KDV / Vergi Özeti", short: "KDV", value: "₺73.150", sub: "Ağustos dönemi · 26'sında", delta: "▲ %6,2", dc: "#f0b46b", dcL: "#8a5a00", spark: "0,11 10,10 20,9 30,10 40,6 52,6" }
+    ];
+    const st = {
+      "Ödendi": { L: ["#0f7b4f", "#e7f6ee"], D: ["#6ee7a0", "rgba(74,222,128,.13)"] },
+      "Beklemede": { L: ["#8a5a00", "#fdf3e0"], D: ["#fbbf24", "rgba(251,191,36,.13)"] },
+      "Gecikmiş": { L: ["#b02a2a", "#fdecec"], D: ["#f87171", "rgba(248,113,113,.13)"] },
+      "Taslak": { L: ["#5b6470", "#eef0f3"], D: ["#9aa4b2", "rgba(154,164,178,.13)"] }
+    };
+    const base = [
+      { no: "FTR-2026-0148", cari: "Yıldız Tekstil A.Ş.", date: "14.08.2026", amount: "₺48.600", kdv: "₺8.748", status: "Ödendi" },
+      { no: "FTR-2026-0147", cari: "Anadolu Lojistik Ltd.", date: "12.08.2026", amount: "₺22.150", kdv: "₺3.987", status: "Beklemede" },
+      { no: "FTR-2026-0146", cari: "Deniz Gıda San. Tic.", date: "09.08.2026", amount: "₺13.900", kdv: "₺2.502", status: "Gecikmiş" },
+      { no: "FTR-2026-0145", cari: "Kaya İnşaat A.Ş.", date: "07.08.2026", amount: "₺61.400", kdv: "₺11.052", status: "Ödendi" },
+      { no: "FTR-2026-0144", cari: "Ege Bilişim Ltd.", date: "05.08.2026", amount: "₺8.750", kdv: "₺1.575", status: "Taslak" },
+      { no: "FTR-2026-0143", cari: "Marmara Enerji A.Ş.", date: "03.08.2026", amount: "₺34.200", kdv: "₺6.156", status: "Ödendi" }
+    ];
+    const paint = (m) => base.map(r => ({ ...r, sc: st[r.status][m][0], sb: st[r.status][m][1] }));
+    const rowsL = paint("L"), rowsD = paint("D");
+    const labels = ["Personel", "Kira", "Tedarikçi", "Diğer"];
+    const pcts = ["%38", "%22", "%18", "%22"];
+    const amounts = ["₺320.100", "₺185.300", "₺151.600", "₺185.300"];
+    const mk = (colors, widths) => labels.map((l, i) => ({ label: l, pct: widths ? widths[i] : pcts[i], amount: amounts[i], color: colors[i] }));
+    return {
+      AC, navP, pnl, bal, aging, tmpl,
+      isOv: scr === "ov", isRep: scr === "rep",
+      goRep: this.go("rep"), goOv: this.go("ov"),
+      navRest: nav, kpis,
+      kpisC: [kpis[0], kpis[1], kpis[3], kpis[5]],
+      rowsL, rowsD, rowsB: rowsD, rowsBL: rowsL, rowsC: rowsL,
+      bars: [
+        { m: "Mar", inH: "58%", exH: "44%" },
+        { m: "Nis", inH: "66%", exH: "48%" },
+        { m: "May", inH: "61%", exH: "52%" },
+        { m: "Haz", inH: "79%", exH: "55%" },
+        { m: "Tem", inH: "72%", exH: "58%" },
+        { m: "Ağu", inH: "94%", exH: "62%" }
+      ],
+      chips: ["Dönem: Ağustos", "Şirket: Tümü", "Durum: Tümü", "Para birimi: ₺"],
+      vat: [
+        { label: "Hesaplanan KDV", value: "₺231.210" },
+        { label: "İndirilecek KDV", value: "₺158.060" },
+        { label: "Ödenecek KDV", value: "₺73.150" },
+        { label: "Stopaj", value: "₺12.480" }
+      ],
+      acts: [
+        { icon: "#ic-doc", text: "FTR-2026-0148 tahsil edildi", time: "12 dk önce" },
+        { icon: "#ic-wallet", text: "Gider kaydı eklendi — Ofis kirası", time: "48 dk önce" },
+        { icon: "#ic-percent", text: "KDV beyanı taslağı oluşturuldu", time: "2 sa önce" },
+        { icon: "#ic-users", text: "Cari hesap güncellendi — Deniz Gıda", time: "5 sa önce" },
+        { icon: "#ic-trash", text: "FTR-2026-0139 çöp kutusuna taşındı", time: "dün" }
+      ],
+      catsA: mk(["oklch(0.55 0.14 250)", "oklch(0.65 0.11 250)", "oklch(0.76 0.07 250)", "#d9dee7"]),
+      catsD: mk(["oklch(0.62 0.15 250)", "oklch(0.72 0.12 250)", "oklch(0.82 0.08 250)", "#3a4152"]),
+      catsB: mk(["oklch(0.66 0.13 250)", "oklch(0.75 0.10 250)", "oklch(0.84 0.07 250)", "#2b3238"]),
+      catsBL: mk(["oklch(0.52 0.13 250)", "oklch(0.64 0.11 250)", "oklch(0.76 0.07 250)", "#d3dade"]),
+      catsC: mk(["oklch(0.62 0.13 60)", "oklch(0.7 0.11 60)", "oklch(0.78 0.08 60)", "rgba(26,23,20,.25)"], ["38%", "22%", "18%", "22%"]),
+      catsCD: mk(["oklch(0.72 0.12 60)", "oklch(0.79 0.1 60)", "oklch(0.86 0.07 60)", "rgba(255,255,255,.25)"], ["38%", "22%", "18%", "22%"])
+    };
+  }
+}
+</script>
+</body>
+</html>

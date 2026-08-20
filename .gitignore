@@ -1,0 +1,23 @@
+# Windows
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Claude Code yerel ayarlar
+.claude/settings.local.json
+
+# Geçici dosyalar
+*.tmp
+*.log

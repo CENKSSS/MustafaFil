@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "yan-urunler",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/sunucu.js"],
+      "port": 8137
+    }
+  ]
+}

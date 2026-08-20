@@ -1,0 +1,986 @@
+<title>Yan Ürünler Stok Takip v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&display=swap">
+
+<style>
+/* ============================================================
+   Yan Ürünler Stok Takip — Şartname v2
+   Dünya: şeker fabrikası. Galvaniz silo grisi, kehribar uyarı
+   levhası, kilitli demirbaş plakası. IBM Plex — mühendislik için
+   çizilmiş bir aile: Sans başlık, Serif düzyazı, Mono formül.
+   ============================================================ */
+:root{
+  --ground:#F5F6F7; --surface:#FFFFFF; --surface-2:#EDEFF2; --surface-3:#E4E7EB;
+  --ink:#14181C; --ink-2:#454E57; --ink-3:#6E7882; --ink-4:#98A2AC;
+  --rule:rgba(20,24,28,.12); --rule-soft:rgba(20,24,28,.06); --rule-hard:rgba(20,24,28,.22);
+  --accent:#2F5D8C; --accent-soft:rgba(47,93,140,.10); --accent-ink:#FFFFFF;
+  --kilit:#2E3841; --kilit-soft:rgba(46,56,65,.09); --kilit-ink:#FFFFFF;
+  --yeni:#8A5200; --yeni-soft:rgba(138,82,0,.11);
+  --kritik:#A32318; --kritik-soft:rgba(163,35,24,.08);
+  --ok:#1B6047; --ok-soft:rgba(27,96,71,.10);
+  --sans:"IBM Plex Sans",-apple-system,"Segoe UI",Roboto,sans-serif;
+  --serif:"IBM Plex Serif",Georgia,"Times New Roman",serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0F1215; --surface:#171B20; --surface-2:#1E242B; --surface-3:#252C34;
+    --ink:#E6EAEE; --ink-2:rgba(230,234,238,.70); --ink-3:rgba(230,234,238,.48); --ink-4:rgba(230,234,238,.32);
+    --rule:rgba(255,255,255,.11); --rule-soft:rgba(255,255,255,.055); --rule-hard:rgba(255,255,255,.20);
+    --accent:#84B2E4; --accent-soft:rgba(132,178,228,.14); --accent-ink:#0B1219;
+    --kilit:#C6D0DA; --kilit-soft:rgba(198,208,218,.13); --kilit-ink:#12171C;
+    --yeni:#E2A54F; --yeni-soft:rgba(226,165,79,.15);
+    --kritik:#F09184; --kritik-soft:rgba(240,145,132,.13);
+    --ok:#63BE9C; --ok-soft:rgba(99,190,156,.13);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0F1215; --surface:#171B20; --surface-2:#1E242B; --surface-3:#252C34;
+  --ink:#E6EAEE; --ink-2:rgba(230,234,238,.70); --ink-3:rgba(230,234,238,.48); --ink-4:rgba(230,234,238,.32);
+  --rule:rgba(255,255,255,.11); --rule-soft:rgba(255,255,255,.055); --rule-hard:rgba(255,255,255,.20);
+  --accent:#84B2E4; --accent-soft:rgba(132,178,228,.14); --accent-ink:#0B1219;
+  --kilit:#C6D0DA; --kilit-soft:rgba(198,208,218,.13); --kilit-ink:#12171C;
+  --yeni:#E2A54F; --yeni-soft:rgba(226,165,79,.15);
+  --kritik:#F09184; --kritik-soft:rgba(240,145,132,.13);
+  --ok:#63BE9C; --ok-soft:rgba(99,190,156,.13);
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+body{
+  background:var(--ground); color:var(--ink);
+  font-family:var(--serif); font-size:16px; line-height:1.62;
+  -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto} *{animation:none!important;transition:none!important}}
+
+.sayfa{display:grid;grid-template-columns:246px minmax(0,1fr);gap:0;max-width:1240px;margin:0 auto}
+
+/* ---------- Sol ray ---------- */
+.ray{
+  position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto;
+  padding:30px 22px 34px; border-right:1px solid var(--rule);
+  font-family:var(--sans); display:flex; flex-direction:column; gap:22px;
+}
+.ray-marka{display:flex;flex-direction:column;gap:3px}
+.ray-ad{font-size:15px;font-weight:600;letter-spacing:-.01em;line-height:1.25}
+.ray-sur{
+  font-family:var(--mono);font-size:11px;font-weight:600;color:var(--accent);
+  letter-spacing:.06em;
+}
+.ray-nav{display:flex;flex-direction:column;gap:1px}
+.ray-nav a{
+  display:flex;align-items:baseline;gap:9px;padding:5px 8px;border-radius:5px;
+  font-size:13px;color:var(--ink-2);text-decoration:none;line-height:1.35;
+  transition:background .13s,color .13s;
+}
+.ray-nav a:hover{background:var(--surface-2);color:var(--ink)}
+.ray-nav a:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.ray-nav .no{font-family:var(--mono);font-size:11px;color:var(--ink-4);flex:none;width:16px}
+
+.efsane{border-top:1px solid var(--rule);padding-top:16px;display:flex;flex-direction:column;gap:11px}
+.efsane-bas{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--ink-4)}
+.efsane-sat{display:flex;gap:9px;align-items:flex-start;font-size:11.5px;color:var(--ink-3);line-height:1.4}
+
+/* ---------- Rozet ---------- */
+.rozet{
+  font-family:var(--mono);font-size:9.5px;font-weight:600;letter-spacing:.09em;
+  text-transform:uppercase;padding:3px 7px;border-radius:4px;white-space:nowrap;
+  flex:none;line-height:1.15;
+}
+.rozet.kilit{background:var(--kilit);color:var(--kilit-ink)}
+.rozet.yeni{background:var(--yeni-soft);color:var(--yeni);box-shadow:inset 0 0 0 1px var(--yeni)}
+
+/* ---------- Gövde ---------- */
+main{padding:52px 46px 96px;min-width:0}
+.blok{max-width:74ch}
+.blok.genis{max-width:none}
+
+.ust{border-bottom:1px solid var(--rule-hard);padding-bottom:30px;margin-bottom:38px}
+.ust-etiket{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--ink-3);margin-bottom:12px}
+h1{font-family:var(--sans);font-size:38px;font-weight:600;letter-spacing:-.025em;
+  line-height:1.12;text-wrap:balance;margin-bottom:10px}
+.ust-alt{font-family:var(--serif);font-size:17px;color:var(--ink-2);line-height:1.55;max-width:62ch}
+.kunye{display:flex;flex-wrap:wrap;gap:0 30px;margin-top:22px;font-family:var(--sans);font-size:12.5px}
+.kunye div{display:flex;flex-direction:column;gap:1px}
+.kunye dt{color:var(--ink-3);font-size:11px;letter-spacing:.03em}
+.kunye dd{color:var(--ink);font-weight:500}
+
+h2{
+  font-family:var(--sans);font-size:23px;font-weight:600;letter-spacing:-.018em;
+  line-height:1.2;margin:64px 0 6px;display:flex;align-items:center;gap:11px;
+  text-wrap:balance;scroll-margin-top:24px;
+}
+h2 .no{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent);
+  background:var(--accent-soft);padding:3px 8px;border-radius:5px;flex:none}
+h3{font-family:var(--sans);font-size:15.5px;font-weight:600;letter-spacing:-.005em;
+  margin:30px 0 8px;display:flex;align-items:center;gap:9px;text-wrap:balance}
+h4{font-family:var(--sans);font-size:13px;font-weight:600;color:var(--ink-2);
+  margin:20px 0 6px;letter-spacing:.01em}
+p{margin:11px 0}
+p+p{margin-top:13px}
+.giris{color:var(--ink-2);font-size:16.5px;margin-bottom:4px}
+
+a{color:var(--accent);text-underline-offset:2px}
+strong{font-weight:600;color:var(--ink)}
+em{font-style:italic}
+code{font-family:var(--mono);font-size:.86em;background:var(--surface-2);
+  padding:1.5px 5px;border-radius:4px;color:var(--ink)}
+
+ul,ol{margin:11px 0 11px 0;padding-left:21px;display:flex;flex-direction:column;gap:5px}
+li{padding-left:3px}
+li::marker{color:var(--ink-4)}
+
+/* ---------- Formül ---------- */
+.formul{
+  font-family:var(--mono);font-size:13px;line-height:1.85;white-space:pre;
+  background:var(--surface); border:1px solid var(--rule);
+  border-left:3px solid var(--accent); border-radius:0 8px 8px 0;
+  padding:15px 18px; margin:16px 0; overflow-x:auto;
+}
+.formul .yorum{color:var(--ink-3)}
+.formul .vurgu{color:var(--accent);font-weight:600}
+
+/* ---------- Kutu ---------- */
+.kutu{
+  border-radius:9px;padding:15px 18px;margin:20px 0;
+  font-family:var(--sans);font-size:14px;line-height:1.55;
+  border:1px solid var(--rule);background:var(--surface);
+}
+.kutu-bas{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.12em;
+  text-transform:uppercase;margin-bottom:7px;display:flex;align-items:center;gap:8px}
+.kutu.kritik{background:var(--kritik-soft);border-color:transparent;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--kritik) 30%, transparent)}
+.kutu.kritik .kutu-bas{color:var(--kritik)}
+.kutu.degisti{background:var(--yeni-soft);border-color:transparent;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--yeni) 32%, transparent)}
+.kutu.degisti .kutu-bas{color:var(--yeni)}
+.kutu.not{background:var(--surface-2)}
+.kutu.not .kutu-bas{color:var(--ink-3)}
+.kutu.soru{background:var(--accent-soft);border-color:transparent;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent)}
+.kutu.soru .kutu-bas{color:var(--accent)}
+.kutu.cevap{background:var(--ok-soft);border-color:transparent;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--ok) 30%, transparent)}
+.kutu.cevap .kutu-bas{color:var(--ok)}
+.kutu.cevap .kaynak{display:block;margin-top:9px;padding-top:8px;
+  border-top:1px solid color-mix(in srgb, var(--ok) 25%, transparent);
+  font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+
+/* ---------- Tablo ---------- */
+.tablo-sar{overflow-x:auto;margin:20px 0;border:1px solid var(--rule);border-radius:9px;background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-family:var(--sans);font-size:13.5px;line-height:1.45}
+thead th{
+  text-align:left;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink-3);padding:11px 14px;white-space:nowrap;
+  background:var(--surface-2);border-bottom:1px solid var(--rule);
+}
+tbody td{padding:11px 14px;border-bottom:1px solid var(--rule-soft);vertical-align:top}
+tbody tr:last-child td{border-bottom:none}
+td.kod,.tnum{font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+td.dar{width:1%;white-space:nowrap}
+.satir-yeni td:first-child{box-shadow:inset 3px 0 0 var(--yeni)}
+
+/* ---------- Kural kartı ---------- */
+.kural{
+  display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:0 14px;align-items:start;
+  padding:13px 16px;border:1px solid var(--rule);border-radius:8px;background:var(--surface);
+  font-family:var(--sans);font-size:14px;
+}
+.kural+.kural{margin-top:7px}
+.kural.eklendi{box-shadow:inset 3px 0 0 var(--yeni)}
+.kural .kd{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent)}
+.kural .kmetin{line-height:1.5}
+.kural .knot{display:block;font-size:12.5px;color:var(--ink-3);margin-top:3px;font-family:var(--serif)}
+.kural .ksonuc{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--ink-3);padding-top:2px}
+
+/* ---------- Test kartı ---------- */
+.test{border:1px solid var(--rule);border-radius:9px;background:var(--surface);
+  padding:16px 18px;margin:14px 0}
+.test.eklendi{box-shadow:inset 3px 0 0 var(--yeni)}
+.test-bas{display:flex;align-items:center;gap:10px;margin-bottom:7px;font-family:var(--sans);
+  font-size:14.5px;font-weight:600}
+.test-bas .tno{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--accent);
+  background:var(--accent-soft);padding:3px 7px;border-radius:4px}
+.test-durum{font-family:var(--sans);font-size:13.5px;color:var(--ink-2);margin-bottom:9px}
+.beklenen{font-family:var(--mono);font-size:12.5px;line-height:1.8;white-space:pre;
+  background:var(--surface-2);border-radius:6px;padding:11px 14px;overflow-x:auto}
+
+/* ---------- Adım listesi ---------- */
+.adimlar{display:flex;flex-direction:column;gap:0;margin:20px 0;
+  border:1px solid var(--rule);border-radius:9px;overflow:hidden;background:var(--surface)}
+.adim{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:14px;align-items:baseline;
+  padding:13px 16px;font-family:var(--sans);font-size:14px;border-bottom:1px solid var(--rule-soft)}
+.adim:last-child{border-bottom:none}
+.adim .an{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--ink-4)}
+.adim .asure{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);white-space:nowrap}
+.adim b{font-weight:600}
+.adim span.aalt{display:block;font-family:var(--serif);font-size:13px;color:var(--ink-3);margin-top:2px}
+
+.dip{margin-top:72px;padding-top:22px;border-top:1px solid var(--rule);
+  font-family:var(--sans);font-size:12.5px;color:var(--ink-3);line-height:1.6}
+
+/* ---------- Duyarlı ---------- */
+@media (max-width:980px){
+  .sayfa{grid-template-columns:1fr}
+  .ray{position:static;height:auto;border-right:none;border-bottom:1px solid var(--rule);
+    padding:24px 26px;flex-direction:row;flex-wrap:wrap;gap:26px;align-items:flex-start}
+  .ray-nav{display:none}
+  .efsane{border-top:none;padding-top:0;flex:1;min-width:230px}
+  main{padding:34px 26px 72px}
+  h1{font-size:30px}
+  h2{font-size:20px;margin-top:48px}
+}
+@media (max-width:560px){
+  body{font-size:15.5px}
+  main{padding:26px 18px 60px}
+  .ray{padding:20px 18px}
+  h1{font-size:25px}
+  .kural{grid-template-columns:46px minmax(0,1fr);gap:0 12px}
+  .kural .ksonuc{grid-column:2;margin-top:6px}
+  .adim{grid-template-columns:28px minmax(0,1fr);gap:10px}
+  .adim .asure{grid-column:2;margin-top:3px}
+}
+</style>
+
+<div class="sayfa">
+
+<aside class="ray">
+  <div class="ray-marka">
+    <span class="ray-ad">Yan Ürünler Stok Takip</span>
+    <span class="ray-sur">ŞARTNAME v2</span>
+  </div>
+
+  <nav class="ray-nav" aria-label="Bölümler">
+    <a href="#b0"><span class="no">0</span> Bu sürüm hakkında</a>
+    <a href="#b1"><span class="no">1</span> Amaç ve kapsam</a>
+    <a href="#b2"><span class="no">2</span> Sözlük</a>
+    <a href="#b3"><span class="no">3</span> Roller</a>
+    <a href="#b4"><span class="no">4</span> Kuru küspe ve silo</a>
+    <a href="#b5"><span class="no">5</span> Stok formülleri</a>
+    <a href="#b6"><span class="no">6</span> Veri modeli</a>
+    <a href="#b7"><span class="no">7</span> Ekranlar</a>
+    <a href="#b8"><span class="no">8</span> Doğrulama kuralları</a>
+    <a href="#b9"><span class="no">9</span> Kabul testleri</a>
+    <a href="#b10"><span class="no">10</span> Teknik notlar</a>
+    <a href="#b11"><span class="no">11</span> Opsiyonel</a>
+    <a href="#b12"><span class="no">12</span> Teslim</a>
+    <a href="#b13"><span class="no">13</span> Açık sorular</a>
+  </nav>
+
+  <div class="efsane">
+    <span class="efsane-bas">İşaretler</span>
+    <div class="efsane-sat">
+      <span class="rozet kilit">Demirbaş</span>
+      <span>v1'den birebir gelir. Değiştirilemez, sadeleştirilemez; değişiklik teklifine kapalıdır.</span>
+    </div>
+    <div class="efsane-sat">
+      <span class="rozet yeni">v2</span>
+      <span>Bu sürümde eklendi. İyileştirme, performans veya arayüz kalemi — işleyişi değiştirmez.</span>
+    </div>
+  </div>
+</aside>
+
+<main>
+
+<header class="ust blok">
+  <div class="ust-etiket">Yazılım Analiz ve Şartname Dokümanı · Sürüm 2.0</div>
+  <h1>Yan Ürünler Stok Takip</h1>
+  <p class="ust-alt">Şeker fabrikasının yan ürünlerinin (yaş küspe, kuru küspe, kuyruk, toprak) günlük üretim, satış ve stok takibini yapan uygulamanın iş kuralları ve teknik şartnamesi.</p>
+  <dl class="kunye">
+    <div><dt>v1 Hazırlayan</dt><dd>Mümin CEYLAN</dd></div>
+    <div><dt>Uygulayacak</dt><dd>Stajyer</dd></div>
+    <div><dt>Sürüm</dt><dd>2.0</dd></div>
+    <div><dt>Referans uygulama</dt><dd><code>C:\YanUrunlerTakip</code></dd></div>
+  </dl>
+</header>
+
+<!-- ============ 0 ============ -->
+<h2 id="b0"><span class="no">0</span> Bu sürüm hakkında</h2>
+<div class="blok">
+<p class="giris">v2, v1'in <strong>ne yapacağını değiştirmez</strong>. Yalnızca nasıl yapılacağını günceller ve v1'de açıkta kalmış birkaç noktayı kapatır.</p>
+
+<div class="kutu not">
+  <div class="kutu-bas">Okuma kılavuzu</div>
+  <p style="margin:0"><span class="rozet kilit">Demirbaş</span> işaretli her madde v1'den birebir gelir ve <strong>tartışmaya kapalıdır</strong> — hesap formülleri, stok kuralları, D1–D12 ve kabul testlerinin beklenen rakamları buna dahildir. <span class="rozet yeni">v2</span> işaretli maddeler bu sürümde eklendi; hepsi iyileştirme, dayanıklılık veya arayüz kalemidir.</p>
+</div>
+
+<h3>v2'de ne değişti</h3>
+<div class="tablo-sar">
+<table>
+<thead><tr><th>Konu</th><th>v1</th><th>v2</th><th class="dar">Efor</th></tr></thead>
+<tbody>
+<tr class="satir-yeni"><td><b>Dökme küspe satışı</b><br><span style="font-family:var(--mono);font-size:10px;color:var(--ok)">FABRİKA TEYİDİ ALINDI</span></td><td>Hareket tipi tanımlı, giriş ekranı yok. §5 ile §7 çelişiyor</td><td>Günlük giriş ekranına alan + silo seçimi + <span class="tnum">D13</span></td><td class="kod">1 gün</td></tr>
+<tr class="satir-yeni"><td><b>Geriye dönük düzeltme</b></td><td>Yalnız o günün başına bakılıyor</td><td><span class="tnum">D14</span> — sonraki günler ileri doğru doğrulanır</td><td class="kod">1 gün</td></tr>
+<tr class="satir-yeni"><td><b>Devir stok</b></td><td>Malzeme başına ömür boyu tek satır</td><td>Tekillik <code>(MalzemeId, DevirTarihi)</code>; "en son devir" formülü</td><td class="kod">½ gün</td></tr>
+<tr class="satir-yeni"><td><b>Eşzamanlı düzenleme</b></td><td>Çözüm belirtilmemiş</td><td><code>RowVersion</code> + <span class="tnum">D16</span> + "bu gün zaten kayıtlı" uyarısı</td><td class="kod">½ gün</td></tr>
+<tr class="satir-yeni"><td><b>Denetim izi</b></td><td>Yalnız "kim oluşturdu"</td><td>Güncelleyen kolonları + <code>DegisiklikLog</code> tablosu</td><td class="kod">1 gün</td></tr>
+<tr class="satir-yeni"><td><b>Silo kapasitesi</b><br><span style="font-family:var(--mono);font-size:10px;color:var(--ok)">3.000 TON · KAPSAM TEYİT BEKLİYOR</span></td><td>Tutuluyor, kontrol edilmiyor</td><td><span class="tnum">D15</span> yumuşak uyarı + doluluk göstergesi</td><td class="kod">½ gün</td></tr>
+<tr class="satir-yeni"><td><b>Tarih ve miktar tipleri</b></td><td>Belirtilmemiş</td><td><code>DATE</code>/<code>DateOnly</code>, <code>decimal(18,3)</code></td><td class="kod">0</td></tr>
+<tr class="satir-yeni"><td><b>Özel tip tekilliği</b></td><td>Kısıtsız</td><td>Filtreli tekil indeks</td><td class="kod">0</td></tr>
+<tr><td><b>Teknoloji</b></td><td>.NET 8 · Blazor Server</td><td><b>.NET 8</b> korunur · Blazor Web App (Interactive Server)</td><td class="kod">0</td></tr>
+<tr class="satir-yeni"><td><b>Testler</b></td><td>8 test, elle çalıştırılır</td><td>12 test, xUnit ile otomatik</td><td class="kod">1 gün</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="kutu degisti">
+  <div class="kutu-bas">Değişmeyenler</div>
+  <p style="margin:0">§4'ün netleme formülleri, §5'in stok hesapları, <span class="tnum">D1–D12</span>, sekiz kabul testinin beklenen rakamları, sözlük, malzeme listesi, roller, sekiz tablonun ilişkileri, SQL Server, çok kullanıcılı web mimarisi, hash'li parola ve <code>decimal</code> miktarlar — hepsi aynen korunur.</p>
+</div>
+
+<div class="kutu not">
+  <div class="kutu-bas">Stajyere not · v1'den devam</div>
+  <p style="margin:0">Bu dokümandaki 4., 5. ve 8. bölümler işin özüdür. Ekran tasarımını değiştirebilirsin, teknoloji seçimini tartışabilirsin; ama oradaki hesap ve doğrulama kurallarını birebir uygulaman gerekiyor. Bir kuralı anlamadıysan uydurma, sor.</p>
+</div>
+</div>
+
+<!-- ============ 1 ============ -->
+<h2 id="b1"><span class="no">1</span> Amaç ve kapsam <span class="rozet kilit">Demirbaş</span></h2>
+<div class="blok">
+<p>Şeker fabrikasında pancar işlenirken şekerin yanında bir dizi yan ürün çıkar. Bunların günlük üretimi, satışı ve eldeki stoğu bugün elle/Excel ile takip ediliyor. Bu uygulamanın amacı bu takibi tek bir yerde, tutarlı ve geçmişe dönük sorgulanabilir hâle getirmek.</p>
+
+<h3>Kapsam içinde</h3>
+<ul>
+<li>Malzeme bazında günlük üretim ve satış girişi.</li>
+<li>Malzeme bazında kümülatif stok hesabı (devir + üretim − satış).</li>
+<li>Dökme kuru küspe için silo bazlı stok takibi.</li>
+<li>Kampanya başı devir stok tanımlama (malzeme ve silo bazında).</li>
+<li>Geçmiş girişleri listeleme, düzeltme, silme.</li>
+<li>Kullanıcı yönetimi ve iki seviyeli yetkilendirme.</li>
+</ul>
+
+<h3>Kapsam dışında</h3>
+<ul>
+<li>Muhasebe/fatura entegrasyonu, cari hesap, fiyat ve tutar takibi.</li>
+<li>Kantar (tartı) sistemiyle otomatik veri alışverişi.</li>
+<li>Şeker (ana ürün) takibi — yalnızca yan ürünler.</li>
+</ul>
+</div>
+
+<!-- ============ 2 ============ -->
+<h2 id="b2"><span class="no">2</span> Sözlük <span class="rozet kilit">Demirbaş</span></h2>
+<div class="blok">
+<p>Fabrika terimleri. Kodda ve ekranlarda bu adlandırmayı kullan.</p>
+<div class="tablo-sar">
+<table>
+<thead><tr><th>Terim</th><th>Anlamı</th></tr></thead>
+<tbody>
+<tr><td class="dar"><b>Küspe</b></td><td>Pancardan şeker alındıktan sonra kalan posa. Hayvan yemi olarak satılır.</td></tr>
+<tr><td class="dar"><b>Yaş küspe</b></td><td>Kurutulmamış küspe. Tonluk büyük torbada veya 25 kg'lık poşette satılır.</td></tr>
+<tr><td class="dar"><b>Kuru küspe</b></td><td>Kurutulmuş, peletlenmiş küspe. İki biçimde tutulur: dökme (silolarda) ve çuvallı (50 kg torba).</td></tr>
+<tr><td class="dar"><b>Çuvallama</b></td><td>Dökme kuru küspenin 50 kg'lık çuvallara doldurulması. Yeni üretim değildir, biçim değiştirmedir.</td></tr>
+<tr><td class="dar"><b>Silo</b></td><td>Dökme kuru küspenin depolandığı tank. Fabrikada üç adet var: Silo 1, Silo 2, Silo 3. Kapasite <span class="tnum">3.000 ton</span> — silo başına mı yoksa üçünün toplamı mı olduğu teyit bekliyor (§13, Soru 5). <span class="rozet yeni">v2</span></td></tr>
+<tr><td class="dar"><b>Kuyruk</b></td><td>Pancar kuyruğu/parçası. Ayrı bir yan ürün, ayrı satılır.</td></tr>
+<tr><td class="dar"><b>Toprak</b></td><td>Pancarla gelen ve yıkamada ayrışan toprak.</td></tr>
+<tr><td class="dar"><b>Atık kuru küspe</b></td><td>Standart dışı, ıskarta kuru küspe.</td></tr>
+<tr><td class="dar"><b>Devir stok</b></td><td>Kampanya (sezon) başındaki açılış stoğu. Uygulama kurulurken elle girilir, sonra kümülatif hesabın başlangıç noktası olur.</td></tr>
+<tr><td class="dar"><b>Kampanya</b></td><td>Pancar işleme sezonu. Genelde eylülde başlar.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Takip edilen malzemeler</h3>
+<p>Uygulama bu yedi malzeme ile kurulur; yenisi ekranından eklenebilir olmalı.</p>
+<div class="tablo-sar">
+<table>
+<thead><tr><th class="dar">Sıra</th><th>Malzeme</th><th class="dar">Birim</th><th>Özel tip</th></tr></thead>
+<tbody>
+<tr><td class="kod">1</td><td>Yaş Küspe (Tonluk)</td><td class="kod">Kg</td><td>—</td></tr>
+<tr><td class="kod">2</td><td>Yaş Küspe (25'lik)</td><td class="kod">Kg</td><td>—</td></tr>
+<tr><td class="kod">3</td><td>Dökme Kuru Küspe</td><td class="kod">Kg</td><td class="kod">DokmeKuruKuspe</td></tr>
+<tr><td class="kod">4</td><td>Kuru Küspe (50 Kg)</td><td class="kod">Kg</td><td class="kod">CuvalKuruKuspe</td></tr>
+<tr><td class="kod">5</td><td>Atık Kuru Küspe</td><td class="kod">Kg</td><td>—</td></tr>
+<tr><td class="kod">6</td><td>Kuyruk</td><td class="kod">Kg</td><td>—</td></tr>
+<tr><td class="kod">7</td><td>Toprak</td><td class="kod">Kg</td><td>—</td></tr>
+</tbody>
+</table>
+</div>
+<p>Özel tip alanı, o malzemenin normal akış dışında işlendiğini belirtir. Boş olan malzemeler basit malzemedir: kullanıcı üretim ve satış miktarını doğrudan girer. Özel tipli iki malzemenin nasıl işlendiği 4. bölümde anlatılıyor.</p>
+</div>
+
+<!-- ============ 3 ============ -->
+<h2 id="b3"><span class="no">3</span> Roller <span class="rozet kilit">Demirbaş</span></h2>
+<div class="blok">
+<div class="tablo-sar">
+<table>
+<thead><tr><th class="dar">Rol</th><th>Yapabildikleri</th></tr></thead>
+<tbody>
+<tr><td class="dar"><b>Operatör</b></td><td>Günlük üretim/satış girer, geçmiş girişleri düzeltir, stok ve silo durumunu görür, rapor alır.</td></tr>
+<tr><td class="dar"><b>Yönetici</b></td><td>Operatörün her şeyi + devir stok tanımlama, malzeme yönetimi, kullanıcı yönetimi.</td></tr>
+</tbody>
+</table>
+</div>
+<p>Uygulamaya giriş kullanıcı adı ve parola ile yapılır. Parolalar veritabanında düz metin tutulmaz, hash'lenir (BCrypt gibi bir algoritma kullan). Oturum çerezle taşınır.</p>
+</div>
+
+<!-- ============ 4 ============ -->
+<h2 id="b4"><span class="no">4</span> Kuru küspe ve silo mantığı <span class="rozet kilit">Demirbaş</span></h2>
+<div class="blok">
+<p class="giris">Uygulamanın tek zor kısmı burası. Yanlış kurgulanırsa stok çift sayılır ve rakamlar tutmaz. Önce sorunu anla, sonra kodla.</p>
+
+<h3>Sorun</h3>
+<p>Kurutma tesisi gün boyu dökme kuru küspe üretir. Bu küspenin bir kısmı aynı gün 50 kg'lık çuvallara doldurulup çuvallı kuru küspe olarak satılır. Çuvallama yeni üretim değildir — aynı malın biçim değiştirmesidir.</p>
+
+<div class="kutu kritik">
+  <div class="kutu-bas">Kritik kural</div>
+  <p style="margin:0">Eğer gün içinde üretilen dökme küspenin tamamını "dökme üretim" sayar, ayrıca çuvallananı da "çuval üretim" sayarsan aynı malı iki kez saymış olursun. Uygulamanın var oluş sebeplerinden biri bunu engellemektir.</p>
+</div>
+
+<h3>Kullanıcı ne girer</h3>
+<p>Operatör gün için yalnızca iki sayı girer:</p>
+<ul>
+<li><strong>Üretilen dökme kuru küspe (Kg)</strong> — işletme raporundan gelen ham rakam.</li>
+<li><strong>Çuvallanan adet</strong> — kaç çuval doldurulduğu. 1 çuval = 50 Kg sabittir.</li>
+</ul>
+<p>Sistem kalanını hesaplar. Kullanıcıya "net üretim" diye bir şey sordurma.</p>
+
+<h3>Sistem ne hesaplar</h3>
+<div class="formul"><span class="vurgu">CuvalKg</span>          = CuvalAdet × 50
+<span class="vurgu">NetDokmeUretim</span>   = max(0, UretilenDokme − CuvalKg)   <span class="yorum">// silolara girecek</span>
+<span class="vurgu">SilodanCekilecek</span> = max(0, CuvalKg − UretilenDokme)   <span class="yorum">// silolardan çıkacak</span></div>
+<p>İki değerden her zaman en fazla biri sıfırdan büyüktür. Hangisinin dolu olduğu o günün durumunu anlatır.</p>
+
+<div class="tablo-sar">
+<table>
+<thead><tr><th>Durum A — Üretim çuvallamadan fazla</th><th>Durum B — Çuvallama üretimden fazla</th></tr></thead>
+<tbody>
+<tr><td class="kod">UretilenDokme &gt; CuvalKg</td><td class="kod">CuvalKg &gt; UretilenDokme</td></tr>
+<tr><td>Üretilen dökme: <span class="tnum">250.000 Kg</span></td><td>Üretilen dökme: <span class="tnum">5.000 Kg</span></td></tr>
+<tr><td>Çuvallanan (200 çuval): <span class="tnum">10.000 Kg</span> → Kuru Küspe (50 Kg) üretimi</td><td>Çuvallanan (200 çuval): <span class="tnum">10.000 Kg</span> → Kuru Küspe (50 Kg) üretimi</td></tr>
+<tr><td>Net dökme üretim: <span class="tnum">240.000 Kg</span> → <b>silolara yerleşir</b></td><td>Net dökme üretim: <span class="tnum">0</span> — eksik <span class="tnum">5.000 Kg</span> <b>silolardan çekilir</b></td></tr>
+<tr><td>Operatör 240.000 kg'ı silolar arasında dağıtır. Toplam net dökmeye eşit olmak zorundadır.</td><td>O gün üretilenden fazla çuvallanmış; fark önceki günlerin silo stoğundan karşılanır.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="kutu kritik">
+  <div class="kutu-bas">Raporlamada dikkat</div>
+  <p style="margin:0">Durum B'de rapor net dökme üretimi 0 gösterir, ama operatörün girdiği ham rakam (5.000 kg) kaybolmamalı — raporda ayrı bir satır olarak görünmeli. Aksi hâlde kullanıcı "ben 5.000 girmiştim, nereye gitti?" diye sorar.</p>
+</div>
+
+<h3>Silo dağıtımı</h3>
+<p>Net dökme üretim otomatik olarak silolara paylaştırılmaz — hangi siloya ne kadar gittiğini operatör bilir ve girer. Aynı şekilde silodan çekiliyorsa hangi silodan çekildiğini de o seçer. Ekranda "tümü ilk siloya" ve "eşit dağıt" gibi kolaylık düğmeleri koy, ama son söz kullanıcıda olsun.</p>
+
+<h3>Yeniden kaydetme</h3>
+<p>Aynı gün için ikinci kez kayıt yapılırsa (düzeltme), o güne ait eski silo hareketleri silinip yenileri yazılmalıdır. Üstüne eklenirse silo stoğu şişer. Bu işlemlerin tamamı tek bir veritabanı transaction'ı içinde olmalı: günlük kayıt + eski hareketlerin silinmesi + yeni hareketler + malzeme hareketlerinin güncellenmesi. Ortada hata olursa hiçbiri yazılmamalı.</p>
+
+<h3>Dökme küspe satışı <span class="rozet yeni">v2</span></h3>
+<div class="kutu cevap">
+  <div class="kutu-bas">Fabrika teyidi · onaylandı</div>
+  <p style="margin:0"><strong>Dökme kuru küspe yalnızca silolarda durur ve satışı doğrudan silolardan yapılır.</strong> Dolayısıyla dökme küspenin silo dışında bağımsız bir stoğu yoktur; her dökme hareketinin (üretim, çuvallama, satış) mutlaka bir silo karşılığı olmalıdır.</p>
+  <span class="kaynak">Açık soru 1 · cevaplandı</span>
+</div>
+
+<div class="kutu degisti">
+  <div class="kutu-bas">v2'de eklendi · v1'deki çelişkinin çözümü</div>
+  <p style="margin:0 0 8px">v1'de <code>SiloHareket</code> tablosunda <code>DokmeSatis</code> hareket tipi tanımlıydı, ama girildiği ekran yoktu. Üstelik §5 "çuvallı satışı normal satış girişinden gelir" derken §7 o satırı kilitliyordu. Dökme stoğu siloların toplamı olduğu için, satışı yalnızca <code>GunlukHareket</code>'e yazmak silo bakiyesini düşürmez ve dökme stok hiç azalmaz.</p>
+  <p style="margin:0"><strong>Çözüm:</strong> Kuru Küspe Günlük Giriş ekranına <em>satılan dökme (Kg)</em> alanı ve silo seçimi eklenir.</p>
+</div>
+
+<div class="kutu not">
+  <div class="kutu-bas">Neden ana ekranda, kenarda değil</div>
+  <p style="margin:0 0 8px">Toplam silo kapasitesi <span class="tnum">3.000</span>–<span class="tnum">9.000 ton</span> aralığında (§13, Soru 5), günlük net dökme üretim ise <span class="tnum">240.000 kg</span> mertebesinde. Hiç satış yapılmasa silolar <strong>12–37 gün içinde</strong> dolar; kampanya ise eylülden itibaren aylarca sürer.</p>
+  <p style="margin:0">Yani dökme satış istisnai bir işlem değil, <strong>kampanya boyunca neredeyse her gün tekrarlayan bir işlem</strong> olmak zorunda. Bu yüzden ayrı bir ekrana değil, günlük giriş ekranının içine konur. Aynı sebeple <span class="tnum">D15</span> kapasite uyarısı süs değil — kampanya içinde gerçekten tetiklenecek bir kuraldır.</p>
+</div>
+
+<div class="formul">Silo net değişimi = NetDokmeUretim − SilodanCekilecek − <span class="vurgu">SatilanDokme</span></div>
+<p><code>SatilanDokme</code>, <code>KuruKuspeGunluk</code> tablosunda saklanır ve karşılığında <code>DokmeSatis</code> tipinde silo hareketleri üretilir. Yeni doğrulama kuralı <span class="tnum">D13</span>.</p>
+<p>Çuvallı kuru küspenin <em>satışı</em> ise Malzeme Girişi ekranından girilir. O ekranda kilitli olan yalnızca <strong>üretim</strong> kolonudur; satış kolonu açıktır. Dökme kuru küspenin hem üretim hem satış kolonu kilitlidir — ikisi de günlük giriş ekranından gelir.</p>
+</div>
+
+<!-- ============ 5 ============ -->
+<h2 id="b5"><span class="no">5</span> Stok formülleri <span class="rozet kilit">Demirbaş</span></h2>
+<div class="blok">
+
+<h3>Basit malzemeler</h3>
+<p>Yaş küspe, atık küspe, kuyruk, toprak ve sonradan eklenecek malzemeler:</p>
+<div class="formul">Stok = DevirStok + Toplam(Uretim) − Toplam(Satis)</div>
+
+<h3>Silo stoğu</h3>
+<div class="formul">SiloStok = SiloDevirStok + Toplam(GirenKg) − Toplam(CikanKg)</div>
+
+<h3>Dökme kuru küspe</h3>
+<div class="kutu kritik">
+  <div class="kutu-bas">Kritik kural</div>
+  <p style="margin:0">Dökme kuru küspenin stoğu yukarıdaki basit formülle hesaplanmaz. Dökme küspe fiziksel olarak silolarda durur, dolayısıyla: <strong>DokmeKuruKuspeStok = tüm siloların mevcut stoklarının toplamı.</strong></p>
+</div>
+
+<h3>Çuvallı kuru küspe</h3>
+<p>Basit formülle hesaplanır. Üretimi, o günün <code>CuvalKg</code> değeridir; satışı normal satış girişinden gelir.</p>
+
+<h3>Tarih bazlı sorgulama</h3>
+<p>Stok ekranları "bugün itibarıyla" çalışır, ama seçilen bir tarihe kadar olan stoğu da hesaplayabilmelidir (<code>Tarih &lt;= seçilen</code>). Silo giriş ekranında operatöre o günün başındaki silo mevcudu gösterilir (<code>Tarih &lt; seçilen</code>) — çünkü o gün henüz kaydedilmemiştir.</p>
+
+<h3>Devir stoğun seçilmesi <span class="rozet yeni">v2</span></h3>
+<div class="kutu degisti">
+  <div class="kutu-bas">v2'de eklendi</div>
+  <p style="margin:0 0 8px">v1'de her malzeme için ömür boyu tek devir satırı vardı. Kampanya her eylül tekrarladığı için ikinci sezonda devir ya üzerine yazılıp geçmiş karşılaştırılamaz hâle gelirdi, ya da kümülatif toplam sezonlar boyu akıp giderdi.</p>
+  <p style="margin:0">Tekillik kısıtı <code>(MalzemeId, DevirTarihi)</code> ve <code>(SiloId, DevirTarihi)</code> olur. Formül şu hâle gelir:</p>
+</div>
+<div class="formul">Stok = <span class="vurgu">EnSonDevir</span>(Tarih &lt;= sorgu) + Toplam(Uretim) − Toplam(Satis)
+       <span class="yorum">// hareketler yalnızca o devir tarihinden sonrakiler</span></div>
+<p>Tek devir satırı varken davranış v1 ile birebir aynıdır; yeni kampanya açılınca ikinci satır eklenir ve eski sezon olduğu gibi durur.</p>
+</div>
+
+<!-- ============ 6 ============ -->
+<h2 id="b6"><span class="no">6</span> Veri modeli</h2>
+<div class="blok">
+<p class="giris">Sekiz tablo yeterli <span class="rozet kilit">Demirbaş</span>. Alan adlarını değiştirebilirsin ama ilişkileri ve tekillik kısıtlarını koru — kuralların çoğu oralarda saklı.</p>
+
+<div class="tablo-sar">
+<table>
+<thead><tr><th>Tablo</th><th>Ne tutar</th><th>Tekillik kısıtı</th></tr></thead>
+<tbody>
+<tr><td class="kod">Kullanicilar</td><td>Kullanıcı adı, parola hash'i, ad soyad, rol, aktif mi</td><td class="kod">KullaniciAdi</td></tr>
+<tr><td class="kod">Malzemeler</td><td>Ad, birim, sıra, özel tip, aktif mi</td><td class="kod">Ad</td></tr>
+<tr><td class="kod">Silolar</td><td>Ad, sıra, kapasite, aktif mi</td><td class="kod">Ad</td></tr>
+<tr class="satir-yeni"><td class="kod">DevirStok</td><td>Malzeme başına açılış stoğu ve tarihi</td><td class="kod">(MalzemeId, DevirTarihi)</td></tr>
+<tr class="satir-yeni"><td class="kod">SiloDevirStok</td><td>Silo başına açılış stoğu ve tarihi</td><td class="kod">(SiloId, DevirTarihi)</td></tr>
+<tr><td class="kod">GunlukHareket</td><td>Tarih + malzeme için üretim ve satış miktarı</td><td class="kod">(Tarih, MalzemeId)</td></tr>
+<tr class="satir-yeni"><td class="kod">KuruKuspeGunluk</td><td>Günün ham girdisi: üretilen dökme, çuval adedi, çuval kg, <b>satılan dökme</b></td><td class="kod">Tarih</td></tr>
+<tr><td class="kod">SiloHareket</td><td>Silo bazında giren/çıkan, hareket tipi, kaynak kayıt referansı</td><td>—</td></tr>
+<tr class="satir-yeni"><td class="kod">DegisiklikLog <span class="rozet yeni">v2</span></td><td>Tablo, kayıt, alan, eski değer, yeni değer, kullanıcı, tarih, işlem</td><td>—</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="kutu kritik">
+  <div class="kutu-bas">Kritik kural</div>
+  <p style="margin:0"><code>GunlukHareket</code> tablosunda <code>(Tarih, MalzemeId)</code> ikilisi benzersiz olmalı. Aynı gün aynı malzeme için ikinci satır açılmamalı; kayıt "varsa güncelle, yoksa ekle" (upsert) mantığıyla yazılmalı. Aynısı <code>KuruKuspeGunluk.Tarih</code> için geçerli.</p>
+</div>
+
+<h3>SiloHareket hareket tipleri <span class="rozet kilit">Demirbaş</span></h3>
+<div class="tablo-sar">
+<table>
+<thead><tr><th>Değer</th><th>Anlamı</th><th class="dar">Yön</th></tr></thead>
+<tbody>
+<tr><td class="kod">DokmeUretim</td><td>Üretimden siloya giriş</td><td>Giren</td></tr>
+<tr><td class="kod">Cuvallama</td><td>Çuvallamak için silodan çekiş</td><td>Çıkan</td></tr>
+<tr><td class="kod">DokmeSatis</td><td>Silodan doğrudan dökme satış</td><td>Çıkan</td></tr>
+<tr><td class="kod">Manuel</td><td>Elle düzeltme (sayım farkı vb.)</td><td>Her ikisi</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Kolon tipleri <span class="rozet yeni">v2</span></h3>
+<div class="tablo-sar">
+<table>
+<thead><tr><th>Alan</th><th>Tip</th><th>Neden</th></tr></thead>
+<tbody>
+<tr><td>Tüm tarih alanları</td><td class="kod">SQL DATE · C# DateOnly</td><td><code>datetime</code> olursa saat bileşeni sızar; <span class="tnum">03.07 00:00</span> ile <span class="tnum">03.07 14:32</span> iki ayrı satır olur, <code>(Tarih, MalzemeId)</code> kısıtı ihlal edilmez, upsert çalışmaz ve stok sessizce çift sayar</td></tr>
+<tr><td>Tüm miktar alanları</td><td class="kod">decimal(18,3)</td><td>v1 "decimal, asla float" diyor ama hassasiyeti yazmıyor; <span class="tnum">±0,01</span> toleransının zemini netleşsin</td></tr>
+<tr><td>Metin alanları</td><td class="kod">NVARCHAR</td><td>Türkçe karakter</td></tr>
+<tr><td><code>Malzemeler.OzelTip</code></td><td class="kod">Filtreli tekil indeks</td><td>Her özel tipten en fazla bir malzeme. İkinci bir malzemeye <code>DokmeKuruKuspe</code> verilirse "stok = silolar toplamı" iki malzemeye uygulanır ve stok ikiye katlanır</td></tr>
+<tr><td><code>KuruKuspeGunluk.RowVersion</code><br><code>GunlukHareket.RowVersion</code></td><td class="kod">rowversion</td><td>Eşzamanlı düzenlemede sessiz üzerine yazmayı engeller — <span class="tnum">D16</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Başlangıç verisi <span class="rozet yeni">v2</span></h3>
+<p>§12'deki kurulum betiği bu satırları da oluşturmalı. Betik ikinci kez çalıştırıldığında bu kayıtlar tekrar eklenmemeli.</p>
+<div class="tablo-sar">
+<table>
+<thead><tr><th>Tablo</th><th>Başlangıç kayıtları</th></tr></thead>
+<tbody>
+<tr><td class="kod">Malzemeler</td><td>§2'deki yedi malzeme, sıra ve özel tipleriyle</td></tr>
+<tr><td class="kod">Silolar</td><td><span class="tnum">Silo 1</span>, <span class="tnum">Silo 2</span>, <span class="tnum">Silo 3</span> — kapasite <span class="tnum">3.000.000 kg</span> <em>(silo başına varsayımı; §13 Soru 5 ile teyit edilecek)</em></td></tr>
+<tr><td class="kod">Kullanicilar</td><td>Tablo boşsa bir yönetici hesabı. Varsayılan parola ilk girişte değiştirilmeli</td></tr>
+</tbody>
+</table>
+</div>
+<p>Kapasite <code>decimal(18,3)</code> ve <strong>kg</strong> cinsinden saklanır — malzeme birimleriyle aynı ölçü. Ekranda ton olarak gösterilebilir, veritabanında kg tutulur; iki ayrı birim saklamak dönüşüm hatası üretir.</p>
+
+<h3>İzlenebilirlik</h3>
+<p>Her hareket kaydında <strong>kim ve ne zaman oluşturdu</strong> bilgisi tutulmalı <span class="rozet kilit">Demirbaş</span>. <code>SiloHareket</code> kayıtları, kaynağı olan günlük kuru küspe kaydına bir referans alanıyla bağlanmalı — düzeltmede hangi satırların silineceğini bu referanstan bulacaksın.</p>
+
+<div class="kutu degisti">
+  <div class="kutu-bas">v2'de eklendi · denetim izi</div>
+  <p style="margin:0 0 8px">Düzeltme bu uygulamada rutin bir işlem (Test 3 zaten onu sınıyor). v1 yalnızca "kim oluşturdu" tuttuğu için "silo geçen hafta 240.000'di, şimdi neden 290.000?" sorusunun cevabı yok.</p>
+  <ul style="margin:0">
+    <li>Ana tablolara <code>GuncelleyenKullaniciId</code> ve <code>GuncellemeTarihi</code> kolonları eklenir.</li>
+    <li><code>DegisiklikLog</code> tablosu eski ve yeni değeri alan bazında saklar.</li>
+    <li>Yalnız kritik tablolar loglanır: <code>KuruKuspeGunluk</code>, <code>GunlukHareket</code>, <code>SiloHareket</code>, <code>DevirStok</code>, <code>SiloDevirStok</code>, <code>Kullanicilar</code>. Her tabloyu loglamak veritabanını gereksiz şişirir.</li>
+  </ul>
+</div>
+</div>
+
+<!-- ============ 7 ============ -->
+<h2 id="b7"><span class="no">7</span> Ekranlar</h2>
+<div class="blok">
+<div class="tablo-sar">
+<table>
+<thead><tr><th>Ekran</th><th>İşlev</th><th class="dar">Yetki</th></tr></thead>
+<tbody>
+<tr><td class="dar"><b>Giriş</b></td><td>Kullanıcı adı + parola.</td><td>Herkes</td></tr>
+<tr><td class="dar"><b>Ana sayfa</b></td><td>Malzeme ve silo stoklarının kart görünümü, sık kullanılan işlemlere kısayol.</td><td>Giriş yapan</td></tr>
+<tr class="satir-yeni"><td class="dar"><b>Kuru Küspe Günlük Giriş</b></td><td>4. bölümdeki akış. Tarih + üretilen dökme + çuval adedi <b>+ satılan dökme <span class="rozet yeni">v2</span></b>; hesaplanan değerler anlık gösterilir; silo dağıtımı burada yapılır.</td><td>Giriş yapan</td></tr>
+<tr><td class="dar"><b>Malzeme Girişi</b></td><td>Diğer malzemelerin üretim/satış girişi. Dökme kuru küspenin her iki kolonu, çuvallı kuru küspenin <em>üretim</em> kolonu kilitli ve "otomatik" işaretli olmalı.</td><td>Giriş yapan</td></tr>
+<tr><td class="dar"><b>Stok Durumu</b></td><td>Malzeme bazında devir / toplam üretim / toplam satış / mevcut.</td><td>Giriş yapan</td></tr>
+<tr class="satir-yeni"><td class="dar"><b>Silo Durumu</b></td><td>Silo bazında devir / giren / çıkan / mevcut, kapasiteye göre doluluk <span class="rozet yeni">v2</span>, negatife düşen gün uyarısı <span class="rozet yeni">v2</span>.</td><td>Giriş yapan</td></tr>
+<tr><td class="dar"><b>Günlük Rapor</b></td><td>Seçilen günün kuru küspe detayı (ham girdi + net üretim ayrı), tüm malzeme ve silo hareketleri.</td><td>Giriş yapan</td></tr>
+<tr><td class="dar"><b>Geçmiş Girişler</b></td><td>Tarih aralığına göre girilmiş günlerin listesi; düzeltme ve o günün tüm girişlerini silme.</td><td>Giriş yapan</td></tr>
+<tr><td class="dar"><b>Devir Stok</b></td><td>İki sekme: malzeme devirleri ve silo devirleri. Kampanya başında bir kez girilir.</td><td><b>Yönetici</b></td></tr>
+<tr><td class="dar"><b>Malzeme Yönetimi</b></td><td>Malzeme ekleme, düzenleme, pasifleştirme.</td><td><b>Yönetici</b></td></tr>
+<tr><td class="dar"><b>Kullanıcı Yönetimi</b></td><td>Kullanıcı ekleme, düzenleme, parola sıfırlama, aktif/pasif.</td><td><b>Yönetici</b></td></tr>
+<tr class="satir-yeni"><td class="dar"><b>Değişiklik Geçmişi <span class="rozet yeni">v2</span></b></td><td>Kayıt bazında kim, ne zaman, hangi alanı, hangi değerden hangi değere değiştirdi.</td><td><b>Yönetici</b></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="kutu not">
+  <div class="kutu-bas">Kullanılabilirlik <span class="rozet kilit">Demirbaş</span></div>
+  <p style="margin:0">Operatör bu ekranı her gün, çoğu zaman aceleyle kullanacak. Tarih seçici varsayılan olarak bugünü göstersin, sayısal alanlar Türkçe biçimi kabul etsin (<span class="tnum">1.234,56</span>), kaydetten sonra ne olduğu net bir mesajla söylensin. Hesaplanan değerler (net dökme, silodan çekilecek) kullanıcı yazarken anında güncellensin — kaydete basınca sürpriz olmasın.</p>
+</div>
+
+<h3>Arayüz iyileştirmeleri <span class="rozet yeni">v2</span></h3>
+<div class="tablo-sar">
+<table>
+<thead><tr><th>Nerede</th><th>Ne</th><th>Neden</th></tr></thead>
+<tbody>
+<tr><td>Kuru Küspe Günlük Giriş</td><td>Seçilen günde zaten kayıt varsa uyarı: <em>"Bu gün 14:30'da Ahmet tarafından girilmiş, üzerine yazıyorsun."</em></td><td>Haberi olmadan üzerine yazmayı önler — eşzamanlılık vakalarının çoğu bu</td></tr>
+<tr><td>Silo Durumu</td><td>Herhangi bir silo geçmişte negatife düşüyorsa uyarı satırı: <em>"Silo 2 · 15.07.2026 · −150.000"</em></td><td>Geriye dönük düzeltmenin sonraki günleri bozması görünür olur</td></tr>
+<tr><td>Silo Durumu</td><td>Kapasiteye göre doluluk çubuğu ve yüzde</td><td><code>Silolar.Kapasite</code> zaten tutuluyordu, hiç kullanılmıyordu</td></tr>
+<tr><td>Silo dağıtımı</td><td>Kapasite aşılıyorsa yumuşak uyarı (engel değil) — <span class="tnum">D15</span></td><td>240.000'i 50.000'lik siloya yazan parmak hatasını yakalar</td></tr>
+<tr><td>Günlük Rapor</td><td>Dökme satış ayrı satır olarak görünür</td><td>Ham girdinin kaybolmaması kuralının dökme satışa uzantısı</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+
+<!-- ============ 8 ============ -->
+<h2 id="b8"><span class="no">8</span> Doğrulama kuralları</h2>
+<div class="blok">
+<p class="giris">Bunların hepsi <strong>sunucu tarafında</strong> kontrol edilmeli. Ekranda da engellemen iyi olur ama tek savunma hattı ekran olmamalı.</p>
+
+<h3><span class="rozet kilit">Demirbaş</span> D1 – D12</h3>
+<div class="kural"><span class="kd">D1</span><span class="kmetin">Üretilen dökme küspe negatif olamaz.</span><span class="ksonuc">Hata</span></div>
+<div class="kural"><span class="kd">D2</span><span class="kmetin">Çuval adedi negatif olamaz.</span><span class="ksonuc">Hata</span></div>
+<div class="kural"><span class="kd">D3</span><span class="kmetin">Silolara yerleştirilen toplam, net dökme üretime <b>eşit</b> olmalı (±0,01 kg tolerans).</span><span class="ksonuc">Hata</span></div>
+<div class="kural"><span class="kd">D4</span><span class="kmetin">Net dökme üretim 0 iken siloya yerleştirme yapılamaz.</span><span class="ksonuc">Hata</span></div>
+<div class="kural"><span class="kd">D5</span><span class="kmetin">Silolardan çekilen toplam, hesaplanan çekiş miktarına <b>eşit</b> olmalı (±0,01 kg).</span><span class="ksonuc">Hata</span></div>
+<div class="kural"><span class="kd">D6</span><span class="kmetin">Çekiş gerekmiyorken silodan çekiş girilemez.</span><span class="ksonuc">Hata</span></div>
+<div class="kural"><span class="kd">D7</span><span class="kmetin">Bir silodan, o gün başındaki mevcudundan fazlası çekilemez.</span><span class="ksonuc">Hata</span></div>
+<div class="kural"><span class="kd">D8</span><span class="kmetin">Aynı gün + aynı malzeme için ikinci kayıt açılamaz (güncelleme yapılır).</span><span class="ksonuc">Upsert</span></div>
+<div class="kural"><span class="kd">D9</span><span class="kmetin">Kullanıcı kendi hesabını pasifleştiremez.</span><span class="ksonuc">Engelle</span></div>
+<div class="kural"><span class="kd">D10</span><span class="kmetin">Sistemdeki son aktif yönetici pasifleştirilemez veya operatöre düşürülemez.</span><span class="ksonuc">Engelle</span></div>
+<div class="kural"><span class="kd">D11</span><span class="kmetin">Aynı kullanıcı adı iki kez eklenemez.</span><span class="ksonuc">Hata</span></div>
+<div class="kural"><span class="kd">D12</span><span class="kmetin">Kullanıcı ve malzeme <b>silinmez</b>, yalnızca pasifleştirilir.</span><span class="ksonuc">Tasarım</span></div>
+
+<div class="kutu not">
+  <div class="kutu-bas">D12 neden böyle</div>
+  <p style="margin:0">Geçmiş kayıtlar "bu girişi kim yaptı" bilgisini tutuyor. Kullanıcıyı silersen o bağ kopar ve eski kayıtlar sahipsiz kalır. Malzeme için de aynısı geçerli: silinirse geçmiş günlük hareketler anlamsızlaşır. Pasifleştirilen kayıt yeni işlemlerde seçilemez ama geçmişte görünmeye devam eder.</p>
+</div>
+
+<h3><span class="rozet yeni">v2</span> D13 – D16</h3>
+<div class="kural eklendi"><span class="kd">D13</span><span class="kmetin">Dökme satış için silolardan çekilen toplam, girilen <code>SatilanDokme</code> değerine <b>eşit</b> olmalı (±0,01 kg).<span class="knot">D3 ve D5 ile aynı mantık; dökme satışın silo karşılığı olmadan kayıt geçmez. Dökme küspe yalnızca silolarda durduğu için karşılıksız satış, stoğun hiç azalmaması demektir.</span></span><span class="ksonuc">Hata</span></div>
+
+<div class="kutu not">
+  <div class="kutu-bas">D7'nin kapsamı genişledi</div>
+  <p style="margin:0"><span class="tnum">D7</span> metni değişmedi <span class="rozet kilit">Demirbaş</span>, ama dökme satış eklendiğinde <em>çekiş</em> kavramı iki kalemi birden kapsar: <b>çuvallama çekişi + satış çekişi</b>. Bir silodan o gün çekilen toplam, o günün başındaki mevcudunu aşamaz. İkisi ayrı ayrı sığıyor diye toplamı sığmayabilir; kontrol toplam üzerinden yapılmalı.</p>
+</div>
+<div class="kural eklendi"><span class="kd">D14</span><span class="kmetin">Kayıt veya silme sonrası, işlem tarihinden son kayıtlı güne kadar her silonun bakiyesi ileri doğru hesaplanır. Herhangi bir gün negatife düşüyorsa işlem reddedilir ve <b>hangi silonun hangi tarihte</b> patladığı söylenir.<span class="knot">D7 yalnız o günün başına bakıyordu. Geçmiş bir günü düşürmek sonraki günü negatife çekebiliyordu ve hiçbir kural engellemiyordu. Aynı transaction içinde çalışır.</span></span><span class="ksonuc">Hata</span></div>
+<div class="kural eklendi"><span class="kd">D15</span><span class="kmetin">Bir silonun <b>gün sonu bakiyesi</b> o silonun kapasitesini aşıyorsa <b>uyarı</b> gösterilir — kayıt engellenmez. Kontrol silo başına yapılır, toplam üzerinden değil.<span class="knot">Yerleştirilen miktar değil, oluşan bakiye ölçülür; silo stoğu kümülatiftir. Kapasite <span class="tnum">3.000.000 kg</span> (§13 Soru 5 ile teyit edilecek). Fiili taşma ve ölçüm sapması gerçektir, sert engel operatörü kilitler — amaç parmak hatasını yakalamak.</span></span><span class="ksonuc">Uyarı</span></div>
+<div class="kural eklendi"><span class="kd">D16</span><span class="kmetin">Kayıt güncellenirken <code>RowVersion</code> değeri okunduğu andakinden farklıysa işlem reddedilir; kullanıcıya kaydın değiştiği söylenir ve yenilemesi istenir.<span class="knot">Unique kısıtların yerine geçmez, yanına gelir.</span></span><span class="ksonuc">Hata</span></div>
+</div>
+
+<!-- ============ 9 ============ -->
+<h2 id="b9"><span class="no">9</span> Kabul testleri</h2>
+<div class="blok">
+<p class="giris">Uygulamayı teslim etmeden önce bu senaryoların hepsi geçmeli. Hepsi geçmiyorsa iş bitmemiştir. Rakamlar gerçek bir günün verisinden alınmıştır <span class="rozet kilit">Demirbaş</span>.</p>
+
+<div class="test">
+  <div class="test-bas"><span class="tno">Test 1</span> Üretim çuvallamadan fazla <span class="rozet kilit">Demirbaş</span></div>
+  <div class="test-durum">Silolar boş (devir 0). 03.07.2026 için üretilen dökme 250.000 kg, çuvallanan 200 adet. Tamamı Silo 1'e.</div>
+  <div class="beklenen">CuvalKg                 = 10.000
+NetDokmeUretim          = 240.000
+SilodanCekilecek        = 0
+Silo 1 mevcut           = 240.000
+Dökme Kuru Küspe stok   = 240.000   // silo toplamı
+Kuru Küspe (50 Kg) stok = 10.000</div>
+</div>
+
+<div class="test">
+  <div class="test-bas"><span class="tno">Test 2</span> Çuvallama üretimden fazla <span class="rozet kilit">Demirbaş</span></div>
+  <div class="test-durum">Test 1'in ertesi günü: üretilen dökme 5.000 kg, çuvallanan 200 adet. Çekiş Silo 1'den.</div>
+  <div class="beklenen">NetDokmeUretim   = 0
+SilodanCekilecek = 5.000
+Silo 1 mevcut    = 235.000   // 240.000 − 5.000
+Raporda ham girdi 5.000 ayrı satırda görünür</div>
+</div>
+
+<div class="test">
+  <div class="test-bas"><span class="tno">Test 3</span> Aynı günü düzeltme <span class="rozet kilit">Demirbaş</span></div>
+  <div class="test-durum">Test 1'deki günü aç, üretilen dökmeyi 250.000'den 300.000'e çıkar ve kaydet.</div>
+  <div class="beklenen">Silo 1 mevcut = 290.000   // 240.000 DEĞİL, 530.000 HİÇ DEĞİL
+O güne ait silo hareketi sayısı = 1   // eskisi silinmiş olmalı</div>
+</div>
+
+<div class="test">
+  <div class="test-bas"><span class="tno">Test 4</span> Silo yetersiz <span class="rozet kilit">Demirbaş</span></div>
+  <div class="test-durum">Silo 1'de 1.000 kg varken, çuvallama için 5.000 kg çekilmeye çalışılır.</div>
+  <div class="beklenen">Kayıt reddedilir, hangi silonun yetersiz olduğunu söyleyen hata verilir (D7).</div>
+</div>
+
+<div class="test">
+  <div class="test-bas"><span class="tno">Test 5</span> Dağıtım toplamı tutmuyor <span class="rozet kilit">Demirbaş</span></div>
+  <div class="test-durum">Net dökme 240.000 iken silolara toplam 200.000 dağıtılır.</div>
+  <div class="beklenen">Kayıt reddedilir, beklenen ve girilen toplam hatada gösterilir (D3).</div>
+</div>
+
+<div class="test">
+  <div class="test-bas"><span class="tno">Test 6</span> Çift sayım yok <span class="rozet kilit">Demirbaş</span></div>
+  <div class="test-durum">Test 1'den sonra Stok Durumu ekranı açılır.</div>
+  <div class="beklenen">Dökme + Çuvallı toplam = 250.000   // 260.000 ise çift sayıyorsun</div>
+</div>
+
+<div class="test">
+  <div class="test-bas"><span class="tno">Test 7</span> Yetki <span class="rozet kilit">Demirbaş</span></div>
+  <div class="test-durum">Operatör hesabıyla giriş yapılır ve devir stok ekranının adresi tarayıcıya elle yazılır.</div>
+  <div class="beklenen">Erişim engellenir. Menüde görünmemesi tek başına yeterli değildir.</div>
+</div>
+
+<div class="test">
+  <div class="test-bas"><span class="tno">Test 8</span> Son yönetici koruması <span class="rozet kilit">Demirbaş</span></div>
+  <div class="test-durum">Tek yönetici hesabıyla girilip kendi rolü operatöre düşürülmeye çalışılır.</div>
+  <div class="beklenen">Engellenir (D10). Aksi hâlde sisteme kimse yönetici olarak giremez.</div>
+</div>
+
+<div class="test eklendi">
+  <div class="test-bas"><span class="tno">Test 9</span> Geriye dönük düzeltme sonraki günü bozuyor <span class="rozet yeni">v2</span></div>
+  <div class="test-durum">Test 1 ve Test 2 girildikten sonra (Silo 1 = 235.000), 03.07 açılır ve üretilen dökme 250.000'den 8.000'e düşürülmeye çalışılır.</div>
+  <div class="beklenen">Kayıt reddedilir (D14).
+Hata mesajı hangi silonun hangi tarihte negatife düştüğünü söyler.
+Silo 1 mevcut değişmez = 235.000</div>
+</div>
+
+<div class="test eklendi">
+  <div class="test-bas"><span class="tno">Test 10</span> Gün silme <span class="rozet yeni">v2</span></div>
+  <div class="test-durum">Test 1 ve Test 2 girildikten sonra 03.07 günü tamamen silinir.</div>
+  <div class="beklenen">Silme reddedilir (D14) — 04.07 negatife düşerdi.
+Önce 04.07 silinirse, ardından 03.07 silinebilir.
+Her iki gün silindikten sonra Silo 1 mevcut = 0</div>
+</div>
+
+<div class="test eklendi">
+  <div class="test-bas"><span class="tno">Test 11</span> Dökme satış <span class="rozet yeni">v2</span></div>
+  <div class="test-durum">Test 1'in ertesi günü: üretilen dökme 0, çuvallanan 0, satılan dökme 40.000 kg — Silo 1'den.</div>
+  <div class="beklenen">Silo 1 mevcut         = 200.000   // 240.000 − 40.000
+Dökme Kuru Küspe stok = 200.000   // silo toplamı takip eder
+SiloHareket tipi      = DokmeSatis
+Silo karşılığı girilmezse kayıt reddedilir (D13)</div>
+</div>
+
+<div class="test eklendi">
+  <div class="test-bas"><span class="tno">Test 12</span> Eşzamanlı düzenleme <span class="rozet yeni">v2</span></div>
+  <div class="test-durum">İki oturum aynı günü açar. Birincisi kaydeder, ardından ikincisi kaydetmeye çalışır.</div>
+  <div class="beklenen">İkinci kayıt reddedilir (D16).
+Kullanıcıya kaydın değiştiği söylenir, yenilemesi istenir.
+Birincinin yazdığı değerler korunur.</div>
+</div>
+</div>
+
+<!-- ============ 10 ============ -->
+<h2 id="b10"><span class="no">10</span> Teknik notlar</h2>
+<div class="blok">
+
+<h3>Teknoloji yığını <span class="rozet yeni">v2</span></h3>
+<div class="tablo-sar">
+<table>
+<thead><tr><th>Katman</th><th>v1</th><th>v2</th><th>Gerekçe</th></tr></thead>
+<tbody>
+<tr><td>Çatı</td><td class="kod">.NET 8</td><td class="kod">.NET 8</td><td><b>Değişmiyor.</b> Fabrikadaki diğer programlar .NET 8 ile yazılmış; tek sürümde kalmak bakım ve sunucu tarafını sadeleştiriyor</td></tr>
+<tr class="satir-yeni"><td>Şablon</td><td class="kod">Blazor Server</td><td class="kod">Blazor Web App · Interactive Server</td><td>Aynı çalışma modeli. Eski "Blazor Server App" şablonu .NET 8 ile kaldırıldı; .NET 8'in kendi şablonu bu</td></tr>
+<tr><td>Arayüz</td><td class="kod">MudBlazor</td><td class="kod">MudBlazor</td><td>Değişmiyor</td></tr>
+<tr><td>Veri erişimi</td><td class="kod">Dapper</td><td class="kod">Dapper</td><td>Referans uygulama Dapper; stok sorguları agrega ağırlıklı; §12'nin tek SQL betiği şartına uyuyor</td></tr>
+<tr><td>Veritabanı</td><td class="kod">SQL Server</td><td class="kod">SQL Server</td><td>Sunucuda zaten duruyor</td></tr>
+<tr class="satir-yeni"><td>Kimlik</td><td>Çerez + hash</td><td class="kod">Cookie authentication + BCrypt</td><td><b>ASP.NET Core Identity kurulmayacak</b> — kendi şemasını dayatır, §6'daki <code>Kullanicilar</code> tablosuyla çakışır</td></tr>
+<tr class="satir-yeni"><td>Test</td><td>Elle</td><td class="kod">xUnit + LocalDB</td><td>Her test kendi transaction'ında açılır ve geri alınır</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="kutu not">
+  <div class="kutu-bas">Değişmeyen teknik temeller <span class="rozet kilit">Demirbaş</span></div>
+  <ul style="margin:0">
+    <li>Veritabanı SQL Server (mevcut sunucuda duruyor).</li>
+    <li>Ağdan birden fazla kişinin aynı anda kullanabileceği bir web uygulaması.</li>
+    <li>Parolalar hash'li, oturum yönetimi var.</li>
+    <li>Miktar alanları <code>decimal</code>, asla <code>float</code> değil.</li>
+  </ul>
+</div>
+
+<div class="kutu cevap">
+  <div class="kutu-bas">Karar kaydı · .NET 8'de kalınıyor</div>
+  <p style="margin:0 0 8px">v2 hazırlanırken <b>.NET 10 LTS</b> önerilmişti; gerekçe .NET 8'in desteğinin <b>10 Kasım 2026</b>'da bitmesiydi. Karar <b>.NET 8'de kalmak</b> yönünde verildi: <strong>fabrikadaki diğer programlar .NET 8 ile yazılmış</strong> ve tek sürümde kalmak bakımı, sunucu kurulumunu ve ekip alışkanlığını sadeleştiriyor.</p>
+  <p style="margin:0">Bilinen sonuç: Kasım 2026'dan sonra .NET 8'e güvenlik yaması gelmeyecek. Uygulama fabrika ağında çalıştığı ve internete açık olmadığı için bu risk kabul edildi. Yükseltme gerektiğinde <code>.csproj</code> hedef çatısını değiştirmek ve paketleri güncellemek yeterli — bu projede küçük iş.</p>
+  <span class="kaynak">Karar tarihi: 19.08.2026 · Mümin Bey'e bildirilecek (v1 §10: "başka bir yığın seçeceksen önce konuş")</span>
+</div>
+
+<h3>Paket listesi <span class="rozet yeni">v2</span></h3>
+<p>Aşağıdaki sürümler <strong>19.08.2026 tarihinde NuGet üzerinden doğrulanmıştır</strong>. Kurulumdan önce güncel sürüme bakılmalı.</p>
+<div class="tablo-sar">
+<table>
+<thead><tr><th>Paket</th><th class="dar">Sürüm</th><th class="dar">.NET 8</th><th>Ne için</th></tr></thead>
+<tbody>
+<tr><td class="kod">MudBlazor</td><td class="kod">9.8.0</td><td style="color:var(--ok)"><b>✓</b></td><td>Bileşen kütüphanesi. <code>net8.0</code>, <code>net9.0</code> ve <code>net10.0</code> hedefliyor. <em>Not: MudBlazor ileride net8.0 hedefini bırakmayı planlıyor — o zaman sürüm sabitlenir ya da çatı yükseltilir</em></td></tr>
+<tr><td class="kod">Dapper</td><td class="kod">2.1.79</td><td style="color:var(--ok)"><b>✓</b></td><td>Veri erişimi</td></tr>
+<tr><td class="kod">BCrypt.Net-Next</td><td class="kod">4.2.x</td><td style="color:var(--ok)"><b>✓</b></td><td>Parola hash'i — §3'teki "BCrypt gibi bir algoritma"nın karşılığı</td></tr>
+<tr><td class="kod">Microsoft.Data.SqlClient</td><td class="kod">—</td><td style="color:var(--ok)"><b>✓</b></td><td>SQL Server bağlantısı</td></tr>
+<tr><td class="kod">xUnit</td><td class="kod">—</td><td style="color:var(--ok)"><b>✓</b></td><td>12 kabul testi</td></tr>
+<tr><td class="kod">ClosedXML</td><td class="kod">—</td><td style="color:var(--ok)"><b>✓</b></td><td>Yalnızca §11'deki Excel çıktısı yapılacaksa. <b>MIT lisanslı</b></td></tr>
+</tbody>
+</table>
+</div>
+<p>Bunların dışında bağımlılık eklenmeyecek. Özellikle ikinci bir admin/CRUD çatısı (React tabanlı olanlar Blazor'da çalışmaz), ORM (Dapper seçildi) veya kimlik çatısı (Identity kurulmuyor) eklenmez.</p>
+
+<div class="kutu soru">
+  <div class="kutu-bas">Kodlamadan önce doğrula · tek kalem</div>
+  <p style="margin:0">Fabrikadaki sunucuda <b>ASP.NET Core 8 Hosting Bundle</b> kurulu mu? Diğer programlar .NET 8 ile çalıştığı için büyük ihtimalle kuruludur — ama teyit edilmeli. Sunucuda çalıştırılacak: <code>dotnet --list-runtimes</code> ve IIS kullanılacaksa <code>Get-Service W3SVC</code>.</p>
+</div>
+
+<h3>Kod düzeni <span class="rozet yeni">v2</span></h3>
+<p>Hesap, ekranın içine yazılmamalı. v1'in kendi çalışma yöntemi (§12) zaten "önce hesabı kur, konsoldan veya testle doğrula" diyor — bu ancak hesap ekrandan ve veritabanından ayrıksa mümkün. Bu bir mimari değil, üç parçalı basit bir ayrım:</p>
+<div class="formul">KuruKuspeHesaplayici   <span class="yorum">// saf fonksiyon, veritabanı yok</span>
+                       (uretilenDokme, cuvalAdet, satilanDokme)
+                       → (cuvalKg, netDokmeUretim, silodanCekilecek)
+
+DogrulamaKurallari     <span class="yorum">// D1–D16, tek yerde</span>
+
+KayitServisleri        <span class="yorum">// transaction'ı yönetir:</span>
+                       <span class="yorum">// eski silo hareketlerini sil → günlük kaydı yaz</span>
+                       <span class="yorum">// → yeni hareketleri yaz → GunlukHareket upsert</span></div>
+
+<h3>Bilinen tuzaklar</h3>
+<div class="tablo-sar">
+<table>
+<thead><tr><th>Konu</th><th>Sorun ve çözüm</th></tr></thead>
+<tbody>
+<tr><td class="dar"><b>Türkçe karakter</b></td><td>SQL betiklerini komut satırından çalıştırırken dosya UTF-8 olsa bile araç ANSI okuyabiliyor ve "Küspe" bozuluyor. Kodlamayı açıkça belirt (<code>sqlcmd -f 65001</code>). Sütun tiplerinde <code>NVARCHAR</code> kullan.</td></tr>
+<tr><td class="dar"><b>Sınıf adı çakışması</b></td><td>Sayfa dosyasına veri modeliyle aynı adı verirsen (<code>DevirStok.razor</code> ↔ <code>DevirStok</code> sınıfı) derleme patlar. Sayfa dosyasını farklı adlandır, adres aynı kalabilir.</td></tr>
+<tr><td class="dar"><b>Ondalık ayracı</b></td><td>Sayısal alanlarda kültür ayarını açıkça ver; yoksa <span class="tnum">1.234,56</span> yanlış okunur veya kabul edilmez.</td></tr>
+<tr><td class="dar"><b>Transaction</b></td><td>Kuru küspe kaydı dört ayrı yazma işlemi yapıyor. Tek transaction içinde olmazsa yarım kayıt kalır ve stok bozulur.</td></tr>
+<tr><td class="dar"><b>İlk kullanıcı</b></td><td>Uygulama ilk açıldığında kullanıcı tablosu boşsa bir yönetici hesabı oluşturmalı, yoksa sisteme girilemez. Varsayılan parola ilk girişte değiştirilmeli.</td></tr>
+<tr class="satir-yeni"><td class="dar"><b>Render mode <span class="rozet yeni">v2</span></b></td><td>Blazor Web App'te sayfalar varsayılan olarak statik SSR'dır — render mode ayarlanmazsa form tıklamalara cevap vermez. Ayrıca prerender açıkken bileşen iki kez kurulur: önce statik prerender sırasında, sonra SignalR bağlantısı kurulunca yeniden. Bu yüzden <code>OnInitialized</code> ve <code>OnInitializedAsync</code> <b>iki kez çalışır</b> — bir stok uygulamasında yazma işlemi yaşam döngüsüne girerse çift kayıt demektir.<br><b>Çözüm:</b> <code>App.razor</code> içinde <code>&lt;Routes @rendermode="new InteractiveServerRenderMode(prerender: false)" /&gt;</code>. <em>(Microsoft Learn ve dotnet/aspnetcore #52208 ile doğrulandı.)</em></td></tr>
+<tr class="satir-yeni"><td class="dar"><b>Test altyapısı <span class="rozet yeni">v2</span></b></td><td>Testleri in-memory sağlayıcıyla yazma. Unique kısıt, <code>rowversion</code>, <code>decimal</code> hassasiyeti ve transaction davranışı taklit edilmez; tam da sınamak istediğin kurallar sınanmamış olur. LocalDB veya Docker'da gerçek SQL Server kullan.</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+
+<!-- ============ 11 ============ -->
+<h2 id="b11"><span class="no">11</span> Opsiyonel genişletmeler <span class="rozet kilit">Demirbaş</span></h2>
+<div class="blok">
+<p>Ana işlev bitip kabul testleri geçtikten sonra sırayla ele alınabilir. <strong>Bunlara baştan başlama.</strong></p>
+<ul>
+<li><b>Excel çıktısı</b> — stok durumu ve günlük raporun Excel'e aktarılması. <strong>ClosedXML</strong> kullanılacak, EPPlus değil — aşağıdaki lisans uyarısına bak.</li>
+<li><b>Gübre takibi</b> — gübre de fabrikada satılan bir ürün. Basit malzeme olarak eklenebilir; ambar bazında ayrım gerekiyorsa önce konuşulmalı.</li>
+<li><b>Aylık özet ekranı</b> — ay bazında toplam üretim/satış, gün gün grafik.</li>
+<li><b>Sayım/düzeltme kaydı</b> — fiili sayım ile sistem stoğu arasındaki farkın <code>Manuel</code> silo hareketi olarak girilmesi.</li>
+</ul>
+<p class="giris" style="font-size:15px;margin-top:14px">Silo doluluk göstergesi v1'de bu listedeydi; v2'de <span class="tnum">D15</span> ile birlikte ana kapsama alındı.</p>
+
+<div class="kutu kritik">
+  <div class="kutu-bas">Lisans uyarısı · Excel kütüphanesi <span class="rozet yeni">v2</span></div>
+  <p style="margin:0 0 8px"><strong>EPPlus kullanılmayacak.</strong> EPPlus 4.5.3'e (2018) kadar MIT lisanslıydı; sürüm 5 ile <em>Polyform Noncommercial</em> lisansına geçti ve sonraki sürümler <strong>ticari kullanım için ücretli lisans gerektiriyor</strong>. Bir fabrikada üretimde çalışan uygulama ticari kullanımdır.</p>
+  <p style="margin:0">Örnek kodların çoğu hâlâ EPPlus gösterdiği için bu tuzağa düşmek kolay. <strong>ClosedXML</strong> MIT lisanslıdır ve ticari kullanımda ücretsizdir; bu proje için gereken okuma/yazma işlerini karşılar (grafik oluşturma desteklemez, burada da gerekmiyor).</p>
+</div>
+</div>
+
+<!-- ============ 12 ============ -->
+<h2 id="b12"><span class="no">12</span> Teslim beklentileri <span class="rozet kilit">Demirbaş</span></h2>
+<div class="blok">
+<ul>
+<li>Kaynak kod bir sürüm kontrol deposunda (git) ve düzenli commit'lerle.</li>
+<li>Veritabanını sıfırdan kuran <strong>tek bir SQL betiği</strong> — tabloları, kısıtları ve başlangıç verisini oluşturur, ikinci kez çalıştırılınca hata vermez.</li>
+<li>Bağlantı bilgileri koda gömülü değil, ayar dosyasında.</li>
+<li>Kısa bir kurulum notu: nasıl derlenir, nasıl çalıştırılır, ilk giriş nasıl yapılır.</li>
+<li>9. bölümdeki kabul testlerinin çalıştırılmış olması — <span class="rozet yeni">v2</span> artık on iki test, xUnit ile otomatik.</li>
+</ul>
+
+<div class="kutu not">
+  <div class="kutu-bas">Çalışma yöntemi <span class="rozet kilit">Demirbaş</span></div>
+  <p style="margin:0">Önce veri modelini ve 4. bölümdeki hesabı kur, konsoldan veya testle doğrula. <strong>Ekranlar en son gelsin.</strong> Hesap yanlışsa güzel ekran işe yaramaz; hesap doğruysa ekranı iyileştirmek kolaydır.</p>
+</div>
+
+<h3>Önerilen sıra <span class="rozet yeni">v2</span></h3>
+<div class="adimlar">
+  <div class="adim"><span class="an">1</span><span><b>Açık soruları netleştir</b><span class="aalt">13. bölüm — özellikle dökme satış. Her şeyin önünde.</span></span><span class="asure">½ gün</span></div>
+  <div class="adim"><span class="an">2</span><span><b>Veri modeli + saf hesap sınıfı + D1–D16</b><span class="aalt">Ekran yok. SQL betiği burada yazılır.</span></span><span class="asure">3 gün</span></div>
+  <div class="adim"><span class="an">3</span><span><b>12 kabul testini xUnit'e yaz</b><span class="aalt">Gerçek SQL Server'a karşı. Buradan sonrası kırmızıdan yeşile.</span></span><span class="asure">2 gün</span></div>
+  <div class="adim"><span class="an">4</span><span><b>Kayıt servisi + transaction + RowVersion + denetim izi</b><span class="aalt">Testler yeşile döndüğünde bu adım bitmiştir.</span></span><span class="asure">3 gün</span></div>
+  <div class="adim"><span class="an">5</span><span><b>Ekranlar</b><span class="aalt">MudBlazor'ın kendi görünümüyle, çalışır hâle getir.</span></span><span class="asure">5 gün</span></div>
+  <div class="adim"><span class="an">6</span><span><b>Arayüz iyileştirmeleri ve görsel dil</b><span class="aalt">Yalnızca testler geçtikten sonra.</span></span><span class="asure">3 gün</span></div>
+</div>
+</div>
+
+<!-- ============ 13 ============ -->
+<h2 id="b13"><span class="no">13</span> Açık sorular <span class="rozet yeni">v2</span></h2>
+<div class="blok">
+<p class="giris">Bunlar iş kalemi değil, karar. Cevaba göre iş çıkar ya da hiç çıkmaz. Kodlamaya başlamadan cevaplanmalı.</p>
+
+<h3>Cevaplananlar</h3>
+
+<div class="kutu cevap">
+  <div class="kutu-bas">Soru 1 · Cevaplandı</div>
+  <p style="margin:0 0 8px"><strong>Dökme küspe silodan doğrudan satılıyor mu?</strong></p>
+  <p style="margin:0"><strong>Evet.</strong> Dökme kuru küspe yalnızca silolarda durur; satışı doğrudan silolardan yapılır.</p>
+  <span class="kaynak">Sonuç: §4'teki <code>SatilanDokme</code> alanı, <span class="tnum">D13</span> ve Test 11 kapsamda kalır. <code>DokmeSatis</code> hareket tipi korunur.</span>
+</div>
+
+<div class="kutu cevap">
+  <div class="kutu-bas">Soru 5 · Kısmen cevaplandı</div>
+  <p style="margin:0 0 8px"><strong>Silo kapasitesi kaç?</strong></p>
+  <p style="margin:0"><strong><span class="tnum">3.000 ton</span></strong> = <span class="tnum">3.000.000 kg</span>.</p>
+  <span class="kaynak">Sonuç: <span class="tnum">D15</span> ve doluluk göstergesi uygulanabilir. Kapasite kg cinsinden saklanır.</span>
+</div>
+
+<h3>Açık kalanlar</h3>
+
+<div class="kutu soru">
+  <div class="kutu-bas">Soru 5a · Öncelikli · Soru 5'ten arta kalan</div>
+  <p style="margin:0 0 8px"><strong><span class="tnum">3.000 ton</span> her bir silonun kapasitesi mi, yoksa üç silonun toplamı mı?</strong></p>
+  <p style="margin:0">İki okuma üç kat fark yaratıyor:</p>
+  <ul style="margin:8px 0 0">
+    <li><b>Silo başına</b> → her silo <span class="tnum">3.000.000 kg</span>, toplam <span class="tnum">9.000.000 kg</span></li>
+    <li><b>Toplam</b> → her silo <span class="tnum">1.000.000 kg</span>, toplam <span class="tnum">3.000.000 kg</span></li>
+  </ul>
+  <p style="margin:8px 0 0"><span class="tnum">D15</span> uyarısı bu sayıya göre tetiklenir; yanlış değer uyarıyı ya hiç çalışmaz ya da sürekli çalışır hâle getirir. Ayrıca siloların kaç günde dolduğu (<span class="tnum">12</span> gün mü <span class="tnum">37</span> gün mü) buna bağlı. Üç silonun kapasitesi birbirinden farklıysa ayrı ayrı da yazılabilir — tablo silo başına kapasite tutuyor.</p>
+</div>
+
+<div class="kutu soru">
+  <div class="kutu-bas">Soru 2</div>
+  <p style="margin:0"><strong>Gelecek kampanyada devir stok ne olacak?</strong><br>
+  Yeni sezon açılıp eski sezon saklanacaksa §5'teki "en son devir" formülü uygulanır. "Üzerine yazarız" cevabı geliyorsa tek satırlık yapı yeterlidir ve §5'teki v2 maddesi düşer.</p>
+</div>
+
+<div class="kutu soru">
+  <div class="kutu-bas">Soru 3</div>
+  <p style="margin:0"><strong>Basit malzeme stoğu negatife düşerse ne olsun?</strong><br>
+  Engellensin mi, uyarı mı verilsin, serbest mi? Öneri: uyarı. Sert engel, veri giriş sırası bozuk olduğunda operatörü kilitler.</p>
+</div>
+
+<div class="kutu soru">
+  <div class="kutu-bas">Soru 4</div>
+  <p style="margin:0"><strong>Silolar arası transfer oluyor mu?</strong><br>
+  Oluyorsa <code>Manuel</code> tipiyle karşılanabilir, ama çıkan ve giren hareket ortak bir referansla eşleştirilmeli — yoksa transfer, bir siloda kayıp diğerinde kazanç gibi görünür.</p>
+</div>
+
+<div class="kutu soru">
+  <div class="kutu-bas">Soru 6 · Soru 1'in doğurduğu yeni soru</div>
+  <p style="margin:0"><strong>Dökme satış aynı gün birden fazla silodan yapılabiliyor mu?</strong><br>
+  Bir kamyona iki silodan yükleniyorsa giriş ekranı silo başına ayrı satır kabul etmeli. Tek silodan yapılıyorsa tek seçim yeter ve ekran sadeleşir. <span class="tnum">D13</span> her iki durumda da aynı çalışır.</p>
+</div>
+</div>
+
+<footer class="dip blok">
+  <p style="margin:0 0 6px"><b>Yan Ürünler Stok Takip — Şartname v2.0</b></p>
+  <p style="margin:0">v1: Mümin CEYLAN. v2: teknik güncelleme ve iyileştirmeler; işleyiş, hesap formülleri ve kabul testi rakamları v1'den birebir korunmuştur. <span class="rozet kilit" style="vertical-align:middle">Demirbaş</span> işaretli maddeler değişiklik teklifine kapalıdır.</p>
+</footer>
+
+</main>
+</div>
