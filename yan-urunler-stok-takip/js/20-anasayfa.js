@@ -280,7 +280,7 @@
   function kartDokme(o) {
     var trend = o.oncekiDokme === null ? null : degisim(o.dokmeToplam, o.oncekiDokme);
     return YU.ui.kpi({
-      etiket: 'Toplam Dökme Kuru Küspe', ikon: '#ic-silos',
+      etiket: '3 Toplam Dökme Kuru Küspe', ikon: '#ic-silos',
       deger: YU.fmt.kgU(o.dokmeToplam),
       alt: YU.fmt.sayi(o.silolar.length) + ' silo · ' + YU.fmt.yuzde(o.doluluk * 100, 1) + ' dolu' +
         (trend ? ' · ' + TREND_GUN + ' günde ' + trend : '')
@@ -292,15 +292,13 @@
     var cuvalAdet = Math.round(o.cuvalMevcut / YU.hesap.CUVAL_KG);
     return kpiKarti({
       etiket: '50 KG Çuvallı Kuru Küspe', ikon: '#ic-sack',
+      /* Sade gösterim (kullanıcı isteği, 21.08.2026): "adet" kelimesi ve
+         çuval kilosu alt satırı yok. */
       deger: degerSatiri([
         YU.h('span', { metin: YU.fmt.kg(o.cuvalMevcut) }), birimEki('kg'),
         birimEki('/'),
-        YU.h('span', { metin: YU.fmt.sayi(cuvalAdet) }), birimEki('adet çuval')
-      ]),
-      alt: YU.h('div', {
-        sinif: 'yu-kpi-alt',
-        metin: '1 çuval ' + YU.fmt.sayi(YU.hesap.CUVAL_KG) + ' kg küspe'
-      })
+        YU.h('span', { metin: YU.fmt.sayi(cuvalAdet) }), birimEki('çuval')
+      ])
     });
   }
 
@@ -317,8 +315,7 @@
     return kpiKarti({
       etiket: '1 Tonluk Yaş Küspe', ikon: '#ic-beet',
       ipucu: TONLUK_NOTU,
-      deger: degerSatiri([YU.h('span', { metin: YU.fmt.kg(o.yasTonluk) }), birimEki('kg')]),
-      alt: YU.h('div', { sinif: 'yu-kpi-alt', metin: 'Tonluk büyük torba stoğu' })
+      deger: degerSatiri([YU.h('span', { metin: YU.fmt.kg(o.yasTonluk) }), birimEki('kg')])
     });
   }
 
@@ -329,9 +326,8 @@
       deger: degerSatiri([
         YU.h('span', { metin: YU.fmt.kg(o.yasPoset) }), birimEki('kg'),
         birimEki('/'),
-        YU.h('span', { metin: YU.fmt.sayi(adet) }), birimEki('adet poşet')
-      ]),
-      alt: YU.h('div', { sinif: 'yu-kpi-alt', metin: '1 poşet ' + YU.fmt.sayi(POSET_KG) + ' kg küspe' })
+        YU.h('span', { metin: YU.fmt.sayi(adet) }), birimEki('poşet')
+      ])
     });
   }
 
@@ -455,7 +451,7 @@
   var KART_ANAHTAR = 'yu.anasayfa.kartlari.v1';
 
   var KART_KATALOG = [
-    { kod: 'dokme', ad: 'Toplam Dökme Kuru Küspe', aciklama: 'Siloların toplamı, doluluk ve 7 günlük değişim.', ciz: kartDokme },
+    { kod: 'dokme', ad: '3 Toplam Dökme Kuru Küspe', aciklama: 'Siloların toplamı, doluluk ve 7 günlük değişim.', ciz: kartDokme },
     { kod: 'cuval', ad: '50 KG Çuvallı Kuru Küspe', aciklama: 'Çuval stoğu: kg ve adet.', ciz: kartCuval },
     { kod: 'yas', ad: '1 Tonluk Yaş Küspe', aciklama: 'Tonluk büyük torba stoğu.', ciz: kartYas },
     { kod: 'yas-poset', ad: '25 KG Yaş Küspe', aciklama: '25\'lik poşet stoğu ve adet karşılığı.', ciz: kartYasPoset },
@@ -687,7 +683,10 @@
   /* Ögenin başlık tarihi: kaydın İŞ tarihi (künyeden/özetten), yoksa
      denetim satırının kendi günü. */
   function logTarihi(kunye, ayrinti, l) {
-    var m = /(\d{2})\.(\d{2})\.(\d{4})/.exec(String(kunye || '') + ' ' + String(ayrinti || ''));
+    /* Önce özet metni: silme özetindeki "(20.08.2026)" işlemin asıl günüdür;
+       künyedeki tarih yanlış kayda işaret edebilir (bilinen denetim izi notu). */
+    var m = /(\d{2})\.(\d{2})\.(\d{4})/.exec(String(ayrinti || ''));
+    if (!m) m = /(\d{2})\.(\d{2})\.(\d{4})/.exec(String(kunye || ''));
     if (m) return m[0];
     return YU.fmt.tarih(String(l.Tarih || '').slice(0, 10));
   }
