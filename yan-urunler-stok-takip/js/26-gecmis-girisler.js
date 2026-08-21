@@ -388,16 +388,20 @@
       netHucre = YU.fmt.kg(h.netDokmeUretim);
     }
 
-    var eylemler = YU.h('div', { stil: { display: 'flex', gap: '3px', justifyContent: 'flex-end' } },
+    /* Rapor ikonu yerine EN SAĞDA yazılı "Detay" düğmesi (kullanıcı isteği,
+       21.08.2026); düzelt ve sil ikonları olduğu gibi durur. */
+    var eylemler = YU.h('div', { stil: { display: 'flex', gap: '3px', alignItems: 'center', justifyContent: 'flex-end' } },
       eylemDugmesi('#ic-pencil', 'Düzelt — Kuru Küspe Günlük Giriş', function () {
         YU.git('kuru-kuspe', { tarih: g.tarih });
       }),
-      eylemDugmesi('#ic-doc', 'Günlük rapor', function () {
-        YU.git('gunluk-rapor', { tarih: g.tarih });
-      }),
       eylemDugmesi('#ic-trash', 'Bu günün tüm girişlerini sil', function () {
         gunSilmeyiBaslat(g.tarih, g.malzemeSayisi);
-      }, true)
+      }, true),
+      YU.ui.dugme({
+        metin: 'Detay', ikon: '#ic-doc', tur: 'ikincil', kucuk: true,
+        baslik: 'Günlük Rapor · ' + YU.fmt.tarih(g.tarih),
+        onClick: function () { YU.git('gunluk-rapor', { tarih: g.tarih }); }
+      })
     );
 
     return [

@@ -314,7 +314,19 @@
             k < 0 ? YU.ui.rozet(YU.fmt.kg(k), 'olumsuz') : YU.fmt.kg(k),
             h.KaynakKayitId === null || h.KaynakKayitId === undefined
               ? YU.h('span', { sinif: 'yu-zayif', metin: 'Elle girilmiş' })
-              : YU.h('span', { sinif: 'yu-zayif', metin: 'Kuru küspe #' + YU.fmt.sayi(h.KaynakKayitId) })
+              : YU.h('span', { sinif: 'yu-zayif', metin: 'Kuru küspe #' + YU.fmt.sayi(h.KaynakKayitId) }),
+            /* Detay: günün KÜÇÜK PENCERESİNİ açar — sekmeden ayrılmaz, satır
+               tıklamasıyla aynı davranış (kullanıcı isteği, 21.08.2026). */
+            (function (t) {
+              var d = YU.ui.dugme({
+                metin: 'Detay', ikon: '#ic-doc', tur: 'ikincil', kucuk: true,
+                baslik: 'Günün Verisi · ' + YU.fmt.tarih(t),
+                onClick: function () { YU.gunPenceresi(t); }
+              });
+              /* Pencere iki kez açılmasın diye satır tıklaması bastırılır. */
+              d.addEventListener('click', function (e) { e.stopPropagation(); });
+              return d;
+            })(h.Tarih)
           ]
         });
       }
@@ -334,7 +346,8 @@
           { baslik: 'Giren', hiza: 'sag', mono: true, genislik: 104 },
           { baslik: 'Çıkan', hiza: 'sag', mono: true, genislik: 104 },
           { baslik: 'Bakiye', hiza: 'sag', mono: true, genislik: 116 },
-          { baslik: 'Kaynak', genislik: 150 }
+          { baslik: 'Kaynak', genislik: 150 },
+          { baslik: '', hiza: 'sag', genislik: 96 }
         ],
         satirlar: satirlar,
         tiklamaIpucu: 'Günün raporunu açmak için tıklayın',

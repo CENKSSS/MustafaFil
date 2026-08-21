@@ -1719,5 +1719,9 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
   }
   .yu-tablo-sar { overflow: visible; }
   .yu-tablo thead th { position: static; background: #f2f2f2; color: #000; }
+  /* Yapışkan varyantın seçicisi üstteki kuraldan daha özgül; yazdırmada da
+     kazanıp başlığı top:64px ile satırların üzerine itiyordu. Kâğıtta
+     kaydırma yok — aynı özgüllükte etkisizleştirilir. */
+  .yu-tablo-sar.yu-yapiskan thead th { position: static; top: auto; }
   .yu-tablo tbody tr:hover { background: none; }
 }

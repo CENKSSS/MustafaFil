@@ -86,22 +86,13 @@
     }, ogeler);
   }
 
-  function kuruKuspePaneli(kk, hesap, tarih) {
-    var ham = hesap.hamUretilenDokme;
-    var adet = say(kk.CuvalAdet);
-    var fark = hesap.siloNetDegisim;
-    var durumB = hesap.durum === 'B';
-
-    /* Günün tarihi panel BAŞLIĞININ ortasında BÜYÜK yazar — eskizdeki
-       konumda: iri tarih, altında gün adı; iki yanında −1 / +1 gün okları
-       (kullanıcı isteği, 21.08.2026). */
-    /* Oklar iri ve koyu (kullanıcı isteği: silik kalmasın) — 26px chevron,
-       kalın çizgi, tam metin renginde; üzerine gelince mavi. */
+  /* GÜNÜN ÖZETİ — sayfanın ilk paneli (kullanıcı seçimi, 21.08.2026):
+     günün üç sonuç rakamı iri ve renkli; tarih ve ±1 gün okları burada.
+     Ayrıntının matematiği aşağıdaki Kuru Küspe Detayı'nda durur. */
+  function gununOzeti(hesap, tarih) {
     function tarihOku(geri) {
       var hedef = YU.tarih.ekle(tarih, geri ? -1 : 1);
       var ipucu = (geri ? '−1 Gün · ' : '+1 Gün · ') + YU.fmt.tarih(hedef);
-      /* Sembolün 1.7'lik çizgisi ezilemiyor; ok, grafikler gibi yerinde
-         çizilir — aynı chevron yolu, 2.6 kalınlıkta (ikon setine ekleme yok). */
       var NS = 'http://www.w3.org/2000/svg';
       var sv = document.createElementNS(NS, 'svg');
       sv.setAttribute('width', '26'); sv.setAttribute('height', '26');
@@ -126,9 +117,7 @@
       return d;
     }
 
-    var tarihBlok = YU.h('div', {
-      stil: { margin: '0 auto', display: 'flex', alignItems: 'center', gap: '10px', flex: 'none' }
-    },
+    var tarihBlok = YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '10px', flex: 'none' } },
       tarihOku(true),
       YU.h('div', { stil: { textAlign: 'center' } },
         YU.h('div', {
@@ -144,16 +133,50 @@
       tarihOku(false)
     );
 
-    /* 1. satır — operatörün girdiği ham değerler (Girildi) */
+    var fark = hesap.siloNetDegisim;
+    function iriOge(etiket, deger, renk) {
+      return YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '7px', minWidth: '0' } },
+        YU.h('div', { sinif: 'yu-hesap-etiket', metin: etiket }),
+        YU.h('div', {
+          stil: { font: '650 30px/1 var(--sayi)', letterSpacing: '-.02em',
+                  fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
+                  color: renk || 'var(--metin)' },
+          metin: deger
+        })
+      );
+    }
+
+    return YU.ui.panel({
+      baslik: 'Günün Özeti',
+      ikon: '#ic-chart',
+      sag: tarihBlok,
+      govde: YU.h('div', {
+        stil: { display: 'flex', alignItems: 'flex-end', columnGap: '48px', rowGap: '14px', flexWrap: 'wrap' }
+      },
+        iriOge('Net Dökme Üretim', YU.fmt.kgU(hesap.netDokmeUretim), 'var(--vurgu)'),
+        iriOge('Dökme Satış', YU.fmt.kgU(hesap.satilanDokme)),
+        iriOge('Silo Net Değişimi',
+          (fark > 0 ? '+' : fark < 0 ? '−' : '') + YU.fmt.kgU(Math.abs(fark)),
+          fark > 0 ? 'var(--olumlu)' : (fark < 0 ? 'var(--olumsuz)' : null))
+      )
+    });
+  }
+
+  function kuruKuspePaneli(kk, hesap) {
+    var ham = hesap.hamUretilenDokme;
+    var adet = say(kk.CuvalAdet);
+    var fark = hesap.siloNetDegisim;
+    var durumB = hesap.durum === 'B';
+
+    /* 1. satır — operatörün girdiği ham değerler. Satılan dökme burada
+       TEKRARLANMAZ; hesap satırında tek kez görünür (vurgu düzeltmesi). */
     var girilen = akisSatiri([
       hesapOge('Üretilen Dökme · Ham', YU.fmt.kgU(ham), null,
         'İşletme raporundan gelen ham rakam — net üretim 0 olsa bile burada durur (Şartname §4).'),
       hesapOge('Çuvallanan', YU.fmt.sayi(adet) + ' adet', null,
         '1 çuval = ' + YU.fmt.sayi(YU.hesap.CUVAL_KG) + ' kg (sabit).'),
       hesapOge('Çuval Karşılığı', YU.fmt.kgU(hesap.cuvalKg), null,
-        YU.fmt.sayi(adet) + ' × ' + YU.fmt.sayi(YU.hesap.CUVAL_KG) + ' kg'),
-      hesapOge('Satılan Dökme', YU.fmt.kgU(hesap.satilanDokme), null,
-        'Doğrudan silodan dökme satış — ayrı kalem (Şartname §7 v2).')
+        YU.fmt.sayi(adet) + ' × ' + YU.fmt.sayi(YU.hesap.CUVAL_KG) + ' kg')
     ]);
 
     /* 2. satır — sistemin hesabı; önemli sonuçlar renkle vurgulanır */
@@ -174,7 +197,7 @@
         'Gün sonunda siloların toplamına net etki.')
     ]);
 
-    var panel = YU.ui.panel({
+    return YU.ui.panel({
       baslik: 'Kuru Küspe Detayı',
       ikon: '#ic-doc',
       sag: YU.ui.rozet(
@@ -193,36 +216,18 @@
         YU.h('div', { sinif: 'yu-etiket', metin: 'Girilen' }),
         girilen,
         YU.h('hr', { sinif: 'yu-ayrac yu-yatay' }),
-        YU.h('div', { sinif: 'yu-etiket', metin: 'Hesaplanan' }),
-        hesaplanan,
+        /* Formüller görünür satır olmaktan çıktı; etiketin ipucunda durur. */
         YU.h('div', {
-          sinif: 'yu-yardim',
-          metin: 'Çuval karşılığı = adet × ' + YU.fmt.sayi(YU.hesap.CUVAL_KG) + ' kg' +
-            ' · net üretim = max(0; ham − çuval karşılığı) · silodan çekilen = max(0; çuval karşılığı − ham) — Şartname §4. ' +
-            'Ayrıntı için değerlerin üzerine gelin.'
-        })
+          sinif: 'yu-etiket', metin: 'Hesaplanan',
+          title: 'Çuval karşılığı = adet × ' + YU.fmt.sayi(YU.hesap.CUVAL_KG) +
+            ' kg · net üretim = max(0; ham − çuval karşılığı) · silodan çekilen = ' +
+            'max(0; çuval karşılığı − ham) — Şartname §4'
+        }),
+        hesaplanan
       ]
     });
-
-    /* Başlık satırı: [ikon][başlık] … TARİH … [rozet] — tarih, başlığın
-       bittiği yerle rozet arasındaki boşluğun tam ortasında durur. Sağ kabın
-       kendi otomatik boşluğu kapatılır; yoksa boşluğu tarihle bölüşüp onu
-       sola kaydırıyordu. */
-    var basEl = panel.querySelector('.yu-panel-bas');
-    var sagEl = panel.querySelector('.yu-panel-sag');
-    basEl.querySelector('.yu-panel-baslik').style.flex = 'none';
-    sagEl.style.marginLeft = '0';
-    basEl.insertBefore(tarihBlok, sagEl);
-
-    return panel;
   }
 
-  /* ------------------------------------------------------------------
-     Malzeme hareketleri
-     ------------------------------------------------------------------ */
-
-  /* Kilitli kolonlar Şartname §4 ve §7'den gelir: dökme kuru küspenin iki
-     kolonu da, çuvallının üretim kolonu da kuru küspe girişinden yazılır. */
   /* Kaynak bilgisi ikincildir: rozet yerine soluk metin (sadelik, 21.08.2026). */
   function malzemeKaynagi(malzeme) {
     if (!malzeme) return YU.ui.rozet('Malzeme Bulunamadı', 'olumsuz');
@@ -459,12 +464,10 @@
       return;
     }
 
-    /* Künye en tepede (kullanıcı isteği, 21.08.2026): kim girdi, kim
-       güncelledi — güne bakan ilk onu görür. */
-    kap.appendChild(kayitPaneli(depo, ozet));
-
     if (ozet.kuruKuspe) {
-      kap.appendChild(kuruKuspePaneli(ozet.kuruKuspe, ozet.hesap, tarih));
+      /* Günün Özeti kurgusu (kullanıcı seçimi, 21.08.2026): sonuç en üstte. */
+      kap.appendChild(gununOzeti(ozet.hesap, tarih));
+      kap.appendChild(kuruKuspePaneli(ozet.kuruKuspe, ozet.hesap));
     } else {
       kap.appendChild(YU.ui.serit({
         tur: 'bilgi',
@@ -479,6 +482,8 @@
 
     kap.appendChild(malzemePaneli(depo, ozet));
     kap.appendChild(siloPaneli(depo, ozet, tarih));
+    /* Künye tek satır hâlinde EN ALTTA — asıl veriyi aşağı itmesin. */
+    kap.appendChild(kayitPaneli(depo, ozet));
   }
 
   YU.sayfaTanimla({
