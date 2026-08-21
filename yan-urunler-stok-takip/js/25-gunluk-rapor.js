@@ -95,17 +95,34 @@
     /* Günün tarihi panel BAŞLIĞININ ortasında BÜYÜK yazar — eskizdeki
        konumda: iri tarih, altında gün adı; iki yanında −1 / +1 gün okları
        (kullanıcı isteği, 21.08.2026). */
+    /* Oklar iri ve koyu (kullanıcı isteği: silik kalmasın) — 26px chevron,
+       kalın çizgi, tam metin renginde; üzerine gelince mavi. */
     function tarihOku(geri) {
       var hedef = YU.tarih.ekle(tarih, geri ? -1 : 1);
-      var d = YU.ui.dugme({
-        ikon: '#ic-chevron', tur: 'sade', kucuk: true,
-        baslik: (geri ? '−1 Gün · ' : '+1 Gün · ') + YU.fmt.tarih(hedef),
+      var ipucu = (geri ? '−1 Gün · ' : '+1 Gün · ') + YU.fmt.tarih(hedef);
+      /* Sembolün 1.7'lik çizgisi ezilemiyor; ok, grafikler gibi yerinde
+         çizilir — aynı chevron yolu, 2.6 kalınlıkta (ikon setine ekleme yok). */
+      var NS = 'http://www.w3.org/2000/svg';
+      var sv = document.createElementNS(NS, 'svg');
+      sv.setAttribute('width', '26'); sv.setAttribute('height', '26');
+      sv.setAttribute('viewBox', '0 0 24 24'); sv.setAttribute('aria-hidden', 'true');
+      var yolEl = document.createElementNS(NS, 'path');
+      yolEl.setAttribute('d', 'M9 6l6 6-6 6');
+      yolEl.setAttribute('fill', 'none');
+      yolEl.setAttribute('stroke', 'currentColor');
+      yolEl.setAttribute('stroke-width', '2.6');
+      yolEl.setAttribute('stroke-linecap', 'round');
+      yolEl.setAttribute('stroke-linejoin', 'round');
+      sv.appendChild(yolEl);
+      if (geri) sv.style.transform = 'rotate(180deg)';
+      var d = YU.h('button', {
+        tip: 'button', sinif: 'yu-satir-eylem',
+        title: ipucu, 'aria-label': ipucu,
+        stil: { color: 'var(--metin-2)', padding: '4px' },
         onClick: function () { YU.git('gunluk-rapor', { tarih: hedef }); }
-      });
-      if (geri) {
-        var sv = d.querySelector('svg');
-        if (sv) sv.style.transform = 'rotate(180deg)';   /* ikon seti tek yönlü */
-      }
+      }, sv);
+      d.addEventListener('mouseenter', function () { d.style.color = 'var(--vurgu)'; });
+      d.addEventListener('mouseleave', function () { d.style.color = 'var(--metin-2)'; });
       return d;
     }
 

@@ -1046,9 +1046,8 @@
     }
 
     kap.appendChild(kpiIzgarasi(o));
-    /* Son Hareketler ana sayfadan kaldırıldı; kendi sayfasında yaşıyor
-       (kullanıcı isteği, 21.08.2026). Grafik tam genişliğe yayılır. */
-    kap.appendChild(grafikPaneli(depo, o));
+    /* Son Hareketler kendi sayfasına, dökme üretim–satış grafiği Silo
+       Durumu'na taşındı (kullanıcı istekleri, 21.08.2026). */
     kap.appendChild(siloIzgarasi(o));
     kap.appendChild(malzemePaneli(o));
   }
@@ -1071,6 +1070,14 @@
     rol: 'Hepsi',
     ciz: ciz
   });
+
+  /* Dökme üretim–satış grafiği artık Silo Durumu sayfasında çizilir; panel
+     üreticisi oradan bu köprüyle çağrılır (kullanıcı isteği, 21.08.2026). */
+  YU.dokmeGrafikPaneli = function () {
+    var depo = YU.db;
+    if (!depo) return null;
+    return grafikPaneli(depo, ozet(depo));
+  };
 
   /* Kabuktaki zil açılır paneli aynı listeyi kullanır (10-kabuk zilPaneliAc).
      Kabuk bu dosyadan önce yüklendiği için fonksiyon YU üzerinden verilir. */

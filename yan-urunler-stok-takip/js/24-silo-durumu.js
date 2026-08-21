@@ -485,6 +485,13 @@
     kap.appendChild(kartlar);
     kap.appendChild(toplamSeridi(satirlar));
 
+    /* Dökme üretim–satış grafiği ana sayfadan taşındı: hareket dökümünün
+       hemen üstünde durur (kullanıcı isteği, 21.08.2026). */
+    if (typeof YU.dokmeGrafikPaneli === 'function') {
+      var grafik = YU.dokmeGrafikPaneli();
+      if (grafik) kap.appendChild(grafik);
+    }
+
     var hareket = hareketPaneli(depo, silolar, tarih);
     kap.appendChild(hareket.panel);
 
