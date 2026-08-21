@@ -515,12 +515,15 @@ html[data-tema="acik"] input[type="date"]::-webkit-calendar-picker-indicator { f
 }
 
 .yu-menu-grup-bas {
-  /* Grup başlıkları kalın (kullanıcı isteği, 21.08.2026). */
+  /* Grup başlıkları kalın, koyu ve ALTI RAY BOYUNCA ÇİZİLİ; menü silik
+     görünmesin diye çizgi 2px ve koyu tondadır (kullanıcı isteği, 21.08.2026). */
   font: 700 12.5px/1 var(--font);
   letter-spacing: .06em;
   text-transform: uppercase;
-  color: var(--metin-4);
-  padding: 12px 10px 6px;
+  color: var(--metin-2);
+  padding: 12px 10px 8px;
+  border-bottom: 2px solid var(--metin-3);
+  margin-bottom: 2px;
 }
 
 .yu-menu-oge {
@@ -529,20 +532,22 @@ html[data-tema="acik"] input[type="date"]::-webkit-calendar-picker-indicator { f
   gap: 11px;
   width: 100%;
   padding: 9px 10px;
-  /* Muhasebe programı dili (kullanıcı isteği, 21.08.2026): köşe yuvarlatması
-     yok, her modül satırı defter gibi ince çizgilerle ayrılır. Üst çizgiyi
-     blok başındaki satır, alt çizgiyi her satırın kendisi çizer; bitişik
-     satırlar arasında tek çizgi kalır. */
+  /* Kullanıcı eskizi (21.08.2026): grup başlığının altı ray boyunca tam
+     çizgi, öğelerin altı ise yalnız KELİME GENİŞLİĞİNDE çizgi. Bu yüzden
+     öğedeki tam genişlik defter çizgisi kaldırıldı; çizgiyi ad taşır. */
   border-radius: 0;
-  border-bottom: 1px solid var(--kenar-3);
-  font: 400 15px/1 var(--font);
+  font: 500 15px/1 var(--font);
   color: var(--metin-2);
   text-align: left;
   cursor: pointer;
   transition: background-color .12s, color .12s;
 }
-.yu-menu > .yu-menu-oge,
-.yu-menu-grup-bas + .yu-menu-oge { border-top: 1px solid var(--kenar-3); }
+/* Öğe adının altı, metin rengiyle kelime kadar çizilir — aktifte vurgu
+   rengini kendiliğinden alır. Daraltılmış rayda yazıyla birlikte gizlenir. */
+.yu-menu-oge > span {
+  border-bottom: 1.5px solid currentColor;
+  padding-bottom: 2px;
+}
 .yu-menu-oge svg { opacity: .85; }
 .yu-menu-oge:hover { background: var(--yuzey-4); color: var(--metin); }
 .yu-menu-oge.aktif {

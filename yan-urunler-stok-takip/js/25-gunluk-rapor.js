@@ -361,22 +361,27 @@
     if (ozet.kuruKuspe) adaylar.push(ozet.kuruKuspe);
     for (i = 0; i < ozet.malzemeSatirlari.length; i++) adaylar.push(ozet.malzemeSatirlari[i].hareket);
 
-    var olusturan = null, guncelleyen = null;
+    /* "Son İşlem" ekleme DAHİL son dokunuşu gösterir (kullanıcı isteği,
+       21.08.2026): 18:36'da yeni satır ekleyen de sayılır, yalnız güncelleme
+       değil. */
+    var olusturan = null, sonAn = null, sonKisi = null;
     for (i = 0; i < adaylar.length; i++) {
       var k = adaylar[i];
       if (k.OlusturmaTarihi && (!olusturan || k.OlusturmaTarihi < olusturan.OlusturmaTarihi)) olusturan = k;
-      if (k.GuncellemeTarihi && (!guncelleyen || k.GuncellemeTarihi > guncelleyen.GuncellemeTarihi)) guncelleyen = k;
+      var an = k.GuncellemeTarihi || k.OlusturmaTarihi;
+      if (an && (!sonAn || an > sonAn)) {
+        sonAn = an;
+        sonKisi = k.GuncellemeTarihi ? k.GuncelleyenKullaniciId : k.OlusturanKullaniciId;
+      }
     }
 
     var ogeler = [
       kunyeCifti('Oluşturan', olusturan
         ? (kullaniciAdi(depo, olusturan.OlusturanKullaniciId) || '—') + ' · ' + YU.fmt.tarihSaat(olusturan.OlusturmaTarihi)
         : '—'),
-      /* "Son güncelleyen": o güne ait herhangi bir satır güncellendiğinde
-         dolar — gün düzeyinde bakılır. */
-      kunyeCifti('Son Güncelleme', guncelleyen
-        ? (kullaniciAdi(depo, guncelleyen.GuncelleyenKullaniciId) || '—') + ' · ' + YU.fmt.tarihSaat(guncelleyen.GuncellemeTarihi)
-        : 'Güncellenmemiş')
+      kunyeCifti('Son İşlem', sonAn
+        ? (kullaniciAdi(depo, sonKisi) || '—') + ' · ' + YU.fmt.tarihSaat(sonAn)
+        : '—')
     ];
     if (ozet.kuruKuspe) {
       ogeler.push(kunyeCifti('Sürüm', 'RowVersion ' + YU.fmt.sayi(Number(ozet.kuruKuspe.RowVersion) || 0), false));
@@ -392,6 +397,107 @@
       govde: YU.h('div', {
         stil: { display: 'flex', alignItems: 'baseline', columnGap: '26px', rowGap: '10px', flexWrap: 'wrap' }
       }, ogeler)
+    });
+  }
+
+  /* ------------------------------------------------------------------
+     Günün İşlem Geçmişi — adım adım denetim izi (kullanıcı isteği,
+     21.08.2026): bu günün verisine dokunan HER işlem kronolojik sırayla,
+     kim / saat kaçta / neyi hangi değerden hangi değere çevirdi.
+     Kaynak: DegisiklikLog (Şartname §6 v2). Örnek verinin çoğu gününde
+     boştur — tohumlama denetim izi bırakmaz; gerçek kullanımda dolar.
+     ------------------------------------------------------------------ */
+
+  function metindenIso(t) {
+    var m = /(\d{2})\.(\d{2})\.(\d{4})/.exec(String(t || ''));
+    return m ? m[3] + '-' + m[2] + '-' + m[1] : null;
+  }
+
+  /* Log satırının hangi GÜNÜN verisini değiştirdiğini çözer. Silmelerde
+     kayıt artık depoda olmadığı için önce özet metindeki tarihe bakılır. */
+  function logGunu(depo, l) {
+    function bul(dizi) {
+      for (var j = 0; j < dizi.length; j++) if (dizi[j].Id === l.KayitId) return dizi[j];
+      return null;
+    }
+    var tablolar = { KuruKuspeGunluk: depo.kuruKuspeGunluk, GunlukHareket: depo.gunlukHareket, SiloHareket: depo.siloHareket };
+    if (!tablolar[l.Tablo]) return null;   /* devir/tanım değişiklikleri gün raporuna girmez */
+    if (l.Islem === 'Sil') {
+      return metindenIso(l.EskiDeger) || metindenIso(l.YeniDeger);
+    }
+    var r = bul(tablolar[l.Tablo]);
+    if (r && r.Tarih) return String(r.Tarih).slice(0, 10);
+    return metindenIso(l.YeniDeger) || metindenIso(l.EskiDeger);
+  }
+
+  var ISLEM_RENGI = { Ekle: 'olumlu', Guncelle: 'bekleyen', Sil: 'olumsuz' };
+  var ISLEM_ADI = { Ekle: 'Ekle', Guncelle: 'Güncelle', Sil: 'Sil' };
+
+  /* Gün içinde tekrar eden tarih parçalarını ayıklar (rapor zaten tek güne ait). */
+  function gunTarihsiz(metin, tarih) {
+    return String(metin || '')
+      .split(' · ').filter(function (p) { return !/^\d{2}\.\d{2}\.\d{4}$/.test(p.trim()); }).join(' · ')
+      .replace(/\s*\(\d{2}\.\d{2}\.\d{4}\)\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  }
+
+  function islemAyrintisi(depo, l, tarih) {
+    var kunye = YU.log.kayitEtiketi(depo, l.Tablo, l.KayitId);
+    var parcalar = [];
+    if (kunye) parcalar.push(YU.h('span', { sinif: 'yu-guclu', metin: gunTarihsiz(kunye, tarih) }));
+    if (l.Alan) {
+      var cumle = YU.log.alanCumlesi ? YU.log.alanCumlesi(l.Alan, l.EskiDeger, l.YeniDeger) : null;
+      parcalar.push(YU.h('span', {
+        metin: (parcalar.length ? ' — ' : '') +
+          (cumle || (l.Alan + ': ' + (l.EskiDeger === null || l.EskiDeger === undefined || l.EskiDeger === '' ? '—' : l.EskiDeger) +
+           ' → ' + (l.YeniDeger === null || l.YeniDeger === undefined || l.YeniDeger === '' ? '—' : l.YeniDeger)))
+      }));
+    } else {
+      var ozet = l.Islem === 'Sil' ? l.EskiDeger : l.YeniDeger;
+      if (ozet) parcalar.push(YU.h('span', { sinif: 'yu-zayif', metin: (parcalar.length ? ' — ' : '') + gunTarihsiz(ozet, tarih) }));
+    }
+    if (!parcalar.length) parcalar.push(YU.h('span', { sinif: 'yu-zayif', metin: '—' }));
+    return YU.h('span', null, parcalar);
+  }
+
+  function gunIslemGecmisi(depo, tarih) {
+    var liste = [], i, l;
+    for (i = 0; i < depo.degisiklikLog.length; i++) {
+      l = depo.degisiklikLog[i];
+      if (logGunu(depo, l) === tarih) liste.push(l);
+    }
+    /* Adım adım okunur: en eski işlem en üstte, aynı andakiler yazılma sırasında. */
+    liste.sort(function (a, b) {
+      var x = String(a.Tarih || ''), y = String(b.Tarih || '');
+      if (x !== y) return x < y ? -1 : 1;
+      return (Number(a.Id) || 0) - (Number(b.Id) || 0);
+    });
+
+    var satirlar = [];
+    for (i = 0; i < liste.length; i++) {
+      l = liste[i];
+      satirlar.push([
+        YU.h('span', { sinif: 'yu-mono', metin: YU.fmt.saat(l.Tarih), stil: { whiteSpace: 'nowrap' } }),
+        YU.h('span', { metin: kullaniciAdi(depo, l.KullaniciId) || '—' }),
+        YU.ui.rozet(ISLEM_ADI[l.Islem] || l.Islem, ISLEM_RENGI[l.Islem] || 'notr'),
+        islemAyrintisi(depo, l, tarih)
+      ]);
+    }
+
+    return YU.ui.panel({
+      baslik: 'Günün İşlem Geçmişi',
+      ikon: '#ic-dots',
+      sag: YU.h('span', { metin: satirlar.length ? YU.fmt.sayi(satirlar.length) + ' işlem' : null }),
+      govde: YU.ui.tablo({
+        sutunlar: [
+          { baslik: 'Saat', genislik: 76 },
+          { baslik: 'Kullanıcı', genislik: 170 },
+          { baslik: 'İşlem', genislik: 96, hiza: 'orta' },
+          { baslik: 'Ne Yapıldı' }
+        ],
+        satirlar: satirlar,
+        bos: 'Bu günün verisine dokunan işlem kaydı yok. (Örnek veri denetim izi bırakmaz; ' +
+          'elle yapılan her giriş, düzeltme ve silme burada adım adım listelenir.)'
+      })
     });
   }
 
@@ -482,6 +588,8 @@
 
     kap.appendChild(malzemePaneli(depo, ozet));
     kap.appendChild(siloPaneli(depo, ozet, tarih));
+    /* Denetim izi: günün verisine dokunan her adım — güvenlik kaydı. */
+    kap.appendChild(gunIslemGecmisi(depo, tarih));
     /* Künye tek satır hâlinde EN ALTTA — asıl veriyi aşağı itmesin. */
     kap.appendChild(kayitPaneli(depo, ozet));
   }
