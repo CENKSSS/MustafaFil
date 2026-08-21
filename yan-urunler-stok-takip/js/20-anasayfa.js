@@ -312,19 +312,15 @@
      farkı budur (kullanıcı isteği, 21.08.2026). */
   function kartToplamCuval(o) {
     var adet = Math.round(o.kampanyaCuval.uretim / YU.hesap.CUVAL_KG);
+    /* Sade gösterim: yalnız "kg / çuval"; kampanya ve satış satırı yok
+       (kullanıcı isteği, 21.08.2026). */
     return kpiKarti({
       etiket: 'Toplam Çuvallı Kuru Küspe', ikon: '#ic-sack',
       deger: degerSatiri([
-        YU.h('span', { metin: YU.fmt.kg(o.kampanyaCuval.uretim) }), birimEki('kg üretim'),
+        YU.h('span', { metin: YU.fmt.kg(o.kampanyaCuval.uretim) }), birimEki('kg'),
         birimEki('/'),
-        YU.h('span', { metin: YU.fmt.sayi(adet) }), birimEki('adet çuval')
-      ]),
-      alt: YU.h('div', {
-        sinif: 'yu-kpi-alt',
-        metin: o.donem
-          ? 'Kampanya ' + o.donem.ad + ' toplamı · satış ' + YU.fmt.kgU(o.kampanyaCuval.satis)
-          : 'Kampanya dönemi tanımlı değil.'
-      })
+        YU.h('span', { metin: YU.fmt.sayi(adet) }), birimEki('çuval')
+      ])
     });
   }
 
