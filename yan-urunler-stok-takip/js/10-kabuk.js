@@ -791,7 +791,7 @@
           role: 'button', tabindex: '0', title: r.ad,
           stil: {
             display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', gap: '24px', padding: '44px 16px 38px',
+            justifyContent: 'center', gap: '28px', padding: '51px 18px 44px',
             border: '1px solid var(--kenar-2)', borderRadius: 'var(--r-l)',
             background: 'var(--yuzey)', cursor: 'pointer', textAlign: 'center',
             transition: 'background-color .12s, border-color .12s'
@@ -811,11 +811,11 @@
         });
         kart.appendChild(YU.h('div', {
           metin: r.ad,
-          stil: { font: '600 17px/1.2 var(--font)', letterSpacing: '-.01em', color: 'var(--metin)' }
+          stil: { font: '600 19px/1.2 var(--font)', letterSpacing: '-.01em', color: 'var(--metin)' }
         }));
         ikonKap = YU.h('div', {
           stil: { color: 'var(--metin-2)', display: 'flex', transition: 'color .12s' }
-        }, YU.svg(r.ikon, 62));
+        }, YU.svg(r.ikon, 71));
         kart.appendChild(ikonKap);
         izgara.appendChild(kart);
       })(RAPOR_MERKEZI[i]);
@@ -824,7 +824,7 @@
     /* Başlık sol şerit yerine gövdenin üstünde ORTALANIR (kullanıcı isteği,
        21.08.2026); modalın kendi başlık şeridi bu yüzden kullanılmıyor. */
     m = YU.ui.modal({
-      genislik: 720,
+      genislik: 828,   /* 720'nin %15 büyüğü (kullanıcı isteği, 21.08.2026) */
       govde: [
         YU.h('div', {
           metin: 'Raporlar',

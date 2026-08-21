@@ -93,17 +93,38 @@
     var durumB = hesap.durum === 'B';
 
     /* Günün tarihi panel BAŞLIĞININ ortasında BÜYÜK yazar — eskizdeki
-       konumda: iri tarih, altında gün adı (kullanıcı isteği, 21.08.2026). */
-    var tarihBlok = YU.h('div', { stil: { margin: '0 auto', textAlign: 'center', flex: 'none' } },
-      YU.h('div', {
-        stil: { font: '650 26px/1.1 var(--sayi)', letterSpacing: '-.02em',
-                fontVariantNumeric: 'tabular-nums', color: 'var(--metin)' },
-        metin: YU.fmt.tarih(tarih)
-      }),
-      YU.h('div', {
-        stil: { font: '500 15px/1.5 var(--font)', color: 'var(--metin-4)' },
-        metin: YU.fmt.gunAdi(tarih)
-      })
+       konumda: iri tarih, altında gün adı; iki yanında −1 / +1 gün okları
+       (kullanıcı isteği, 21.08.2026). */
+    function tarihOku(geri) {
+      var hedef = YU.tarih.ekle(tarih, geri ? -1 : 1);
+      var d = YU.ui.dugme({
+        ikon: '#ic-chevron', tur: 'sade', kucuk: true,
+        baslik: (geri ? '−1 Gün · ' : '+1 Gün · ') + YU.fmt.tarih(hedef),
+        onClick: function () { YU.git('gunluk-rapor', { tarih: hedef }); }
+      });
+      if (geri) {
+        var sv = d.querySelector('svg');
+        if (sv) sv.style.transform = 'rotate(180deg)';   /* ikon seti tek yönlü */
+      }
+      return d;
+    }
+
+    var tarihBlok = YU.h('div', {
+      stil: { margin: '0 auto', display: 'flex', alignItems: 'center', gap: '10px', flex: 'none' }
+    },
+      tarihOku(true),
+      YU.h('div', { stil: { textAlign: 'center' } },
+        YU.h('div', {
+          stil: { font: '650 26px/1.1 var(--sayi)', letterSpacing: '-.02em',
+                  fontVariantNumeric: 'tabular-nums', color: 'var(--metin)' },
+          metin: YU.fmt.tarih(tarih)
+        }),
+        YU.h('div', {
+          stil: { font: '500 15px/1.5 var(--font)', color: 'var(--metin-4)' },
+          metin: YU.fmt.gunAdi(tarih)
+        })
+      ),
+      tarihOku(false)
     );
 
     /* 1. satır — operatörün girdiği ham değerler (Girildi) */
