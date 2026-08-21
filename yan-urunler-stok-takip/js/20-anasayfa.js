@@ -407,7 +407,7 @@
 
   function kartGunlukDokme(o) {
     return gunlukKarti({
-      etiket: 'Günlük Dökme Üretim ve Satış', ikon: '#ic-swap',
+      etiket: 'Dökme Kuru Küspe Üretim/Satış', ikon: '#ic-swap',
       veri: o.gunluk.dokme, sonGun: o.sonGun
     });
   }
@@ -415,9 +415,9 @@
   function kartGunlukCuval(o) {
     var adet = Math.round(o.gunluk.cuval.uretim / YU.hesap.CUVAL_KG);
     return gunlukKarti({
-      etiket: 'Günlük Çuvallı Kuru Küspe Üretim ve Satış', ikon: '#ic-sack-flow',
+      etiket: '50 KG Çuvallı Üretim/Satış', ikon: '#ic-sack-flow',
       veri: o.gunluk.cuval, sonGun: o.sonGun,
-      notu: o.sonGun ? 'Üretim ' + YU.fmt.sayi(adet) + ' çuval karşılığı' : null
+      notu: o.sonGun ? 'Üretim ' + YU.fmt.sayi(adet) + ' çuval' : null
     });
   }
 
@@ -425,19 +425,17 @@
      25'lik, Günlük Poşetli kartında (kullanıcı isteği, 21.08.2026). */
   function kartGunlukYas(o) {
     return gunlukKarti({
-      etiket: 'Günlük Tonluk Yaş Küspe Üretim ve Satış', ikon: '#ic-beet-flow',
-      veri: o.gunluk.tonluk, sonGun: o.sonGun,
-      notu: o.sonGun ? 'Tonluk büyük torba' : null
+      etiket: '1 Tonluk Yaş Küspe Üretim/Satış', ikon: '#ic-beet-flow',
+      veri: o.gunluk.tonluk, sonGun: o.sonGun
     });
   }
 
   function kartGunlukPoset(o) {
     var adet = Math.round(o.gunluk.poset.uretim / POSET_KG);
     return gunlukKarti({
-      etiket: 'Günlük Poşetli Yaş Küspe Üretim ve Satış', ikon: '#ic-bag',
+      etiket: '25 KG Yaş Küspe Üretim/Satış', ikon: '#ic-bag',
       veri: o.gunluk.poset, sonGun: o.sonGun,
-      notu: o.sonGun ? 'Üretim ' + YU.fmt.sayi(adet) + ' poşet karşılığı · 1 poşet ' +
-        YU.fmt.sayi(POSET_KG) + ' kg' : null
+      notu: o.sonGun ? 'Üretim ' + YU.fmt.sayi(adet) + ' poşet' : null
     });
   }
 
@@ -450,15 +448,20 @@
 
   var KART_ANAHTAR = 'yu.anasayfa.kartlari.v1';
 
+  /* Aile: tek katalog kaydı birden çok kart üretir (ciz dizi döndürür) ve
+     seçiciden tek kalemde eklenip kaldırılır. Demirbaş aile seçime tabi
+     değildir, her zaman en başta çizilir (kullanıcı isteği, 21.08.2026). */
   var KART_KATALOG = [
-    { kod: 'dokme', ad: '3 Toplam Dökme Kuru Küspe', aciklama: 'Siloların toplamı, doluluk ve 7 günlük değişim.', ciz: kartDokme },
-    { kod: 'cuval', ad: '50 KG Çuvallı Kuru Küspe', aciklama: 'Çuval stoğu: kg ve adet.', ciz: kartCuval },
-    { kod: 'yas', ad: '1 Tonluk Yaş Küspe', aciklama: 'Tonluk büyük torba stoğu.', ciz: kartYas },
-    { kod: 'yas-poset', ad: '25 KG Yaş Küspe', aciklama: '25\'lik poşet stoğu ve adet karşılığı.', ciz: kartYasPoset },
-    { kod: 'gunluk-dokme', ad: 'Günlük Dökme Üretim ve Satış', aciklama: 'Son kayıtlı günün dökme kuru küspe üretimi ve satışı.', ciz: kartGunlukDokme },
-    { kod: 'gunluk-cuval', ad: 'Günlük Çuvallı Kuru Küspe Üretim ve Satış', aciklama: 'Son kayıtlı günün çuvallı kuru küspe üretimi ve satışı.', ciz: kartGunlukCuval },
-    { kod: 'gunluk-yas', ad: 'Günlük Tonluk Yaş Küspe Üretim ve Satış', aciklama: 'Son kayıtlı günün tonluk yaş küspe üretimi ve satışı.', ciz: kartGunlukYas },
-    { kod: 'gunluk-poset', ad: 'Günlük Poşetli Yaş Küspe Üretim ve Satış', aciklama: 'Son kayıtlı günün 25\'lik poşet yaş küspe üretimi ve satışı.', ciz: kartGunlukPoset },
+    {
+      kod: 'stok-ailesi', ad: 'Stok Kartları', demirbas: true, aile: true,
+      aciklama: 'Dökme, 50 KG çuvallı, 1 tonluk ve 25 KG yaş küspe stokları — her zaman görünür.',
+      ciz: function (o) { return [kartDokme(o), kartCuval(o), kartYas(o), kartYasPoset(o)]; }
+    },
+    {
+      kod: 'uretim-satis', ad: 'Üretim/Satış Kartları', aile: true,
+      aciklama: 'Aynı dört ürünün günlük üretim ve satışı; dördü birlikte eklenir.',
+      ciz: function (o) { return [kartGunlukDokme(o), kartGunlukCuval(o), kartGunlukYas(o), kartGunlukPoset(o)]; }
+    },
     { kod: 'uretim30', ad: 'Son 30 Günün Dökme Üretimi', aciklama: 'Pencere toplamı ve önceki döneme göre fark.', ciz: kartUretim30 },
     { kod: 'satis30', ad: 'Son 30 Günün Dökme Satışı', aciklama: 'Pencere toplamı ve üretime oranı.', ciz: kartSatis30 },
     { kod: 'toplam', ad: 'Toplam Stok', aciklama: 'Tüm malzemelerin bugünkü toplamı.', ciz: kartToplamStok },
@@ -466,7 +469,7 @@
     { kod: 'gun', ad: 'Kayıtlı Gün Sayısı', aciklama: 'Kampanyada veri girilmiş gün sayısı.', ciz: kartKayitliGun }
   ];
 
-  var VARSAYILAN_KARTLAR = ['dokme', 'cuval', 'yas', 'yas-poset', 'gunluk-dokme', 'gunluk-cuval', 'gunluk-yas', 'gunluk-poset', 'uretim30', 'satis30'];
+  var VARSAYILAN_KARTLAR = ['uretim-satis', 'uretim30', 'satis30'];
 
   function kartBul(kod) {
     for (var i = 0; i < KART_KATALOG.length; i++) if (KART_KATALOG[i].kod === kod) return KART_KATALOG[i];
@@ -483,9 +486,11 @@
     var cozulen;
     try { cozulen = JSON.parse(ham); } catch (e) { return VARSAYILAN_KARTLAR.slice(); }
     if (Object.prototype.toString.call(cozulen) !== '[object Array]') return VARSAYILAN_KARTLAR.slice();
-    var liste = [], i;
+    var liste = [], i, tanim;
     for (i = 0; i < cozulen.length; i++) {
-      if (kartBul(cozulen[i]) && liste.indexOf(cozulen[i]) < 0) liste.push(cozulen[i]);
+      tanim = kartBul(cozulen[i]);
+      /* Demirbaş seçime yazılmaz; katalogdan kalkan eski kodlar da elenir. */
+      if (tanim && !tanim.demirbas && liste.indexOf(cozulen[i]) < 0) liste.push(cozulen[i]);
     }
     return liste;
   }
@@ -526,7 +531,7 @@
         }));
       } else {
         sag.appendChild(YU.ui.dugme({
-          metin: 'Ekle', ikon: '#ic-plus', tur: 'ikincil', kucuk: true,
+          metin: tanim.aile ? 'Aileyi Ekle' : 'Ekle', ikon: '#ic-plus', tur: 'ikincil', kucuk: true,
           onClick: function () { secim.push(tanim.kod); ciz(); }
         }));
       }
@@ -548,16 +553,38 @@
       ciz();
     }
 
+    /* Demirbaş aile kilitli gösterilir: eklenip kaldırılamaz. */
+    function demirbasSatiri(tanim) {
+      var sol = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '2px', flex: '1', minWidth: '0' } },
+        YU.h('div', { sinif: 'yu-guclu', metin: tanim.ad }),
+        YU.h('div', { sinif: 'yu-yardim', metin: tanim.aciklama })
+      );
+      return YU.h('div', {
+        stil: {
+          display: 'flex', alignItems: 'center', gap: '10px',
+          padding: '9px 11px', border: '1px solid var(--kenar)', borderRadius: 'var(--r)',
+          background: 'var(--yuzey-2)'
+        }
+      }, sol, YU.ui.rozet('Demirbaş', 'vurgu'));
+    }
+
     function ciz() {
       YU.bos(liste);
-      liste.appendChild(baslikSatiri('Gösterilen Kartlar'));
-      if (!secim.length) liste.appendChild(YU.h('div', { sinif: 'yu-yardim', metin: 'Hiç kart seçilmedi — ana sayfada özet kartı görünmez.' }));
       var i;
+
+      liste.appendChild(baslikSatiri('Demirbaş'));
+      for (i = 0; i < KART_KATALOG.length; i++) {
+        if (KART_KATALOG[i].demirbas) liste.appendChild(demirbasSatiri(KART_KATALOG[i]));
+      }
+
+      liste.appendChild(baslikSatiri('Gösterilen Kartlar'));
+      if (!secim.length) liste.appendChild(YU.h('div', { sinif: 'yu-yardim', metin: 'Seçili kart yok — yalnız demirbaş stok kartları görünür.' }));
       for (i = 0; i < secim.length; i++) liste.appendChild(kartSatiri(kartBul(secim[i]), i));
 
       liste.appendChild(baslikSatiri('Eklenebilir Kartlar'));
       var kalan = 0;
       for (i = 0; i < KART_KATALOG.length; i++) {
+        if (KART_KATALOG[i].demirbas) continue;
         if (secim.indexOf(KART_KATALOG[i].kod) >= 0) continue;
         kalan++;
         liste.appendChild(kartSatiri(KART_KATALOG[i], null));
@@ -586,7 +613,7 @@
   function kartCubugu(secim) {
     return YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' } },
       YU.h('span', { sinif: 'yu-etiket', metin: 'Özet Kartları' }),
-      YU.h('span', { sinif: 'yu-yardim', metin: YU.fmt.sayi(secim.length) + ' / ' + YU.fmt.sayi(KART_KATALOG.length) + ' kart' }),
+      YU.h('span', { sinif: 'yu-yardim', metin: 'Stok kartları demirbaş · ' + YU.fmt.sayi(secim.length) + ' seçim' }),
       YU.h('span', { stil: { flex: '1' } }),
       YU.ui.dugme({ metin: 'Kartları Seç', ikon: '#ic-plus', tur: 'ikincil', kucuk: true, onClick: kartSeciciAc })
     );
@@ -601,9 +628,21 @@
     kap.appendChild(kartCubugu(secim));
 
     var kartlar = [], i, tanim;
+    function ekle(tanim) {
+      var uretilen = tanim.ciz(o);
+      if (Object.prototype.toString.call(uretilen) === '[object Array]') {
+        for (var j = 0; j < uretilen.length; j++) kartlar.push(uretilen[j]);
+      } else {
+        kartlar.push(uretilen);
+      }
+    }
+    /* Demirbaş aileler seçimden bağımsız her zaman en başta. */
+    for (i = 0; i < KART_KATALOG.length; i++) {
+      if (KART_KATALOG[i].demirbas) ekle(KART_KATALOG[i]);
+    }
     for (i = 0; i < secim.length; i++) {
       tanim = kartBul(secim[i]);
-      if (tanim) kartlar.push(tanim.ciz(o));
+      if (tanim && !tanim.demirbas) ekle(tanim);
     }
 
     if (!kartlar.length) {
