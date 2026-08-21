@@ -440,20 +440,53 @@
       .replace(/\s*\(\d{2}\.\d{2}\.\d{4}\)\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
   }
 
+  /* Değerler tablolardaki gibi kalın/mono vurgulanır (kullanıcı isteği,
+     21.08.2026): eski değer KIRMIZI, yeni değer YEŞİL; Ekle özetindeki
+     sayılar yeşil, Sil özetindekiler kırmızı. */
+  function bosDeger(v) { return v === null || v === undefined || v === ''; }
+
+  function vurguluDeger(v, renk) {
+    return YU.h('span', {
+      metin: bosDeger(v) ? '—' : String(v),
+      stil: {
+        fontFamily: 'var(--sayi)', fontWeight: '700',
+        fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
+        color: renk
+      }
+    });
+  }
+
+  /* Serbest özet metnindeki sayı parçalarını (birimiyle) vurgular. */
+  function sayiVurgula(metin, renk) {
+    var kalan = String(metin), parcalar = [], m;
+    var desen = /[+−-]?\d[\d.,]*(?:\s*(?:kg|adet))?/;
+    while (kalan.length) {
+      m = desen.exec(kalan);
+      if (!m) { parcalar.push(kalan); break; }
+      if (m.index > 0) parcalar.push(kalan.slice(0, m.index));
+      parcalar.push(vurguluDeger(m[0], renk));
+      kalan = kalan.slice(m.index + m[0].length);
+    }
+    return parcalar;
+  }
+
   function islemAyrintisi(depo, l, tarih) {
     var kunye = YU.log.kayitEtiketi(depo, l.Tablo, l.KayitId);
     var parcalar = [];
     if (kunye) parcalar.push(YU.h('span', { sinif: 'yu-guclu', metin: gunTarihsiz(kunye, tarih) }));
     if (l.Alan) {
-      var cumle = YU.log.alanCumlesi ? YU.log.alanCumlesi(l.Alan, l.EskiDeger, l.YeniDeger) : null;
-      parcalar.push(YU.h('span', {
-        metin: (parcalar.length ? ' — ' : '') +
-          (cumle || (l.Alan + ': ' + (l.EskiDeger === null || l.EskiDeger === undefined || l.EskiDeger === '' ? '—' : l.EskiDeger) +
-           ' → ' + (l.YeniDeger === null || l.YeniDeger === undefined || l.YeniDeger === '' ? '—' : l.YeniDeger)))
-      }));
+      if (parcalar.length) parcalar.push(' — ');
+      parcalar.push(l.Alan + ': ');
+      parcalar.push(vurguluDeger(l.EskiDeger, 'var(--olumsuz)'));
+      parcalar.push(YU.h('span', { sinif: 'yu-zayif', metin: ' → ' }));
+      parcalar.push(vurguluDeger(l.YeniDeger, 'var(--olumlu)'));
     } else {
       var ozet = l.Islem === 'Sil' ? l.EskiDeger : l.YeniDeger;
-      if (ozet) parcalar.push(YU.h('span', { sinif: 'yu-zayif', metin: (parcalar.length ? ' — ' : '') + gunTarihsiz(ozet, tarih) }));
+      if (ozet) {
+        if (parcalar.length) parcalar.push(' — ');
+        parcalar = parcalar.concat(sayiVurgula(gunTarihsiz(ozet, tarih),
+          l.Islem === 'Sil' ? 'var(--olumsuz)' : 'var(--olumlu)'));
+      }
     }
     if (!parcalar.length) parcalar.push(YU.h('span', { sinif: 'yu-zayif', metin: '—' }));
     return YU.h('span', null, parcalar);

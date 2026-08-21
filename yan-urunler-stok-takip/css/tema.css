@@ -1722,6 +1722,13 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
     box-shadow: none;
     break-inside: avoid;
   }
+  /* Dikey flex sarmalayıcılar Chrome baskısında panelleri bölmek yerine
+     TAM BOŞ SAYFA bırakabiliyor (Günlük Rapor, 3/5. sayfa). Baskıda içerik
+     kabı ve sınıfsız sarmalayıcılar blok akışına döner; kaybolan flex
+     boşluğu alt kenar boşluğuyla telafi edilir. Ekranı etkilemez. */
+  .yu-icerik, .yu-icerik > div:not([class]) { display: block; }
+  .yu-icerik > *, .yu-icerik > div:not([class]) > * { margin-bottom: 14px; }
+
   .yu-tablo-sar { overflow: visible; }
   .yu-tablo thead th { position: static; background: #f2f2f2; color: #000; }
   /* Yapışkan varyantın seçicisi üstteki kuraldan daha özgül; yazdırmada da

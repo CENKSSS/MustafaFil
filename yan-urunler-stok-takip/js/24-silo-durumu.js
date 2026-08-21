@@ -305,12 +305,19 @@
           vurgu: k < 0 ? 'olumsuz' : null,
           /* Tam sayfaya gitmek yerine küçük pencere: kullanıcı listeden kopmuyor. */
           onClick: (function (t) { return function () { YU.gunPenceresi(t); }; })(h.Tarih),
+          /* Hücre vurguları Günlük Rapor'daki dille aynı (kullanıcı isteği,
+             21.08.2026): silo adı koyu, giren YEŞİL / çıkan KIRMIZI renkli —
+             sayıların kalınlığına dokunulmaz; kaynak soluk kalır. */
           hucreler: [
-            YU.fmt.tarih(h.Tarih),
-            siloAdi(depo, h.SiloId),
+            YU.h('span', { sinif: 'yu-mono', metin: YU.fmt.tarih(h.Tarih), stil: { whiteSpace: 'nowrap' } }),
+            YU.h('span', { sinif: 'yu-guclu', metin: siloAdi(depo, h.SiloId) }),
             tipRozeti(h.HareketTipi),
-            h.GirenKg > 0 ? YU.fmt.kg(h.GirenKg) : '—',
-            h.CikanKg > 0 ? YU.fmt.kg(h.CikanKg) : '—',
+            h.GirenKg > 0
+              ? YU.h('span', { metin: YU.fmt.kg(h.GirenKg), stil: { color: 'var(--olumlu)' } })
+              : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
+            h.CikanKg > 0
+              ? YU.h('span', { metin: YU.fmt.kg(h.CikanKg), stil: { color: 'var(--olumsuz)' } })
+              : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
             k < 0 ? YU.ui.rozet(YU.fmt.kg(k), 'olumsuz') : YU.fmt.kg(k),
             h.KaynakKayitId === null || h.KaynakKayitId === undefined
               ? YU.h('span', { sinif: 'yu-zayif', metin: 'Elle girilmiş' })
