@@ -645,6 +645,35 @@
       }
     }
 
+    /* 2c — toprak satışı iki kez düzeltildi: Ahmet'in ilk düzeltmesi de
+       sonradan değişti — "üstü çizili · Değiştirildi" zincir örneği
+       (kullanıcı isteği, 21.08.2026). */
+    m = malzemeler["Toprak"];
+    if (m) {
+      var toprakH = hareketBul(depo, sonGun, m.Id);
+      if (toprakH) {
+        var toprakUretim = Number(toprakH.Uretim) || 0;
+        var toprakSatis = Number(toprakH.Satis) || 0;
+        calistir(durum, "toprak düzeltmesi 1", sonGun,
+          izle(depo, sonGun + "T14:10:00", function () {
+            return YU.servis.malzemeHareketKaydet(depo, {
+              tarih: sonGun, malzemeId: m.Id,
+              uretim: toprakUretim, satis: YU.yuvarla(toprakSatis + 120),
+              rowVersion: toprakH.RowVersion
+            }, operator);
+          }));
+        calistir(durum, "toprak düzeltmesi 2", sonGun,
+          izle(depo, sonGun + "T16:40:00", function () {
+            var toprakGuncel = hareketBul(depo, sonGun, m.Id);
+            return YU.servis.malzemeHareketKaydet(depo, {
+              tarih: sonGun, malzemeId: m.Id,
+              uretim: toprakUretim, satis: YU.yuvarla(toprakSatis + 40),
+              rowVersion: toprakGuncel.RowVersion
+            }, operator2);
+          }));
+      }
+    }
+
     /* 3 — malzeme devri düzeltmesi: kampanya başı sayımı sonradan revize edildi */
     m = malzemeler["Kuyruk"];
     d = m ? devirBul(depo, m.Id, plan.devirTarihi) : null;
@@ -735,6 +764,39 @@
               satisCekisleri: girdi.satisCekisleri,
               rowVersion: kayit.RowVersion
             }, operator2);
+          }));
+      }
+    }
+
+    /* 8 — akşam İKİNCİ kuru küspe düzeltmesi: bir çuval geri sayıldı
+       (36 -> 35). 15:20'nin silo hareketleri silinip yeniden yazılır ve
+       çuval alanları yeniden değişir — Günün İşlem Geçmişi'nde "Silindi"
+       ve "Değiştirildi" örnekleri (kullanıcı isteği, 21.08.2026). */
+    kayit = kuruKuspeBul(depo, sonGun);
+    if (kayit) {
+      yeniAdet = (Number(kayit.CuvalAdet) || 0) - 1;
+      var oncekiHesap8 = YU.hesap.kuruKuspe(kayit.UretilenDokme, kayit.CuvalAdet, kayit.SatilanDokme);
+      var sonrakiHesap8 = YU.hesap.kuruKuspe(kayit.UretilenDokme, yeniAdet, kayit.SatilanDokme);
+      fark = YU.yuvarla(sonrakiHesap8.netDokmeUretim - oncekiHesap8.netDokmeUretim);
+      girdi = gunSiloSatirlari(depo, sonGun);
+      enBuyuk = -1;
+      for (i = 0; i < girdi.yerlestirmeler.length; i++) {
+        if (enBuyuk < 0 || girdi.yerlestirmeler[i].miktar > girdi.yerlestirmeler[enBuyuk].miktar) enBuyuk = i;
+      }
+      if (yeniAdet >= 0 && oncekiHesap8.silodanCekilecek === 0 && sonrakiHesap8.silodanCekilecek === 0 && enBuyuk >= 0) {
+        girdi.yerlestirmeler[enBuyuk].miktar = YU.yuvarla(girdi.yerlestirmeler[enBuyuk].miktar + fark);
+        calistir(durum, "kuru küspe düzeltmesi 2", sonGun,
+          izle(depo, sonGun + "T17:30:00", function () {
+            return YU.servis.kuruKuspeKaydet(depo, {
+              tarih: sonGun,
+              uretilenDokme: kayit.UretilenDokme,
+              cuvalAdet: yeniAdet,
+              satilanDokme: kayit.SatilanDokme,
+              yerlestirmeler: girdi.yerlestirmeler,
+              cekisler: girdi.cekisler,
+              satisCekisleri: girdi.satisCekisleri,
+              rowVersion: kayit.RowVersion
+            }, operator);
           }));
       }
     }

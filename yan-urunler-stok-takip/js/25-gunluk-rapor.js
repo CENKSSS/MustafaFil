@@ -474,20 +474,21 @@
 
     /* Sonradan geçersizleşen adımlar işaretlenir (kullanıcı isteği,
        21.08.2026): aynı kaydın üstüne daha sonra yazılmışsa eski adımın
-       ayrıntısı ÜSTÜ ÇİZİLİ ama okunur kalır, sağında "Güncellendi" /
+       ayrıntısı ÜSTÜ ÇİZİLİ ama okunur kalır, sağında "Değiştirildi" /
        "Silindi" rozeti durur. Kurallar:
        - sonra aynı kayıt silindiyse                        -> Silindi
-       - Ekle'nin kaydına sonra herhangi bir dokunuş        -> Güncellendi
-       - aynı ALANIN daha yeni bir güncellemesi varsa       -> Güncellendi */
+       - Ekle'nin kaydına sonra herhangi bir dokunuş        -> Değiştirildi
+       - aynı ALANIN daha yeni bir güncellemesi varsa       -> Değiştirildi */
     var gecersiz = [], j, sonra;
     for (i = 0; i < liste.length; i++) {
       l = liste[i];
+      if (l.Islem === 'Sil') continue;   /* silme eylemi sonradan geçersizleşmez */
       for (j = i + 1; j < liste.length; j++) {
         sonra = liste[j];
         if (sonra.Tablo !== l.Tablo || sonra.KayitId !== l.KayitId) continue;
         if (sonra.Islem === 'Sil') { gecersiz[i] = 'Silindi'; break; }
-        if (l.Islem === 'Ekle') { gecersiz[i] = gecersiz[i] || 'Güncellendi'; }
-        else if (l.Islem === 'Guncelle' && l.Alan && sonra.Alan === l.Alan) { gecersiz[i] = 'Güncellendi'; }
+        if (l.Islem === 'Ekle') { gecersiz[i] = gecersiz[i] || 'Değiştirildi'; }
+        else if (l.Islem === 'Guncelle' && l.Alan && sonra.Alan === l.Alan) { gecersiz[i] = 'Değiştirildi'; }
       }
     }
 

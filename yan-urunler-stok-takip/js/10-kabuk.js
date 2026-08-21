@@ -613,7 +613,8 @@
     });
   }
 
-  function popupSatir(ikon, baslik, altMetin, onClick, renk) {
+  /* vurgulu: satır kalıcı vurgu zeminiyle çizilir (okunmamış bildirim). */
+  function popupSatir(ikon, baslik, altMetin, onClick, renk, vurgulu) {
     var ikonKap = YU.h('div', {
       stil: {
         width: '24px', height: '24px', borderRadius: '7px', flex: 'none',
@@ -626,13 +627,18 @@
       YU.h('div', { metin: baslik, stil: { font: '400 14.5px/1.35 var(--font)', color: 'var(--metin-2)' } }),
       altMetin ? YU.h('div', { metin: altMetin, stil: { font: '400 13px/1.4 var(--font)', color: 'var(--metin-4)', marginTop: '2px' } }) : null
     );
+    var taban = vurgulu ? 'var(--vurgu-zemin)' : 'transparent';
     var satir = YU.h('div', {
       role: 'button', tabindex: '0',
-      stil: { display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '8px 10px', borderRadius: '8px', cursor: 'pointer' },
+      stil: {
+        display: 'flex', gap: '10px', alignItems: 'flex-start',
+        padding: '8px 10px', borderRadius: '8px', cursor: 'pointer',
+        background: taban
+      },
       onClick: function () { popupKapat(); if (onClick) onClick(); },
       onKeyDown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); popupKapat(); if (onClick) onClick(); } },
       onMouseEnter: function () { satir.style.background = 'var(--yuzey-3)'; },
-      onMouseLeave: function () { satir.style.background = 'transparent'; }
+      onMouseLeave: function () { satir.style.background = taban; }
     }, ikonKap, govde);
     return satir;
   }
@@ -1178,7 +1184,11 @@
   function zilPaneliAc(tetik) {
     if (acikPopup && acikPopup.tetik === tetik) { popupKapat(); return; }
 
-    /* Panel açıldı: yeni hareketler görüldü sayılır, zil sayacı söner. */
+    /* Önceki bakışın sınırı, okunmamışları işaretlemek için AÇILMADAN önce
+       okunur; ardından görülen güncellenir — panel kapatılıp yeniden
+       açıldığında aynı satırlar artık vurgusuz gelir (kullanıcı isteği,
+       21.08.2026). Zil sayacı da söner. */
+    var eskiGorulen = gorulenLogId();
     try { window.localStorage.setItem(GORULEN_LOG_ANAHTAR, String(sonLogId())); } catch (e) {}
     sayacGoster(dom.zilSayac, 0);
 
@@ -1196,7 +1206,8 @@
       for (var i = 0; i < ogeler.length; i++) {
         var o = ogeler[i];
         kutu.appendChild(popupSatir(o.ikon, o.metin, o.zaman,
-          o.onClick || function () { YU.git('son-hareketler'); }));
+          o.onClick || function () { YU.git('son-hareketler'); }, null,
+          !!(o.logId && o.logId > eskiGorulen)));
       }
     }
     kutu.appendChild(YU.h('div', { stil: { borderTop: '1px solid var(--ayrac)', margin: '4px 0' } }));

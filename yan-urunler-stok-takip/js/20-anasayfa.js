@@ -723,7 +723,8 @@
       liste.push({
         ikon: TABLO_IKON[l.Tablo] || '#ic-dots',
         metin: logMetni(depo, l),
-        zaman: goreli(l.Tarih) + (ad ? ' · ' + ad : '')
+        zaman: goreli(l.Tarih) + (ad ? ' · ' + ad : ''),
+        logId: Number(l.Id) || 0   /* zil paneli okunmamışları bununla işaretler */
       });
     }
 
