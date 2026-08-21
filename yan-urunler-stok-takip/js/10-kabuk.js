@@ -624,7 +624,10 @@
       }
     }, YU.svg(ikon || '#ic-dots', 13));
     var govde = YU.h('div', { stil: { flex: '1', minWidth: '0' } },
-      YU.h('div', { metin: baslik, stil: { font: '400 14.5px/1.35 var(--font)', color: 'var(--metin-2)' } }),
+      /* baslik bir Element ise olduğu gibi kullanılır (zil: tarih başlıklı öge). */
+      typeof baslik === 'string'
+        ? YU.h('div', { metin: baslik, stil: { font: '400 14.5px/1.35 var(--font)', color: 'var(--metin-2)' } })
+        : baslik,
       altMetin ? YU.h('div', { metin: altMetin, stil: { font: '400 13px/1.4 var(--font)', color: 'var(--metin-4)', marginTop: '2px' } }) : null
     );
     var taban = vurgulu ? 'var(--vurgu-zemin)' : 'transparent';
@@ -1205,7 +1208,16 @@
     } else {
       for (var i = 0; i < ogeler.length; i++) {
         var o = ogeler[i];
-        kutu.appendChild(popupSatir(o.ikon, o.metin, o.zaman,
+        /* Tarih cümle içinde değil, ögenin başlığında (kullanıcı isteği). */
+        var icerik = YU.h('div', null,
+          o.tarih ? YU.h('div', {
+            metin: o.tarih,
+            stil: { font: '600 12px/1 var(--sayi)', fontVariantNumeric: 'tabular-nums',
+                    color: 'var(--metin-3)', marginBottom: '3px' }
+          }) : null,
+          YU.h('div', { metin: o.metin, stil: { font: '400 14.5px/1.35 var(--font)', color: 'var(--metin-2)' } })
+        );
+        kutu.appendChild(popupSatir(o.ikon, icerik, o.zaman,
           o.onClick || function () { YU.git('son-hareketler'); }, null,
           !!(o.logId && o.logId > eskiGorulen)));
       }

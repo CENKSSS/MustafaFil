@@ -620,7 +620,9 @@
       return kap;
     }
 
-    kap.appendChild(YU.h('div', { sinif: 'yu-izgara yu-iz-3 yu-esit' }, kartlar));
+    /* Kartlar satır başına 4'lü dizilir (kullanıcı isteği, 21.08.2026);
+       dar ekran kırılımları yu-iz-4'ten gelir (≤1100 2'li, ≤700 tekli). */
+    kap.appendChild(YU.h('div', { sinif: 'yu-izgara yu-iz-4 yu-esit' }, kartlar));
     return kap;
   }
 
@@ -670,23 +672,46 @@
 
   /* Log satırı tek başına 'Aktif: Evet → Hayır' diyordu — hangi kaydın
      pasifleştiği belli değildi. Künye kaydın kendisinden çözülüyor. */
+  /* Cümle içindeki GG.AA.YYYY parçaları ayıklanır: tarih artık ögenin
+     BAŞLIĞI olarak ayrı gösterilir (kullanıcı isteği, 21.08.2026). */
+  function tarihsizCumle(metin) {
+    var m = String(metin).replace(/\s*\(\d{2}\.\d{2}\.\d{4}\)\s*/g, ' ');
+    var parcalar = m.split(' · '), tut = [], i;
+    for (i = 0; i < parcalar.length; i++) {
+      if (/^\d{2}\.\d{2}\.\d{4}$/.test(parcalar[i].trim())) continue;
+      tut.push(parcalar[i]);
+    }
+    return tut.join(' · ').replace(/\s{2,}/g, ' ').trim();
+  }
+
+  /* Ögenin başlık tarihi: kaydın İŞ tarihi (künyeden/özetten), yoksa
+     denetim satırının kendi günü. */
+  function logTarihi(kunye, ayrinti, l) {
+    var m = /(\d{2})\.(\d{2})\.(\d{4})/.exec(String(kunye || '') + ' ' + String(ayrinti || ''));
+    if (m) return m[0];
+    return YU.fmt.tarih(String(l.Tarih || '').slice(0, 10));
+  }
+
   function logMetni(depo, l) {
     var ad = TABLO_ADI[l.Tablo] || l.Tablo;
     var kunye = YU.log.kayitEtiketi(depo, l.Tablo, l.KayitId);
     var bas = ad + (kunye ? ' · ' + kunye : '');
     function deger(v) { return (v === null || v === undefined || v === '') ? '—' : String(v); }
 
+    var metin, ayrinti = null;
     if (l.Alan) {
       var cumle = YU.log.alanCumlesi(l.Alan, l.EskiDeger, l.YeniDeger);
-      if (cumle) return bas + ' · ' + cumle;
-      return bas + ' · ' + l.Alan + ': ' + deger(l.EskiDeger) + ' → ' + deger(l.YeniDeger);
+      metin = cumle
+        ? bas + ' · ' + cumle
+        : bas + ' · ' + l.Alan + ': ' + deger(l.EskiDeger) + ' → ' + deger(l.YeniDeger);
+    } else {
+      ayrinti = l.Islem === 'Sil' ? l.EskiDeger : l.YeniDeger;
+      var islem = ISLEM_ADI[l.Islem] || 'güncellendi';
+      /* Künye zaten özet metnin içindeyse tekrar yazdırılmıyor. */
+      var tekrar = kunye && ayrinti && String(ayrinti).indexOf(kunye) > -1;
+      metin = bas + ' · ' + islem + (ayrinti && !tekrar ? ' · ' + ayrinti : '');
     }
-
-    var ayrinti = l.Islem === 'Sil' ? l.EskiDeger : l.YeniDeger;
-    var islem = ISLEM_ADI[l.Islem] || 'güncellendi';
-    /* Künye zaten özet metnin içindeyse tekrar yazdırılmıyor. */
-    var tekrar = kunye && ayrinti && String(ayrinti).indexOf(kunye) > -1;
-    return bas + ' · ' + islem + (ayrinti && !tekrar ? ' · ' + ayrinti : '');
+    return { metin: tarihsizCumle(metin), tarih: logTarihi(kunye, ayrinti, l) };
   }
 
   /* minLogId verilirse bildirim modu: yalnız o kayıttan SONRAKİ denetim
@@ -709,9 +734,11 @@
       l = log[i];
       if (minLogId && (Number(l.Id) || 0) <= minLogId) continue;
       ad = kullaniciAdi(depo, l.KullaniciId);
+      var lm = logMetni(depo, l);
       liste.push({
         ikon: TABLO_IKON[l.Tablo] || '#ic-dots',
-        metin: logMetni(depo, l),
+        tarih: lm.tarih,
+        metin: lm.metin,
         zaman: goreli(l.Tarih) + (ad ? ' · ' + ad : ''),
         logId: Number(l.Id) || 0   /* zil paneli okunmamışları bununla işaretler */
       });
@@ -725,7 +752,8 @@
       (function (g) {
         liste.push({
           ikon: g.kuruKuspeVar ? '#ic-plus' : '#ic-pencil',
-          metin: YU.fmt.tarih(g.tarih) + ' · ' + (g.kuruKuspeVar ? 'kuru küspe girişi' : 'malzeme girişi') +
+          tarih: YU.fmt.tarih(g.tarih),
+          metin: (g.kuruKuspeVar ? 'Kuru küspe girişi' : 'Malzeme girişi') +
             (g.malzemeSayisi ? ' · ' + YU.fmt.sayi(g.malzemeSayisi) + ' Malzeme Satırı' : ''),
           zaman: goreli(g.sonGuncelleme || g.tarih) + (g.kullanici ? ' · ' + g.kullanici : ''),
           onClick: function () { YU.git('gunluk-rapor', { tarih: g.tarih }); }
@@ -746,6 +774,12 @@
     }, YU.svg(oge.ikon, 13));
 
     var govde = YU.h('div', { stil: { flex: '1', minWidth: '0' } },
+      /* Tarih cümlenin içinde değil, ögenin başlığı (kullanıcı isteği, 21.08.2026). */
+      oge.tarih ? YU.h('div', {
+        metin: oge.tarih,
+        stil: { font: '600 12.5px/1 var(--sayi)', fontVariantNumeric: 'tabular-nums',
+                color: 'var(--metin-3)', marginBottom: '3px' }
+      }) : null,
       YU.h('div', { metin: oge.metin, stil: { font: '400 14px/1.4 var(--font)', color: 'var(--metin-2)' } }),
       YU.h('div', { metin: oge.zaman, stil: { font: '400 13px/1.4 var(--font)', color: 'var(--metin-4)', marginTop: '2px' } })
     );
