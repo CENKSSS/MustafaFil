@@ -157,9 +157,10 @@
     );
 
     var bilgi = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '12px', flex: '1', minWidth: '0' } },
+      /* Ton karşılığı satırı kaldırıldı; yalnız kg yazılır (kullanıcı
+         isteği, 21.08.2026). */
       YU.h('div', null,
-        YU.h('div', { sinif: 'yu-kpi-deger', metin: YU.fmt.kgU(satirVeri.mevcut) }),
-        YU.h('div', { sinif: 'yu-kpi-alt', metin: 'mevcut · ' + YU.fmt.ton(satirVeri.mevcut) })
+        YU.h('div', { sinif: 'yu-kpi-deger', metin: YU.fmt.kgU(satirVeri.mevcut) })
       ),
       YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '7px' } },
         YU.ui.cubuk(oran, tur),

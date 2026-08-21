@@ -232,7 +232,20 @@
     return YU.h('span', { sinif: 'yu-zayif', metin: metin });
   }
 
-  function malzemePaneli(ozet) {
+  /* Kim, saat kaçta — son dokunan (güncelleyen yoksa oluşturan); gün
+     yazılmaz, ekran zaten tek güne ait (kullanıcı isteği, 21.08.2026). */
+  function kaydedenMetni(depo, h) {
+    if (!h) return YU.h('span', { sinif: 'yu-zayif', metin: '—' });
+    var id = h.GuncelleyenKullaniciId !== null && h.GuncelleyenKullaniciId !== undefined
+      ? h.GuncelleyenKullaniciId : h.OlusturanKullaniciId;
+    var an = h.GuncellemeTarihi || h.OlusturmaTarihi;
+    var ad = kullaniciAdi(depo, id);
+    var saat = an ? YU.fmt.saat(an) : '—';
+    if (!ad && saat === '—') return YU.h('span', { sinif: 'yu-zayif', metin: '—' });
+    return YU.h('span', { sinif: 'yu-zayif', metin: (ad || '—') + (saat !== '—' ? ' · ' + saat : '') });
+  }
+
+  function malzemePaneli(depo, ozet) {
     var satirlar = [], i, s;
     for (i = 0; i < ozet.malzemeSatirlari.length; i++) {
       s = ozet.malzemeSatirlari[i];
@@ -240,7 +253,8 @@
         YU.h('span', { sinif: 'yu-guclu', metin: s.malzeme ? s.malzeme.Ad : ('Malzeme #' + s.hareket.MalzemeId) }),
         s.uretim > 0 ? YU.fmt.kg(s.uretim) : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
         s.satis > 0 ? YU.fmt.kg(s.satis) : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
-        malzemeKaynagi(s.malzeme)
+        malzemeKaynagi(s.malzeme),
+        kaydedenMetni(depo, s.hareket)
       ]);
     }
 
@@ -253,7 +267,8 @@
           { baslik: 'Malzeme' },
           { baslik: 'Üretim', hiza: 'sag', mono: true, genislik: 150 },
           { baslik: 'Satış', hiza: 'sag', mono: true, genislik: 150 },
-          { baslik: 'Kaynak', genislik: 250 }
+          { baslik: 'Kaynak', genislik: 220 },
+          { baslik: 'Kaydeden', genislik: 190 }
         ],
         satirlar: satirlar,
         bos: 'Bu gün için malzeme hareketi yazılmamış.',
@@ -462,7 +477,7 @@
       }));
     }
 
-    kap.appendChild(malzemePaneli(ozet));
+    kap.appendChild(malzemePaneli(depo, ozet));
     kap.appendChild(siloPaneli(depo, ozet, tarih));
   }
 
