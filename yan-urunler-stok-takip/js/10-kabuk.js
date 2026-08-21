@@ -2270,7 +2270,7 @@
   /* Düz metinli mini ipucu: grafiklerdeki kutunun aynısını kullanır, içine
      tek satır metin koyar. Tablo satırı gibi tıklanabilir ama düğmeye
      benzemeyen ögelerde "ne olacağını" söylemek için. */
-  var IPUCU_GECIKME = 250;   /* satır üzerinden geçerken kutu hemen açılmasın */
+  var IPUCU_GECIKME = 100;   /* 0,1 sn — ipucu bekletmeden gelsin (kullanıcı isteği, 21.08.2026) */
 
   function metinIpucuBagla(oge, metin) {
     var zaman = null, sonX = 0, sonY = 0;

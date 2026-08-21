@@ -22,9 +22,6 @@
   };
   var TIP_SIRA = ['DokmeUretim', 'Cuvallama', 'DokmeSatis', 'Manuel'];
 
-  var KAPASITE_NOTU = 'Şartname §13 Soru 5a hâlâ açık: 3.000 ton silo başına mı, ' +
-    'üçünün toplamı mı? Prototip silo başına varsayımını kullanıyor.';
-
   /* ------------------------------------------------------------------
      Küçük yardımcılar
      ------------------------------------------------------------------ */
@@ -72,34 +69,6 @@
       YU.h('div', { sinif: 'yu-hesap-etiket', metin: etiket }),
       YU.h('div', { sinif: 'yu-hesap-deger', metin: deger })
     );
-  }
-
-  /* ------------------------------------------------------------------
-     Kapasite varsayımı notu (Şartname §13 Soru 5a — hâlâ açık)
-     ------------------------------------------------------------------ */
-
-  function kapasiteNotu() {
-    return YU.h('button', {
-      tip: 'button',
-      sinif: 'yu-satir-eylem',
-      title: 'Kapasite Varsayımı Hakkında',
-      'aria-label': 'Kapasite Varsayımı Hakkında',
-      onClick: function () {
-        var m = YU.ui.modal({
-          baslik: 'Kapasite Varsayımı',
-          genislik: 470,
-          govde: [
-            YU.h('div', { metin: KAPASITE_NOTU }),
-            YU.h('div', {
-              sinif: 'yu-yardim',
-              metin: 'Silo başına 3.000.000 kg → üç siloda toplam 9.000.000 kg. ' +
-                'Diğer okuma silo başına 1.000.000 kg olurdu; D15 uyarısı bu sayıya göre tetiklenir.'
-            })
-          ],
-          dugmeler: [{ metin: 'Kapat', tur: 'ikincil', onClick: function () { m.kapat(); } }]
-        });
-      }
-    }, YU.svg('#ic-dots', 13));
   }
 
   /* ------------------------------------------------------------------
@@ -151,11 +120,6 @@
       silo.Aktif === false ? YU.ui.rozet('Pasif', 'notr') : null
     );
 
-    var kapasiteSatiri = YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '6px' } },
-      YU.h('span', { sinif: 'yu-etiket', metin: 'Kapasite ' + YU.fmt.kgU(kapasite) + ' · ' + YU.fmt.ton(kapasite), stil: { flex: '1', minWidth: '0' } }),
-      kapasiteNotu()
-    );
-
     var bilgi = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '12px', flex: '1', minWidth: '0' } },
       /* Ton karşılığı satırı kaldırıldı; yalnız kg yazılır (kullanıcı
          isteği, 21.08.2026). */
@@ -166,7 +130,8 @@
         YU.ui.cubuk(oran, tur),
         YU.h('div', { sinif: 'yu-kpi-alt', metin: dolulukNotu(satirVeri.mevcut, kapasite, oran) })
       ),
-      kapasiteSatiri,
+      /* "Kapasite … kg · … ton" satırı kaldırıldı (kullanıcı isteği,
+         21.08.2026); kapasiteyi "Kalan kapasite" notu anlatmaya devam eder. */
       YU.h('hr', { sinif: 'yu-ayrac yu-yatay' }),
       YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '8px' } },
         satir(devir ? 'Devir · ' + YU.fmt.tarih(devir.DevirTarihi) : 'Devir', YU.fmt.kgU(satirVeri.devir)),
