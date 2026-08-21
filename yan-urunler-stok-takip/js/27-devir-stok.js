@@ -14,7 +14,15 @@
   /* Sekme ve seçili tarih modül düzeyinde durur: kaydetme sonrası sayfa yeniden
      çizilince kullanıcı aynı kampanya tarihinde kalsın. Tarih sekme başına ayrı
      tutulur — malzeme ve silo devirlerinin tarihleri aynı olmak zorunda değil. */
-  var durum = { sekme: 'malzeme', tarih: { malzeme: null, silo: null } };
+  var durum = {
+    sekme: 'malzeme',
+    tarih: { malzeme: null, silo: null },
+    /* elle: boş sekmede "Elle Gir" seçildiyse tablo gösterilir.
+       onDoldur: devretten gelen sahipId→miktar haritası; bir sonraki çizimde
+       giriş alanlarına yazılır ve temizlenir. */
+    elle: { malzeme: false, silo: false },
+    onDoldur: null
+  };
   var dom = { govde: null };
 
   function siloMu() { return durum.sekme === 'silo'; }
@@ -164,10 +172,56 @@
   }
 
   /* ------------------------------------------------------------------
-     Tarih paneli
+     Önceki kampanyadan devret — Türk ERP'lerdeki devir işlemi kalıbı:
+     açılış rakamları elle yazılmaz, önceki dönemin kapanışından üretilir,
+     kullanıcı kontrol edip kaydeder (kullanıcı isteği, 21.08.2026).
      ------------------------------------------------------------------ */
 
-  function tarihPaneli() {
+  function oncekiKampanya(sinirTarih) {
+    var l = YU.donem.liste(), sinir = sinirTarih || YU.tarih.bugun(), enSon = null, i;
+    for (i = 0; i < l.length; i++) {
+      if (l[i].bit < sinir && (!enSon || l[i].bit > enSon.bit)) enSon = l[i];
+    }
+    return enSon;
+  }
+
+  /* Kapanış stokları = kapanış günü itibarıyla hesaplanan mevcutlar.
+     Malzeme sekmesinde dökme kuru küspe atlanır: onun açılışı Silo
+     Devirleri sekmesinden, silo bazında girilir (Şartname §5). */
+  function kapanisStoklari(kapanisTarihi) {
+    var harita = {}, liste, i;
+    if (siloMu()) {
+      liste = YU.stok.tumSilolar(YU.db, kapanisTarihi);
+      for (i = 0; i < liste.length; i++) harita[liste[i].silo.Id] = YU.yuvarla(liste[i].mevcut);
+    } else {
+      liste = YU.stok.tumMalzemeler(YU.db, kapanisTarihi);
+      for (i = 0; i < liste.length; i++) {
+        if (!liste[i].malzeme || liste[i].malzeme.OzelTip === 'DokmeKuruKuspe') continue;
+        harita[liste[i].malzeme.Id] = YU.yuvarla(liste[i].mevcut);
+      }
+    }
+    return harita;
+  }
+
+  function devret(onceki, tarihOner) {
+    durum.onDoldur = kapanisStoklari(onceki.bit);
+    durum.elle[durum.sekme] = true;
+    /* Boş sekmede tarih de önerilir: kapanışın ertesi günü. Dolu sekmede
+       kullanıcının seçili tarihi korunur. */
+    if (tarihOner) durum.tarih[durum.sekme] = YU.tarih.ekle(onceki.bit, 1);
+    govdeyiCiz();
+    YU.ui.bildir('Kampanya ' + onceki.ad + ' kapanışı (' + YU.fmt.tarih(onceki.bit) +
+      ') satırlara dolduruldu. Tarihi ve miktarları kontrol edip Kaydet\'e basın.', 'bilgi');
+  }
+
+  /* ------------------------------------------------------------------
+     Tarih bloğu — ayrı bir panel değil, devir tablosunun üst bölümü.
+     İki ayrı panel "Devir Tarihleri" ile "Malzeme Devirleri" birbirinden
+     bağımsız görünüyordu; tarih seçimi tablonun başına bağlandı
+     (kullanıcı isteği, 21.08.2026).
+     ------------------------------------------------------------------ */
+
+  function tarihBlogu() {
     var tarih = seciliTarih();
     var liste = devirTarihleri();
 
@@ -213,12 +267,20 @@
       }
     });
 
+    var onceki = oncekiKampanya(tarih);
+    var devretDugme = onceki ? YU.ui.dugme({
+      metin: 'Önceki Kampanyadan Devret', ikon: '#ic-wallet', tur: 'ikincil',
+      baslik: 'Kampanya ' + onceki.ad + ' kapanışını (' + YU.fmt.tarih(onceki.bit) + ') satırlara doldurur',
+      onClick: function () { devret(onceki, false); }
+    }) : null;
+
     var satir = YU.h('div', {
       stil: { display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }
     },
       tarihAlani.kok,
       YU.h('div', { stil: { display: 'flex', alignItems: 'center', paddingBottom: '9px' } }, rozet),
       YU.h('div', { stil: { flex: '1', minWidth: '12px' } }),
+      devretDugme,
       yeniDugme
     );
 
@@ -230,12 +292,17 @@
                  : 'Devir tarihi seçilmedi.')
     });
 
-    return YU.ui.panel({
-      baslik: 'Devir Tarihleri',
-      ikon: '#ic-calendar',
-      sag: YU.h('span', { metin: YU.fmt.sayi(liste.length) + ' kampanya devri' }),
-      govde: [cipler, YU.h('hr', { sinif: 'yu-ayrac yu-yatay' }), satir, yardim]
-    });
+    return YU.h('div', {
+      stil: {
+        display: 'flex', flexDirection: 'column', gap: '13px',
+        padding: '16px 18px', borderBottom: '1px solid var(--ayrac)'
+      }
+    },
+      cipler,
+      YU.h('hr', { sinif: 'yu-ayrac yu-yatay' }),
+      satir,
+      yardim
+    );
   }
 
   /* Kampanya adı kabuğun dönem listesinden okunur; adlandırma kuralı orada tanımlı,
@@ -291,6 +358,7 @@
     var mevcutlar = mevcutHaritasi(YU.db);
     var alanlar = [];
     var satirlar = [], i;
+    var kayitliToplam = 0;
 
     for (i = 0; i < satirVerisi.length; i++) {
       (function (v) {
@@ -299,9 +367,11 @@
         var alan = YU.ui.alan({
           tip: 'sayi', sag: 'kg', genislik: 170,
           deger: kayit ? Number(kayit.Miktar) : '',
-          yerTutucu: kayit ? '' : 'devir yok'
+          yerTutucu: kayit ? '' : 'devir yok',
+          onInput: function () { canliTazele(); }
         });
-        alanlar.push({ sahip: sahip, kayit: kayit, alan: alan });
+        alanlar.push({ sahip: sahip, kayit: kayit, alan: alan, tr: null });
+        if (kayit) kayitliToplam += Number(kayit.Miktar) || 0;
 
         var adHucre = YU.h('div', null,
           YU.h('div', { sinif: 'yu-guclu', metin: sahip.Ad },
@@ -334,26 +404,110 @@
             )
           : YU.h('span', { sinif: 'yu-zayif', metin: '—' });
 
+        var kayitliHucre = kayit
+          ? YU.h('span', { sinif: 'yu-mono', metin: YU.fmt.kg(kayit.Miktar) })
+          : YU.h('span', { sinif: 'yu-zayif', metin: '—' });
+
         var eylemHucre = kayit
           ? YU.h('div', { stil: { display: 'flex', gap: '3px', justifyContent: 'flex-end' } },
               eylemDugmesi('#ic-trash', 'Bu devir satırını sil', function () { silmeyiBaslat(sahip, kayit); }, true))
           : YU.h('span', { sinif: 'yu-zayif', metin: '—' });
 
-        satirlar.push([adHucre, tarihHucre, alan.kok, kullaniciHucre, eylemHucre]);
+        satirlar.push([adHucre, tarihHucre, kayitliHucre, alan.kok, kullaniciHucre, eylemHucre]);
       })(satirVerisi[i]);
     }
 
     var tablo = YU.ui.tablo({
+      sik: false,        /* giriş alanlı düzenleme tablosu — sık stil daraltmaz */
       sutunlar: [
         { baslik: siloMu() ? 'Silo' : 'Malzeme' },
-        { baslik: 'Devir Tarihi', genislik: 260 },
-        { baslik: 'Miktar', hiza: 'sag', genislik: 200 },
-        { baslik: 'Giren Kullanıcı', genislik: 190 },
-        { baslik: 'İşlem', hiza: 'sag', genislik: 96 }
+        { baslik: 'Devir Tarihi', genislik: 230 },
+        { baslik: 'Kayıtlı Devir (Kg)', hiza: 'sag', genislik: 150 },
+        { baslik: 'Yeni Miktar', hiza: 'sag', genislik: 200 },
+        { baslik: 'Giren Kullanıcı', genislik: 170 },
+        { baslik: 'İşlem', hiza: 'sag', genislik: 80 }
       ],
       satirlar: satirlar,
-      bos: 'Gösterilecek ' + (siloMu() ? 'silo' : 'malzeme') + ' yok.'
+      bos: 'Gösterilecek ' + (siloMu() ? 'silo' : 'malzeme') + ' yok.',
+      yapiskan: true
     });
+
+    /* Satır referansları: değişen satır sol kenar şeridiyle işaretlenir
+       (Malzeme Girişi'ndeki negatif stok işaretiyle aynı dil). */
+    var trler = tablo.querySelectorAll('tbody tr');
+    for (i = 0; i < alanlar.length && i < trler.length; i++) alanlar[i].tr = trler[i];
+
+    /* Toplam satırı — kayıtlı ve yeni girilen devirlerin kg toplamı. */
+    var toplamYeniHucre = YU.h('td', {
+      sinif: 'yu-mono', stil: { textAlign: 'right' }, metin: YU.fmt.kg(YU.yuvarla(kayitliToplam))
+    });
+    var tabloEl = tablo.querySelector('table');
+    if (tabloEl && satirVerisi.length) {
+      tabloEl.appendChild(YU.h('tfoot', null, YU.h('tr', null,
+        YU.h('td', { metin: 'Toplam', colspan: '2' }),
+        YU.h('td', {
+          sinif: 'yu-mono', stil: { textAlign: 'right' },
+          metin: YU.fmt.kg(YU.yuvarla(kayitliToplam))
+        }),
+        toplamYeniHucre,
+        YU.h('td', { colspan: '2' })
+      )));
+    }
+
+    /* Devretten gelen doldurma: alanlar kurulduktan sonra bir kez yazılır. */
+    if (durum.onDoldur) {
+      for (i = 0; i < alanlar.length; i++) {
+        var doldur = durum.onDoldur[alanlar[i].sahip.Id];
+        if (doldur !== undefined && doldur > 0) alanlar[i].alan.ayarla(doldur);
+      }
+      durum.onDoldur = null;
+    }
+
+    var sayacMetin = YU.h('div', {
+      stil: { font: '500 14px/1.3 var(--font)', color: 'var(--metin-2)' }
+    });
+    var kaydetDugmesi = YU.ui.dugme({
+      metin: 'Kaydet', ikon: '#ic-wallet', tur: 'birincil',
+      onClick: function () { kaydetmeyiBaslat(alanlar); }
+    });
+    var geriDugmesi = YU.ui.dugme({
+      metin: 'Değişiklikleri Geri Al', ikon: '#ic-dots', tur: 'sade',
+      onClick: function () { govdeyiCiz(); }
+    });
+
+    /* Canlı özet: kaç satır değişecek, yeni toplam kaç kg. Odoo'daki
+       "biriktir, sonra uygula" kalıbının buradaki karşılığı. */
+    function canliTazele() {
+      var degisen = 0, toplam = 0, i2, a, ham, deger, farkli;
+      for (i2 = 0; i2 < alanlar.length; i2++) {
+        a = alanlar[i2];
+        ham = String(a.alan.girdi.value).trim();
+        deger = a.alan.deger();
+        if (ham !== '' && isFinite(deger)) toplam += deger;
+        if (a.kayit) {
+          farkli = ham !== '' && (!isFinite(deger) || !YU.hesap.esit(deger, Number(a.kayit.Miktar) || 0));
+        } else {
+          farkli = ham !== '';
+        }
+        if (farkli) degisen++;
+        if (a.tr) a.tr.style.boxShadow = farkli ? 'inset 3px 0 0 var(--bekleyen)' : '';
+      }
+      toplamYeniHucre.textContent = YU.fmt.kg(YU.yuvarla(toplam));
+      sayacMetin.textContent = degisen
+        ? YU.fmt.sayi(degisen) + ' satır değişecek · henüz kaydedilmedi'
+        : 'Kaydedilmemiş değişiklik yok';
+      kaydetDugmesi.disabled = degisen === 0;
+      geriDugmesi.disabled = degisen === 0;
+    }
+
+    var altSol = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '0' } },
+      sayacMetin,
+      YU.h('span', {
+        sinif: 'yu-yardim',
+        metin: 'Boş bırakılan satır kaydedilmez. Var olan bir devri kaldırmak için işlem sütunundaki ' +
+          'çöp kutusunu kullanın.'
+      })
+    );
 
     var altSatir = YU.h('div', {
       stil: {
@@ -361,22 +515,24 @@
         padding: '14px 18px', borderTop: '1px solid var(--ayrac)'
       }
     },
-      YU.h('span', {
-        sinif: 'yu-yardim',
-        metin: 'Boş bırakılan satır kaydedilmez. Var olan bir devri kaldırmak için işlem sütunundaki ' +
-          'çöp kutusunu kullanın.'
-      }),
+      altSol,
       YU.h('div', { stil: { flex: '1', minWidth: '12px' } }),
-      YU.ui.dugme({ metin: 'Değişiklikleri Geri Al', ikon: '#ic-dots', tur: 'sade', onClick: function () { govdeyiCiz(); } }),
-      YU.ui.dugme({ metin: 'Kaydet', ikon: '#ic-wallet', tur: 'birincil', onClick: function () { kaydetmeyiBaslat(alanlar); } })
+      geriDugmesi,
+      kaydetDugmesi
     );
 
+    canliTazele();
+
+    var kampanyaSayisi = devirTarihleri().length;
     return YU.ui.panel({
-      baslik: siloMu() ? 'Silo devirleri' : 'Malzeme devirleri',
+      baslik: siloMu() ? 'Silo Devirleri' : 'Malzeme Devirleri',
       ikon: siloMu() ? '#ic-building' : '#ic-chart',
       dolgusuz: true,
-      sag: YU.h('span', { metin: tarih ? YU.fmt.tarih(tarih) + kampanyaEki(tarih) : '—' }),
-      govde: [tablo, altSatir]
+      sag: YU.h('span', {
+        metin: (tarih ? YU.fmt.tarih(tarih) + kampanyaEki(tarih) + ' · ' : '') +
+          YU.fmt.sayi(kampanyaSayisi) + ' kampanya devri'
+      }),
+      govde: [tarihBlogu(), tablo, altSatir]
     });
   }
 
@@ -645,18 +801,53 @@
      Gövde ve sayfa
      ------------------------------------------------------------------ */
 
+  /* Hiç devir yokken "0 kg" dolu tablo yerine yönlendiren boş durum:
+     önerilen yol önceki kampanyadan devretmek, alternatifi elle giriş. */
+  function bosDurumPaneli() {
+    var onceki = oncekiKampanya(null);
+    var eylemler = [];
+    if (onceki) {
+      eylemler.push(YU.ui.dugme({
+        metin: 'Önceki Kampanyadan Devret', ikon: '#ic-wallet', tur: 'birincil',
+        baslik: 'Kampanya ' + onceki.ad + ' kapanışını (' + YU.fmt.tarih(onceki.bit) + ') satırlara doldurur',
+        onClick: function () { devret(onceki, true); }
+      }));
+    }
+    eylemler.push(YU.ui.dugme({
+      metin: 'Elle Gir', ikon: '#ic-pencil', tur: onceki ? 'ikincil' : 'birincil',
+      onClick: function () { durum.elle[durum.sekme] = true; govdeyiCiz(); }
+    }));
+
+    return YU.ui.panel({
+      baslik: siloMu() ? 'Silo Devirleri' : 'Malzeme Devirleri',
+      ikon: siloMu() ? '#ic-building' : '#ic-chart',
+      dolgusuz: true,
+      govde: YU.ui.bosDurum({
+        ikon: '#ic-wallet',
+        baslik: 'İlk Kampanya Devrini Oluşturun',
+        metin: 'Bu sekmede henüz devir kaydı yok. Devir, kampanya başındaki açılış stoğudur. ' +
+          (onceki
+            ? 'Önceki kampanyanın (' + onceki.ad + ') kapanış stoklarını tek tuşla devredebilir ya da elle girebilirsiniz.'
+            : 'Tarih seçip miktarları elle girebilirsiniz.'),
+        eylemler: eylemler
+      })
+    });
+  }
+
   function govdeyiCiz() {
     if (!dom.govde) return;
     tarihiHazirla();
     YU.bos(dom.govde);
-    dom.govde.appendChild(tarihPaneli());
+    if (!devirTarihleri().length && !durum.elle[durum.sekme]) {
+      dom.govde.appendChild(bosDurumPaneli());
+      return;
+    }
     dom.govde.appendChild(duzenlemePaneli());
   }
 
   YU.sayfaTanimla({
     kod: 'devir-stok',
     baslik: 'Devir Stok',
-    altBaslik: 'Kampanya başı açılış stoğu · malzeme ve silo devirleri',
     ikon: '#ic-wallet',
     grup: 'Yönetim',
     rol: 'Yonetici',

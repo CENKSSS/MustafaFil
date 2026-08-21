@@ -10,8 +10,8 @@
 
   var YU = window.YU;
 
-  var GRAFIK_GUN = 30;          /* §7 v2 uyarısı geçmişe bakar; 30 gün bir kampanya ayı kadardır */
-  var TABLO_SINIR = 400;        /* tam kampanya ~500 satır; tarayıcıyı kilitlememek için tavan */
+  var GRAFIK_GUN = 14;          /* hareket listesinin varsayılan penceresi: son 14 kayıtlı gün (kullanıcı isteği, 21.08.2026) */
+  var SAYFA_GUN = 14;           /* sayfalama gün bazlıdır: her sayfa 14 kayıtlı günün hareketlerini gösterir */
 
   /* Şartname §6 hareket tipleri — ekran metni ve anlam rengi tek yerde. */
   var TIP = {
@@ -302,10 +302,35 @@
       return liste;
     }
 
+    var sayfa = 0;
+
+    /* Süzgeç değişince ilk sayfaya dönülür; sayfa düğmeleri sayfayı korur. */
+    function suzgecDegisti() { sayfa = 0; tabloyuCiz(); }
+
     function tabloyuCiz() {
       var liste = suzulmus();
-      var gosterilen = liste.slice(0, TABLO_SINIR);
-      var satirlar = [], j, k, h;
+
+      /* Sayfalama satırla değil GÜNLE: her sayfa 14 kayıtlı günün hareketlerini
+         gösterir (kullanıcı isteği, 21.08.2026). Liste yeniden eskiye sıralı
+         olduğundan gün listesi de aynı sırada toplanır. */
+      var gunListesi = [], gorulenGun = {}, j;
+      for (j = 0; j < liste.length; j++) {
+        if (!gorulenGun[liste[j].hareket.Tarih]) {
+          gorulenGun[liste[j].hareket.Tarih] = 1;
+          gunListesi.push(liste[j].hareket.Tarih);
+        }
+      }
+      var toplamSayfa = Math.max(1, Math.ceil(gunListesi.length / SAYFA_GUN));
+      if (sayfa > toplamSayfa - 1) sayfa = toplamSayfa - 1;
+      if (sayfa < 0) sayfa = 0;
+      var dilim = gunListesi.slice(sayfa * SAYFA_GUN, sayfa * SAYFA_GUN + SAYFA_GUN);
+      var sayfaGunleri = {};
+      for (j = 0; j < dilim.length; j++) sayfaGunleri[dilim[j]] = 1;
+      var gosterilen = [];
+      for (j = 0; j < liste.length; j++) {
+        if (sayfaGunleri[liste[j].hareket.Tarih]) gosterilen.push(liste[j]);
+      }
+      var satirlar = [], k, h;
 
       for (j = 0; j < gosterilen.length; j++) {
         h = gosterilen[j].hareket;
@@ -328,8 +353,9 @@
         });
       }
 
-      sayacMetni.textContent = liste.length > gosterilen.length
-        ? YU.fmt.sayi(gosterilen.length) + ' / ' + YU.fmt.sayi(liste.length) + ' hareket (ilk ' + YU.fmt.sayi(TABLO_SINIR) + ')'
+      sayacMetni.textContent = dilim.length && toplamSayfa > 1
+        ? YU.fmt.tarih(dilim[dilim.length - 1]) + ' – ' + YU.fmt.tarih(dilim[0]) + ' · ' +
+          YU.fmt.sayi(gosterilen.length) + ' / ' + YU.fmt.sayi(liste.length) + ' hareket'
         : YU.fmt.sayi(liste.length) + ' hareket';
 
       YU.bos(tabloKabi).appendChild(YU.ui.tablo({
@@ -346,20 +372,45 @@
         ],
         satirlar: satirlar,
         tiklamaIpucu: 'Günün raporunu açmak için tıklayın',
-        bos: 'Bu süzgeçle eşleşen silo hareketi yok.'
+        bos: 'Bu süzgeçle eşleşen silo hareketi yok.',
+        yapiskan: true
       }));
+
+      /* Sayfalama — Değişiklik Geçmişi'ndekiyle aynı dil. */
+      if (toplamSayfa > 1) {
+        tabloKabi.appendChild(YU.h('div', {
+          stil: {
+            display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'flex-end',
+            padding: '12px 18px', borderTop: '1px solid var(--ayrac)'
+          }
+        },
+          YU.h('span', {
+            sinif: 'yu-yardim',
+            metin: 'Sayfa ' + YU.fmt.sayi(sayfa + 1) + ' / ' + YU.fmt.sayi(toplamSayfa) +
+              ' · sayfa başına ' + YU.fmt.sayi(SAYFA_GUN) + ' gün'
+          }),
+          YU.ui.dugme({
+            metin: 'Önceki', tur: 'ikincil', kucuk: true, pasif: sayfa === 0,
+            onClick: function () { sayfa--; tabloyuCiz(); }
+          }),
+          YU.ui.dugme({
+            metin: 'Sonraki', tur: 'ikincil', kucuk: true, pasif: sayfa >= toplamSayfa - 1,
+            onClick: function () { sayfa++; tabloyuCiz(); }
+          })
+        ));
+      }
     }
 
     siloAlani = YU.ui.alan({
       etiket: 'Silo', tip: 'secim', secenekler: siloSecenek,
-      deger: '', onChange: tabloyuCiz
+      deger: '', onChange: suzgecDegisti
     });
     tipAlani = YU.ui.alan({
       etiket: 'Hareket Tipi', tip: 'secim', secenekler: tipSecenek,
-      deger: '', onChange: tabloyuCiz
+      deger: '', onChange: suzgecDegisti
     });
-    basAlani = YU.ui.alan({ etiket: 'Başlangıç', tip: 'tarih', deger: varsayilanBas, onChange: tabloyuCiz });
-    bitAlani = YU.ui.alan({ etiket: 'Bitiş', tip: 'tarih', deger: tarih, onChange: tabloyuCiz });
+    basAlani = YU.ui.alan({ etiket: 'Başlangıç', tip: 'tarih', deger: varsayilanBas, onChange: suzgecDegisti });
+    bitAlani = YU.ui.alan({ etiket: 'Bitiş', tip: 'tarih', deger: tarih, onChange: suzgecDegisti });
 
     var suzgecler = YU.h('div', { sinif: 'yu-izgara yu-iz-4' },
       siloAlani.kok, tipAlani.kok, basAlani.kok, bitAlani.kok);
@@ -371,7 +422,7 @@
         tipAlani.ayarla('');
         basAlani.ayarla('');
         bitAlani.ayarla('');
-        tabloyuCiz();
+        suzgecDegisti();
       }
     });
 
@@ -384,7 +435,7 @@
         sag: [sayacMetni, temizle],
         govde: [suzgecler, tabloKabi]
       }),
-      siloSec: function (id) { siloAlani.ayarla(String(id)); tabloyuCiz(); }
+      siloSec: function (id) { siloAlani.ayarla(String(id)); suzgecDegisti(); }
     };
   }
 

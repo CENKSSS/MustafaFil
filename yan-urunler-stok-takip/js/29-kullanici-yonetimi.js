@@ -368,7 +368,8 @@
         { baslik: 'İşlem', genislik: 178, hiza: 'sag' }
       ],
       satirlar: satirlar,
-      bos: 'Tanımlı kullanıcı yok.'
+      bos: 'Tanımlı kullanıcı yok.',
+      yapiskan: true
     });
   }
 

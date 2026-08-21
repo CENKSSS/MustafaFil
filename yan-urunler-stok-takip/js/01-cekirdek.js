@@ -323,11 +323,22 @@
     ["GunlukHareket", "gunlukHareket"],
     ["KuruKuspeGunluk", "kuruKuspeGunluk"],
     ["SiloHareket", "siloHareket"],
-    ["DegisiklikLog", "degisiklikLog"]
+    ["DegisiklikLog", "degisiklikLog"],
+    // Arka plan arşivi — SOZLESME §1 dışıdır, hiçbir ekranda görünmez.
+    // İleride eklenecek modüller (rapor, çöp kutusu, tarihsel grafik) boş
+    // başlamasın diye veri şimdiden birikir (kullanıcı isteği, 21.08.2026).
+    ["OlayGunlugu", "olayGunlugu"],
+    ["SilinenKayitlar", "silinenKayitlar"],
+    ["StokFotograflari", "stokFotograflari"]
   ];
 
+  // Sonradan eklenen arşiv tabloları: eski localStorage kaydında bulunmazlar.
+  // oku() bunları eksikse boş dizi sayar ki mevcut veri sıfırlanmasın.
+  var ARSIV_TABLOLARI = ["olayGunlugu", "silinenKayitlar", "stokFotograflari"];
+
   var HAREKET_TABLOLARI = ["devirStok", "siloDevirStok", "gunlukHareket",
-                           "kuruKuspeGunluk", "siloHareket", "degisiklikLog"];
+                           "kuruKuspeGunluk", "siloHareket", "degisiklikLog",
+                           "olayGunlugu", "silinenKayitlar", "stokFotograflari"];
 
   var MALZEME_TANIMI = [
     ["Yaş Küspe (Tonluk)", null],
@@ -430,7 +441,13 @@
       }
       if (!veri || typeof veri !== "object" || veri.surum !== SEMA_SURUM) return null;
       for (var j = 0; j < TABLOLAR.length; j++) {
-        if (Object.prototype.toString.call(veri[TABLOLAR[j][1]]) !== "[object Array]") return null;
+        var ad = TABLOLAR[j][1];
+        if (Object.prototype.toString.call(veri[ad]) !== "[object Array]") {
+          // Arşiv tabloları sonradan eklendi; eski kayıtta yoklarsa veri
+          // geçersiz sayılmaz, boş dizi ile tamamlanır.
+          if (ARSIV_TABLOLARI.indexOf(ad) >= 0) { veri[ad] = []; continue; }
+          return null;
+        }
       }
       return veri;
     }

@@ -84,16 +84,6 @@
     return null;
   }
 
-  function gunKayitliMi(depo, tarih) {
-    var i;
-    for (i = 0; i < depo.kuruKuspeGunluk.length; i++) {
-      if (depo.kuruKuspeGunluk[i].Tarih === tarih) return true;
-    }
-    for (i = 0; i < depo.gunlukHareket.length; i++) {
-      if (depo.gunlukHareket[i].Tarih === tarih) return true;
-    }
-    return false;
-  }
 
   function ozelTipSatiri(satirlar, tip) {
     for (var i = 0; i < satirlar.length; i++) {
@@ -214,56 +204,9 @@
     );
   }
 
-  /* ==================================================================
-     Durum şeritleri — üçü de bağımsız koşul, üst üste görünebilirler.
-     ================================================================== */
-
-  function seritler(depo, o) {
-    var liste = [], negatif = YU.stok.negatifGunler(depo);
-
-    if (negatif.length) {
-      var n = negatif[0];
-      liste.push(YU.ui.serit({
-        tur: 'hata',
-        baslik: 'Silo Bakiyesi Negatife Düşüyor',
-        metin: n.siloAd + ' · ' + YU.fmt.tarih(n.tarih) + ' · ' + YU.fmt.kgU(n.bakiye) +
-          (negatif.length > 1 ? ' · toplam ' + YU.fmt.sayi(negatif.length) + ' gün etkileniyor' : ''),
-        eylem: {
-          metin: 'Silo Durumu', ikon: '#ic-building',
-          onClick: function () { YU.git('silo-durumu'); }
-        }
-      }));
-    }
-
-    if (!gunKayitliMi(depo, o.bugun)) {
-      liste.push(YU.ui.serit({
-        tur: 'uyari',
-        baslik: 'Bugünün Girişi Yok',
-        metin: 'Bugün (' + YU.fmt.tarih(o.bugun) + ') için henüz kayıt girilmemiş.',
-        eylem: {
-          metin: 'Şimdi Gir', ikon: '#ic-plus',
-          onClick: function () { YU.git('kuru-kuspe', { tarih: o.bugun }); }
-        }
-      }));
-    }
-
-    /* donem.bas devir tarihinden, donem.bit son kayıtlı günden gelir (10-kabuk);
-       bugün bu aralığın dışındaysa kampanya kayıtları başka bir döneme aittir. */
-    if (o.donem && (o.bugun < o.donem.bas || o.bugun > o.donem.bit)) {
-      liste.push(YU.ui.serit({
-        tur: 'bilgi',
-        baslik: 'Kampanya Aralığının Dışındasınız',
-        metin: 'Kampanya ' + o.donem.ad + ' kayıtları ' + YU.fmt.tarih(o.donem.bas) + ' – ' +
-          YU.fmt.tarih(o.donem.bit) + ' aralığında · son kayıt ' + goreli(o.donem.bit) + '.',
-        eylem: {
-          metin: 'Son Güne Git', ikon: '#ic-doc',
-          onClick: function () { YU.git('gunluk-rapor', { tarih: o.donem.bit }); }
-        }
-      }));
-    }
-
-    return liste;
-  }
+  /* Durum şeritleri kaldırıldı: aynı koşullar artık üst şeritteki ünlem
+     (Uyarılar) düğmesinin listesinde yaşıyor — YU.uyarilar, 10-kabuk
+     (kullanıcı isteği, 21.08.2026). */
 
   /* ==================================================================
      KPI kartları
@@ -732,7 +675,12 @@
     return bas + ' · ' + islem + (ayrinti && !tekrar ? ' · ' + ayrinti : '');
   }
 
-  function hareketListesi(depo, o) {
+  /* minLogId verilirse bildirim modu: yalnız o kayıttan SONRAKİ denetim
+     satırları listelenir, kayıtlı gün tamamlaması yapılmaz. Zilin "Tümünü
+     Temizle" davranışı buna dayanır (kullanıcı isteği, 21.08.2026). */
+  function hareketListesi(depo, o, logSinir, toplamSinir, minLogId) {
+    var logUst = logSinir || LOG_SATIR;
+    var toplamUst = toplamSinir || HAREKET_SATIR;
     var liste = [], i, l, ad;
     var log = depo.degisiklikLog.slice();
     log.sort(function (a, b) {
@@ -743,8 +691,9 @@
 
     /* Denetim izi tek bir günü onlarca satırla doldurabilir; listenin son
        kayıtlı günlere de yer bırakması için üst sınır konuyor. */
-    for (i = 0; i < log.length && liste.length < LOG_SATIR; i++) {
+    for (i = 0; i < log.length && liste.length < logUst; i++) {
       l = log[i];
+      if (minLogId && (Number(l.Id) || 0) <= minLogId) continue;
       ad = kullaniciAdi(depo, l.KullaniciId);
       liste.push({
         ikon: TABLO_IKON[l.Tablo] || '#ic-dots',
@@ -754,8 +703,10 @@
     }
 
     /* Tohum verisi denetim izi bırakmaz (04-servis: tohumlamada log kapalı);
-       liste boş kalmasın diye kayıtlı günlerden tamamlanır. */
-    for (i = 0; i < o.tumGunler.length && liste.length < HAREKET_SATIR; i++) {
+       liste boş kalmasın diye kayıtlı günlerden tamamlanır. Bildirim modunda
+       tamamlanmaz: temizlenen liste yeniden dolmasın. */
+    if (minLogId) return liste;
+    for (i = 0; i < o.tumGunler.length && liste.length < toplamUst; i++) {
       (function (g) {
         liste.push({
           ikon: g.kuruKuspeVar ? '#ic-plus' : '#ic-pencil',
@@ -802,8 +753,8 @@
     return satir;
   }
 
-  function hareketPaneli(depo, o) {
-    var ogeler = hareketListesi(depo, o), i;
+  function hareketPaneli(depo, o, logSinir, toplamSinir) {
+    var ogeler = hareketListesi(depo, o, logSinir, toplamSinir), i;
     var govde;
 
     if (!ogeler.length) {
@@ -964,7 +915,8 @@
         { baslik: 'Mevcut (Kg)', hiza: 'sag', mono: true, genislik: 142 }
       ],
       satirlar: satirlar,
-      bos: 'Aktif malzeme bulunamadı.'
+      bos: 'Aktif malzeme bulunamadı.',
+      yapiskan: true
     });
 
     return YU.ui.panel({
@@ -1093,12 +1045,10 @@
       return;
     }
 
-    var s = seritler(depo, o), i;
-    for (i = 0; i < s.length; i++) kap.appendChild(s[i]);
-
     kap.appendChild(kpiIzgarasi(o));
-    kap.appendChild(YU.h('div', { sinif: 'yu-izgara yu-iz-yan' },
-      grafikPaneli(depo, o), hareketPaneli(depo, o)));
+    /* Son Hareketler ana sayfadan kaldırıldı; kendi sayfasında yaşıyor
+       (kullanıcı isteği, 21.08.2026). Grafik tam genişliğe yayılır. */
+    kap.appendChild(grafikPaneli(depo, o));
     kap.appendChild(siloIzgarasi(o));
     kap.appendChild(malzemePaneli(o));
   }
@@ -1120,5 +1070,33 @@
     grup: null,
     rol: 'Hepsi',
     ciz: ciz
+  });
+
+  /* Kabuktaki zil açılır paneli aynı listeyi kullanır (10-kabuk zilPaneliAc).
+     Kabuk bu dosyadan önce yüklendiği için fonksiyon YU üzerinden verilir. */
+  YU.sonHareketListesi = function (logSinir, toplamSinir, minLogId) {
+    var depo = YU.db;
+    if (!depo) return [];
+    return hareketListesi(depo, ozet(depo), logSinir, toplamSinir, minLogId);
+  };
+
+  /* Son Hareketler ayrı sayfa: ana sayfadan kaldırıldı, üst şeritteki zil
+     düğmesi buraya açılır (kullanıcı isteği, 21.08.2026). Aynı liste
+     üreticileri kullanılır; yalnız satır sınırları geniş tutulur. */
+  YU.sayfaTanimla({
+    kod: 'son-hareketler',
+    baslik: 'Son Hareketler',
+    altBaslik: function () {
+      var d = YU.db;
+      return d ? YU.fmt.sayi(d.degisiklikLog.length) + ' denetim kaydından son hareketler' : '';
+    },
+    ikon: '#ic-bell',
+    grup: 'Yönetim',
+    rol: 'Hepsi',
+    ciz: function (kap) {
+      var depo = YU.db;
+      if (!depo) return;
+      kap.appendChild(hareketPaneli(depo, ozet(depo), 30, 40));
+    }
   });
 })();

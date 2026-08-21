@@ -1123,16 +1123,166 @@
     kayitliGunler: kayitliGunler
   };
 
+  /* ---------- Arka plan arşivi ----------
+     Ekranı olmayan üç tablo (kullanıcı isteği, 21.08.2026):
+       OlayGunlugu      — her servis çağrısının ham girdisi ve sonucu
+       SilinenKayitlar  — silinen kayıtların tam gövdesi (çöp kutusu hammaddesi)
+       StokFotograflari — kayıt anında o günün hesaplanmış stok özeti
+     İleride eklenecek modüller (rapor, geri getirme, tarihsel grafik) boş
+     başlamasın diye veri şimdiden birikir. Arşiv, servis fonksiyonlarını
+     DIŞARIDAN sarar: iş mantığına dokunmaz, sonucu değiştirmez ve arşiv
+     yazımında çıkan hata hiçbir zaman iş akışını bozmaz. */
+
+  var OLAY_SINIRI = 2000;   /* localStorage kotası emniyeti — taşınca en eski olay düşer */
+
+  function kullaniciKimligi(k) {
+    return k && typeof k === "object" && k.Id !== undefined ? k.Id : null;
+  }
+
+  function olayYaz(depo, servisAdi, girdi, ek, kullanici, s) {
+    if (!depo.olayGunlugu) return;
+    depo.olayGunlugu.push({
+      Id: depo.yeniId("OlayGunlugu"),
+      Servis: servisAdi,
+      Girdi: girdi === undefined ? null : YU.kopya(girdi),
+      Ek: ek === undefined ? null : YU.kopya(ek),
+      KullaniciId: kullaniciKimligi(kullanici),
+      Ok: !!(s && s.ok),
+      HataKodlari: s && s.hatalar ? s.hatalar.map(function (h) { return h.kod; }) : [],
+      Tarih: simdi()
+    });
+    while (depo.olayGunlugu.length > OLAY_SINIRI) depo.olayGunlugu.shift();
+  }
+
+  function copKutusunaAt(depo, gruplar, kullanici) {
+    if (!depo.silinenKayitlar || !gruplar) return;
+    var an = simdi(), i, j, g;
+    for (i = 0; i < gruplar.length; i++) {
+      g = gruplar[i];
+      for (j = 0; j < g.kayitlar.length; j++) {
+        depo.silinenKayitlar.push({
+          Id: depo.yeniId("SilinenKayitlar"),
+          Tablo: g.tablo,
+          Kayit: YU.kopya(g.kayitlar[j]),
+          Baglam: g.baglam || null,
+          KullaniciId: kullaniciKimligi(kullanici),
+          SilmeTarihi: an
+        });
+      }
+    }
+  }
+
+  /* Fotoğraf, kayıt ANINDAKİ hesabın çıktısıdır; sonraki bir düzeltme geçmiş
+     günün fotoğrafını güncellemez (o düzeltmenin kendi fotoğrafı çekilir). */
+  function fotoCek(depo, tarih) {
+    if (!depo.stokFotograflari || !tarih) return;
+    var malzemeler = tumMalzemeler(depo, tarih);
+    var silolar = tumSilolar(depo, tarih);
+    var m = [], s = [], toplam = 0, i, kayit = null;
+
+    for (i = 0; i < malzemeler.length; i++) {
+      if (!malzemeler[i].malzeme) continue;
+      m.push({ MalzemeId: malzemeler[i].malzeme.Id, Mevcut: say(malzemeler[i].mevcut) });
+      toplam += Number(malzemeler[i].mevcut) || 0;
+    }
+    for (i = 0; i < silolar.length; i++) {
+      s.push({ SiloId: silolar[i].silo.Id, Mevcut: say(silolar[i].mevcut) });
+    }
+
+    for (i = 0; i < depo.stokFotograflari.length; i++) {
+      if (depo.stokFotograflari[i].Tarih === tarih) { kayit = depo.stokFotograflari[i]; break; }
+    }
+    if (!kayit) {
+      kayit = { Id: depo.yeniId("StokFotograflari"), Tarih: tarih };
+      depo.stokFotograflari.push(kayit);
+    }
+    kayit.Damga = simdi();
+    kayit.Malzemeler = m;
+    kayit.Silolar = s;
+    kayit.DokmeToplam = say(dokmeToplam(depo, tarih));
+    kayit.ToplamStok = YU.yuvarla(toplam);
+  }
+
+  /* ayar.girdi / ayar.ek / ayar.kullanici: ilgili argümanın sırası.
+     ayar.tarih: fotoğrafı çekilecek iş tarihi (çağrıdan ÖNCE okunur — silme
+     servislerinde kayıt çağrıdan sonra artık yoktur).
+     ayar.silinecekler: silinecek kayıtların çağrı öncesi tam kopyaları. */
+  function arsivli(servisAdi, fn, ayar) {
+    ayar = ayar || {};
+    var girdiIdx = ayar.girdi === undefined ? 1 : ayar.girdi;
+    var kullaniciIdx = ayar.kullanici === undefined ? 2 : ayar.kullanici;
+
+    return function (depo) {
+      var args = arguments, fotoTarihi = null, silinecekler = null;
+      try {
+        if (ayar.tarih) fotoTarihi = ayar.tarih.apply(null, args);
+        if (ayar.silinecekler) silinecekler = ayar.silinecekler.apply(null, args);
+      } catch (e) { fotoTarihi = null; silinecekler = null; }
+
+      var s = fn.apply(null, args);
+
+      try {
+        olayYaz(depo, servisAdi, args[girdiIdx],
+          ayar.ek === undefined ? undefined : args[ayar.ek], args[kullaniciIdx], s);
+        if (s && s.ok) {
+          if (silinecekler) copKutusunaAt(depo, silinecekler, args[kullaniciIdx]);
+          if (fotoTarihi) fotoCek(depo, fotoTarihi);
+        }
+        depo.kaydet();
+      } catch (e) { /* arşiv hatası iş sonucunu etkilemez */ }
+
+      return s;
+    };
+  }
+
+  function gunKayitlariKopyala(depo, tarih) {
+    function esle(tablo) {
+      var l = [], i;
+      for (i = 0; i < tablo.length; i++) if (tablo[i].Tarih === tarih) l.push(tablo[i]);
+      return l;
+    }
+    var baglam = "Gün silme · " + tarih;
+    return [
+      { tablo: "KuruKuspeGunluk", kayitlar: esle(depo.kuruKuspeGunluk), baglam: baglam },
+      { tablo: "GunlukHareket", kayitlar: esle(depo.gunlukHareket), baglam: baglam },
+      { tablo: "SiloHareket", kayitlar: esle(depo.siloHareket), baglam: baglam }
+    ];
+  }
+
   YU.servis = {
-    kuruKuspeKaydet: kuruKuspeKaydet,
-    gunSil: gunSil,
-    malzemeHareketKaydet: malzemeHareketKaydet,
-    devirKaydet: devirKaydet,
-    siloDevirKaydet: siloDevirKaydet,
-    devirSil: devirSil,
-    malzemeKaydet: malzemeKaydet,
-    kullaniciKaydet: kullaniciKaydet,
-    siloKaydet: siloKaydet
+    kuruKuspeKaydet: arsivli("kuruKuspeKaydet", kuruKuspeKaydet, {
+      tarih: function (depo, girdi) { return girdi ? girdi.tarih : null; }
+    }),
+    gunSil: arsivli("gunSil", gunSil, {
+      tarih: function (depo, tarih) { return tarih; },
+      silinecekler: gunKayitlariKopyala
+    }),
+    malzemeHareketKaydet: arsivli("malzemeHareketKaydet", malzemeHareketKaydet, {
+      tarih: function (depo, girdi) { return girdi ? girdi.tarih : null; }
+    }),
+    devirKaydet: arsivli("devirKaydet", devirKaydet, {
+      tarih: function (depo, girdi) { return girdi ? girdi.devirTarihi : null; }
+    }),
+    siloDevirKaydet: arsivli("siloDevirKaydet", siloDevirKaydet, {
+      tarih: function (depo, girdi) { return girdi ? girdi.devirTarihi : null; }
+    }),
+    devirSil: arsivli("devirSil", devirSil, {
+      ek: 2, kullanici: 3,
+      tarih: function (depo, id, tip) {
+        var k = satirBul(tip === "Silo" ? depo.siloDevirStok : depo.devirStok, id);
+        return k ? k.DevirTarihi : null;
+      },
+      silinecekler: function (depo, id, tip) {
+        var siloMu = tip === "Silo";
+        var k = satirBul(siloMu ? depo.siloDevirStok : depo.devirStok, id);
+        return k
+          ? [{ tablo: siloMu ? "SiloDevirStok" : "DevirStok", kayitlar: [k], baglam: "Devir silme" }]
+          : [];
+      }
+    }),
+    malzemeKaydet: arsivli("malzemeKaydet", malzemeKaydet),
+    kullaniciKaydet: arsivli("kullaniciKaydet", kullaniciKaydet),
+    siloKaydet: arsivli("siloKaydet", siloKaydet)
   };
 
   YU.log = {

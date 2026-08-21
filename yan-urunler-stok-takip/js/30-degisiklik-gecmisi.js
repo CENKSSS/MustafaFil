@@ -94,21 +94,72 @@
      Süzme, sıralama, gruplama
      ================================================================== */
 
+  /* Arama metni satırın EKRANDA görünen her şeyini kapsar (kullanıcı isteği,
+     21.08.2026): tablo, işlem, kullanıcı, alan, değerler, kayıt no ve künye
+     ("Kuru Küspe (50 Kg)", "Silo 3 · Dökme satış" gibi). */
   function aramaMetni(s) {
-    var parcalar = [tabloAdi(s.Tablo), islemAdi(s.Islem), kullaniciAdi(s.KullaniciId),
-                    s.Alan, s.EskiDeger, s.YeniDeger];
+    var coz = kayitCoz(s.Tablo, s.KayitId);
+    var parcalar = [tabloAdi(s.Tablo), islemAdi(s.Islem), s.Islem,
+                    kullaniciAdi(s.KullaniciId), s.Alan, s.EskiDeger, s.YeniDeger,
+                    kayitEtiketi(s.Tablo, coz.satir)];
     var metin = '', i;
     for (i = 0; i < parcalar.length; i++) {
       if (!bosDeger(parcalar[i])) metin += String(parcalar[i]) + ' ';
     }
-    if (s.KayitId !== null && s.KayitId !== undefined) metin += '#' + s.KayitId + ' ';
-    metin += YU.fmt.tarihSaat(s.Tarih);
+    if (s.KayitId !== null && s.KayitId !== undefined) {
+      metin += '#' + s.KayitId + ' ' + s.KayitId + ' ';
+    }
+    metin += YU.fmt.tarihSaat(s.Tarih) + ' ' + String(s.Tarih || '');
     return metin.toLocaleLowerCase('tr');
+  }
+
+  /* Binlik ayracına duyarsız karşılaştırma: "1.700" da "1700" de aynı satırı
+     bulur. Sayı içindeki nokta/virgül ayraçları atılır, metin bozulmaz. */
+  function sayiDuz(t) {
+    return String(t).replace(/(\d)[.,](?=\d)/g, '$1');
+  }
+
+  /* Boşlukla ayrılan her parça ayrı aranır; hepsi eşleşmeli (VE araması).
+     Tek başına sayı olan parça bir önceki kelimeye yapıştırılır: "silo 1"
+     tek parça olarak aranır, yoksa "1" her satırdaki rakama takılıyordu ve
+     Silo 2–3 satırları da geliyordu (kullanıcı geri bildirimi, 21.08.2026). */
+  function aramaParcalari(sorgu) {
+    var ham = sorgu.split(/\s+/), parcalar = [], i, p;
+    for (i = 0; i < ham.length; i++) {
+      p = ham[i];
+      if (!p) continue;
+      if (/^[0-9]+$/.test(p) && parcalar.length && !/[0-9.,]$/.test(parcalar[parcalar.length - 1])) {
+        parcalar[parcalar.length - 1] += ' ' + p;
+      } else {
+        parcalar.push(p);
+      }
+    }
+    return parcalar;
+  }
+
+  function aramaUyar(metin, sorgu) {
+    var parcalar = aramaParcalari(sorgu), duz = sayiDuz(metin), i, p;
+    for (i = 0; i < parcalar.length; i++) {
+      p = parcalar[i];
+      if (metin.indexOf(p) < 0 && duz.indexOf(sayiDuz(p)) < 0) return false;
+    }
+    return true;
   }
 
   function suzulmus(durum) {
     var liste = db().degisiklikLog, sonuc = [], i, s, gun;
     var q = String(durum.arama || '').trim().toLocaleLowerCase('tr');
+
+    /* Silo süzgeci: seçilen silonun adı satırın künyesinde ya da değer
+       metninde geçmeli — "Silo 1" seçiliyken Silo 2–3 satırları elenir
+       (kullanıcı isteği, 21.08.2026). */
+    var siloAd = '';
+    if (durum.silo) {
+      var siloListe = db().silolar, j;
+      for (j = 0; j < siloListe.length; j++) {
+        if (String(siloListe[j].Id) === durum.silo) { siloAd = String(siloListe[j].Ad).toLocaleLowerCase('tr'); break; }
+      }
+    }
 
     for (i = 0; i < liste.length; i++) {
       s = liste[i];
@@ -118,7 +169,8 @@
       gun = String(s.Tarih || '').slice(0, 10);
       if (durum.bas && gun < durum.bas) continue;
       if (durum.bit && gun > durum.bit) continue;
-      if (q && aramaMetni(s).indexOf(q) < 0) continue;
+      if (siloAd && aramaMetni(s).indexOf(siloAd) < 0) continue;
+      if (q && !aramaUyar(aramaMetni(s), q)) continue;
       sonuc.push(s);
     }
 
@@ -419,8 +471,47 @@
     return YU.h('span', { metin: s.Alan || '—', sinif: s.Alan ? '' : 'yu-zayif' });
   }
 
+  /* Ana listede tarih tekrarını temizler (kullanıcı isteği, 21.08.2026):
+     satırın kendi Tarih·Saat sütunu varken künye ve değer metinlerindeki
+     GG.AA.YYYY parçaları gösterilmez. Detay penceresi tam metni tarihiyle
+     göstermeye devam eder; künyenin tamamı hücre ipucunda durur. */
+  function tarihsiz(metin) {
+    var m = String(metin).replace(/\s*\(\d{2}\.\d{2}\.\d{4}\)\s*/g, ' ');
+    var parcalar = m.split(' · '), tut = [], i;
+    for (i = 0; i < parcalar.length; i++) {
+      if (/^\d{2}\.\d{2}\.\d{4}$/.test(parcalar[i].trim())) continue;
+      tut.push(parcalar[i]);
+    }
+    return tut.join(' · ').replace(/\s{2,}/g, ' ').trim();
+  }
+
+  /* Alanlı satırların değerleri sayıdır, dokunulmaz; alansız özet metinlerde
+     tarih parçası ayıklanır. */
+  function listeDegerleri(sx) {
+    if (sx.Alan) return sx;
+    return {
+      Alan: sx.Alan,
+      EskiDeger: bosDeger(sx.EskiDeger) ? sx.EskiDeger : tarihsiz(sx.EskiDeger),
+      YeniDeger: bosDeger(sx.YeniDeger) ? sx.YeniDeger : tarihsiz(sx.YeniDeger)
+    };
+  }
+
+  /* Liste hücresini tek satıra kilitler: taşan metin üç noktayla kısalır,
+     tamamı ipucunda durur — bütün satırlar aynı yükseklikte kalır. */
+  function tekSatir(icerik, ipucu) {
+    return YU.h('div', {
+      stil: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: '0' },
+      title: ipucu || null
+    }, icerik);
+  }
+
   function tabloSatiri(oge) {
     var s = oge.satir;
+    var ld = listeDegerleri(s);
+    var eskiHucre = tekSatir(degerHucresi(ld.EskiDeger, s.Alan),
+      bosDeger(s.EskiDeger) ? null : String(s.EskiDeger));
+    var yeniHucre = tekSatir(yeniDegerHucresi(ld),
+      bosDeger(s.YeniDeger) ? null : String(s.YeniDeger));
 
     if (!oge.ilk) {
       /* Devam satırı: tekrar eden künye boş bırakılır, bağ ↳ ile kurulur. */
@@ -430,8 +521,8 @@
           YU.h('span', { sinif: 'yu-zayif', metin: '↳', title: 'Aynı işlemin devamı' }),
           '', '', '', '',
           alanHucresi(s),
-          degerHucresi(s.EskiDeger, s.Alan),
-          yeniDegerHucresi(s)
+          eskiHucre,
+          yeniHucre
         ]
       };
     }
@@ -440,14 +531,22 @@
        günü olduğunu söylemiyordu. */
     var cozum = kayitCoz(s.Tablo, s.KayitId);
     var kunye = kayitEtiketi(s.Tablo, cozum.satir);
-    var kayitHucresi = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '0' } },
+    var kayitHucresi = YU.h('div', {
+      stil: { display: 'flex', alignItems: 'baseline', gap: '7px', minWidth: '0' },
+      title: kunye || null
+    },
       YU.h('span', {
         sinif: s.KayitId === null || s.KayitId === undefined ? 'yu-zayif' : 'yu-mono',
+        stil: { flex: 'none' },
         metin: s.KayitId === null || s.KayitId === undefined ? '—' : '#' + s.KayitId
       }),
-      kunye ? YU.h('span', { sinif: 'yu-yardim', metin: kunye }) : null,
+      kunye ? YU.h('span', {
+        sinif: 'yu-yardim',
+        stil: { flex: '1', minWidth: '0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+        metin: tarihsiz(kunye)
+      }) : null,
       oge.boyut > 1
-        ? YU.h('span', { sinif: 'yu-yardim', metin: YU.fmt.sayi(oge.boyut) + ' alan' })
+        ? YU.h('span', { sinif: 'yu-yardim', stil: { flex: 'none' }, metin: YU.fmt.sayi(oge.boyut) + ' alan' })
         : null
     );
 
@@ -455,13 +554,16 @@
       onClick: function () { detayAc(oge); },
       hucreler: [
         YU.h('span', { sinif: 'yu-mono', metin: YU.fmt.tarihSaat(s.Tarih), stil: { whiteSpace: 'nowrap' } }),
-        YU.h('span', { metin: kullaniciAdi(s.KullaniciId) }),
+        YU.h('span', {
+          metin: kullaniciAdi(s.KullaniciId), title: kullaniciAdi(s.KullaniciId),
+          stil: { display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+        }),
         YU.ui.rozet(islemAdi(s.Islem), ISLEM_RENGI[s.Islem] || 'notr'),
-        YU.h('span', { metin: tabloAdi(s.Tablo) }),
+        YU.h('span', { metin: tabloAdi(s.Tablo), stil: { whiteSpace: 'nowrap' } }),
         kayitHucresi,
         alanHucresi(s),
-        degerHucresi(s.EskiDeger, s.Alan),
-        yeniDegerHucresi(s)
+        eskiHucre,
+        yeniHucre
       ]
     };
   }
@@ -511,7 +613,7 @@
         return;
       }
 
-      var durum = { tablo: '', kullanici: '', islem: '', bas: '', bit: '', arama: '', sayfa: 0 };
+      var durum = { tablo: '', kullanici: '', islem: '', silo: '', bas: '', bit: '', arama: '', sayfa: 0 };
       var sonucKap = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '20px' } });
 
       kap.appendChild(filtrePaneli(durum, function () { sonuclariCiz(sonucKap, durum); }));
@@ -551,6 +653,15 @@
       etiket: 'Kullanıcı', tip: 'secim', secenekler: kullaniciSecenek, deger: '',
       onChange: function () { durum.kullanici = kullaniciAlan.deger(); degisti(); }
     });
+    var siloSecenek = [{ deger: '', metin: 'Tümü' }], silolarListe = db().silolar;
+    for (i = 0; i < silolarListe.length; i++) {
+      siloSecenek.push({ deger: String(silolarListe[i].Id), metin: silolarListe[i].Ad });
+    }
+    var siloAlan = YU.ui.alan({
+      etiket: 'Silo', tip: 'secim', secenekler: siloSecenek, deger: '',
+      onChange: function () { durum.silo = siloAlan.deger(); degisti(); }
+    });
+
     var islemAlan = YU.ui.alan({
       etiket: 'İşlem', tip: 'secim', deger: '',
       secenekler: [
@@ -561,6 +672,9 @@
       ],
       onChange: function () { durum.islem = islemAlan.deger(); degisti(); }
     });
+    /* İşlem kartları (KPI satırı) süzgeç gibi davranır; seçim kutusuyla aynı
+       durumu paylaştıkları için kart tıklandığında kutu da eşitlenir. */
+    durum.islemEsitle = function (v) { islemAlan.ayarla(v); };
     var basAlan = YU.ui.alan({
       etiket: 'Başlangıç', tip: 'tarih', deger: '',
       onChange: function () { durum.bas = basAlan.deger(); degisti(); }
@@ -571,16 +685,22 @@
     });
     var aramaAlan = YU.ui.alan({
       etiket: 'Ara', tip: 'metin', deger: '',
-      yerTutucu: 'Alan, değer, kayıt no…',
-      onInput: function () { durum.arama = aramaAlan.deger(); degisti(); }
+      yerTutucu: 'Değer, kayıt, künye, kullanıcı, tablo, işlem… (1.700 = 1700)',
+      onInput: function () {
+        durum.arama = aramaAlan.deger();
+        /* Arama geneldir: yazmaya başlanınca işlem kartı seçimi kalkar
+           (kullanıcı isteği, 21.08.2026). */
+        if (durum.islem) { durum.islem = ''; islemAlan.ayarla(''); }
+        degisti();
+      }
     });
 
     var temizle = YU.ui.dugme({
       metin: 'Filtreleri Temizle', ikon: '#ic-filter', tur: 'sade', kucuk: true,
       onClick: function () {
-        durum.tablo = ''; durum.kullanici = ''; durum.islem = '';
+        durum.tablo = ''; durum.kullanici = ''; durum.islem = ''; durum.silo = '';
         durum.bas = ''; durum.bit = ''; durum.arama = '';
-        tabloAlan.ayarla(''); kullaniciAlan.ayarla(''); islemAlan.ayarla('');
+        tabloAlan.ayarla(''); kullaniciAlan.ayarla(''); islemAlan.ayarla(''); siloAlan.ayarla('');
         basAlan.ayarla(''); bitAlan.ayarla(''); aramaAlan.ayarla('');
         degisti();
       }
@@ -591,8 +711,16 @@
       ikon: '#ic-filter',
       sag: temizle,
       govde: [
-        YU.h('div', { sinif: 'yu-izgara yu-iz-3' }, tabloAlan.kok, kullaniciAlan.kok, islemAlan.kok),
-        YU.h('div', { sinif: 'yu-izgara yu-iz-3' }, basAlan.kok, bitAlan.kok, aramaAlan.kok)
+        YU.h('div', { sinif: 'yu-izgara yu-iz-4' }, tabloAlan.kok, kullaniciAlan.kok, islemAlan.kok, siloAlan.kok),
+        /* Tarih çifti yan yana tek gözde durur — arada boşluk kalmaz;
+           Ara alanı kalan iki gözü kaplar (kullanıcı isteği, 21.08.2026). */
+        YU.h('div', { sinif: 'yu-izgara yu-iz-3' },
+          YU.h('div', { stil: { display: 'flex', gap: '10px', minWidth: '0' } },
+            (basAlan.kok.style.flex = '1', basAlan.kok),
+            (bitAlan.kok.style.flex = '1', bitAlan.kok)
+          ),
+          (aramaAlan.kok.style.gridColumn = 'span 2', aramaAlan.kok)
+        )
       ]
     });
   }
@@ -605,19 +733,76 @@
     YU.bos(kap);
 
     var liste = suzulmus(durum);
+
+    /* Sayaçlar işlem süzgecinden BAĞIMSIZ hesaplanır: "Sil" seçiliyken Ekle
+       kartı 0'a düşmesin — kartlar süzgeç çipi gibi davranır (kullanıcı
+       isteği, 21.08.2026). Diğer filtreler (tablo, kullanıcı, tarih, arama)
+       sayaçlara işlemeye devam eder. */
+    var islemsiz = { tablo: durum.tablo, kullanici: durum.kullanici, islem: '',
+                     bas: durum.bas, bit: durum.bit, arama: durum.arama, sayfa: 0 };
+    var taban = suzulmus(islemsiz);
     var sayaclar = { Ekle: 0, Guncelle: 0, Sil: 0 }, i;
-    for (i = 0; i < liste.length; i++) {
-      if (sayaclar[liste[i].Islem] !== undefined) sayaclar[liste[i].Islem]++;
+    for (i = 0; i < taban.length; i++) {
+      if (sayaclar[taban[i].Islem] !== undefined) sayaclar[taban[i].Islem]++;
+    }
+
+    /* Kart = tekli işlem süzgeci: tıklanınca yalnız o işlem listelenir,
+       ikinci tıklama varsayılana (Tümü) döner; aynı anda tek kart aktif. */
+    function islemKarti(ayar) {
+      var aktif = durum.islem === ayar.islem;
+      var k = YU.ui.kpi({
+        etiket: ayar.etiket, ikon: ayar.ikon, deger: YU.fmt.sayi(sayaclar[ayar.islem]),
+        renk: ayar.renk, alt: aktif ? 'Süzgeç açık — kaldırmak için tekrar tıklayın.' : ayar.alt
+      });
+      k.setAttribute('role', 'button');
+      k.setAttribute('tabindex', '0');
+      k.setAttribute('aria-pressed', aktif ? 'true' : 'false');
+      k.title = aktif ? 'Süzgeci Kaldır' : 'Yalnız ' + ayar.etiket + ' Kayıtlarını Göster';
+      k.style.cursor = 'pointer';
+      if (aktif) k.style.boxShadow = 'inset 0 0 0 1.5px var(--vurgu)';
+      function uygula() {
+        durum.islem = aktif ? '' : ayar.islem;
+        durum.sayfa = 0;
+        if (durum.islemEsitle) durum.islemEsitle(durum.islem);
+        sonuclariCiz(kap, durum);
+      }
+      k.addEventListener('click', uygula);
+      k.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); uygula(); }
+      });
+      return k;
+    }
+
+    /* Başlık da süzgece göre değişir: süzgeç yokken "Tüm Kayıtlar", varken
+       "Sil'in Kayıtları" gibi; işlemin adı kendi anlam rengiyle ve kalın
+       yazılır ki değiştiği belli olsun (kullanıcı isteği, 21.08.2026). */
+    var ozetKart = YU.ui.kpi({
+        etiket: durum.islem ? '' : 'Tüm Kayıtlar',
+        ikon: '#ic-dots', deger: YU.fmt.sayi(liste.length),
+        /* Alt satır aktif işlem süzgecine göre değişir (kullanıcı isteği,
+           21.08.2026): süzgeç yokken toplam, varken işlemin adıyla yazar. */
+        alt: durum.islem
+          ? ({ Ekle: 'Ekle', Guncelle: 'Güncelle', Sil: 'Sil' }[durum.islem] || durum.islem) +
+            ' işleminden ' + YU.fmt.sayi(liste.length) + ' adet değişiklik'
+          : 'Toplam ' + YU.fmt.sayi(liste.length) + ' adet değişiklik'
+      });
+    if (durum.islem) {
+      var ISLEM_AD = { Ekle: 'Ekle', Guncelle: 'Güncelle', Sil: 'Sil' };
+      var ISLEM_EK = { Ekle: "'nin Kayıtları", Guncelle: "'nin Kayıtları", Sil: "'in Kayıtları" };
+      var ISLEM_RENK = { Ekle: 'var(--olumlu)', Guncelle: 'var(--bekleyen)', Sil: 'var(--olumsuz)' };
+      var etiketEl = ozetKart.querySelector('.yu-kpi-etiket');
+      etiketEl.appendChild(YU.h('span', {
+        metin: ISLEM_AD[durum.islem] || durum.islem,
+        stil: { color: ISLEM_RENK[durum.islem] || 'var(--vurgu)', fontWeight: '700' }
+      }));
+      etiketEl.appendChild(document.createTextNode(ISLEM_EK[durum.islem] || ' Kayıtları'));
     }
 
     kap.appendChild(YU.h('div', { sinif: 'yu-izgara yu-iz-4' },
-      YU.ui.kpi({
-        etiket: 'Seçili Kayıt', ikon: '#ic-dots', deger: YU.fmt.sayi(liste.length),
-        alt: 'Toplam ' + YU.fmt.sayi(db().degisiklikLog.length) + ' değişiklik kaydından süzüldü.'
-      }),
-      YU.ui.kpi({ etiket: 'Ekle', ikon: '#ic-plus', deger: YU.fmt.sayi(sayaclar.Ekle), renk: 'olumlu', alt: 'Yeni kayıt açılışı.' }),
-      YU.ui.kpi({ etiket: 'Güncelle', ikon: '#ic-pencil', deger: YU.fmt.sayi(sayaclar.Guncelle), renk: 'bekleyen', alt: 'Alan bazında düzeltme.' }),
-      YU.ui.kpi({ etiket: 'Sil', ikon: '#ic-trash', deger: YU.fmt.sayi(sayaclar.Sil), renk: 'olumsuz', alt: 'Kayıt veya hareket silme.' })
+      ozetKart,
+      islemKarti({ etiket: 'Ekle', ikon: '#ic-plus', islem: 'Ekle', renk: 'olumlu', alt: 'Yeni kayıt açılışı.' }),
+      islemKarti({ etiket: 'Güncelle', ikon: '#ic-pencil', islem: 'Guncelle', renk: 'bekleyen', alt: 'Alan bazında düzeltme.' }),
+      islemKarti({ etiket: 'Sil', ikon: '#ic-trash', islem: 'Sil', renk: 'olumsuz', alt: 'Kayıt veya hareket silme.' })
     ));
 
     var duz = gruplandir(liste);
@@ -649,14 +834,15 @@
             { baslik: 'Kullanıcı', genislik: 130 },
             { baslik: 'İşlem', genislik: 96, hiza: 'orta' },
             { baslik: 'Tablo', genislik: 140 },
-            { baslik: 'Kayıt', genislik: 92 },
+            { baslik: 'Kayıt', genislik: 210 },
             { baslik: 'Ne Değişti', genislik: 150 },
             { baslik: 'Eski Değer', hiza: 'sag' },
             { baslik: 'Yeni Değer', hiza: 'sag' }
           ],
           satirlar: satirlar,
           bos: 'Bu filtreyle eşleşen değişiklik kaydı yok. Filtreleri temizleyip yeniden deneyin.',
-          kompakt: true
+          kompakt: true,
+          yapiskan: true
         }),
         toplamSayfa > 1 ? sayfalama(durum, toplamSayfa, function () { sonuclariCiz(kap, durum); }) : null
       ]

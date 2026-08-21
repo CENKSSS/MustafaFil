@@ -553,7 +553,8 @@
         { baslik: 'İşlem', hiza: 'sag', genislik: 112 }
       ],
       satirlar: satirlar,
-      bos: 'Bu aralıkta kayıtlı gün yok.'
+      bos: 'Bu aralıkta kayıtlı gün yok.',
+      yapiskan: true
     });
 
     kap.appendChild(YU.ui.panel({

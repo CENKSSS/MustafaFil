@@ -9,6 +9,9 @@
   var SVGNS = 'http://www.w3.org/2000/svg';
   var XLINKNS = 'http://www.w3.org/1999/xlink';
   var GRUP_SIRA = ['Giriş', 'Takip', 'Yönetim'];
+  /* Menüde görünen grup başlıkları (kullanıcı isteği, 21.08.2026). Sayfaların
+     'grup' anahtarları (SOZLESME §6) değişmedi; yalnız görünen ad farklı. */
+  var GRUP_BASLIK = { 'Giriş': 'Veri Girişi', 'Takip': 'Raporlar', 'Yönetim': 'Yönetim Paneli' };
   var MENU_USTU = 'anasayfa';           /* §7: ana sayfa gruplardan önce tek başına durur */
   var TEMA_ANAHTAR = 'yu.tema';
   var OTURUM_ANAHTAR = 'yu.oturum';
@@ -438,6 +441,31 @@
     var db = YU.db;
     if (!db) return [];
     var u = [], i;
+    var bugun = YU.tarih.bugun();
+
+    /* Ana sayfadaki durum şeritleri buraya taşındı (kullanıcı isteği,
+       21.08.2026): uyarı, koşul düzelmeden listeden düşmez. */
+    var bugunKayitli = false, kayitlar = kayitTarihleri();
+    for (i = 0; i < kayitlar.length; i++) if (kayitlar[i] === bugun) { bugunKayitli = true; break; }
+    if (!bugunKayitli) {
+      u.push({
+        tur: 'bekleyen', ikon: '#ic-plus',
+        baslik: 'Bugünün Girişi Yok',
+        metin: 'Bugün (' + YU.fmt.tarih(bugun) + ') için henüz kayıt girilmemiş.',
+        git: function () { YU.git('kuru-kuspe', { tarih: bugun }); }
+      });
+    }
+
+    var donem = donemAktif();
+    if (donem && (bugun < donem.bas || bugun > donem.bit)) {
+      u.push({
+        tur: 'notr', ikon: '#ic-doc',
+        baslik: 'Kampanya Aralığının Dışındasınız',
+        metin: 'Kampanya ' + donem.ad + ' kayıtları ' + YU.fmt.tarih(donem.bas) + ' – ' +
+          YU.fmt.tarih(donem.bit) + ' aralığında.',
+        git: function () { YU.git('gunluk-rapor', { tarih: donem.bit }); }
+      });
+    }
 
     var negatifler = guvenli(function () { return YU.stok.negatifGunler(db); }, []);
     for (i = 0; i < negatifler.length && i < 8; i++) {
@@ -756,7 +784,7 @@
       }
       if (!ogeler.length) continue;
       menu.appendChild(YU.h('div', { sinif: 'yu-menu-grup' },
-        YU.h('div', { sinif: 'yu-menu-grup-bas', metin: grupAdi }),
+        YU.h('div', { sinif: 'yu-menu-grup-bas', metin: GRUP_BASLIK[grupAdi] || grupAdi }),
         ogeler
       ));
     }
@@ -963,29 +991,88 @@
     if (dom.temaEtiket) dom.temaEtiket.textContent = temaAdi();
   }
 
-  function zilDugmesi() {
-    var nokta = YU.h('span', {
-      stil: {
-        position: 'absolute', top: '-1px', right: '-1px', width: '7px', height: '7px',
-        borderRadius: '4px', background: 'var(--olumsuz)', border: '1.5px solid var(--ust-zemin)', display: 'none'
-      }
-    });
-    dom.zilNokta = nokta;
-    var zil = YU.h('div', {
-      sinif: 'yu-zil', role: 'button', tabindex: '0', title: 'Uyarılar',
-      onClick: function () { zilPaneliAc(zil); },
-      onKeyDown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); zilPaneliAc(zil); } }
-    }, YU.svg('#ic-bell', 19), nokta);
-    return zil;
+  /* --- üst şerit uyarı (ünlem) ve son hareket (zil) düğmeleri ---
+     Ünlem: YU.uyarilar listesini açar; rozeti uyarı sayısıdır ve koşul
+     düzelmeden sönmez. Zil: Son Hareketler önizlemesini açar; rozeti son
+     bakıştan beri eklenen denetim kaydı sayısıdır, panel açılınca sıfırlanır
+     (kullanıcı isteği, 21.08.2026). */
+
+  var GORULEN_LOG_ANAHTAR = 'yu.sonHareket.gorulenId';
+  /* Temizlenen sınırı ayrıdır: rozet panel açılınca söner, liste ise ancak
+     "Tümünü Temizle" ile boşalır ve yeni hareket gelene dek boş kalır. */
+  var TEMIZLENEN_LOG_ANAHTAR = 'yu.sonHareket.temizlenenId';
+
+  function temizlenenLogId() {
+    try { return Number(window.localStorage.getItem(TEMIZLENEN_LOG_ANAHTAR)) || 0; } catch (e) { return 0; }
   }
 
-  function zilPaneliAc(tetik) {
+  function sayacRozeti() {
+    return YU.h('span', {
+      stil: {
+        /* Düğmenin 7px dolgusu var; rozet ikonun köşesine yapışsın diye
+           kutunun içine, ikonla bindirilerek konumlanır. */
+        position: 'absolute', top: '-1px', right: '-1px',
+        minWidth: '16px', height: '16px', padding: '0 4px',
+        borderRadius: '8px', background: 'var(--olumsuz)', color: 'var(--vurgu-uzeri)',
+        font: '600 10.5px/16px var(--sayi)', textAlign: 'center',
+        border: '1.5px solid var(--ust-zemin)', display: 'none'
+      }
+    });
+  }
+
+  function sayacGoster(rozet, sayi) {
+    if (!rozet) return;
+    rozet.textContent = sayi > 99 ? '99+' : String(sayi);
+    rozet.style.display = sayi ? 'block' : 'none';
+  }
+
+  function sonLogId() {
+    var db = YU.db, en = 0, i, id;
+    if (!db) return 0;
+    for (i = 0; i < db.degisiklikLog.length; i++) {
+      id = Number(db.degisiklikLog[i].Id) || 0;
+      if (id > en) en = id;
+    }
+    return en;
+  }
+
+  function gorulenLogId() {
+    try { return Number(window.localStorage.getItem(GORULEN_LOG_ANAHTAR)) || 0; } catch (e) { return 0; }
+  }
+
+  function yeniHareketSayisi() {
+    var db = YU.db, g = gorulenLogId(), s = 0, i;
+    if (!db) return 0;
+    for (i = 0; i < db.degisiklikLog.length; i++) {
+      if ((Number(db.degisiklikLog[i].Id) || 0) > g) s++;
+    }
+    return s;
+  }
+
+  function ustSayaclariTazele() {
+    sayacGoster(dom.uyariSayac, guvenli(function () { return YU.uyarilar().length; }, 0));
+    sayacGoster(dom.zilSayac, yeniHareketSayisi());
+  }
+
+  function unlemDugmesi() {
+    var rozet = sayacRozeti();
+    dom.uyariSayac = rozet;
+    var dugme = YU.h('div', {
+      sinif: 'yu-zil', role: 'button', tabindex: '0', title: 'Uyarılar',
+      onClick: function () { unlemPaneliAc(dugme); },
+      onKeyDown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); unlemPaneliAc(dugme); } }
+    }, YU.svg('#ic-alert', 19), rozet);
+    return dugme;
+  }
+
+  function unlemPaneliAc(tetik) {
     if (acikPopup && acikPopup.tetik === tetik) { popupKapat(); return; }
     var uyarilar = YU.uyarilar();
     var kutu = popupKutu(340, 'sag');
+    kutu.addEventListener('click', function (e) { e.stopPropagation(); });
     kutu.appendChild(popupBaslik(uyarilar.length ? uyarilar.length + ' uyarı' : 'Uyarı yok'));
     if (!uyarilar.length) {
-      kutu.appendChild(popupBos('Silolarda negatif gün, kapasite aşımı veya eksik gün yok.'));
+      kutu.appendChild(popupBos('Bekleyen uyarı yok.'));
     } else {
       for (var i = 0; i < uyarilar.length; i++) {
         var u = uyarilar[i];
@@ -995,10 +1082,51 @@
     popupAc(tetik, kutu);
   }
 
-  function zilTazele() {
-    if (!dom.zilNokta) return;
-    var say = YU.uyarilar().length;
-    dom.zilNokta.style.display = say ? 'block' : 'none';
+  function zilDugmesi() {
+    var rozet = sayacRozeti();
+    dom.zilSayac = rozet;
+    var zil = YU.h('div', {
+      sinif: 'yu-zil', role: 'button', tabindex: '0', title: 'Son Hareketler',
+      onClick: function () { zilPaneliAc(zil); },
+      onKeyDown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); zilPaneliAc(zil); } }
+    }, YU.svg('#ic-bell', 19), rozet);
+    return zil;
+  }
+
+  function zilPaneliAc(tetik) {
+    if (acikPopup && acikPopup.tetik === tetik) { popupKapat(); return; }
+
+    /* Panel açıldı: yeni hareketler görüldü sayılır, zil sayacı söner. */
+    try { window.localStorage.setItem(GORULEN_LOG_ANAHTAR, String(sonLogId())); } catch (e) {}
+    sayacGoster(dom.zilSayac, 0);
+
+    var ogeler = typeof YU.sonHareketListesi === 'function'
+      ? YU.sonHareketListesi(6, 6, temizlenenLogId())
+      : [];
+    var kutu = popupKutu(340, 'sag');
+    /* Kutu, zilin çocuğu: satır tıklaması zile köpürürse panel kapanıp
+       hemen yeniden açılıyor. Köpürme kutuda kesilir. */
+    kutu.addEventListener('click', function (e) { e.stopPropagation(); });
+    kutu.appendChild(popupBaslik('Son Hareketler'));
+    if (!ogeler.length) {
+      kutu.appendChild(popupBos('Yeni hareket yok.'));
+    } else {
+      for (var i = 0; i < ogeler.length; i++) {
+        var o = ogeler[i];
+        kutu.appendChild(popupSatir(o.ikon, o.metin, o.zaman,
+          o.onClick || function () { YU.git('son-hareketler'); }));
+      }
+    }
+    kutu.appendChild(YU.h('div', { stil: { borderTop: '1px solid var(--ayrac)', margin: '4px 0' } }));
+    if (ogeler.length) {
+      kutu.appendChild(popupSatir('#ic-trash', 'Tümünü Temizle', null, function () {
+        try { window.localStorage.setItem(TEMIZLENEN_LOG_ANAHTAR, String(sonLogId())); } catch (e) {}
+        sayacGoster(dom.zilSayac, 0);
+      }));
+    }
+    kutu.appendChild(popupSatir('#ic-bell', 'Tümünü Gör', null,
+      function () { YU.git('son-hareketler'); }, 'vurgu'));
+    popupAc(tetik, kutu);
   }
 
   function kullaniciKarti() {
@@ -1035,6 +1163,51 @@
     popupAc(tetik, kutu);
   }
 
+  /* --- test veri düğmeleri (kullanıcı isteği, 21.08.2026) ---
+     Prototipe özel: örnek veriyi silip boş sistemle denemek ve sistem boşken
+     aynı deterministik veriyi geri yüklemek için. Gerçek uygulamaya girmez. */
+  function testDugmeleri() {
+    function veriVar() {
+      var db = YU.db;
+      return !!(db.kuruKuspeGunluk.length || db.gunlukHareket.length ||
+                db.siloHareket.length || db.devirStok.length || db.siloDevirStok.length);
+    }
+    var sifirla = YU.ui.dugme({
+      metin: 'Verileri Sıfırla', ikon: '#ic-trash', tur: 'tehlike', kucuk: true,
+      baslik: 'Test — tüm kayıtları siler; malzeme, silo ve kullanıcı tanımları kalır',
+      onClick: function () {
+        if (!veriVar()) { YU.ui.bildir('Silinecek kayıt yok — veri zaten boş.', 'bilgi'); return; }
+        YU.ui.onay({
+          baslik: 'Verileri Sıfırla',
+          metin: 'Tüm günlük kayıtlar, silo hareketleri, devirler ve değişiklik geçmişi silinecek. ' +
+            'Malzeme, silo ve kullanıcı tanımları kalır. Örnek veri "Örnek Veri Yükle" ile geri gelir.',
+          onayMetni: 'Sıfırla', tehlike: true
+        }).then(function (evet) {
+          if (!evet) return;
+          YU.db.bosla();
+          YU.ui.bildir('Tüm kayıtlar silindi — sistem boş.', 'basari');
+          YU.yenile();
+        });
+      }
+    });
+    var yukle = YU.ui.dugme({
+      metin: 'Örnek Veri Yükle', ikon: '#ic-download', tur: 'ikincil', kucuk: true,
+      baslik: 'Test — sistem boşken deterministik örnek kampanya verisini geri yükler',
+      onClick: function () {
+        if (veriVar()) {
+          YU.ui.bildir('Kayıtlı veri varken örnek veri yüklenmez — önce "Verileri Sıfırla".', 'uyari');
+          return;
+        }
+        YU.tohumla(YU.db);
+        YU.db.kaydet();
+        YU.ui.bildir('Örnek kampanya verisi yüklendi.', 'basari');
+        YU.yenile();
+      }
+    });
+    return YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '8px', flex: 'none' } },
+      sifirla, yukle);
+  }
+
   /* --- kabuk kurulumu --- */
 
   function kabukKur() {
@@ -1049,8 +1222,10 @@
        esneyen bir boşluk konursa tüm boşluğu o yutar ve kutu sola yapışır. */
     var ust = YU.h('div', { sinif: 'yu-ust' },
       aramaKutusu(),
+      testDugmeleri(),
       cipKutusu(),
       temaDugmesi(),
+      unlemDugmesi(),
       zilDugmesi(),
       kullaniciKarti()
     );
@@ -1115,7 +1290,7 @@
 
     donemOnbellek = null;
     donemBaslikTazele();
-    zilTazele();
+    ustSayaclariTazele();
     menuIsaretle(kod);
     YU.bos(dom.eylemler);
     var kap = YU.bos(dom.kap);
@@ -1308,7 +1483,9 @@
     var panel = YU.h('div', { sinif: 'yu-panel' }, bas, govde);
     if (s.dolgusuz) {
       panel.style.padding = '0';
-      panel.style.overflow = 'hidden';
+      /* clip: hidden kaydırma kabı oluşturup içindeki yapışkan tablo
+         başlığını panele hapsediyordu (tema.css .yu-panel.dolgusuz). */
+      panel.style.overflow = 'clip';
       govde.style.padding = '0';
       if (bas) { bas.style.padding = '15px 18px'; bas.style.marginBottom = '0'; bas.style.borderBottom = '1px solid var(--ayrac)'; }
     }
@@ -1469,7 +1646,17 @@
     s = s || {};
     var sutunlar = s.sutunlar || [];
     var satirlar = s.satirlar || [];
-    var sar = YU.h('div', { sinif: 'yu-tablo-sar', stil: { overflowX: 'auto' } });
+    /* 'sik' = Değişiklik Geçmişi listesinin beğenilen stili (kullanıcı isteği,
+       21.08.2026): kompakt dolgu + tek tip 42px satır yüksekliği. VARSAYILAN
+       AÇIK; içinde giriş alanı olan düzenleme tabloları sik:false geçer. */
+    var sikMi = s.sik !== false;
+    /* yapiskan: kolon başlıkları sayfa kaydıkça üst şeridin altına yapışır.
+       Sticky, kaydırma kabının içinde hapsolduğu için bu varyantta sarıcı
+       yatay kaydırma kabı olmaktan çıkar (tema.css .yu-yapiskan). */
+    var sar = YU.h('div', {
+      sinif: 'yu-tablo-sar' + (s.yapiskan ? ' yu-yapiskan' : ''),
+      stil: { overflowX: s.yapiskan ? 'visible' : 'auto' }
+    });
 
     if (!satirlar.length) {
       sar.appendChild(YU.h('div', { sinif: 'yu-bos' },
@@ -1489,7 +1676,7 @@
       colgroup.appendChild(col);
       var sinif = su.hiza === 'sag' ? 'yu-sag' : (su.hiza === 'orta' ? 'yu-orta' : '');
       var th = YU.h('th', { sinif: sinif, metin: su.baslik || '' });
-      if (s.kompakt) th.style.padding = '8px 14px';
+      if (s.kompakt || sikMi) th.style.padding = '8px 14px';
       trBas.appendChild(th);
     }
     thead.appendChild(trBas);
@@ -1525,10 +1712,11 @@
         else if (sut.hiza === 'orta') siniflar.push('yu-orta');
         if (sut.mono) siniflar.push('yu-mono');
         var td = YU.h('td', { sinif: siniflar.join(' ') });
-        if (s.kompakt) td.style.padding = '8px 14px';
+        if (s.kompakt || sikMi) td.style.padding = '8px 14px';
         cocukEkle(td, hucreler[c]);
         tr.appendChild(td);
       }
+      if (sikMi) tr.style.height = '42px';   /* min yükseklik gibi davranır; taşan içerik satırı büyütür */
       tbody.appendChild(tr);
     }
 
@@ -2398,7 +2586,7 @@
       bolumler.push(gunBolumu('Malzeme hareketleri', ozet.malzemeSatirlari.length + ' satır',
         YU.ui.tablo({
           sutunlar: [{ baslik: 'Malzeme' }, { baslik: 'Üretim', hiza: 'sag', genislik: 120 }, { baslik: 'Satış', hiza: 'sag', genislik: 120 }],
-          satirlar: mSatirlar, kompakt: true
+          satirlar: mSatirlar, kompakt: true, sik: false
         })
       ));
     }
@@ -2420,7 +2608,7 @@
             { baslik: 'Silo', genislik: 110 }, { baslik: 'Hareket', genislik: 140 },
             { baslik: 'Giren', hiza: 'sag', genislik: 110 }, { baslik: 'Çıkan', hiza: 'sag', genislik: 110 }
           ],
-          satirlar: sSatirlar, kompakt: true
+          satirlar: sSatirlar, kompakt: true, sik: false
         })
       ));
     }

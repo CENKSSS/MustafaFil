@@ -50,25 +50,13 @@
     return 0;
   }
 
-  /* Ton karşılığı ikincil bilgidir: büyük değerlerde ondalık gürültü yapıyor,
-     küçük değerlerde ondalıksız anlamsız kalıyor. Ölçeğe göre basamak verilir.
-     Tam ton değeri gereken yerlerde YU.fmt.ton kullanılmaya devam eder. */
-  function tonKisa(kg) {
-    var t = (Number(kg) || 0) / 1000;
-    var mutlak = Math.abs(t);
-    var basamak = mutlak >= 1000 ? 0 : (mutlak >= 100 ? 1 : (mutlak >= 10 ? 2 : 3));
-    var m = YU.fmt.sayi(t, basamak);
-    if (m.indexOf(',') >= 0) m = m.replace(/0+$/, '').replace(/,$/, '');
-    return m;
-  }
-
-  /* kg değerini "kg / ton / adet" parçalarına ayırır; adet yalnızca paket
-     büyüklüğü bilinen malzemede eklenir. */
+  /* kg değerini "kg / adet" parçalarına ayırır; adet yalnızca paket
+     büyüklüğü bilinen malzemede eklenir. Ton karşılığı bu ekranda hiç
+     gösterilmez — her şey kg (kullanıcı isteği, 21.08.2026). */
   function olculer(kg, malzeme) {
     var v = Number(kg) || 0;
     var parcalar = [
-      { sayi: YU.fmt.kg(v), birim: 'kg' },
-      { sayi: tonKisa(v), birim: 'ton' }
+      { sayi: YU.fmt.kg(v), birim: 'kg' }
     ];
     var paket = paketKg(malzeme);
     if (paket > 0) parcalar.push({ sayi: YU.fmt.sayi(Math.round(v / paket)), birim: 'adet' });
@@ -224,8 +212,84 @@
      4. KPI satırı
      ================================================================== */
 
+  /* ------------------------------------------------------------------
+     Ana Sayfa'daki stok kartlarının aynısı (kullanıcı isteği, 21.08.2026):
+     kart üreticileri 20-anasayfa'dan kopyalandı; tek fark rakamların bugüne
+     değil, bu ekranın SEÇİLİ TARİHİNE göre hesaplanması — yoksa "Stok
+     Tarihi" seçici kartlara işlemezdi.
+     ------------------------------------------------------------------ */
+
+  var TREND_GUN = 7;
+  var POSET_DESEN = /25/;
+  var TONLUK_NOTU = 'Tonluk büyük torbanın kaç kg olduğu şartnamede belirtilmemiş; ' +
+    'bu yüzden tonluk için adet gösterilmiyor.';
+
+  function kisaAd(ad) {
+    var m = /\(([^)]+)\)/.exec(String(ad || ''));
+    return m ? m[1] : String(ad || '');
+  }
+
+  function degisim(yeni, eski) {
+    if (!isFinite(yeni) || !isFinite(eski) || eski === 0) return null;
+    var oran = ((yeni - eski) / Math.abs(eski)) * 100;
+    if (Math.abs(oran) < 0.05) return 'değişim yok';
+    return (oran > 0 ? '+' : '−') + YU.fmt.yuzde(Math.abs(oran), 1);
+  }
+
+  function birimEki(metin) {
+    return YU.h('span', {
+      metin: metin,
+      stil: { font: '400 13px/1 var(--font)', letterSpacing: 'normal', color: 'var(--metin-4)' }
+    });
+  }
+
+  function degerSatiri(cocuklar) {
+    return YU.h('div', {
+      sinif: 'yu-kpi-deger',
+      stil: { display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: '6px', rowGap: '3px' }
+    }, cocuklar);
+  }
+
+  function detaySayi(metin) {
+    return YU.h('span', {
+      metin: metin,
+      stil: { fontFamily: 'var(--sayi)', fontWeight: '600', fontVariantNumeric: 'tabular-nums', color: 'var(--metin-2)' }
+    });
+  }
+
+  function kpiKarti(sx) {
+    return YU.h('div', { sinif: 'yu-kpi', title: sx.ipucu || null },
+      YU.h('div', { sinif: 'yu-kpi-bas' },
+        YU.h('div', { sinif: 'yu-kpi-ikon' }, sx.ikon ? YU.svg(sx.ikon, 15) : null),
+        YU.h('div', { sinif: 'yu-kpi-etiket', metin: sx.etiket || '' })
+      ),
+      sx.deger,
+      sx.alt || null
+    );
+  }
+
+  function yasDetayi(yasSatirlar) {
+    if (!yasSatirlar.length) {
+      return YU.h('div', { sinif: 'yu-kpi-alt', metin: 'Tanımlı yaş küspe malzemesi yok.' });
+    }
+    var parcalar = [], i, ad, kg;
+    for (i = 0; i < yasSatirlar.length; i++) {
+      ad = kisaAd(yasSatirlar[i].malzeme.Ad);
+      kg = Number(yasSatirlar[i].mevcut) || 0;
+      if (i) parcalar.push(' · ');
+      parcalar.push(ad + ' ', detaySayi(YU.fmt.kg(kg)), ' kg');
+      if (POSET_DESEN.test(ad)) {
+        parcalar.push(' / ', detaySayi(YU.fmt.sayi(Math.round(kg / YU.hesap.POSET_KG))), ' adet poşet');
+      }
+    }
+    return YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '4px' } },
+      YU.h('div', { stil: { font: '400 12.5px/1.5 var(--font)', color: 'var(--metin-4)' } }, parcalar),
+      YU.h('div', { sinif: 'yu-kpi-alt', metin: '1 poşet ' + YU.fmt.sayi(YU.hesap.POSET_KG) + ' kg küspe' })
+    );
+  }
+
   function kpiSatiri(d) {
-    var toplam = 0, sayilan = 0, yasKuspe = 0, yasSayi = 0, dokme = null, cuval = null, i, r;
+    var toplam = 0, sayilan = 0, yasSatirlar = [], yasKuspe = 0, dokme = null, cuval = null, i, r;
 
     for (i = 0; i < d.tumSatirlar.length; i++) {
       r = d.tumSatirlar[i];
@@ -234,7 +298,7 @@
       if (r.malzeme.Aktif !== false || r.mevcut !== 0) { toplam += r.mevcut; sayilan++; }
       if (r.malzeme.OzelTip === 'DokmeKuruKuspe') dokme = r;
       if (r.malzeme.OzelTip === 'CuvalKuruKuspe') cuval = r;
-      if (yasKuspeMi(r.malzeme)) { yasKuspe += r.mevcut; yasSayi++; }
+      if (yasKuspeMi(r.malzeme)) { yasSatirlar.push(r); yasKuspe += r.mevcut; }
     }
 
     var siloDolu = 0, siloKapasite = 0;
@@ -242,32 +306,50 @@
       siloDolu += d.silolar[i].mevcut;
       siloKapasite += d.silolar[i].kapasite;
     }
+    var doluluk = siloKapasite > 0 ? siloDolu / siloKapasite : 0;
 
-    var cuvalAdet = cuval && YU.hesap.CUVAL_KG > 0 ? cuval.mevcut / YU.hesap.CUVAL_KG : 0;
+    var dokmeToplam = dokme ? Number(dokme.mevcut) || 0 : 0;
+    var oncekiDokme = YU.stok.dokmeToplam(YU.db, YU.tarih.ekle(d.tarih, -TREND_GUN));
+    var trend = degisim(dokmeToplam, oncekiDokme);
+
+    var cuvalMevcut = cuval ? Number(cuval.mevcut) || 0 : 0;
+    var cuvalAdet = Math.round(cuvalMevcut / YU.hesap.CUVAL_KG);
 
     var izgara = YU.h('div', { sinif: 'yu-izgara yu-iz-4' });
+
     izgara.appendChild(YU.ui.kpi({
       etiket: 'Toplam Stok', ikon: '#ic-chart',
-      deger: olcu(YU.yuvarla(toplam), null),
+      deger: YU.fmt.kgU(YU.yuvarla(toplam)),
       alt: YU.fmt.sayi(sayilan) + ' malzeme · ' + YU.fmt.tarih(d.tarih) + ' itibarıyla'
     }));
+
     izgara.appendChild(YU.ui.kpi({
-      etiket: 'Dökme Kuru Küspe', ikon: '#ic-building',
-      deger: olcu(dokme ? dokme.mevcut : 0, dokme ? dokme.malzeme : null),
-      alt: YU.fmt.sayi(d.silolar.length) + ' silo toplamı · doluluk ' +
-        YU.fmt.yuzde(siloKapasite > 0 ? (siloDolu / siloKapasite) * 100 : 0)
+      etiket: 'Toplam Dökme Kuru Küspe', ikon: '#ic-building',
+      deger: YU.fmt.kgU(dokmeToplam),
+      alt: YU.fmt.sayi(d.silolar.length) + ' silo · ' + YU.fmt.yuzde(doluluk * 100, 1) + ' dolu' +
+        (trend ? ' · ' + TREND_GUN + ' günde ' + trend : '')
     }));
-    izgara.appendChild(YU.ui.kpi({
+
+    izgara.appendChild(kpiKarti({
       etiket: 'Çuvallı Kuru Küspe', ikon: '#ic-wallet',
-      deger: olcu(cuval ? cuval.mevcut : 0, cuval ? cuval.malzeme : null),
-      alt: YU.fmt.sayi(Math.round(cuvalAdet)) + ' çuval karşılığı (1 çuval = ' +
-        YU.fmt.sayi(YU.hesap.CUVAL_KG) + ' kg)'
+      deger: degerSatiri([
+        YU.h('span', { metin: YU.fmt.kg(cuvalMevcut) }), birimEki('kg'),
+        birimEki('/'),
+        YU.h('span', { metin: YU.fmt.sayi(cuvalAdet) }), birimEki('adet çuval')
+      ]),
+      alt: YU.h('div', {
+        sinif: 'yu-kpi-alt',
+        metin: '1 çuval ' + YU.fmt.sayi(YU.hesap.CUVAL_KG) + ' kg küspe'
+      })
     }));
-    izgara.appendChild(YU.ui.kpi({
-      etiket: 'Yaş Küspe', ikon: '#ic-doc',
-      deger: olcu(YU.yuvarla(yasKuspe), null),
-      alt: YU.fmt.sayi(yasSayi) + ' kalem · tonluk ve 25’lik toplamı'
+
+    izgara.appendChild(kpiKarti({
+      etiket: 'Yaş Küspe Stoğu', ikon: '#ic-chart',
+      ipucu: TONLUK_NOTU,
+      deger: degerSatiri([YU.h('span', { metin: YU.fmt.kg(YU.yuvarla(yasKuspe)) }), birimEki('kg')]),
+      alt: yasDetayi(yasSatirlar)
     }));
+
     return izgara;
   }
 
@@ -292,7 +374,7 @@
       doluluk = sutunKap(5);
       doluluk.appendChild(YU.h('div', {
         sinif: 'yu-yardim',
-        metin: YU.fmt.yuzde((s.doluluk || 0) * 100) + ' · kapasite ' + YU.fmt.ton(s.kapasite)
+        metin: YU.fmt.yuzde((s.doluluk || 0) * 100) + ' · kapasite ' + YU.fmt.kgU(s.kapasite)
       }));
       doluluk.appendChild(YU.ui.cubuk(s.doluluk, s.mevcut > s.kapasite ? 'olumsuz'
         : ((s.doluluk || 0) >= 0.9 ? 'bekleyen' : 'vurgu')));
@@ -386,7 +468,8 @@
       satirlar: satirlar,
       bos: d.pasifGoster
         ? 'Tanımlı malzeme yok.'
-        : 'Aktif malzeme yok. Pasif malzemeleri görmek için filtreyi açın.'
+        : 'Aktif malzeme yok. Pasif malzemeleri görmek için filtreyi açın.',
+      yapiskan: true
     });
 
     /* Açılır alt satır YU.ui.tablo'nun sözleşmesinde yok; tablo kurulduktan

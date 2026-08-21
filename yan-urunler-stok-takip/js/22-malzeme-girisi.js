@@ -475,11 +475,14 @@
     var sar = YU.ui.tablo({
       sutunlar: sutunlar,
       satirlar: satirlar,
-      bos: 'Aktif malzeme bulunamadı.'
+      sik: false,        /* giriş alanlı düzenleme tablosu — sık stil daraltmaz */
+      bos: 'Aktif malzeme bulunamadı.',
+      yapiskan: true
     });
 
     /* Giriş hücreleri sıkışınca sayı okunmaz hâle geliyor: tablo daralmak
-       yerine kendi kabında yatay kaysın (tema.css .yu-tablo-sar). */
+       yerine dar ekranda kendi kabında yatay kaysın (tema.css ≤900px'te
+       yapışkan varyantı kaydırmaya geri düşürür). */
     var tablo = sar.querySelector('table');
     if (tablo) tablo.style.minWidth = '860px';
 

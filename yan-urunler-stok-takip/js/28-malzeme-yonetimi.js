@@ -433,7 +433,8 @@
           { baslik: 'İşlem', genislik: 176, hiza: 'sag' }
         ],
         satirlar: satirlar,
-        bos: 'Tanımlı malzeme yok.'
+        bos: 'Tanımlı malzeme yok.',
+        yapiskan: true
       })
     }));
   }
@@ -504,7 +505,8 @@
           { baslik: 'İşlem', genislik: 176, hiza: 'sag' }
         ],
         satirlar: satirlar,
-        bos: 'Tanımlı silo yok.'
+        bos: 'Tanımlı silo yok.',
+        yapiskan: true
       })
     }));
 
