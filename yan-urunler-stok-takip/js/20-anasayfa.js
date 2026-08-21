@@ -352,38 +352,8 @@
 
   /* Pasif malzeme yeni hareket almaz ama stoğu duruyorsa toplamdan düşmez —
      Stok Durumu ekranındaki "Toplam Stok" kartıyla aynı kural. */
-  function kartToplamStok(o) {
-    var toplam = 0, sayilan = 0, i, r;
-    for (i = 0; i < o.malzemeler.length; i++) {
-      r = o.malzemeler[i];
-      if (!r.malzeme) continue;
-      if (r.malzeme.Aktif !== false || r.mevcut !== 0) { toplam += Number(r.mevcut) || 0; sayilan++; }
-    }
-    return YU.ui.kpi({
-      etiket: 'Toplam Stok', ikon: '#ic-shelf',
-      deger: YU.fmt.kgU(YU.yuvarla(toplam)),
-      alt: YU.fmt.sayi(sayilan) + ' malzeme · ' + YU.fmt.tarih(o.bugun) + ' itibarıyla'
-    });
-  }
-
-  function kartDoluluk(o) {
-    return YU.ui.kpi({
-      etiket: 'Toplam Siloların Doluluk Oranı', ikon: '#ic-percent-ring',
-      deger: o.kapasite > 0 ? YU.fmt.yuzde(o.doluluk * 100, 1) : '—',
-      renk: o.doluluk >= 0.9 ? 'bekleyen' : 'vurgu',
-      alt: o.kapasite > 0
-        ? YU.fmt.kgU(o.dokmeToplam) + ' / ' + YU.fmt.ton(o.kapasite) + ' kapasite'
-        : 'Silo kapasitesi tanımlı değil.'
-    });
-  }
-
-  function kartKayitliGun(o) {
-    return YU.ui.kpi({
-      etiket: 'Kayıtlı Gün Sayısı', ikon: '#ic-calendar-dots',
-      deger: YU.fmt.sayi(o.tumGunler.length),
-      alt: o.sonGun ? ('Son kayıt ' + YU.fmt.tarih(o.sonGun)) : 'Kayıtlı gün yok.'
-    });
-  }
+  /* Toplam Stok, Doluluk Oranı ve Kayıtlı Gün kartları katalogdan
+     kaldırıldı (kullanıcı isteği, 21.08.2026). */
 
   /* Günlük kartlar: son kayıtlı günün üretim ve satışı tek kartta, çuval
      kartındaki "değer / değer" diliyle. Bugüne kayıt yoksa son gün gösterilir;
@@ -463,10 +433,7 @@
       ciz: function (o) { return [kartGunlukDokme(o), kartGunlukCuval(o), kartGunlukYas(o), kartGunlukPoset(o)]; }
     },
     { kod: 'uretim30', ad: 'Son 30 Günün Dökme Üretimi', aciklama: 'Pencere toplamı ve önceki döneme göre fark.', ciz: kartUretim30 },
-    { kod: 'satis30', ad: 'Son 30 Günün Dökme Satışı', aciklama: 'Pencere toplamı ve üretime oranı.', ciz: kartSatis30 },
-    { kod: 'toplam', ad: 'Toplam Stok', aciklama: 'Tüm malzemelerin bugünkü toplamı.', ciz: kartToplamStok },
-    { kod: 'doluluk', ad: 'Toplam Siloların Doluluk Oranı', aciklama: 'Dökme stoğun kapasiteye oranı.', ciz: kartDoluluk },
-    { kod: 'gun', ad: 'Kayıtlı Gün Sayısı', aciklama: 'Kampanyada veri girilmiş gün sayısı.', ciz: kartKayitliGun }
+    { kod: 'satis30', ad: 'Son 30 Günün Dökme Satışı', aciklama: 'Pencere toplamı ve üretime oranı.', ciz: kartSatis30 }
   ];
 
   var VARSAYILAN_KARTLAR = ['uretim-satis', 'uretim30', 'satis30'];
