@@ -86,11 +86,25 @@
     }, ogeler);
   }
 
-  function kuruKuspePaneli(kk, hesap) {
+  function kuruKuspePaneli(kk, hesap, tarih) {
     var ham = hesap.hamUretilenDokme;
     var adet = say(kk.CuvalAdet);
     var fark = hesap.siloNetDegisim;
     var durumB = hesap.durum === 'B';
+
+    /* Günün tarihi panelin sağ üst boşluğunda BÜYÜK yazar — eskizdeki
+       ölçüde: iri tarih, altında gün adı (kullanıcı isteği, 21.08.2026). */
+    var tarihBlok = YU.h('div', { stil: { marginLeft: 'auto', textAlign: 'right', flex: 'none' } },
+      YU.h('div', {
+        stil: { font: '650 26px/1.1 var(--sayi)', letterSpacing: '-.02em',
+                fontVariantNumeric: 'tabular-nums', color: 'var(--metin)' },
+        metin: YU.fmt.tarih(tarih)
+      }),
+      YU.h('div', {
+        stil: { font: '500 15px/1.5 var(--font)', color: 'var(--metin-4)' },
+        metin: YU.fmt.gunAdi(tarih)
+      })
+    );
 
     /* 1. satır — operatörün girdiği ham değerler (Girildi) */
     var girilen = akisSatiri([
@@ -101,7 +115,8 @@
       hesapOge('Çuval Karşılığı', YU.fmt.kgU(hesap.cuvalKg), null,
         YU.fmt.sayi(adet) + ' × ' + YU.fmt.sayi(YU.hesap.CUVAL_KG) + ' kg'),
       hesapOge('Satılan Dökme', YU.fmt.kgU(hesap.satilanDokme), null,
-        'Doğrudan silodan dökme satış — ayrı kalem (Şartname §7 v2).')
+        'Doğrudan silodan dökme satış — ayrı kalem (Şartname §7 v2).'),
+      tarihBlok
     ]);
 
     /* 2. satır — sistemin hesabı; önemli sonuçlar renkle vurgulanır */
@@ -385,7 +400,7 @@
     kap.appendChild(kayitPaneli(depo, ozet));
 
     if (ozet.kuruKuspe) {
-      kap.appendChild(kuruKuspePaneli(ozet.kuruKuspe, ozet.hesap));
+      kap.appendChild(kuruKuspePaneli(ozet.kuruKuspe, ozet.hesap, tarih));
     } else {
       kap.appendChild(YU.ui.serit({
         tur: 'bilgi',

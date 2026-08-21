@@ -767,6 +767,67 @@
     return a;
   }
 
+  /* Rapor merkezi — menüdeki "Raporlar" başlığına tıklayınca ortada açılan
+     üç büyük kart: Stok, Silo, Günlük Rapor. Kartta üstte ad, altında büyük
+     ikon; üzerine gelince vurgu zemin (kullanıcı isteği, 21.08.2026). */
+  var RAPOR_MERKEZI = [
+    { kod: 'stok-durumu', ad: 'Stok', ikon: '#ic-chart' },
+    { kod: 'silo-durumu', ad: 'Silo', ikon: '#ic-building' },
+    { kod: 'gunluk-rapor', ad: 'Günlük Rapor', ikon: '#ic-doc' }
+  ];
+
+  function raporMerkeziAc() {
+    var m;
+    var izgara = YU.h('div', {
+      stil: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }
+    });
+
+    for (var i = 0; i < RAPOR_MERKEZI.length; i++) {
+      (function (r) {
+        var ikonKap;
+        function git() { m.kapat(); YU.git(r.kod); }
+        var kart = YU.h('div', {
+          role: 'button', tabindex: '0', title: r.ad,
+          stil: {
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            justifyContent: 'center', gap: '18px', padding: '30px 14px 26px',
+            border: '1px solid var(--kenar-2)', borderRadius: 'var(--r-l)',
+            background: 'var(--yuzey)', cursor: 'pointer', textAlign: 'center',
+            transition: 'background-color .12s, border-color .12s'
+          },
+          onClick: git,
+          onKeyDown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); git(); } },
+          onMouseEnter: function () {
+            kart.style.background = 'var(--vurgu-zemin)';
+            kart.style.borderColor = 'var(--vurgu)';
+            ikonKap.style.color = 'var(--vurgu)';
+          },
+          onMouseLeave: function () {
+            kart.style.background = 'var(--yuzey)';
+            kart.style.borderColor = 'var(--kenar-2)';
+            ikonKap.style.color = 'var(--metin-2)';
+          }
+        });
+        kart.appendChild(YU.h('div', {
+          metin: r.ad,
+          stil: { font: '600 15.5px/1.2 var(--font)', color: 'var(--metin)' }
+        }));
+        ikonKap = YU.h('div', {
+          stil: { color: 'var(--metin-2)', display: 'flex', transition: 'color .12s' }
+        }, YU.svg(r.ikon, 48));
+        kart.appendChild(ikonKap);
+        izgara.appendChild(kart);
+      })(RAPOR_MERKEZI[i]);
+    }
+
+    m = YU.ui.modal({
+      baslik: 'Raporlar',
+      genislik: 560,
+      govde: [izgara],
+      dugmeler: [{ metin: 'Kapat', tur: 'sade', onClick: function () { m.kapat(); } }]
+    });
+  }
+
   function menuKur() {
     var menu = YU.h('div', { sinif: 'yu-menu' });
     var ust = YU.sayfalar[MENU_USTU];
@@ -783,10 +844,20 @@
         ogeler.push(menuOgesi(t));
       }
       if (!ogeler.length) continue;
-      menu.appendChild(YU.h('div', { sinif: 'yu-menu-grup' },
-        YU.h('div', { sinif: 'yu-menu-grup-bas', metin: GRUP_BASLIK[grupAdi] || grupAdi }),
-        ogeler
-      ));
+      var grupBas;
+      if (grupAdi === 'Takip') {
+        /* "Raporlar" başlığı tıklanır: rapor merkezi açılır. */
+        grupBas = YU.h('div', {
+          sinif: 'yu-menu-grup-bas', metin: GRUP_BASLIK[grupAdi] || grupAdi,
+          role: 'button', tabindex: '0', title: 'Rapor Merkezini Aç',
+          stil: { cursor: 'pointer' },
+          onClick: raporMerkeziAc,
+          onKeyDown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); raporMerkeziAc(); } }
+        });
+      } else {
+        grupBas = YU.h('div', { sinif: 'yu-menu-grup-bas', metin: GRUP_BASLIK[grupAdi] || grupAdi });
+      }
+      menu.appendChild(YU.h('div', { sinif: 'yu-menu-grup' }, grupBas, ogeler));
     }
     return menu;
   }
