@@ -4,10 +4,15 @@
    YU.servis.* üzerinden geçer. Sebebi: tohum verisi de D1–D16'dan geçsin,
    ekranlardaki rakamlar kuralların ürettiği rakam olsun.
 
-     2024/2025 · devir 16.09.2024 ·  10 gün — Şartname §5'teki "en son devir"
-                                              kuralı ancak iki devir satırı
-                                              varken gerçekten sınanır.
-     2025/2026 · devir 15.09.2025 · 128 gün — ekranların dolu olduğu kampanya.
+     2025/2026 · devir 10.06.2026 ·  5 gün — Şartname §5'teki "en son devir"
+                                             kuralı ancak iki devir satırı
+                                             varken gerçekten sınanır.
+     2026/2027 · devir 22.07.2026 · 30 gün — ekranların dolu olduğu kampanya;
+                                             son günü bugüne denk gelir.
+
+   Tohumlamanın sonunda ayrıca küçük bir denetim izi üretilir (denetimIzi):
+   birkaç düzeltme, bir ekleme ve bir silme DegisiklikLog'a yazılır ki
+   Değişiklik Geçmişi ekranı boş kalmasın.
 
    Rakamların tamamı YU.rastgele(TOHUM) ile üretilir: aynı tohum aynı veri
    (SOZLESME §2 "PRNG kuralı"). Math.random() hiçbir yerde yok. */
@@ -26,62 +31,64 @@
      malzeme sırasını izler; dökme ve çuvallı burada yok — üretimleri
      Kuru Küspe Günlük Giriş'ten otomatik gelir (Şartname §4). */
   var MALZEME_PLANI = [
-    { ad: "Yaş Küspe (Tonluk)", uretim: [180000, 260000], adim: 10, satisOrani: [0.75, 1.00] },
-    { ad: "Yaş Küspe (25'lik)", uretim: [8000, 15000], adim: 10, satisOrani: [0.75, 1.00] },
-    { ad: "Atık Kuru Küspe", uretim: [500, 2500], adim: 10, satisSeyrek: 0.34, satisAralik: [2000, 6000] },
-    { ad: "Kuyruk", uretim: [20000, 45000], adim: 10, satisAralik: [15000, 40000] },
-    { ad: "Toprak", uretim: [60000, 120000], adim: 10, satisAralik: [0, 30000] }
+    { ad: "Yaş Küspe (Tonluk)", uretim: [18000, 26000], adim: 10, satisOrani: [0.75, 1.00] },
+    { ad: "Yaş Küspe (25'lik)", uretim: [800, 1500], adim: 10, satisOrani: [0.75, 1.00] },
+    { ad: "Atık Kuru Küspe", uretim: [50, 250], adim: 10, satisSeyrek: 0.34, satisAralik: [200, 600] },
+    { ad: "Kuyruk", uretim: [2000, 4500], adim: 10, satisAralik: [1500, 4000] },
+    { ad: "Toprak", uretim: [6000, 12000], adim: 10, satisAralik: [0, 3000] }
   ];
 
   /* Şartname §4: hiç dökme satış yapılmazsa silolar 12–37 günde dolar. O yüzden
      satış her gün üretimi takip eder. Eğri, toplam doluluğun kampanya boyunca
      izleyeceği yol (gün oranı -> doluluk oranı); satış miktarı bu hedefi
      tutturmak için hesaplanır. Bant %25–%75 içinde, kenarlara pay bırakılarak. */
-  var HEDEF_2025 = [
-    [0.00, 0.325], [0.15, 0.420], [0.30, 0.520], [0.45, 0.470],
-    [0.60, 0.550], [0.75, 0.480], [0.90, 0.580], [1.00, 0.550]
+  var HEDEF_ANA = [
+    [0.00, 0.118], [0.30, 0.126], [0.55, 0.137], [0.80, 0.144], [1.00, 0.150]
   ];
-  var HEDEF_2024 = [[0.00, 0.283], [1.00, 0.315]];
+  var HEDEF_ONCEKI = [[0.00, 0.072], [1.00, 0.078]];
 
-  var GUNLUK_SEVKIYAT_TAVANI = 450000; // kg — bir günde silolardan çıkabilecek makul üst sınır
+  var GUNLUK_SEVKIYAT_TAVANI = 45000; // kg — bir günde silolardan çıkabilecek makul üst sınır
 
   var KAMPANYALAR = [
     {
-      ad: "2024/2025",
-      devirTarihi: "2024-09-16",
-      gunSayisi: 10,
-      siloDevir: [1150000, 780000, 620000],
+      ad: "2025/2026",
+      devirTarihi: "2026-06-10",
+      gunSayisi: 5,
+      siloDevir: [260000, 210000, 180000],
       malzemeDevir: {
-        "Yaş Küspe (Tonluk)": 145000,
-        "Yaş Küspe (25'lik)": 22000,
-        "Kuru Küspe (50 Kg)": 68500,
-        "Atık Kuru Küspe": 9400,
-        "Kuyruk": 31000,
-        "Toprak": 74000
+        "Yaş Küspe (Tonluk)": 12000,
+        "Yaş Küspe (25'lik)": 1800,
+        "Kuru Küspe (50 Kg)": 4200,
+        "Atık Kuru Küspe": 600,
+        "Kuyruk": 2400,
+        "Toprak": 5200
       },
-      hedefEgrisi: HEDEF_2024,
+      hedefEgrisi: HEDEF_ONCEKI,
       durumBGunleri: [],
-      satisSifirGunleri: []
+      satisSifirGunleri: [],
+      eksikSonGun: []
     },
     {
-      ad: "2025/2026",
-      devirTarihi: "2025-09-15",
-      gunSayisi: 128,
-      siloDevir: [980000, 1240000, 705000],
+      ad: "2026/2027",
+      devirTarihi: "2026-07-22",
+      gunSayisi: 30,
+      siloDevir: [420000, 380000, 260000],
       malzemeDevir: {
-        "Yaş Küspe (Tonluk)": 168000,
-        "Yaş Küspe (25'lik)": 26500,
-        "Kuru Küspe (50 Kg)": 84000,
-        "Atık Kuru Küspe": 12600,
-        "Kuyruk": 38500,
-        "Toprak": 91000
+        "Yaş Küspe (Tonluk)": 18000,
+        "Yaş Küspe (25'lik)": 2500,
+        "Kuru Küspe (50 Kg)": 6000,
+        "Atık Kuru Küspe": 900,
+        "Kuyruk": 3200,
+        "Toprak": 7500
       },
-      hedefEgrisi: HEDEF_2025,
-      /* Kurutma tesisi arızası: 05–06.01.2026 ardışık, 11.01 ve 16.01 ayrı.
-         O günlerde çuvallanan üretileni aşar -> Durum B (Şartname §4). */
-      durumBGunleri: [112, 113, 118, 123],
-      /* 01.01.2026 — kampanya kesintisiz sürer ama yılbaşında sevkiyat yok. */
-      satisSifirGunleri: [108]
+      hedefEgrisi: HEDEF_ANA,
+      /* Kurutma tesisi arızası: 09.08 ve 15.08. O günlerde çuvallanan
+         üretileni aşar -> Durum B (Şartname §4). */
+      durumBGunleri: [18, 24],
+      /* 29.07.2026 — üretim sürer ama o gün sevkiyat yapılmaz. */
+      satisSifirGunleri: [7],
+      /* Son gün atık küspe satırı unutulmuş; denetim izinde sonradan girilir. */
+      eksikSonGun: ["Atık Kuru Küspe"]
     }
   ];
 
@@ -354,12 +361,12 @@
       var kullanici = operatorler[g % operatorler.length] || yonetici;
       var logBasi = depo.degisiklikLog.length;   // gün sonunda buraya geri sarılır
 
-      var cuvalAdet = rnd.tamsayi(150, 400);
+      var cuvalAdet = rnd.tamsayi(20, 60);
       var cuvalKg = cuvalAdet * YU.hesap.CUVAL_KG;
       var durumB = plan.durumBGunleri.indexOf(g) >= 0;
       var uretilen = durumB
         ? adimla(rnd.tamsayi(Math.round(cuvalKg * 0.10), Math.round(cuvalKg * 0.55)), 10)
-        : adimla(rnd.tamsayi(200000, 300000), 10);
+        : adimla(rnd.tamsayi(20000, 34000), 10);
 
       var hesap = YU.hesap.kuruKuspe(uretilen, cuvalAdet, 0);
       var net = hesap.netDokmeUretim;
@@ -373,7 +380,7 @@
       if (satisTavan < 0) satisTavan = 0;
       if (satisTavan > GUNLUK_SEVKIYAT_TAVANI) satisTavan = GUNLUK_SEVKIYAT_TAVANI;
 
-      var satis = net - cekilecek - (hedef - toplamBakiye) + rnd.arasi(-18000, 18000);
+      var satis = net - cekilecek - (hedef - toplamBakiye) + rnd.arasi(-2200, 2200);
       if (satis < 0) satis = 0;
       if (satis > satisTavan) satis = satisTavan;
       satis = adimla(satis, 10);
@@ -434,10 +441,13 @@
       }
 
       /* Basit malzemeler */
+      var sonGunMu = g === plan.gunSayisi - 1;
       for (i = 0; i < MALZEME_PLANI.length; i++) {
         var mp = MALZEME_PLANI[i];
         var malzeme = malzemeler[mp.ad];
         if (!malzeme) continue;
+        /* Son günde bilerek atlanan malzeme: denetim izi onu sonradan ekler. */
+        if (sonGunMu && (plan.eksikSonGun || []).indexOf(mp.ad) >= 0) continue;
         var stok = malzemeStok[mp.ad] || 0;
         var gun = malzemeGunu(mp, rnd, stok);
         var mr = YU.servis.malzemeHareketKaydet(depo, {
@@ -453,7 +463,7 @@
       var cuvalMalzeme = malzemeler[CUVAL_AD];
       if (cuvalMalzeme) {
         var cuvalStok = (malzemeStok[CUVAL_AD] || 0) + (sonuc && sonuc.ok ? cuvalKg : 0);
-        var cuvalSatis = rnd.tamsayi(100, 240) * YU.hesap.CUVAL_KG;
+        var cuvalSatis = rnd.tamsayi(10, 45) * YU.hesap.CUVAL_KG;
         if (cuvalSatis > cuvalStok) cuvalSatis = Math.floor(cuvalStok / YU.hesap.CUVAL_KG) * YU.hesap.CUVAL_KG;
         if (cuvalSatis < 0) cuvalSatis = 0;
         var cr = YU.servis.malzemeHareketKaydet(depo, {
@@ -474,6 +484,244 @@
          kopyalıyor; log boş kalınca tohumlama ölçülebilir biçimde hızlanıyor. */
       depo.degisiklikLog.length = logBasi;
     }
+  }
+
+  /* ---------------------------------------------------------------
+     Denetim izi — DegisiklikLog satırları
+     ---------------------------------------------------------------
+     Tohumlamanın kendisi log yazmaz (yukarıdaki gerekçe). Ama Değişiklik
+     Geçmişi ekranının boş kalmaması için kampanyanın son iki haftasında
+     yapılmış birkaç gerçek düzeltme buradan geçirilir: hepsi YU.servis.*
+     çağrısıdır, yani D1–D16 denetiminden geçer. Damgalar elle veriliyor;
+     aksi hâlde hepsi "şu an" görünür ve iz gerçekçi olmaz. */
+
+  var LOG_TABLO_ALANI = {
+    KuruKuspeGunluk: "kuruKuspeGunluk",
+    GunlukHareket: "gunlukHareket",
+    SiloHareket: "siloHareket",
+    DevirStok: "devirStok",
+    SiloDevirStok: "siloDevirStok",
+    Kullanicilar: "kullanicilar",
+    Malzemeler: "malzemeler"
+  };
+
+  function hareketBul(depo, tarih, malzemeId) {
+    var i, h;
+    for (i = 0; i < depo.gunlukHareket.length; i++) {
+      h = depo.gunlukHareket[i];
+      if (h.Tarih === tarih && h.MalzemeId === malzemeId) return h;
+    }
+    return null;
+  }
+
+  function devirBul(depo, malzemeId, tarih) {
+    var i, d;
+    for (i = 0; i < depo.devirStok.length; i++) {
+      d = depo.devirStok[i];
+      if (d.MalzemeId === malzemeId && d.DevirTarihi === tarih) return d;
+    }
+    return null;
+  }
+
+  function siloDevirBul(depo, siloId, tarih) {
+    var i, d;
+    for (i = 0; i < depo.siloDevirStok.length; i++) {
+      d = depo.siloDevirStok[i];
+      if (d.SiloId === siloId && d.DevirTarihi === tarih) return d;
+    }
+    return null;
+  }
+
+  function kuruKuspeBul(depo, tarih) {
+    var i;
+    for (i = 0; i < depo.kuruKuspeGunluk.length; i++) {
+      if (depo.kuruKuspeGunluk[i].Tarih === tarih) return depo.kuruKuspeGunluk[i];
+    }
+    return null;
+  }
+
+  /* O günün silo hareketlerini kaydetme girdisine geri çevirir: gün yeniden
+     kaydedilirken eski dağılım korunsun, yalnızca değişen kalem oynasın. */
+  function gunSiloSatirlari(depo, tarih) {
+    var yer = [], cek = [], sat = [], i, h;
+    for (i = 0; i < depo.siloHareket.length; i++) {
+      h = depo.siloHareket[i];
+      if (h.Tarih !== tarih) continue;
+      if (h.HareketTipi === "DokmeUretim") yer.push({ siloId: h.SiloId, miktar: Number(h.GirenKg) || 0 });
+      else if (h.HareketTipi === "Cuvallama") cek.push({ siloId: h.SiloId, miktar: Number(h.CikanKg) || 0 });
+      else if (h.HareketTipi === "DokmeSatis") sat.push({ siloId: h.SiloId, miktar: Number(h.CikanKg) || 0 });
+    }
+    return { yerlestirmeler: yer, cekisler: cek, satisCekisleri: sat };
+  }
+
+  /* Bir eylemin ürettiği log satırlarını verilen damgayla imzalar. */
+  function izle(depo, damga, fn) {
+    var bas = depo.degisiklikLog.length, i;
+    var sonuc = fn();
+    for (i = bas; i < depo.degisiklikLog.length; i++) depo.degisiklikLog[i].Tarih = damga;
+    return sonuc;
+  }
+
+  /* Log satırının damgası, dokunduğu kaydın güncelleme damgası olur. */
+  function kayitDamgalari(depo, logBasi) {
+    var i, satir, alan, tablo, j;
+    for (i = logBasi; i < depo.degisiklikLog.length; i++) {
+      satir = depo.degisiklikLog[i];
+      alan = LOG_TABLO_ALANI[satir.Tablo];
+      if (!alan || satir.KayitId === null || satir.KayitId === undefined) continue;
+      tablo = depo[alan] || [];
+      for (j = 0; j < tablo.length; j++) {
+        if (tablo[j].Id !== satir.KayitId) continue;
+        if (satir.Islem === "Ekle") tablo[j].OlusturmaTarihi = satir.Tarih;
+        tablo[j].GuncellemeTarihi = satir.Tarih;
+        break;
+      }
+    }
+  }
+
+  function denetimIzi(depo, durum) {
+    var plan = KAMPANYALAR[KAMPANYALAR.length - 1];
+    var sonGun = YU.tarih.ekle(plan.devirTarihi, plan.gunSayisi - 1);
+    var yonetici = kullaniciBul(depo, "yonetici");
+    var operator = kullaniciBul(depo, "operator");
+    var operator2 = kullaniciBul(depo, "operator2") || operator;
+    var malzemeler = malzemeHaritasi(depo);
+    var logBasi = depo.degisiklikLog.length;
+    var kayit, girdi, m, d, sd, yeniAdet, fark, enBuyuk, i;
+
+    function gun(fark) { return YU.tarih.ekle(sonGun, fark); }
+
+    /* 1 — üç malzeme hareketi düzeltmesi (operatör tartı fişini sonradan görmüş) */
+    var duzeltmeler = [
+      { ad: "Kuyruk", gunFarki: -15, alan: "satis", ekle: 340, damga: "T09:12:00", kullanici: operator },
+      { ad: "Yaş Küspe (Tonluk)", gunFarki: -9, alan: "uretim", ekle: 1250, damga: "T16:40:00", kullanici: operator2 },
+      { ad: "Toprak", gunFarki: -6, alan: "satis", ekle: 480, damga: "T08:55:00", kullanici: operator }
+    ];
+    for (i = 0; i < duzeltmeler.length; i++) {
+      (function (d2) {
+        m = malzemeler[d2.ad];
+        if (!m) return;
+        var t = gun(d2.gunFarki);
+        var h = hareketBul(depo, t, m.Id);
+        if (!h) return;
+        var uretim = Number(h.Uretim) || 0;
+        var satis = Number(h.Satis) || 0;
+        if (d2.alan === "satis") satis += d2.ekle; else uretim += d2.ekle;
+        calistir(durum, "düzeltme · " + d2.ad, t, izle(depo, gun(d2.gunFarki + 2) + d2.damga, function () {
+          return YU.servis.malzemeHareketKaydet(depo, {
+            tarih: t, malzemeId: m.Id, uretim: uretim, satis: satis, rowVersion: h.RowVersion
+          }, d2.kullanici);
+        }));
+      })(duzeltmeler[i]);
+    }
+
+    /* 2 — son günde unutulan atık küspe satırı sonradan girildi (Ekle) */
+    m = malzemeler["Atık Kuru Küspe"];
+    if (m && !hareketBul(depo, sonGun, m.Id)) {
+      calistir(durum, "eksik satır · Atık Kuru Küspe", sonGun,
+        izle(depo, sonGun + "T09:05:00", function () {
+          return YU.servis.malzemeHareketKaydet(depo, {
+            tarih: sonGun, malzemeId: m.Id, uretim: 180, satis: 0, rowVersion: null
+          }, operator);
+        }));
+    }
+
+    /* 3 — malzeme devri düzeltmesi: kampanya başı sayımı sonradan revize edildi */
+    m = malzemeler["Kuyruk"];
+    d = m ? devirBul(depo, m.Id, plan.devirTarihi) : null;
+    if (d) {
+      calistir(durum, "devir düzeltmesi · Kuyruk", plan.devirTarihi,
+        izle(depo, gun(-3) + "T11:20:00", function () {
+          return YU.servis.devirKaydet(depo, {
+            malzemeId: m.Id, devirTarihi: plan.devirTarihi, miktar: (Number(d.Miktar) || 0) + 260
+          }, yonetici);
+        }));
+    }
+
+    /* 4 — silo açılış düzeltmesi: sayım farkı silo devrine işlendi */
+    if (depo.silolar.length) {
+      var silo = depo.silolar[depo.silolar.length - 1];
+      sd = siloDevirBul(depo, silo.Id, plan.devirTarihi);
+      if (sd) {
+        calistir(durum, "silo devri düzeltmesi · " + silo.Ad, plan.devirTarihi,
+          izle(depo, gun(-3) + "T11:34:00", function () {
+            return YU.servis.siloDevirKaydet(depo, {
+              siloId: silo.Id, devirTarihi: plan.devirTarihi, miktar: (Number(sd.Miktar) || 0) + 2000
+            }, yonetici);
+          }));
+      }
+    }
+
+    /* 5 — yanlış tarihe açılan devir satırı: önce eklendi, sonra silindi.
+       Ekle + Sil izi bırakır, veri ise başladığı yere döner. */
+    m = malzemeler["Atık Kuru Küspe"];
+    if (m) {
+      var yanlisTarih = YU.tarih.ekle(plan.devirTarihi, 1);
+      calistir(durum, "yanlış devir satırı", yanlisTarih,
+        izle(depo, gun(-2) + "T14:05:00", function () {
+          return YU.servis.devirKaydet(depo, {
+            malzemeId: m.Id, devirTarihi: yanlisTarih, miktar: 640
+          }, yonetici);
+        }));
+      var yanlis = devirBul(depo, m.Id, yanlisTarih);
+      if (yanlis) {
+        calistir(durum, "yanlış devir satırı silindi", yanlisTarih,
+          izle(depo, gun(-2) + "T14:11:00", function () {
+            return YU.servis.devirSil(depo, yanlis.Id, "Malzeme", yonetici);
+          }));
+      }
+    }
+
+    /* 6 — malzeme sırası değişti: listede kuyruk toprağın üstüne alındı */
+    var kuyruk = malzemeler["Kuyruk"], toprak = malzemeler["Toprak"];
+    if (kuyruk && toprak && kuyruk.Sira !== toprak.Sira) {
+      var kSira = kuyruk.Sira, tSira = toprak.Sira;
+      calistir(durum, "sıra · Toprak", sonGun,
+        izle(depo, gun(-1) + "T17:45:00", function () {
+          return YU.servis.malzemeKaydet(depo, { Id: toprak.Id, Ad: toprak.Ad, Sira: kSira }, yonetici);
+        }));
+      calistir(durum, "sıra · Kuyruk", sonGun,
+        izle(depo, gun(-1) + "T17:46:00", function () {
+          return YU.servis.malzemeKaydet(depo, { Id: kuyruk.Id, Ad: kuyruk.Ad, Sira: tSira }, yonetici);
+        }));
+    }
+
+    /* 7 — kuru küspe günü düzeltmesi: çuval sayımı iki çuval eksik girilmiş.
+       Çuval kg arttığı için net dökme üretim düşer; aradaki fark en büyük
+       yerleştirmeden indirilir, yoksa D3 (±0,01) tutmaz. */
+    kayit = kuruKuspeBul(depo, sonGun);
+    if (kayit) {
+      yeniAdet = (Number(kayit.CuvalAdet) || 0) + 2;
+      var eskiHesap = YU.hesap.kuruKuspe(kayit.UretilenDokme, kayit.CuvalAdet, kayit.SatilanDokme);
+      var yeniHesap = YU.hesap.kuruKuspe(kayit.UretilenDokme, yeniAdet, kayit.SatilanDokme);
+      fark = YU.yuvarla(eskiHesap.netDokmeUretim - yeniHesap.netDokmeUretim);
+      girdi = gunSiloSatirlari(depo, sonGun);
+      enBuyuk = -1;
+      for (i = 0; i < girdi.yerlestirmeler.length; i++) {
+        if (enBuyuk < 0 || girdi.yerlestirmeler[i].miktar > girdi.yerlestirmeler[enBuyuk].miktar) enBuyuk = i;
+      }
+      var uygulanabilir = eskiHesap.silodanCekilecek === 0 && yeniHesap.silodanCekilecek === 0 &&
+        enBuyuk >= 0 && girdi.yerlestirmeler[enBuyuk].miktar >= fark;
+      if (uygulanabilir) {
+        girdi.yerlestirmeler[enBuyuk].miktar = YU.yuvarla(girdi.yerlestirmeler[enBuyuk].miktar - fark);
+        calistir(durum, "kuru küspe düzeltmesi", sonGun,
+          izle(depo, sonGun + "T15:20:00", function () {
+            return YU.servis.kuruKuspeKaydet(depo, {
+              tarih: sonGun,
+              uretilenDokme: kayit.UretilenDokme,
+              cuvalAdet: yeniAdet,
+              satilanDokme: kayit.SatilanDokme,
+              yerlestirmeler: girdi.yerlestirmeler,
+              cekisler: girdi.cekisler,
+              satisCekisleri: girdi.satisCekisleri,
+              rowVersion: kayit.RowVersion
+            }, operator2);
+          }));
+      }
+    }
+
+    kayitDamgalari(depo, logBasi);
+    return depo.degisiklikLog.length - logBasi;
   }
 
   /* ---------------------------------------------------------------
@@ -498,12 +746,14 @@
       }
       depo.degisiklikLog.length = logKok;   // devir kayıtlarının log satırları da tohum verisidir
       damgalariDuzelt(depo);
+      durum.log = denetimIzi(depo, durum);
     } finally {
       depo.kaydet = gercekKaydet;
     }
 
     if (window.console && window.console.info) {
-      window.console.info("[tohum] " + durum.gun + " gün üretildi · " + durum.hata + " hata.");
+      window.console.info("[tohum] " + durum.gun + " gün üretildi · " +
+        (durum.log || 0) + " değişiklik kaydı · " + durum.hata + " hata.");
     }
 
     return durum;

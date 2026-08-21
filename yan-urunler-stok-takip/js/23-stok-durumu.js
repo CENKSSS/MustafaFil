@@ -40,6 +40,45 @@
     return YU.h('span', { sinif: 'yu-mono' + (soluk ? ' yu-zayif' : ''), metin: metin });
   }
 
+  /* Bir malzemenin paket büyüklüğü — adet karşılığı ancak bu biliniyorsa
+     yazılır. Çuval 50 kg ve poşet 25 kg şartnamede tanımlı; tonluk torbanın
+     kg'ı tanımlı değil, o yüzden tonluk satırında adet gösterilmez. */
+  function paketKg(malzeme) {
+    if (!malzeme) return 0;
+    if (malzeme.OzelTip === 'CuvalKuruKuspe') return YU.hesap.CUVAL_KG;
+    if (yasKuspeMi(malzeme) && /25/.test(String(malzeme.Ad || ''))) return YU.hesap.POSET_KG;
+    return 0;
+  }
+
+  /* Ton karşılığı ikincil bilgidir: büyük değerlerde ondalık gürültü yapıyor,
+     küçük değerlerde ondalıksız anlamsız kalıyor. Ölçeğe göre basamak verilir.
+     Tam ton değeri gereken yerlerde YU.fmt.ton kullanılmaya devam eder. */
+  function tonKisa(kg) {
+    var t = (Number(kg) || 0) / 1000;
+    var mutlak = Math.abs(t);
+    var basamak = mutlak >= 1000 ? 0 : (mutlak >= 100 ? 1 : (mutlak >= 10 ? 2 : 3));
+    var m = YU.fmt.sayi(t, basamak);
+    if (m.indexOf(',') >= 0) m = m.replace(/0+$/, '').replace(/,$/, '');
+    return m;
+  }
+
+  /* kg değerini "kg / ton / adet" parçalarına ayırır; adet yalnızca paket
+     büyüklüğü bilinen malzemede eklenir. */
+  function olculer(kg, malzeme) {
+    var v = Number(kg) || 0;
+    var parcalar = [
+      { sayi: YU.fmt.kg(v), birim: 'kg' },
+      { sayi: tonKisa(v), birim: 'ton' }
+    ];
+    var paket = paketKg(malzeme);
+    if (paket > 0) parcalar.push({ sayi: YU.fmt.sayi(Math.round(v / paket)), birim: 'adet' });
+    return parcalar;
+  }
+
+  function olcu(kg, malzeme) {
+    return YU.ui.olcu(olculer(kg, malzeme));
+  }
+
   function ozelMalzeme(tip) {
     var m = YU.db.malzemeler, i;
     for (i = 0; i < m.length; i++) if (m[i].OzelTip === tip) return m[i];
@@ -165,7 +204,7 @@
 
     var sag = sutunKap(5);
     sag.appendChild(YU.h('div', {
-      stil: { font: '500 13.5px/1.3 var(--font)', color: 'var(--metin)' },
+      stil: { font: '500 15.5px/1.3 var(--font)', color: 'var(--metin)' },
       metin: YU.fmt.tarihUzun(d.tarih) + ' tarihi itibarıyla'
     }));
     sag.appendChild(YU.h('div', {
@@ -209,24 +248,24 @@
     var izgara = YU.h('div', { sinif: 'yu-izgara yu-iz-4' });
     izgara.appendChild(YU.ui.kpi({
       etiket: 'Toplam Stok', ikon: '#ic-chart',
-      deger: YU.fmt.kg(YU.yuvarla(toplam)),
+      deger: olcu(YU.yuvarla(toplam), null),
       alt: YU.fmt.sayi(sayilan) + ' malzeme · ' + YU.fmt.tarih(d.tarih) + ' itibarıyla'
     }));
     izgara.appendChild(YU.ui.kpi({
       etiket: 'Dökme Kuru Küspe', ikon: '#ic-building',
-      deger: YU.fmt.kg(dokme ? dokme.mevcut : 0),
+      deger: olcu(dokme ? dokme.mevcut : 0, dokme ? dokme.malzeme : null),
       alt: YU.fmt.sayi(d.silolar.length) + ' silo toplamı · doluluk ' +
         YU.fmt.yuzde(siloKapasite > 0 ? (siloDolu / siloKapasite) * 100 : 0)
     }));
     izgara.appendChild(YU.ui.kpi({
       etiket: 'Çuvallı Kuru Küspe', ikon: '#ic-wallet',
-      deger: YU.fmt.kg(cuval ? cuval.mevcut : 0),
+      deger: olcu(cuval ? cuval.mevcut : 0, cuval ? cuval.malzeme : null),
       alt: YU.fmt.sayi(Math.round(cuvalAdet)) + ' çuval karşılığı (1 çuval = ' +
         YU.fmt.sayi(YU.hesap.CUVAL_KG) + ' kg)'
     }));
     izgara.appendChild(YU.ui.kpi({
       etiket: 'Yaş Küspe', ikon: '#ic-doc',
-      deger: YU.fmt.kg(YU.yuvarla(yasKuspe)),
+      deger: olcu(YU.yuvarla(yasKuspe), null),
       alt: YU.fmt.sayi(yasSayi) + ' kalem · tonluk ve 25’lik toplamı'
     }));
     return izgara;
@@ -239,11 +278,11 @@
   function siloKirilimi(d) {
     var sutunlar = [
       { baslik: 'Silo' },
-      { baslik: 'Devir', genislik: 130, hiza: 'sag', mono: true },
-      { baslik: 'Giren', genislik: 130, hiza: 'sag', mono: true },
-      { baslik: 'Çıkan', genislik: 130, hiza: 'sag', mono: true },
-      { baslik: 'Mevcut', genislik: 140, hiza: 'sag', mono: true },
-      { baslik: 'Doluluk', genislik: 150 }
+      { baslik: 'Devir', genislik: 158, hiza: 'sag', mono: true },
+      { baslik: 'Giren', genislik: 158, hiza: 'sag', mono: true },
+      { baslik: 'Çıkan', genislik: 158, hiza: 'sag', mono: true },
+      { baslik: 'Mevcut', genislik: 158, hiza: 'sag', mono: true },
+      { baslik: 'Doluluk', genislik: 140 }
     ];
     var satirlar = [], i, s, devir = 0, giren = 0, cikan = 0, mevcut = 0, doluluk;
 
@@ -259,7 +298,7 @@
         : ((s.doluluk || 0) >= 0.9 ? 'bekleyen' : 'vurgu')));
       satirlar.push([
         YU.h('span', { metin: s.silo.Ad }),
-        YU.fmt.kg(s.devir), YU.fmt.kg(s.giren), YU.fmt.kg(s.cikan), YU.fmt.kg(s.mevcut),
+        olcu(s.devir, null), olcu(s.giren, null), olcu(s.cikan, null), olcu(s.mevcut, null),
         doluluk
       ]);
     }
@@ -267,8 +306,8 @@
     if (satirlar.length) {
       satirlar.push([
         YU.h('span', { sinif: 'yu-guclu', metin: 'Toplam' }),
-        YU.fmt.kg(YU.yuvarla(devir)), YU.fmt.kg(YU.yuvarla(giren)),
-        YU.fmt.kg(YU.yuvarla(cikan)), YU.fmt.kg(YU.yuvarla(mevcut)),
+        olcu(YU.yuvarla(devir), null), olcu(YU.yuvarla(giren), null),
+        olcu(YU.yuvarla(cikan), null), olcu(YU.yuvarla(mevcut), null),
         YU.h('span', { sinif: 'yu-yardim', metin: 'Dökme kuru küspe stoğu' })
       ]);
     }
@@ -303,11 +342,11 @@
   function tabloPaneli(d) {
     var sutunlar = [
       { baslik: 'Malzeme' },
-      { baslik: 'Devir', genislik: 140, hiza: 'sag', mono: true },
-      { baslik: 'Devir Tarihi', genislik: 118 },
-      { baslik: 'Toplam Üretim', genislik: 150, hiza: 'sag', mono: true },
-      { baslik: 'Toplam Satış', genislik: 150, hiza: 'sag', mono: true },
-      { baslik: 'Mevcut', genislik: 160, hiza: 'sag', mono: true }
+      { baslik: 'Devir', genislik: 150, hiza: 'sag', mono: true },
+      { baslik: 'Devir Tarihi', genislik: 110 },
+      { baslik: 'Toplam Üretim', genislik: 162, hiza: 'sag', mono: true },
+      { baslik: 'Toplam Satış', genislik: 162, hiza: 'sag', mono: true },
+      { baslik: 'Mevcut', genislik: 162, hiza: 'sag', mono: true }
     ];
 
     var satirlar = [], dokmeSira = -1, i, r, acKapa = null, ok = null;
@@ -333,11 +372,11 @@
         vurgu: d.vurguId && r.malzeme.Id === d.vurguId ? 'vurgu' : null,
         hucreler: [
           malzemeHucresi(d, r, r.malzeme.OzelTip === 'DokmeKuruKuspe' ? acKapa : null),
-          YU.fmt.kg(r.devir),
+          olcu(r.devir, r.malzeme),
           r.devirTarihi ? mono(YU.fmt.tarih(r.devirTarihi), true) : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
-          YU.fmt.kg(r.uretim),
-          YU.fmt.kg(r.satis),
-          YU.fmt.kg(r.mevcut)
+          olcu(r.uretim, r.malzeme),
+          olcu(r.satis, r.malzeme),
+          olcu(r.mevcut, r.malzeme)
         ]
       });
     }
@@ -434,14 +473,14 @@
         satir.appendChild(YU.h('span', {
           metin: dilimler[i].etiket,
           stil: {
-            flex: '1', minWidth: '0', font: '400 12px/1.35 var(--font)', color: 'var(--metin-3)',
+            flex: '1', minWidth: '0', font: '400 14px/1.35 var(--font)', color: 'var(--metin-3)',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
           }
         }));
         satir.appendChild(mono(YU.fmt.kg(dilimler[i].deger)));
         satir.appendChild(YU.h('span', {
           metin: YU.fmt.yuzde(toplam > 0 ? (dilimler[i].deger / toplam) * 100 : 0),
-          stil: { font: '400 11px/1 var(--font)', color: 'var(--metin-4)', width: '48px', textAlign: 'right', flex: 'none' }
+          stil: { font: '400 13px/1 var(--font)', color: 'var(--metin-4)', width: '48px', textAlign: 'right', flex: 'none' }
         }));
         liste.appendChild(satir);
       }
@@ -481,16 +520,20 @@
     var c = ciftSayim(d.tarih);
     if (!c) return null;
 
+    /* .yu-hesap dikey fiş düzenidir; formül öğeleri yatay .yu-hesap-satir
+       kabında yan yana dizilir. */
     var serit = YU.h('div', { sinif: 'yu-hesap' },
-      hesapOgesi(c.dokmeAd, YU.fmt.kg(c.dokme)),
-      hesapOk('+'),
-      hesapOgesi(c.cuvalAd, YU.fmt.kg(c.cuval)),
-      hesapOk('='),
-      hesapOgesi('Ekrandaki toplam', YU.fmt.kg(c.gercek), 'vurgu'),
-      hesapOk(),
-      hesapOgesi('Ham üretimden beklenen', YU.fmt.kg(c.beklenen)),
-      hesapOk('='),
-      hesapOgesi('Fark', YU.fmt.kg(c.fark), c.tutuyor ? 'olumlu' : 'olumsuz')
+      YU.h('div', { sinif: 'yu-hesap-satir' },
+        hesapOgesi(c.dokmeAd, YU.fmt.kg(c.dokme)),
+        hesapOk('+'),
+        hesapOgesi(c.cuvalAd, YU.fmt.kg(c.cuval)),
+        hesapOk('='),
+        hesapOgesi('Ekrandaki toplam', YU.fmt.kg(c.gercek), 'vurgu'),
+        hesapOk(),
+        hesapOgesi('Ham üretimden beklenen', YU.fmt.kg(c.beklenen)),
+        hesapOk('='),
+        hesapOgesi('Fark', YU.fmt.kg(c.fark), c.tutuyor ? 'olumlu' : 'olumsuz')
+      )
     );
 
     var acik = YU.h('div', {

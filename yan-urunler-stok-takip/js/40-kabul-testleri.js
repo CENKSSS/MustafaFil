@@ -606,7 +606,7 @@
   function kucukMetin(metin, renk) {
     return YU.h('div', {
       metin: metin,
-      stil: { font: '400 12.5px/1.6 var(--font)', color: renk || 'var(--metin-3)' }
+      stil: { font: '400 14.5px/1.6 var(--font)', color: renk || 'var(--metin-3)' }
     });
   }
 
@@ -632,11 +632,11 @@
       kap.appendChild(YU.h('div', { stil: { display: 'flex', gap: '9px', alignItems: 'baseline' } },
         YU.h('span', {
           metin: kod,
-          stil: { font: '500 11px/1.5 var(--mono)', color: 'var(--vurgu)', flex: 'none' }
+          stil: { font: '500 13px/1.5 var(--mono)', color: 'var(--vurgu)', flex: 'none' }
         }),
         YU.h('span', {
           metin: metin || 'Şartname maddesi',
-          stil: { font: '400 11.5px/1.5 var(--font)', color: 'var(--metin-4)' }
+          stil: { font: '400 13.5px/1.5 var(--font)', color: 'var(--metin-4)' }
         })
       ));
     }
@@ -647,7 +647,7 @@
     return YU.h('span', {
       metin: esitMi ? '✓' : '✗',
       stil: {
-        font: '500 13px/1 var(--mono)',
+        font: '500 15px/1 var(--mono)',
         color: esitMi ? 'var(--olumlu)' : 'var(--olumsuz)'
       }
     });
@@ -706,7 +706,7 @@
       sag: [
         kuralRozetleri(t.kurallar || []),
         YU.ui.rozet(t.rozet === 'Demirbaş' ? 'DEMİRBAŞ' : 'v2', 'notr'),
-        YU.h('span', { sinif: 'yu-zayif', stil: { font: '400 11px/1 var(--mono)' }, metin: sureMetni(s.sure || 0) }),
+        YU.h('span', { sinif: 'yu-zayif', stil: { font: '600 13px/1 var(--sayi)' }, metin: sureMetni(s.sure || 0) }),
         YU.ui.rozet(s.gecti ? 'GEÇTİ' : 'KALDI', s.gecti ? 'olumlu' : 'olumsuz'),
         YU.ui.dugme({
           ikon: '#ic-chevron', tur: 'sade', kucuk: true,
@@ -796,7 +796,7 @@
     kod: 'kabul-testleri',
     baslik: 'Kabul Testleri',
     altBaslik: 'Şartname §9 · 12 senaryo tarayıcı içinde koşar · her test temiz bellek deposuyla başlar, kayıtlı verilere dokunulmaz',
-    ikon: '#ic-percent',
+    ikon: '#ic-checklist',
     grup: 'Yönetim',
     rol: 'Yonetici',
     ciz: function (kap) { sayfaCiz(kap); }

@@ -414,14 +414,6 @@
       satirlar.push(malzemeSatiri(liste, i));
     }
 
-    kap.appendChild(YU.ui.serit({
-      tur: 'bilgi',
-      baslik: 'Malzeme Silinmez, Pasifleştirilir (D12)',
-      metin: 'Geçmiş günlük hareketler ve devir kayıtları malzemeye bağlıdır. Malzeme silinseydi o kayıtlar ' +
-        'sahipsiz kalır, geçmiş raporlar anlamsızlaşırdı. Pasif malzeme yeni girişlerde seçilemez, ' +
-        'geçmişte görünmeye devam eder.'
-    }));
-
     kap.appendChild(YU.ui.panel({
       baslik: 'Malzemeler',
       ikon: '#ic-gear',
@@ -496,14 +488,6 @@
       toplam += Number(liste[i].Kapasite) || 0;
       satirlar.push(siloSatiri(liste, i));
     }
-
-    kap.appendChild(YU.ui.serit({
-      tur: 'bilgi',
-      baslik: 'Kapasite Kg Saklanır, Ton Yalnızca Gösterimdir',
-      metin: 'Şartname §6: “iki ayrı birim saklamak dönüşüm hatası üretir”. Kapasite decimal(18,3) ve kg ' +
-        'cinsindedir; ton sütunu ekranda hesaplanır. Başlangıç değeri silo başına 3.000.000 kg varsayımıyla ' +
-        'girilmiştir — Şartname §13 Soru 5a (3.000 ton silo başına mı, üçünün toplamı mı) hâlâ açıktır.'
-    }));
 
     kap.appendChild(YU.ui.panel({
       baslik: 'Silolar',
@@ -591,7 +575,7 @@
         YU.fmt.sayi(d.silolar.length) + ' silo · ' +
         (sekmeKodu(param) === 'silolar' ? 'Silolar sekmesi' : 'Malzemeler sekmesi');
     },
-    ikon: '#ic-gear',
+    ikon: '#ic-cube',
     grup: 'Yönetim',
     rol: 'Yonetici',
 

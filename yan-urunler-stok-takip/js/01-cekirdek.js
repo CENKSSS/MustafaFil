@@ -58,7 +58,9 @@
     return m === "—" ? m : m + " kg";
   };
 
-  YU.fmt.ton = function (n) {
+  /* Yalnızca sayı — birimi çağıran koyar (tablo hücresinde birim ayrı
+     biçimlendiği için ikisi ayrı durur). */
+  YU.fmt.tonSayi = function (n) {
     var s = Number(n);
     if (!isFinite(s)) return "—";
     var m = YU.fmt.sayi(YU.yuvarla(s / 1000), 3);
@@ -66,7 +68,12 @@
       m = m.replace(/0+$/, "");
       m = m.replace(/,$/, "");
     }
-    return m + " t";
+    return m;
+  };
+
+  YU.fmt.ton = function (n) {
+    var m = YU.fmt.tonSayi(n);
+    return m === "—" ? m : m + " ton";
   };
 
   // n doğrudan yüzde değeridir: yuzde(23.8) -> "%23,8".
@@ -299,9 +306,9 @@
      --------------------------------------------------------------- */
 
   var DEPO_ANAHTAR = "yu.veri.v1";
-  // Başlangıç kullanıcısı değişti; eski localStorage kaydı eski adı taşıdığı için
-  // şema sürümü artırıldı ve depo yeniden kurulacak.
-  var SEMA_SURUM = 2;
+  // Tohum verisi değişince (kampanya aralığı, miktarlar, denetim izi) eski
+  // localStorage kaydı geçersizleşir; sürüm artırılır ve depo yeniden kurulur.
+  var SEMA_SURUM = 3;
   var PAROLA_NOTU = "(prototip — gerçek uygulamada BCrypt)";
   // Başlangıç kayıtlarının tarihi sabit: değişse localStorage içeriği her
   // açılışta farklılaşır ve "deterministik veri" kuralı bozulur.

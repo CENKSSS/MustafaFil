@@ -244,13 +244,6 @@
       govde: [
         YU.h('div', {
           metin: kullanici.AdSoyad + ' (' + kullanici.KullaniciAdi + ') hesabının parolası sıfırlanacak.'
-        }),
-        YU.ui.serit({
-          tur: 'bilgi',
-          baslik: 'Prototipte Parola Saklanmaz',
-          metin: 'Gerçek uygulamada BCrypt ile hash’lenir (Şartname §3). Prototipte parola alanı yalnızca ' +
-            'bir not tutar; parola metni ne ekrana yazılır ne de kaydedilir. Denetim izine yalnızca ' +
-            '“sıfırlandı” bilgisi düşer.'
         })
       ],
       dugmeler: [

@@ -30,6 +30,9 @@
 
   var hesap = {
     CUVAL_KG: 50,
+    /* Şartname §2: yaş küspe tonluk büyük torbada veya 25 kg'lık poşette
+       satılır. Tonluk torbanın kg'ı şartnamede yazmadığı için burada yok. */
+    POSET_KG: 25,
     TOLERANS: 0.01
   };
 

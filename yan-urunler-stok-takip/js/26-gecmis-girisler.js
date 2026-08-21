@@ -438,7 +438,7 @@
     var kap = YU.h('div', {
       stil: {
         display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 18px',
-        borderTop: '1px solid var(--ayrac)', font: '400 11px/1.6 var(--font)', color: 'var(--metin-5)'
+        borderTop: '1px solid var(--ayrac)', font: '400 13px/1.6 var(--font)', color: 'var(--metin-5)'
       }
     });
     kap.appendChild(YU.h('span', {

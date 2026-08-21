@@ -12,4 +12,4 @@ http.createServer(function (istek, cevap) {
     cevap.writeHead(200, {'Content-Type': TIP[path.extname(tam).toLowerCase()] || 'application/octet-stream', 'Cache-Control':'no-store'});
     cevap.end(veri);
   });
-}).listen(8137, function () { console.log('test sunucusu: http://localhost:8137'); });
+}).listen(process.env.PORT || 8137, function () { console.log('test sunucusu: http://localhost:' + (process.env.PORT || 8137)); });

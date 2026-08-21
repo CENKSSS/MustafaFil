@@ -129,7 +129,7 @@
   }
 
   function notMetni(metin) {
-    return YU.h("div", { metin: metin, stil: { font: "400 12px/1.6 var(--font)", color: "var(--metin-3)" } });
+    return YU.h("div", { metin: metin, stil: { font: "400 14px/1.6 var(--font)", color: "var(--metin-3)" } });
   }
 
   function seritSatirlari(serit, satirlar) {
@@ -278,8 +278,19 @@
       tarihAlan.kok,
       satir(yatay("6px"),
         YU.ui.dugme({ metin: "Önceki Gün", kucuk: true, tur: "ikincil", onClick: function () { gunGit(-1); } }),
-        YU.ui.dugme({ metin: "Bugün", ikon: "#ic-calendar", kucuk: true, tur: "ikincil", onClick: function () { gunGit(0); } }),
-        YU.ui.dugme({ metin: "Sonraki Gün", kucuk: true, tur: "ikincil", onClick: function () { gunGit(1); } })
+        YU.ui.dugme({
+          metin: "Bugün", ikon: "#ic-calendar", kucuk: true, tur: "ikincil",
+          pasif: tarih === YU.tarih.bugun(),
+          onClick: function () { gunGit(0); }
+        }),
+        YU.ui.dugme({
+          metin: "Sonraki Gün", kucuk: true, tur: "ikincil",
+          /* İleri yürüme geçmiş günleri düzeltmek içindir; bugünden öteye
+             geçilemez — gelecek güne kayıt D17 ile zaten reddedilir. */
+          pasif: tarih >= YU.tarih.bugun(),
+          baslik: tarih >= YU.tarih.bugun() ? "Bugünden sonrasına kayıt girilemez" : "",
+          onClick: function () { gunGit(1); }
+        })
       ),
       YU.ui.rozet(kayit ? "Kayıtlı Gün" : "Kayıt Yok", kayit ? "bekleyen" : "notr")
     );
@@ -333,20 +344,29 @@
       return YU.h("span", { sinif: "yu-hesap-ok", metin: metin });
     }
 
-    var oCuvalKg = hesapOgesi("Çuval kg (adet × 50)");
+    /* Çuval karşılığı bir çıkarma kalemi değil, girdiden türetilen bilgi —
+       o yüzden denklemin içinde değil, üstünde cümle olarak duruyor. */
+    var cuvalNotu = YU.h("div", { sinif: "yu-hesap-ust" });
+
     var oNetUretim = hesapOgesi("Net dökme üretim");
     var oCekilecek = hesapOgesi("Silodan çekilecek");
-    var oSatilan = hesapOgesi("Satılan Dökme");
-    var oNetDegisim = hesapOgesi("Silo net değişimi");
+    var oSatilan = hesapOgesi("Satılan dökme");
+
+    var toplamDeger = YU.h("span", { sinif: "yu-hesap-toplam-deger", metin: "—" });
 
     /* Ayraçlar Şartname §4'ün formülünü okutur:
        Silo net değişimi = NetDokmeUretim − SilodanCekilecek − SatilanDokme */
     govde.appendChild(YU.h("div", { sinif: "yu-hesap" },
-      oCuvalKg.kok, hesapOku("·"),
-      oNetUretim.kok, hesapOku("−"),
-      oCekilecek.kok, hesapOku("−"),
-      oSatilan.kok, hesapOku("="),
-      oNetDegisim.kok
+      cuvalNotu,
+      YU.h("div", { sinif: "yu-hesap-satir" },
+        oNetUretim.kok, hesapOku("−"),
+        oCekilecek.kok, hesapOku("−"),
+        oSatilan.kok
+      ),
+      YU.h("div", { sinif: "yu-hesap-toplam" },
+        YU.h("span", { sinif: "yu-hesap-toplam-etiket", metin: "Silolara net etki" }),
+        toplamDeger
+      )
     ));
 
     var durumKap = YU.h("div");
@@ -363,20 +383,20 @@
     var DAGITIM = [
       {
         kod: "uretim", yon: "giren", ust: "GİREN", ad: "Üretim",
-        ariaAd: "Üretimden girecek", ozetAd: "Girecek · üretim",
+        ariaAd: "Üretimden girecek",
         dugmeHepsi: "Tümü İlk Siloya", dugmeUygun: "En Boş Siloya",
         pasif: "Net dökme üretim 0 kg; bu gün siloya yerleştirme yapılamaz (D4)."
       },
       {
         kod: "cuvallama", yon: "cikan", ust: "ÇIKAN", ad: "Çuvallama",
-        ariaAd: "Çuvallama için çıkacak", ozetAd: "Çıkacak · çuvallama",
-        dugmeHepsi: "Tümü ilk silodan", dugmeUygun: "En dolu silodan",
+        ariaAd: "Çuvallama için çıkacak",
+        dugmeHepsi: "Tümü İlk Silodan", dugmeUygun: "En Dolu Silodan",
         pasif: "Çuvallama için silodan çıkış gerekmiyor (D6)."
       },
       {
         kod: "satis", yon: "cikan", ust: "ÇIKAN", ad: "Satış",
-        ariaAd: "Satış için çıkacak", ozetAd: "Çıkacak · satış",
-        dugmeHepsi: "Tümü ilk silodan", dugmeUygun: "En dolu silodan",
+        ariaAd: "Satış için çıkacak",
+        dugmeHepsi: "Tümü İlk Silodan", dugmeUygun: "En Dolu Silodan",
         pasif: "Satılan dökme 0 kg; silodan satış çıkışı gerekmiyor (D13)."
       }
     ];
@@ -392,7 +412,7 @@
         (function (silo) {
           var alanlar = {}, kolonSatirlari = {};
           var yuzdeRozet = YU.h("span", { sinif: "yu-yardim" });
-          var gunBasiDeger = YU.h("span", { sinif: "yu-silo-deger", metin: YU.fmt.kg(gunBasi[silo.Id]) });
+          var gunBasiDeger = YU.h("span", { sinif: "yu-silo-deger", metin: YU.fmt.kgU(gunBasi[silo.Id]) });
 
           var bas = YU.h("div", { sinif: "yu-silo-kart-bas" },
             YU.h("span", { sinif: "yu-silo-kart-ad", metin: silo.Ad }),
@@ -451,9 +471,11 @@
 
       /* Kartların altında ayrı durunca panele ait değilmiş gibi görünüyordu;
          kartların üstünde, zeminli ve kenarlıklı bir şerit olarak bağlandı. */
+      /* Kalemler yan yana: girecek solda, çıkacak sağda; her bloğun düğmeleri
+         kendi altında. Dar ekranda bloklar alt alta sarar. */
       var ozetKap = YU.h("div", {
         stil: {
-          display: "flex", flexDirection: "column",
+          display: "flex", flexWrap: "wrap", alignItems: "stretch",
           background: "var(--yuzey-2)",
           borderBottom: "1px solid var(--ayrac)"
         }
@@ -536,20 +558,31 @@
           YU.ui.dugme({ metin: "Temizle", kucuk: true, tur: "sade", onClick: eylem(temizle) })
         ];
         var dugmeKap = satir(yatay("6px"), dugmeler[0], dugmeler[1], dugmeler[2], dugmeler[3]);
-        dugmeKap.style.marginLeft = "auto";
 
         var yonNoktasi = YU.h("span", {
           stil: {
-            width: "7px", height: "7px", borderRadius: "2px", flex: "none",
+            width: "8px", height: "8px", borderRadius: "2px", flex: "none",
             background: d.yon === "giren" ? "var(--olumlu)" : "var(--olumsuz)"
           }
         });
-        var etiketEl = YU.h("span", { metin: d.ozetAd, stil: { font: "500 12px/1 var(--font)" } });
-        var toplamMetin = YU.h("span", { sinif: "yu-mono" });
-        var rozetKap = YU.h("span");
-        var ozetSatiri = satir(yatay("10px"), yonNoktasi, etiketEl, toplamMetin, rozetKap, dugmeKap);
-        ozetSatiri.style.padding = "11px 18px";
-        ozetKap.appendChild(ozetSatiri);
+        /* İki katmanlı etiket: üstte yön, altında kalem adı. */
+        var etiketEl = YU.h("span", { stil: { display: "flex", flexDirection: "column", gap: "3px", minWidth: "96px", flex: "none" } },
+          YU.h("span", { metin: d.yon === "giren" ? "Girecek" : "Çıkacak", stil: { font: "500 14.5px/1.15 var(--font)", color: "var(--metin)" } }),
+          YU.h("span", { metin: d.ad, sinif: "yu-yardim" })
+        );
+        var toplamMetin = YU.h("span", { sinif: "yu-mono", stil: { fontSize: "15px", whiteSpace: "nowrap" } });
+        var rozetKap = YU.h("span", { stil: { display: "inline-flex", flex: "none" } });
+        /* Tutar ve rozet tek küme: satır sarsa bile birbirinden kopmazlar. */
+        var degerKap = satir({ display: "flex", alignItems: "center", gap: "9px", flexWrap: "nowrap" }, toplamMetin, rozetKap);
+        var basSatir = satir(yatay("12px"), yonNoktasi, etiketEl, degerKap);
+        /* Blok = başlık satırı + altında düğmeler; bloklar ozetKap'ta yan yana. */
+        var blok = YU.h("div", {
+          stil: {
+            display: "flex", flexDirection: "column", gap: "11px",
+            flex: "1 1 320px", minWidth: "0", padding: "13px 18px"
+          }
+        }, basSatir, dugmeKap);
+        ozetKap.appendChild(blok);
 
         /* Gerekmeyen kalem hiç görünmez: kartlarda o satır kalkar, altındaki
            özet satırı da gizlenir. Böylece ekranda yalnız o günün işi kalır. */
@@ -557,7 +590,9 @@
           for (var r = 0; r < satirlar.length; r++) {
             satirlar[r].kolonSatirlari[d.kod].style.display = gorunur ? "" : "none";
           }
-          ozetSatiri.style.display = gorunur ? "" : "none";
+          /* "" değil "flex": bloğun yerleşimi inline display:flex ile kurulu,
+             "" yazmak onu siler ve blok düz akışa düşer. */
+          blok.style.display = gorunur ? "flex" : "none";
         }
 
         function tazele(yeniGereken) {
@@ -583,7 +618,7 @@
         }
 
         return {
-          kod: d.kod, degerler: degerler, yaz: yaz, tazele: tazele,
+          kod: d.kod, degerler: degerler, yaz: yaz, tazele: tazele, blok: blok,
           etkinMi: function () { return etkin; }
         };
       }
@@ -593,7 +628,7 @@
       /* Hiç kalem yokken düğmelerin kaybolması "neden yok?" sorusunu doğuruyordu.
          Şerit her zaman duruyor; tıklanınca sebebini kırmızı yazıyla söylüyor. */
       var bosHata = YU.h("div", {
-        stil: { font: "400 12px/1.4 var(--font)", color: "var(--olumsuz)", display: "none", flex: "1" }
+        stil: { font: "400 14px/1.4 var(--font)", color: "var(--olumsuz)", display: "none", flex: "1" }
       });
       function bosUyar() {
         bosHata.textContent = "Dağıtılacak miktar yok. Önce üretilen dökme, çuvallanan adet ya da satılan dökme alanına rakam girin.";
@@ -607,10 +642,12 @@
       ];
       var bosDugmeKap = satir(yatay("6px"), bosDugmeler[0], bosDugmeler[1], bosDugmeler[2], bosDugmeler[3]);
       bosDugmeKap.style.marginLeft = "auto";
-      var bosSatiri = satir(yatay("10px"),
-        YU.h("span", { metin: "Dağıtım", stil: { font: "500 12px/1 var(--font)", color: "var(--metin-4)" } }),
+      var bosSatiri = satir(yatay("12px"),
+        YU.h("span", { metin: "Dağıtım", stil: { font: "500 14.5px/1.15 var(--font)", color: "var(--metin-4)" } }),
         bosHata, bosDugmeKap);
-      bosSatiri.style.padding = "11px 18px";
+      bosSatiri.style.padding = "12px 18px";
+      bosSatiri.style.rowGap = "8px";
+      bosSatiri.style.flex = "1 1 100%";
       ozetKap.appendChild(bosSatiri);
 
       var basRozet = YU.ui.rozet("—", "notr");
@@ -639,6 +676,15 @@
           if (kol.etkinMi()) etkinSayi++;
         }
 
+        /* Yan yana bloklar arasında dikey ayraç: yalnız görünür olanların
+           ilki çizgisiz kalır. */
+        var ilkGorunur = true;
+        for (r = 0; r < kolonlar.length; r++) {
+          if (!kolonlar[r].etkinMi()) continue;
+          kolonlar[r].blok.style.borderLeft = ilkGorunur ? "none" : "1px solid var(--ayrac)";
+          ilkGorunur = false;
+        }
+
         /* Giriş alanı kalmadıysa kartın ayracı ile boş giriş kabı da gizlenir;
            yoksa kartın ortasında sebepsiz bir çizgi kalıyor. */
         for (r = 0; r < satirlar.length; r++) {
@@ -646,7 +692,7 @@
           satirlar[r].ayrac.style.display = etkinSayi ? "" : "none";
         }
         /* Şerit hep duruyor; kalem yoksa yerine "Dağıtım" satırı geçiyor. */
-        bosSatiri.style.display = etkinSayi ? "none" : "";
+        bosSatiri.style.display = etkinSayi ? "none" : "flex";
         if (etkinSayi) { bosHata.textContent = ""; bosHata.style.display = "none"; }
 
         if (etkinSayi) {
@@ -702,11 +748,9 @@
 
     /* ---------- 6. Yardımcı paneller ---------- */
 
-    govde.appendChild(YU.h("div", { sinif: "yu-izgara yu-iz-3" },
-      panelNeYapar(),
-      panelGunHareketleri(),
-      panelKurallar()
-    ));
+    /* "Bu Ekran Ne Yapar" paneli kaldırıldı (kullanıcı isteği); kalan iki
+       panel ikili ızgarada tam genişliğe yayılıyor. */
+    govde.appendChild(panelGunHareketleri());
 
     /* ---------- Canlı hesap ---------- */
 
@@ -724,7 +768,10 @@
     }
 
     function boya(alan, hataliMi) {
-      alan.girdi.className = hataliMi ? "yu-girdi hatali" : "yu-girdi";
+      /* Negatif değer sayfa hatalarından bağımsız: temize çekilmez. */
+      if (!hataliMi && alan.negatifMi && alan.negatifMi()) hataliMi = true;
+      var yeniSinif = hataliMi ? "yu-girdi hatali" : "yu-girdi";
+      if (alan.girdi.className !== yeniSinif) alan.girdi.className = yeniSinif;
     }
 
     function boyalariSil() {
@@ -819,15 +866,21 @@
       durumGoster(seritB);
     }
 
-    function hesapTazele(h) {
-      oCuvalKg.yaz(YU.fmt.kg(h.cuvalKg), null);
+    function hesapTazele(h, girdi) {
+      var adet = girdi ? girdi.cuvalAdet : 0;
+      cuvalNotu.textContent = (isFinite(adet) && adet > 0)
+        ? "Çuvallanan " + YU.fmt.sayi(adet) + " adet = " + YU.fmt.kgU(h.cuvalKg) +
+          " · bu miktar çuvallı kuru küspe üretimi sayılır, dökmeden düşülür"
+        : "Çuvallama yok. 1 çuval = 50 kg sabittir.";
+
       oNetUretim.yaz(YU.fmt.kg(h.netDokmeUretim), h.netDokmeUretim > 0 ? "olumlu" : null);
       oCekilecek.yaz(YU.fmt.kg(h.silodanCekilecek), h.silodanCekilecek > 0 ? "bekleyen" : null);
       oSatilan.yaz(YU.fmt.kg(h.satilanDokme), h.satilanDokme > 0 ? "bekleyen" : null);
-      oNetDegisim.yaz(
-        (isFinite(h.siloNetDegisim) && h.siloNetDegisim > 0 ? "+" : "") + YU.fmt.kg(h.siloNetDegisim),
-        !isFinite(h.siloNetDegisim) ? null : (h.siloNetDegisim > 0 ? "olumlu" : (h.siloNetDegisim < 0 ? "olumsuz" : "vurgu"))
-      );
+
+      var d = h.siloNetDegisim;
+      toplamDeger.textContent = (isFinite(d) && d > 0 ? "+" : "") + YU.fmt.kg(d) + " kg";
+      toplamDeger.className = "yu-hesap-toplam-deger" +
+        (!isFinite(d) ? "" : (d > 0 ? " olumlu" : (d < 0 ? " olumsuz" : "")));
     }
 
     /* Gün sonu bakiyesi giren ve çıkanların hepsinden doğar; tek tabloda tek
@@ -843,7 +896,7 @@
         id = sr.silo.Id;
         sonu = YU.yuvarla(gunBasi[id] + (yer[id] || 0) - (cek[id] || 0) - (sat[id] || 0));
         kapasite = Number(sr.silo.Kapasite) || 0;
-        sr.gunSonu.textContent = YU.fmt.kg(sonu);
+        sr.gunSonu.textContent = YU.fmt.kgU(sonu);
         sr.gunSonu.style.color = sonu < -tol
           ? "var(--olumsuz)"
           : (kapasite > 0 && sonu - kapasite > tol ? "var(--bekleyen)" : "");
@@ -904,7 +957,7 @@
 
       /* Gruplar gereksiz alanları boşaltmış olabilir; özet güncel değerle kurulur. */
       var girdi = girdiTopla();
-      hesapTazele(h);
+      hesapTazele(h, girdi);
       durumTazele(h, girdi);
       gunSonuTazele(girdi);
       ozetTazele(girdi);
@@ -1007,24 +1060,21 @@
 
     /* ---------- Yardımcı paneller ---------- */
 
-    function panelNeYapar() {
-      return YU.ui.panel({
-        baslik: "Bu Ekran Ne Yapar",
-        ikon: "#ic-doc",
-        govde: [
-          notMetni("Operatör gün için iki sayı girer: üretilen dökme kuru küspe ve çuvallanan adet. v2 ile üçüncü alan eklendi — silolardan doğrudan yapılan dökme satış."),
-          notMetni("Sistem kalanını hesaplar: Çuval kg = adet × 50 · Net dökme üretim = max(0, üretilen − çuval kg) · Silodan çekilecek = max(0, çuval kg − üretilen). İki değerden en fazla biri sıfırdan büyüktür."),
-          notMetni("Çuvallama yeni üretim değildir, aynı malın biçim değiştirmesidir. İkisi birden sayılırsa aynı mal iki kez sayılır; uygulamanın var oluş sebeplerinden biri bunu engellemektir."),
-          notMetni("Net dökme üretim otomatik paylaştırılmaz. Hangi siloya ne kadar gittiğini operatör girer; kolaylık düğmeleri alanları doldurur ama son söz kullanıcıdadır."),
-          notMetni("Aynı gün ikinci kez kaydedilirse o güne ait eski silo hareketleri silinip yenileri yazılır — üstüne eklenmez, yoksa silo stoğu şişer."),
-          notMetni("Dökme kuru küspenin stoğu siloların toplamıdır; bu yüzden her dökme hareketinin bir silo karşılığı olmak zorundadır.")
-        ]
-      });
-    }
-
     function panelGunHareketleri() {
       var ozet = YU.stok.gunOzeti(db, tarih);
       var satirlar = [], i2, h, giren, cikan;
+
+      /* Kim, saat kaçta kaydetti — gün yazılmaz, panel zaten tek güne ait
+         (kullanıcı isteği, 21.08.2026). */
+      function kaydeden(hareket) {
+        var ad = null, i3;
+        for (i3 = 0; i3 < db.kullanicilar.length; i3++) {
+          if (db.kullanicilar[i3].Id === hareket.OlusturanKullaniciId) { ad = db.kullanicilar[i3].AdSoyad; break; }
+        }
+        var saat = hareket.OlusturmaTarihi ? YU.fmt.saat(hareket.OlusturmaTarihi) : null;
+        if (!ad && !saat) return YU.h("span", { sinif: "yu-zayif", metin: "—" });
+        return YU.h("span", { sinif: "yu-zayif", metin: (ad || "—") + (saat && saat !== "—" ? " · " + saat : "") });
+      }
 
       for (i2 = 0; i2 < ozet.siloHareketleri.length; i2++) {
         h = ozet.siloHareketleri[i2].hareket;
@@ -1034,7 +1084,8 @@
           ozet.siloHareketleri[i2].silo ? ozet.siloHareketleri[i2].silo.Ad : "Silo #" + h.SiloId,
           YU.ui.rozet(TIP_ADI[h.HareketTipi] || h.HareketTipi, h.HareketTipi === "DokmeUretim" ? "olumlu" : "bekleyen"),
           giren > 0 ? YU.fmt.kg(giren) : "—",
-          cikan > 0 ? YU.fmt.kg(cikan) : "—"
+          cikan > 0 ? YU.fmt.kg(cikan) : "—",
+          kaydeden(h)
         ]);
       }
 
@@ -1044,7 +1095,8 @@
             { baslik: "Silo" },
             { baslik: "Hareket" },
             { baslik: "Giren", hiza: "sag", mono: true, genislik: 96 },
-            { baslik: "Çıkan", hiza: "sag", mono: true, genislik: 96 }
+            { baslik: "Çıkan", hiza: "sag", mono: true, genislik: 96 },
+            { baslik: "Kaydeden", hiza: "sag" }
           ],
           satirlar: satirlar,
           kompakt: true,
@@ -1065,34 +1117,6 @@
         ikon: "#ic-building",
         sag: YU.ui.rozet(YU.fmt.tarih(tarih), "notr"),
         govde: govde
-      });
-    }
-
-    function panelKurallar() {
-      var ILGILI = ["D1", "D2", "D3", "D4", "D5", "D6", "D7", "D13", "D14", "D15", "D16"];
-      var liste = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "9px" } });
-      var kurallar = YU.dogrula.KURALLAR, i2, k;
-
-      for (i2 = 0; i2 < kurallar.length; i2++) {
-        k = kurallar[i2];
-        if (ILGILI.indexOf(k.kod) < 0) continue;
-        liste.appendChild(satir({ display: "flex", gap: "9px", alignItems: "baseline" },
-          YU.h("span", {
-            metin: k.kod,
-            stil: {
-              font: "500 11px/1.4 var(--mono)", flex: "none", minWidth: "26px",
-              color: k.tur === "Uyari" ? "var(--bekleyen)" : "var(--olumsuz)"
-            }
-          }),
-          YU.h("span", { metin: k.metin, stil: { font: "400 12px/1.55 var(--font)", color: "var(--metin-3)" } })
-        ));
-      }
-
-      return YU.ui.panel({
-        baslik: "Bu Ekranı İlgilendiren Kurallar",
-        ikon: "#ic-percent",
-        sag: YU.ui.rozet("Şartname §8", "notr"),
-        govde: [liste, notMetni("Hepsi kayıt anında servis katmanında yeniden denetlenir; ekrandaki canlı özet tek savunma hattı değildir.")]
       });
     }
 

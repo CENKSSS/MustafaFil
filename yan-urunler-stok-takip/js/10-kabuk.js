@@ -521,11 +521,32 @@
     acikPopup = null;
   }
 
-  function popupAc(tetik, kok) {
+  /* Kenar çubuğu kendi içinde kaydığı için (overflow) tetiğe göreli açılan
+     kutu orada kırpılıyordu. sabit=true ile kutu gövdeye taşınır ve tetiğin
+     ekrandaki yerine göre konumlanır; görünür alanın dışına taşmaz. */
+  function popupAc(tetik, kok, sabit) {
     popupKapat();
-    tetik.style.position = 'relative';
-    tetik.appendChild(kok);
-    acikPopup = { kok: kok, tetik: tetik };
+    if (sabit) {
+      document.body.appendChild(kok);
+      kok.style.position = 'fixed';
+      kok.style.zIndex = '80';
+      kok.style.right = 'auto';
+      var r = tetik.getBoundingClientRect();
+      var pay = 10;
+      var ekranG = document.documentElement.clientWidth;
+      var ekranY = document.documentElement.clientHeight;
+      var sol = r.left;
+      if (sol + kok.offsetWidth > ekranG - pay) sol = ekranG - pay - kok.offsetWidth;
+      if (sol < pay) sol = pay;
+      var ust = r.bottom + 8;
+      if (ust + kok.offsetHeight > ekranY - pay) ust = Math.max(pay, r.top - 8 - kok.offsetHeight);
+      kok.style.left = Math.round(sol) + 'px';
+      kok.style.top = Math.round(ust) + 'px';
+    } else {
+      tetik.style.position = 'relative';
+      tetik.appendChild(kok);
+    }
+    acikPopup = { kok: kok, tetik: tetik, sabit: !!sabit };
   }
 
   document.addEventListener('mousedown', function (e) {
@@ -558,7 +579,7 @@
     return YU.h('div', {
       metin: metin,
       stil: {
-        font: '500 10.5px/1 var(--font)', letterSpacing: '.06em', textTransform: 'uppercase',
+        font: '500 12.5px/1 var(--font)', letterSpacing: '.06em', textTransform: 'uppercase',
         color: 'var(--metin-5)', padding: '9px 10px 6px'
       }
     });
@@ -574,8 +595,8 @@
       }
     }, YU.svg(ikon || '#ic-dots', 13));
     var govde = YU.h('div', { stil: { flex: '1', minWidth: '0' } },
-      YU.h('div', { metin: baslik, stil: { font: '400 12.5px/1.35 var(--font)', color: 'var(--metin-2)' } }),
-      altMetin ? YU.h('div', { metin: altMetin, stil: { font: '400 11px/1.4 var(--font)', color: 'var(--metin-4)', marginTop: '2px' } }) : null
+      YU.h('div', { metin: baslik, stil: { font: '400 14.5px/1.35 var(--font)', color: 'var(--metin-2)' } }),
+      altMetin ? YU.h('div', { metin: altMetin, stil: { font: '400 13px/1.4 var(--font)', color: 'var(--metin-4)', marginTop: '2px' } }) : null
     );
     var satir = YU.h('div', {
       role: 'button', tabindex: '0',
@@ -591,7 +612,7 @@
   function popupBos(metin) {
     return YU.h('div', {
       metin: metin,
-      stil: { padding: '16px 12px', font: '400 12px/1.5 var(--font)', color: 'var(--metin-4)', textAlign: 'center' }
+      stil: { padding: '16px 12px', font: '400 14px/1.5 var(--font)', color: 'var(--metin-4)', textAlign: 'center' }
     });
   }
 
@@ -626,7 +647,7 @@
       : YU.h('div', { sinif: 'yu-marka-kare', metin: 'Y' });
     var kokEl = YU.h('div', { sinif: logolu ? 'yu-marka logolu' : 'yu-marka' },
       isaret,
-      YU.h('div', { sinif: 'yu-marka-ad', metin: 'Yan Ürünler' })
+      YU.h('div', { sinif: 'yu-marka-ad', metin: 'Yan Ürünler Takip' })
     );
     if (!tiklanabilir) return kokEl;
 
@@ -644,6 +665,18 @@
     function zeminKapa() { kokEl.style.background = 'transparent'; }
 
     kokEl.addEventListener('click', anaSayfa);
+    /* Orta tuş (tekerlek tıklaması) tarayıcı geleneğine uyar: Ana Sayfa
+       YENİ sekmede açılır. mousedown'daki preventDefault otomatik kaydırma
+       imlecini engeller. */
+    kokEl.addEventListener('auxclick', function (e) {
+      if (e.button === 1) {
+        e.preventDefault();
+        window.open(location.href.split('#')[0] + '#/' + MENU_USTU, '_blank');
+      }
+    });
+    kokEl.addEventListener('mousedown', function (e) {
+      if (e.button === 1) e.preventDefault();
+    });
     kokEl.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); anaSayfa(); }
     });
@@ -655,7 +688,7 @@
   }
 
   function seciciKutusu() {
-    var ad = YU.h('div', { stil: { font: '400 12.5px/1 var(--font)', color: 'var(--metin-2)', flex: '1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } });
+    var ad = YU.h('div', { stil: { font: '400 14.5px/1 var(--font)', color: 'var(--metin-2)', flex: '1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } });
     var kutu = YU.h('div', {
       sinif: 'yu-secici', role: 'button', tabindex: '0',
       title: 'Kampanya dönemi seç',
@@ -664,7 +697,7 @@
     },
       YU.svg('#ic-building', 15),
       ad,
-      YU.h('span', { stil: { display: 'flex', transform: 'rotate(90deg)', color: 'var(--metin-4)' } }, YU.svg('#ic-chevron', 13))
+      YU.h('span', { sinif: 'yu-secici-ok' }, YU.svg('#ic-chevron', 13))
     );
     dom.seciciAd = ad;
     return kutu;
@@ -692,13 +725,14 @@
         })(l[i]);
       }
     }
-    popupAc(tetik, kutu);
+    popupAc(tetik, kutu, true);
   }
 
   function menuOgesi(tanim) {
     var a = YU.h('a', {
       sinif: 'yu-menu-oge',
       href: hashKur(tanim.kod),
+      title: tanim.baslik,
       stil: { textDecoration: 'none' },
       veri: { kod: tanim.kod }
     }, YU.svg(tanim.ikon || '#ic-dots', 17), YU.h('span', { metin: tanim.baslik }));
@@ -729,37 +763,46 @@
     return menu;
   }
 
-  function yanKart() {
-    var bas = YU.h('div', { sinif: 'yu-yan-kart-bas' });
-    var metin = YU.h('div', { sinif: 'yu-yan-kart-metin' });
-    var cubukKap = YU.h('div');
-    dom.yanKartBas = bas;
-    dom.yanKartMetin = metin;
-    dom.yanKartCubuk = cubukKap;
-    return YU.h('div', { sinif: 'yu-yan-kart' }, bas, metin, cubukKap);
+  /* ------------------------------------------------------------------
+     Kenar çubuğunu daraltma
+     ------------------------------------------------------------------
+     Daraltılmış hâl 900px altındaki ikon rayının aynısıdır (artboard 1b
+     dili): etiketler gizlenir, ikonlar kalır. Tercih tarayıcıda saklanır,
+     ekran değişince kaybolmaz. */
+
+  var DARALT_ANAHTAR = 'yu.yan.daralt';
+
+  function yanDaralikMi() { return oku(DARALT_ANAHTAR) === '1'; }
+
+  function yanDaraltUygula(daralt) {
+    var kabuk = dom.kabuk;
+    if (!kabuk) return;
+    kabuk.className = daralt ? 'yu-kabuk daralt' : 'yu-kabuk';
+    if (dom.daraltDugmesi) {
+      var ad = daralt ? 'Paneli Genişlet' : 'Paneli Daralt';
+      dom.daraltDugmesi.setAttribute('title', ad);
+      dom.daraltDugmesi.setAttribute('aria-label', ad);
+      dom.daraltDugmesi.setAttribute('aria-expanded', daralt ? 'false' : 'true');
+    }
   }
 
-  function yanKartTazele() {
-    if (!dom.yanKartBas) return;
-    var d = donemAktif();
-    if (!d) {
-      dom.yanKartBas.textContent = 'Kampanya Tanımlı Değil';
-      dom.yanKartMetin.textContent = 'Devir stok girilince kampanya dönemi oluşur.';
-      YU.bos(dom.yanKartCubuk);
-      return;
-    }
-    var toplam = Math.max(1, YU.tarih.fark(d.bas, d.bit) + 1);
-    var oran = Math.min(1, d.kayitliGun / toplam);
-    dom.yanKartBas.textContent = 'Kampanya ' + d.ad;
-    dom.yanKartMetin.textContent = YU.fmt.sayi(d.kayitliGun) + ' gün kayıtlı · son giriş ' + YU.fmt.tarih(d.bit);
-    YU.bos(dom.yanKartCubuk).appendChild(YU.ui.cubuk(oran, oran >= 0.98 ? 'olumlu' : 'vurgu'));
+  function daraltDugmesi() {
+    var d = YU.h('button', {
+      tip: 'button', sinif: 'yu-yan-daralt',
+      onClick: function () {
+        var yeni = !yanDaralikMi();
+        if (yeni) yaz(DARALT_ANAHTAR, '1'); else sil(DARALT_ANAHTAR);
+        yanDaraltUygula(yeni);
+      }
+    }, YU.svg('#ic-chevron', 14));
+    dom.daraltDugmesi = d;
+    return YU.h('div', { sinif: 'yu-yan-daralt-satir' }, d);
   }
 
   function donemBaslikTazele() {
     var d = donemAktif();
     if (dom.seciciAd) dom.seciciAd.textContent = d ? ('Kampanya ' + d.ad) : 'Kampanya yok';
     if (dom.cipMetin) dom.cipMetin.textContent = d ? (YU.fmt.tarih(d.bas) + ' – ' + YU.fmt.tarih(d.bit)) : YU.fmt.tarih(YU.tarih.bugun());
-    yanKartTazele();
   }
 
   /* --- arama --- */
@@ -767,7 +810,7 @@
   function aramaKutusu() {
     var girdi = YU.h('input', {
       tip: 'text', placeholder: 'Malzeme, silo veya tarih ara…', autocomplete: 'off',
-      stil: { flex: '1', minWidth: '0', border: 'none', outline: 'none', background: 'transparent', color: 'var(--metin)', font: '400 12.5px/1 var(--font)' },
+      stil: { flex: '1', minWidth: '0', border: 'none', outline: 'none', background: 'transparent', color: 'var(--metin)', font: '400 14.5px/1 var(--font)' },
       onInput: function () { aramaPaneliAc(kutu, girdi.value); },
       onFocus: function () { if (girdi.value) aramaPaneliAc(kutu, girdi.value); },
       onKeyDown: function (e) {
@@ -987,31 +1030,8 @@
     kutu.appendChild(popupSatir('#ic-users', 'Rol Değiştir', 'Giriş perdesine dön, başka rolle devam et.', function () { YU.oturumKapat(); }));
     kutu.appendChild(popupSatir('#ic-percent', 'Oturumu Kapat', 'Kayıtlı oturum silinir.', function () { YU.oturumKapat(); }, 'olumsuz'));
 
-    kutu.appendChild(popupBaslik('Tema'));
-    var satir = YU.h('div', { stil: { display: 'flex', gap: '6px', padding: '2px 10px 10px' } });
-    var secenekler = [['acik', 'Açık'], ['koyu', 'Koyu'], ['sistem', 'Sistem']];
-    var dugmeler = [];
-    for (var i = 0; i < secenekler.length; i++) {
-      (function (kodAd) {
-        var d = YU.h('button', {
-          tip: 'button', sinif: 'yu-dugme kucuk sade', metin: kodAd[1],
-          stil: { flex: '1', justifyContent: 'center' },
-          onClick: function () { YU.tema.ayarla(kodAd[0]); isaretle(); }
-        });
-        d.setAttribute('data-mod', kodAd[0]);
-        dugmeler.push(d);
-        satir.appendChild(d);
-      })(secenekler[i]);
-    }
-    function isaretle() {
-      var etkinMod = YU.tema.al();
-      for (var j = 0; j < dugmeler.length; j++) {
-        var secili = dugmeler[j].getAttribute('data-mod') === etkinMod;
-        dugmeler[j].className = 'yu-dugme kucuk ' + (secili ? 'birincil' : 'sade');
-      }
-    }
-    isaretle();
-    kutu.appendChild(satir);
+    /* Tema seçimi üst şeritteki düğmede duruyor; kullanıcı menüsünde
+       ikinci kez gösterilmiyor (kullanıcı isteği). */
     popupAc(tetik, kutu);
   }
 
@@ -1023,11 +1043,12 @@
     YU.bos(k);
     dom = {};
 
-    var yan = YU.h('div', { sinif: 'yu-yan' }, markaBlogu(true, true), seciciKutusu(), menuKur(), yanKart());
+    var yan = YU.h('div', { sinif: 'yu-yan' }, markaBlogu(true, true), seciciKutusu(), menuKur());
 
+    /* Arama kutusu kendi otomatik kenar boşluklarıyla ortalanıyor; araya
+       esneyen bir boşluk konursa tüm boşluğu o yutar ve kutu sola yapışır. */
     var ust = YU.h('div', { sinif: 'yu-ust' },
       aramaKutusu(),
-      YU.h('div', { stil: { flex: '1' } }),
       cipKutusu(),
       temaDugmesi(),
       zilDugmesi(),
@@ -1048,7 +1069,12 @@
     dom.baslik = baslik; dom.alt = alt; dom.eylemler = eylemler;
     dom.kap = kap; dom.icerik = icerik;
 
-    k.appendChild(YU.h('div', { sinif: 'yu-kabuk' }, yan, YU.h('div', { sinif: 'yu-ana' }, ust, icerik)));
+    /* Daralt düğmesi kenar çubuğunun dış kenarına oturur; bu yüzden kabuk
+       düzeyinde durur, kenar çubuğunun kırpma alanının dışında. */
+    var kabuk = YU.h('div', { sinif: 'yu-kabuk' }, yan, YU.h('div', { sinif: 'yu-ana' }, ust, icerik), daraltDugmesi());
+    dom.kabuk = kabuk;
+    k.appendChild(kabuk);
+    yanDaraltUygula(yanDaralikMi());
 
     kabukKurulu = true;
     kullaniciTazele();
@@ -1160,8 +1186,8 @@
           background: 'var(--vurgu-zemin)', color: 'var(--vurgu)'
         }
       }, YU.svg(tanim.ikon, 19)),
-      YU.h('div', { metin: tanim.baslik, stil: { font: '600 14.5px/1.2 var(--font)', color: 'var(--metin)' } }),
-      YU.h('div', { metin: tanim.metin, stil: { font: '400 12px/1.5 var(--font)', color: 'var(--metin-4)' } })
+      YU.h('div', { metin: tanim.baslik, stil: { font: '600 16.5px/1.2 var(--font)', color: 'var(--metin)' } }),
+      YU.h('div', { metin: tanim.metin, stil: { font: '400 14px/1.5 var(--font)', color: 'var(--metin-4)' } })
     );
     return kart;
   }
@@ -1198,10 +1224,10 @@
     var kart = YU.h('div', { sinif: 'yu-giris-kart' },
       markaBlogu(false, false),
       YU.h('div', { stil: { marginTop: '18px' } },
-        YU.h('div', { metin: 'Yan Ürünler Stok Takip', stil: { font: '600 22px/1.2 var(--font)', letterSpacing: '-.015em' } }),
+        YU.h('div', { metin: 'Yan Ürünler Stok Takip', stil: { font: '600 24px/1.2 var(--font)', letterSpacing: '-.015em' } }),
         YU.h('div', {
           metin: 'Şeker Fabrikası · Kampanya ' + (d ? d.ad : '2025/2026'),
-          stil: { font: '400 12.5px/1.4 var(--font)', color: 'var(--metin-4)', marginTop: '6px' }
+          stil: { font: '400 14.5px/1.4 var(--font)', color: 'var(--metin-4)', marginTop: '6px' }
         })
       ),
       roller,
@@ -1254,9 +1280,15 @@
       ikonKap.style.background = RENK_ZEMIN[s.renk] || 'var(--yuzey-3)';
       ikonKap.style.color = RENK_METIN[s.renk] || 'var(--metin-3)';
     }
+    /* Değer düz metin olabildiği gibi ölçü satırı (YU.ui.olcu) gibi bir
+       düğüm de olabilir; ikisi de aynı .yu-kpi-deger kutusunda durur. */
+    var degerEl = YU.h('div', { sinif: 'yu-kpi-deger' });
+    if (s.deger && s.deger.nodeType) degerEl.appendChild(s.deger);
+    else degerEl.textContent = s.deger === null || s.deger === undefined ? '—' : String(s.deger);
+
     return YU.h('div', { sinif: 'yu-kpi' },
       YU.h('div', { sinif: 'yu-kpi-bas' }, ikonKap, YU.h('div', { sinif: 'yu-kpi-etiket', metin: s.etiket || '' })),
-      YU.h('div', { sinif: 'yu-kpi-deger', metin: s.deger === null || s.deger === undefined ? '—' : String(s.deger) }),
+      degerEl,
       s.alt ? YU.h('div', { sinif: 'yu-kpi-alt', metin: s.alt }) : null
     );
   };
@@ -1287,11 +1319,123 @@
     return YU.h('span', { sinif: 'yu-rozet ' + (tur || 'notr'), metin: metin === null || metin === undefined ? '' : String(metin) });
   };
 
+  /* Ölçü satırı: "168.000 kg / 168 ton / 6.720 adet".
+     Sayı bulunduğu yerin yazı tipini sürdürür, birim küçük ve soluk yazılır;
+     böylece kg / ton / adet ayrımı tek bakışta okunur. Parçalar dar kolonda
+     satır sarar, hizalama çağıranın hizasını izler. */
+  YU.ui.olcu = function (parcalar, hiza) {
+    var kap = YU.h('span', {
+      stil: {
+        display: 'inline-flex', flexWrap: 'wrap', alignItems: 'baseline',
+        justifyContent: hiza === 'sol' ? 'flex-start' : 'flex-end',
+        columnGap: '4px', rowGap: '2px'
+      }
+    });
+    var kucuk = { font: '400 .78em/1.2 var(--font)', letterSpacing: 'normal', color: 'var(--metin-4)' };
+    var ayrac = { font: '400 .78em/1.2 var(--font)', letterSpacing: 'normal', color: 'var(--metin-5)' };
+    for (var i = 0; i < (parcalar || []).length; i++) {
+      var p = parcalar[i];
+      if (!p) continue;
+      /* Sayı ile birimi tek bir sarmalamaz parçada tutar: dar kolonda satır
+         "206,3" ile "ton" arasından değil, ölçüler arasından kırılır. */
+      var oge = YU.h('span', {
+        stil: { display: 'inline-flex', alignItems: 'baseline', gap: '3px', whiteSpace: 'nowrap' }
+      });
+      if (i) oge.appendChild(YU.h('span', { metin: '/', stil: ayrac }));
+      oge.appendChild(YU.h('span', { metin: String(p.sayi) }));
+      if (p.birim) oge.appendChild(YU.h('span', { metin: p.birim, stil: kucuk }));
+      kap.appendChild(oge);
+    }
+    return kap;
+  };
+
   YU.ui.cubuk = function (oran, tur) {
     var o = Math.max(0, Math.min(1, Number(oran) || 0));
     var dolu = YU.h('div', { sinif: 'yu-cubuk-dolu', stil: { width: (o * 100).toFixed(2) + '%' } });
     if (tur && RENK_METIN[tur]) dolu.style.background = RENK_METIN[tur];
     return YU.h('div', { sinif: 'yu-cubuk' }, dolu);
+  };
+
+  /* Silo doluluk pictogramı — alttan dolan silindir, ortasında oran yazısı.
+     Ana Sayfa'da doğdu (21.08.2026), beğenilince ortak kütüphaneye taşındı;
+     Ana Sayfa ve Silo Durumu kartları birlikte kullanır. İkon setine sembol
+     EKLENMEZ (CLAUDE.md KURAL 1): grafikler gibi yerinde çizilen inline SVG'dir,
+     renkleri tema değişkenlerinden alır (çubukla aynı eşikler). */
+  var siloKirpSayac = 0;
+
+  YU.ui.siloSekli = function (oran, tur) {
+    var G = 104, Y = 151;               /* viewBox */
+    var rx = 36, ry = 13;               /* gövde yarı genişliği, kapak basıklığı */
+    var cx = G / 2;
+    var ust = ry + 2.5, alt = Y - ry - 2.5;
+    var tepe = ust - ry, taban = alt + ry;   /* şeklin gerçek uç noktaları */
+    var renk = RENK_METIN[tur] || 'var(--vurgu)';
+
+    var o = Math.max(0, Math.min(1, Number(oran) || 0));
+    var kirpId = 'yu-silo-kirp-' + (++siloKirpSayac);
+
+    var siluet = 'M ' + (cx - rx) + ' ' + ust +
+      ' A ' + rx + ' ' + ry + ' 0 0 1 ' + (cx + rx) + ' ' + ust +
+      ' L ' + (cx + rx) + ' ' + alt +
+      ' A ' + rx + ' ' + ry + ' 0 0 1 ' + (cx - rx) + ' ' + alt + ' Z';
+
+    var svg = svgOge('svg', {
+      width: G, height: Y, viewBox: '0 0 ' + G + ' ' + Y, 'aria-hidden': 'true'
+    });
+    svg.style.display = 'block';
+    svg.style.flex = 'none';
+
+    var kirp = svgOge('clipPath', { id: kirpId });
+    kirp.appendChild(svgOge('path', { d: siluet }));
+    var defs = svgOge('defs');
+    defs.appendChild(kirp);
+    svg.appendChild(defs);
+
+    /* Boş gövde */
+    svg.appendChild(svgOge('path', { d: siluet, fill: 'var(--silo-govde)' }));
+
+    /* Dolu kısım — alttan oran kadar. Seviye gövde eksenine (ust..alt)
+       kenetlenir: dolum alt kapağın dışına sarkmaz, üst kapağa taşmaz. */
+    if (o > 0) {
+      var seviye = taban - o * (taban - tepe);
+      seviye = Math.max(ust, Math.min(alt, seviye));
+      var dolu = svgOge('rect', {
+        x: cx - rx, y: seviye, width: rx * 2, height: Y - seviye,
+        fill: renk, 'clip-path': 'url(#' + kirpId + ')'
+      });
+      dolu.style.opacity = '.85';
+      svg.appendChild(dolu);
+      /* Sıvı yüzeyi: DOLU elips — çizgi değil; çizgi elipsin alt yayıyla
+         tabana ikinci bir kavis düşürüyordu. */
+      if (o < 1) {
+        svg.appendChild(svgOge('ellipse', {
+          cx: cx, cy: seviye, rx: rx, ry: ry,
+          fill: renk, 'clip-path': 'url(#' + kirpId + ')'
+        }));
+      }
+    }
+
+    /* Üst kapak yüzeyi ve dış çizgi en üste. */
+    svg.appendChild(svgOge('ellipse', {
+      cx: cx, cy: ust, rx: rx, ry: ry,
+      fill: 'var(--silo-kapak)', stroke: 'var(--silo-cizgi)', 'stroke-width': 1.7
+    }));
+    svg.appendChild(svgOge('path', {
+      d: siluet, fill: 'none', stroke: 'var(--silo-cizgi)', 'stroke-width': 1.7
+    }));
+
+    /* Doluluk oranı silonun ortasında — açık temada siyah, koyu temada beyaz
+       (--metin). Kart başlığında ayrıca yüzde rozeti gösterilmez. */
+    var yazi = svgOge('text', {
+      x: cx, y: (ust + alt) / 2, 'text-anchor': 'middle',
+      'dominant-baseline': 'central', fill: 'var(--silo-yazi)'
+    });
+    yazi.style.font = '700 19px var(--sayi)';
+    yazi.style.fontVariantNumeric = 'tabular-nums';
+    yazi.textContent = YU.fmt.yuzde((Number(oran) || 0) * 100, 1);
+    svg.appendChild(yazi);
+
+    return svg;
   };
 
   YU.ui.bosDurum = function (s) {
@@ -1356,7 +1500,22 @@
       var hucreler = dizi(ham) ? ham : (ham && ham.hucreler ? ham.hucreler : []);
       var tr = YU.h('tr');
       if (!dizi(ham) && ham) {
-        if (ham.onClick) { tr.style.cursor = 'pointer'; tr.addEventListener('click', ham.onClick); }
+        if (ham.onClick) {
+          /* Tıklanabilirlik hem sınıfla (zemin + sol şerit) hem de imleç
+             altındaki mini ipucuyla duyuruluyor; tek başına imleç değişimi
+             kullanıcıya satırın açılabilir olduğunu söylemiyordu. */
+          tr.className = tr.className ? tr.className + ' yu-tiklanir' : 'yu-tiklanir';
+          tr.setAttribute('tabindex', '0');
+          tr.setAttribute('role', 'button');
+          tr.addEventListener('click', ham.onClick);
+          tr.addEventListener('keydown', (function (fn) {
+            return function (e) {
+              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); }
+            };
+          })(ham.onClick));
+          var ipucuMetni = ham.ipucu === undefined ? (s.tiklamaIpucu || 'Detay için tıklayın') : ham.ipucu;
+          if (ipucuMetni) metinIpucuBagla(tr, ipucuMetni);
+        }
         if (ham.vurgu) tr.style.boxShadow = 'inset 3px 0 0 ' + (RENK_METIN[ham.vurgu] || 'var(--vurgu)');
       }
       for (var c = 0; c < hucreler.length; c++) {
@@ -1415,18 +1574,22 @@
       /* Türkçe ondalık kabul edilsin diye type="text": type="number" virgülü reddeder. */
       girdi = YU.h('input', { sinif: 'yu-girdi', tip: 'text', inputmode: 'decimal', autocomplete: 'off' });
       girdi.style.textAlign = 'right';
-      girdi.style.fontFamily = 'var(--mono)';
+      girdi.style.fontFamily = 'var(--sayi)';
       girdi.addEventListener('focus', function () {
         if (sonSayi !== null) girdi.value = sayiHam(sonSayi);
         girdi.select();
       });
       girdi.addEventListener('blur', function () {
         var v = YU.parse.sayi(girdi.value);
-        if (girdi.value === '' ) { sonSayi = null; return; }
+        if (girdi.value === '' ) { sonSayi = null; negatifDenetle(); return; }
         if (isNaN(v)) return;                 /* geçersizse kullanıcının yazdığı kalsın, hata çağıran gösterir */
         sonSayi = v;
         girdi.value = sayiBicimle(v);
+        negatifDenetle();
       });
+      /* Fiziksel bir miktar negatif olamaz — kilo da, çuval adedi de, sıra da.
+         Kaydete basmayı beklemeden yazarken söylenir. */
+      girdi.addEventListener('input', negatifDenetle);
     } else {
       girdi = YU.h('input', { sinif: 'yu-girdi', tip: 'text', autocomplete: 'off' });
     }
@@ -1440,6 +1603,27 @@
       s.sag ? YU.h('span', { sinif: 'yu-girdi-sag' }, s.sag) : null);
 
     var hataEl = YU.h('div', { sinif: 'yu-alan-hata', stil: { display: 'none' } });
+
+    var NEGATIF_MESAJ = 'Negatif değer girilemez — miktar en az 0 olmalı.';
+
+    function boya(mesaj) {
+      /* Aynı sınıfı tekrar atamak border-color geçişini baştan başlatıyor. */
+      var yeniSinif = mesaj ? 'yu-girdi hatali' : 'yu-girdi';
+      if (girdi.className !== yeniSinif) girdi.className = yeniSinif;
+      hataEl.textContent = mesaj || '';
+      hataEl.style.display = mesaj ? '' : 'none';
+    }
+
+    function negatifMi() {
+      if (tip !== 'sayi' || s.negatifeIzin) return false;
+      var v = YU.parse.sayi(girdi.value);
+      return isFinite(v) && v < 0;
+    }
+
+    function negatifDenetle() {
+      if (negatifMi()) boya(NEGATIF_MESAJ);
+      else if (hataEl.textContent === NEGATIF_MESAJ) boya('');
+    }
     var kokEl = YU.h('div', { sinif: 'yu-alan' },
       s.etiket ? YU.h('label', { sinif: 'yu-etiket', metin: s.etiket }) : null,
       sar,
@@ -1470,17 +1654,14 @@
         return api;
       },
       hataGoster: function (mesaj) {
-        if (mesaj) {
-          girdi.className = 'yu-girdi hatali';
-          hataEl.textContent = mesaj;
-          hataEl.style.display = '';
-        } else {
-          girdi.className = 'yu-girdi';
-          hataEl.textContent = '';
-          hataEl.style.display = 'none';
-        }
+        /* Sayfa hataları temizlese bile negatif uyarısı ayakta kalır;
+           yoksa canlı denetim bir sonraki çizimde siliniyordu. */
+        if (!mesaj && negatifMi()) mesaj = NEGATIF_MESAJ;
+        boya(mesaj);
         return api;
       },
+      /* Sayfalar kendi boyama döngülerinde bu durumu ezmemek için sorar. */
+      negatifMi: negatifMi,
       temizle: function () { api.ayarla(''); api.hataGoster(''); return api; },
       odakla: function () { girdi.focus(); return api; }
     };
@@ -1552,15 +1733,34 @@
         (function (d) {
           alt.appendChild(YU.ui.dugme({
             metin: d.metin, ikon: d.ikon, tur: d.tur || 'ikincil',
-            onClick: function () { if (d.onClick) d.onClick(); }
+            /* Eylemi olmayan düğme ("Kapat" gibi) pencereyi kapatır; aksi
+               hâlde tıklanır ama hiçbir şey olmaz. */
+            onClick: function () { if (d.onClick) d.onClick(); else kapat(); }
           }));
         })(s.dugmeler[i]);
       }
     }
 
+    /* Başlık şeridi: solda ad ve alt satır, sağda geri düğmesi.
+       Kapatma alt bardaki düğmede. */
+    var bas = null;
+    if (s.baslik || s.baslikAlt || s.geriDugmesi) {
+      var basSol = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '3px', flex: '1', minWidth: '0' } },
+        s.baslik ? YU.h('div', { metin: s.baslik }) : null,
+        s.baslikAlt ? YU.h('div', { sinif: 'yu-yardim', metin: s.baslikAlt }) : null
+      );
+      var basSag = YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '6px', flex: 'none' } });
+      if (s.geriDugmesi) {
+        basSag.appendChild(YU.ui.dugme({
+          metin: '← Geri', kucuk: true, tur: 'ikincil',
+          baslik: 'Listeye dön', onClick: function () { kapat(); }
+        }));
+      }
+      bas = YU.h('div', { sinif: 'yu-modal-bas' }, basSol, basSag);
+    }
+
     var modal = YU.h('div', { sinif: 'yu-modal', role: 'dialog', 'aria-modal': 'true' },
-      s.baslik ? YU.h('div', { sinif: 'yu-modal-bas', metin: s.baslik }) : null,
-      govde, alt
+      bas, govde, alt
     );
     if (s.genislik) modal.style.width = typeof s.genislik === 'number' ? s.genislik + 'px' : s.genislik;
 
@@ -1611,7 +1811,7 @@
       var m = YU.ui.modal({
         baslik: s.baslik || 'Onay',
         genislik: s.genislik || 440,
-        govde: YU.h('div', { metin: s.metin || '', stil: { font: '400 13px/1.6 var(--font)', color: 'var(--metin-3)' } }),
+        govde: YU.h('div', { metin: s.metin || '', stil: { font: '400 15px/1.6 var(--font)', color: 'var(--metin-3)' } }),
         dugmeler: [
           { metin: s.iptalMetni || 'Vazgeç', tur: 'sade', onClick: function () { sonuc(false); } },
           { metin: s.onayMetni || 'Onayla', tur: s.tehlike ? 'tehlike' : 'birincil', onClick: function () { sonuc(true); } }
@@ -1637,9 +1837,9 @@
       liste.appendChild(YU.h('div', { stil: { display: 'flex', gap: '9px', alignItems: 'baseline' } },
         YU.h('span', {
           metin: h.kod || '—',
-          stil: { font: '500 11px/1.4 var(--mono)', color: RENK_METIN[t === 'hata' ? 'olumsuz' : 'bekleyen'], flex: 'none' }
+          stil: { font: '500 13px/1.4 var(--mono)', color: RENK_METIN[t === 'hata' ? 'olumsuz' : 'bekleyen'], flex: 'none' }
         }),
-        YU.h('span', { metin: h.mesaj || String(h), stil: { font: '400 12.5px/1.5 var(--font)', color: 'var(--metin-2)' } })
+        YU.h('span', { metin: h.mesaj || String(h), stil: { font: '400 14.5px/1.5 var(--font)', color: 'var(--metin-2)' } })
       ));
     }
     var baslik = t === 'hata'
@@ -1661,7 +1861,10 @@
      13. Grafikler — inline SVG, renkler CSS değişkeninden (tema uyumu)
      ================================================================== */
 
-  var SERI_RENK = ['var(--grafik-1)', 'var(--grafik-2)', 'var(--grafik-3)', 'var(--grafik-4)', 'var(--kenar-3)', 'var(--metin-4)'];
+  /* Kategorik seri renkleri: her dilim ayrı hue taşır — tek mavi tonlaması
+     dilimleri okunmaz kılıyordu. Sıra sabittir, dilim sayısı değişince
+     hayatta kalan dilimlerin rengi kaymaz. */
+  var SERI_RENK = ['var(--kat-1)', 'var(--kat-2)', 'var(--kat-3)', 'var(--kat-4)', 'var(--kat-5)', 'var(--kat-6)'];
 
   /* ------------------------------------------------------------------
      13.1 Grafik ipucu — belge gövdesine eklenen tek kutu.
@@ -1727,16 +1930,16 @@
     var kap = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '6px' } });
     kap.appendChild(YU.h('div', {
       metin: baslik,
-      stil: { font: '500 12px/1.2 var(--font)', color: 'var(--metin)', whiteSpace: 'nowrap' }
+      stil: { font: '500 14px/1.2 var(--font)', color: 'var(--metin)', whiteSpace: 'nowrap' }
     }));
     for (var i = 0; i < satirlar.length; i++) {
       var r = satirlar[i];
       kap.appendChild(YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '9px', whiteSpace: 'nowrap' } },
         YU.h('span', { stil: { width: '8px', height: '8px', borderRadius: '2px', flex: 'none', background: r.renk } }),
-        YU.h('span', { metin: r.ad, stil: { flex: '1', font: '400 11.5px/1.3 var(--font)', color: 'var(--metin-4)' } }),
+        YU.h('span', { metin: r.ad, stil: { flex: '1', font: '400 13.5px/1.3 var(--font)', color: 'var(--metin-4)' } }),
         YU.h('span', {
           metin: r.deger,
-          stil: { font: '500 11.5px/1.3 var(--mono)', color: 'var(--metin)', fontVariantNumeric: 'tabular-nums' }
+          stil: { font: '600 13.5px/1.3 var(--sayi)', color: 'var(--metin)', fontVariantNumeric: 'tabular-nums' }
         })
       ));
     }
@@ -1744,7 +1947,7 @@
       kap.appendChild(YU.h('div', {
         metin: ek.metin,
         stil: {
-          font: '500 11.5px/1.3 var(--mono)', color: ek.renk || 'var(--metin-4)',
+          font: '600 13.5px/1.3 var(--sayi)', color: ek.renk || 'var(--metin-4)',
           borderTop: '1px solid var(--ayrac)', paddingTop: '6px',
           whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums'
         }
@@ -1794,6 +1997,47 @@
     oge.addEventListener('blur', kapa);
   }
 
+  /* Düz metinli mini ipucu: grafiklerdeki kutunun aynısını kullanır, içine
+     tek satır metin koyar. Tablo satırı gibi tıklanabilir ama düğmeye
+     benzemeyen ögelerde "ne olacağını" söylemek için. */
+  var IPUCU_GECIKME = 250;   /* satır üzerinden geçerken kutu hemen açılmasın */
+
+  function metinIpucuBagla(oge, metin) {
+    var zaman = null, sonX = 0, sonY = 0;
+
+    function icerik() {
+      return YU.h('div', {
+        stil: { font: '400 14px/1.4 var(--font)', color: 'var(--metin-2)', whiteSpace: 'nowrap' },
+        metin: metin
+      });
+    }
+    function bekle(x, y) {
+      sonX = x; sonY = y;
+      if (zaman) return;
+      zaman = setTimeout(function () {
+        zaman = null;
+        ipucuAc(icerik(), sonX, sonY);
+      }, IPUCU_GECIKME);
+    }
+    function kapat() {
+      if (zaman) { clearTimeout(zaman); zaman = null; }
+      ipucuGizle();
+    }
+
+    oge.addEventListener('mouseenter', function (e) { bekle(e.clientX, e.clientY); });
+    oge.addEventListener('mousemove', function (e) {
+      sonX = e.clientX; sonY = e.clientY;
+      ipucuKonumla(e.clientX, e.clientY);
+    });
+    oge.addEventListener('mouseleave', kapat);
+    oge.addEventListener('click', kapat);
+    oge.addEventListener('focus', function () {
+      var r = oge.getBoundingClientRect();
+      bekle(r.left + Math.min(r.width / 2, 160), r.top);
+    });
+    oge.addEventListener('blur', kapat);
+  }
+
   /* Şerit vurgusu: sütun/çizgi grafiklerinde arkadaki bandı açıp kapatır. */
   function bantVurgu(bant) {
     return function (acik) { bant.setAttribute('opacity', acik ? '1' : '0'); };
@@ -1821,7 +2065,7 @@
 
   function efsaneSatiri(ogeler) {
     var kap = YU.h('div', {
-      stil: { display: 'flex', gap: '14px', justifyContent: 'flex-end', font: '400 11.5px/1 var(--font)', color: 'var(--metin-4)' }
+      stil: { display: 'flex', gap: '14px', justifyContent: 'flex-end', font: '400 13.5px/1 var(--font)', color: 'var(--metin-4)' }
     });
     for (var i = 0; i < ogeler.length; i++) {
       kap.appendChild(YU.h('span', { stil: { display: 'flex', alignItems: 'center', gap: '6px' } },
@@ -1898,7 +2142,7 @@
 
       var etiket = svgOge('text', {
         x: x + grupG / 2, y: cizimH + 16, 'text-anchor': 'middle',
-        'font-size': '11', fill: 'var(--metin-5)'
+        'font-size': '13', fill: 'var(--metin-5)'
       });
       etiket.textContent = oge.etiket === undefined ? '' : String(oge.etiket);
       grup.appendChild(etiket);
@@ -1945,7 +2189,7 @@
     if (veri.length < 2) {
       var kapBos = YU.h('div', {
         metin: 'Grafik için en az iki gün gerekiyor.',
-        stil: { font: '400 12px/1.5 var(--font)', color: 'var(--metin-4)', padding: '24px 0', textAlign: 'center' }
+        stil: { font: '400 14px/1.5 var(--font)', color: 'var(--metin-4)', padding: '24px 0', textAlign: 'center' }
       });
       return kapBos;
     }
@@ -2016,7 +2260,7 @@
 
     /* Etiketler SVG dışında: preserveAspectRatio="none" metni de yamultur. */
     var etiketler = YU.h('div', {
-      stil: { display: 'flex', justifyContent: 'space-between', font: '400 11px/1 var(--font)', color: 'var(--metin-5)', marginTop: '8px' }
+      stil: { display: 'flex', justifyContent: 'space-between', font: '400 13px/1 var(--font)', color: 'var(--metin-5)', marginTop: '8px' }
     });
     var adim = Math.max(1, Math.ceil(veri.length / 7));
     for (i = 0; i < veri.length; i += adim) {
@@ -2074,5 +2318,137 @@
   };
 
   YU.ui.seriRenk = function (i) { return SERI_RENK[i % SERI_RENK.length]; };
+
+  /* ==================================================================
+     14. Gün penceresi
+     Bir günün verisine listeden tıklanınca tam sayfaya gitmek yerine küçük
+     pencere açılıyor: kullanıcı bulunduğu listeden kopmuyor.
+     ================================================================== */
+
+  var HAREKET_ADI = {
+    DokmeUretim: 'Dökme üretim', Cuvallama: 'Çuvallama',
+    DokmeSatis: 'Dökme satış', Manuel: 'Manuel'
+  };
+  var HAREKET_RENGI = {
+    DokmeUretim: 'olumlu', Cuvallama: 'notr', DokmeSatis: 'vurgu', Manuel: 'bekleyen'
+  };
+
+  function gunBolumu(baslik, sag, icerik) {
+    return YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '9px' } },
+      YU.h('div', {
+        stil: {
+          display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '10px',
+          font: '600 13.5px/1.2 var(--font)', color: 'var(--metin-3)',
+          letterSpacing: '.05em', textTransform: 'uppercase',
+          paddingBottom: '7px', borderBottom: '1px solid var(--ayrac)'
+        }
+      },
+        YU.h('span', { metin: baslik }),
+        sag ? YU.h('span', { sinif: 'yu-yardim', stil: { textTransform: 'none', letterSpacing: '0' }, metin: sag }) : null
+      ),
+      icerik
+    );
+  }
+
+  function gunKalemi(etiket, deger, tur) {
+    return YU.h('div', {
+      stil: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '14px', padding: '6px 0' }
+    },
+      YU.h('span', { metin: etiket, stil: { font: '400 14px/1.3 var(--font)', color: 'var(--metin-4)' } }),
+      YU.h('span', {
+        sinif: 'yu-mono',
+        metin: deger,
+        stil: { font: '500 14.5px/1 var(--sayi)', color: tur ? 'var(--' + tur + ')' : '' }
+      })
+    );
+  }
+
+  YU.gunPenceresi = function (tarih) {
+    var ozet = YU.stok.gunOzeti(YU.db, tarih);
+    var h = ozet.hesap;
+    var kayitVar = !!ozet.kuruKuspe;
+    var bolumler = [];
+
+    /* Kuru küspe — Şartname §4: ham girdi net üretim 0 olsa bile ayrı durur. */
+    if (kayitVar) {
+      bolumler.push(gunBolumu('Kuru küspe', h.durum === 'B' ? 'Durum B' : 'Durum A',
+        YU.h('div', { stil: { display: 'flex', flexDirection: 'column' } },
+          gunKalemi('Üretilen dökme (ham girdi)', YU.fmt.kgU(h.hamUretilenDokme)),
+          gunKalemi('Çuvallanan adet', YU.fmt.sayi(ozet.kuruKuspe.CuvalAdet) + ' adet'),
+          gunKalemi('Çuval karşılığı', YU.fmt.kgU(h.cuvalKg)),
+          gunKalemi('Net dökme üretim', YU.fmt.kgU(h.netDokmeUretim), h.netDokmeUretim > 0 ? 'olumlu' : null),
+          gunKalemi('Silodan çekilen (çuvallama)', YU.fmt.kgU(h.silodanCekilecek), h.silodanCekilecek > 0 ? 'bekleyen' : null),
+          gunKalemi('Satılan dökme', YU.fmt.kgU(h.satilanDokme), h.satilanDokme > 0 ? 'bekleyen' : null),
+          gunKalemi('Silo net değişimi',
+            (h.siloNetDegisim > 0 ? '+' : '') + YU.fmt.kgU(h.siloNetDegisim),
+            h.siloNetDegisim > 0 ? 'olumlu' : (h.siloNetDegisim < 0 ? 'olumsuz' : null))
+        )
+      ));
+    }
+
+    /* Malzeme hareketleri */
+    if (ozet.malzemeSatirlari.length) {
+      var mSatirlar = ozet.malzemeSatirlari.map(function (s) {
+        return [
+          YU.h('span', { metin: s.malzeme ? s.malzeme.Ad : '—' }),
+          YU.h('span', { sinif: 'yu-mono', metin: YU.fmt.kg(s.uretim) }),
+          YU.h('span', { sinif: 'yu-mono', metin: YU.fmt.kg(s.satis) })
+        ];
+      });
+      bolumler.push(gunBolumu('Malzeme hareketleri', ozet.malzemeSatirlari.length + ' satır',
+        YU.ui.tablo({
+          sutunlar: [{ baslik: 'Malzeme' }, { baslik: 'Üretim', hiza: 'sag', genislik: 120 }, { baslik: 'Satış', hiza: 'sag', genislik: 120 }],
+          satirlar: mSatirlar, kompakt: true
+        })
+      ));
+    }
+
+    /* Silo hareketleri */
+    if (ozet.siloHareketleri.length) {
+      var sSatirlar = ozet.siloHareketleri.map(function (s) {
+        var hr = s.hareket;
+        return [
+          YU.h('span', { metin: s.silo ? s.silo.Ad : '—' }),
+          YU.ui.rozet(HAREKET_ADI[hr.HareketTipi] || hr.HareketTipi, HAREKET_RENGI[hr.HareketTipi] || 'notr'),
+          YU.h('span', { sinif: 'yu-mono', metin: Number(hr.GirenKg) > 0 ? YU.fmt.kg(hr.GirenKg) : '—' }),
+          YU.h('span', { sinif: 'yu-mono', metin: Number(hr.CikanKg) > 0 ? YU.fmt.kg(hr.CikanKg) : '—' })
+        ];
+      });
+      bolumler.push(gunBolumu('Silo hareketleri', ozet.siloHareketleri.length + ' hareket',
+        YU.ui.tablo({
+          sutunlar: [
+            { baslik: 'Silo', genislik: 110 }, { baslik: 'Hareket', genislik: 140 },
+            { baslik: 'Giren', hiza: 'sag', genislik: 110 }, { baslik: 'Çıkan', hiza: 'sag', genislik: 110 }
+          ],
+          satirlar: sSatirlar, kompakt: true
+        })
+      ));
+    }
+
+    if (!bolumler.length) {
+      bolumler.push(YU.h('div', {
+        sinif: 'yu-bos-metin',
+        metin: 'Bu gün için kayıt yok.',
+        stil: { padding: '18px 0' }
+      }));
+    }
+
+    var govde = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '20px' } });
+    for (var i = 0; i < bolumler.length; i++) govde.appendChild(bolumler[i]);
+
+    var pencere = YU.ui.modal({
+      baslik: 'Günün Verisi',
+      baslikAlt: YU.fmt.tarih(tarih) + ' · ' + YU.fmt.gunAdi(tarih),
+      geriDugmesi: true,
+      govde: govde,
+      genislik: 640,
+      dugmeler: [
+        { metin: 'Tam raporu aç', ikon: '#ic-doc', tur: 'sade',
+          onClick: function () { pencere.kapat(); YU.git('gunluk-rapor', { tarih: tarih }); } },
+        { metin: 'Kapat', tur: 'ikincil', onClick: function () { pencere.kapat(); } }
+      ]
+    });
+    return pencere;
+  };
 
 })();

@@ -585,6 +585,12 @@
 
     if (!ad) hatalar.push(kayit(ALAN, "Malzeme adı boş olamaz."));
     if (bosMu(malzeme.Birim)) hatalar.push(kayit(ALAN, "Birim boş olamaz (örn. \"Kg\")."));
+    /* Sıra bir sayaç; negatif olamaz. Daha önce hiç denetlenmiyordu. */
+    if (malzeme.Sira !== null && malzeme.Sira !== undefined && malzeme.Sira !== "") {
+      var sira = oku(malzeme.Sira);
+      if (isNaN(sira)) hatalar.push(kayit(ALAN, "Sıra sayı olmalı. Girilen: \"" + String(malzeme.Sira) + "\"."));
+      else if (sira < 0) hatalar.push(kayit(ALAN, "Sıra negatif olamaz. Girilen: " + YU.fmt.sayi(sira) + "."));
+    }
     if (OZEL_TIPLER.indexOf(ozelTip) < 0) {
       hatalar.push(kayit(ALAN, "Özel tip yalnızca boş, \"DokmeKuruKuspe\" veya \"CuvalKuruKuspe\" olabilir. Girilen: \"" + String(malzeme.OzelTip) + "\"."));
     }
@@ -629,6 +635,11 @@
     var kapasite = oku(silo.Kapasite);
 
     if (!ad) hatalar.push(kayit(ALAN, "Silo adı boş olamaz."));
+    if (silo.Sira !== null && silo.Sira !== undefined && silo.Sira !== "") {
+      var siloSira = oku(silo.Sira);
+      if (isNaN(siloSira)) hatalar.push(kayit(ALAN, "Sıra sayı olmalı. Girilen: \"" + String(silo.Sira) + "\"."));
+      else if (siloSira < 0) hatalar.push(kayit(ALAN, "Sıra negatif olamaz. Girilen: " + YU.fmt.sayi(siloSira) + "."));
+    }
     if (isNaN(kapasite)) {
       hatalar.push(kayit(ALAN, "Kapasite sayı olmalı. Girilen: \"" + String(silo.Kapasite) + "\"."));
     } else if (kapasite < 0) {

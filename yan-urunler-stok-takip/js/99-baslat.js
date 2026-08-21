@@ -23,12 +23,12 @@
 
     var h = document.createElement('div');
     h.textContent = baslik;
-    h.style.cssText = 'font:600 16px/1.3 inherit;margin-bottom:8px';
+    h.style.cssText = 'font:600 18px/1.3 inherit;margin-bottom:8px';
     kutu.appendChild(h);
 
     var p = document.createElement('div');
     p.textContent = mesaj;
-    p.style.cssText = 'font:400 13px/1.6 inherit;color:var(--metin-3,#5c636e)';
+    p.style.cssText = 'font:400 15px/1.6 inherit;color:var(--metin-3,#5c636e)';
     kutu.appendChild(p);
 
     if (yigin) {
@@ -37,8 +37,8 @@
       pre.style.cssText = [
         'margin-top:14px', 'padding:12px 14px', 'border-radius:8px', 'overflow:auto',
         'max-height:220px', 'background:var(--yuzey-3,#f4f5f7)',
-        'color:var(--metin-4,#8b93a1)',
-        'font:400 11.5px/1.6 var(--mono,ui-monospace,Menlo,monospace)',
+        'color:var(--metin-4,#5c636e)',
+        'font:400 13.5px/1.6 var(--mono,ui-monospace,Menlo,monospace)',
         'white-space:pre-wrap'
       ].join(';');
       kutu.appendChild(pre);

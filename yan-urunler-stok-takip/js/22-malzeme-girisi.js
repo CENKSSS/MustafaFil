@@ -313,7 +313,9 @@
     kap.appendChild(kutu);
   }
 
-  function ustPanel(d) {
+  /* Tarih seçici ve gün durumu ayrı bir panel değil, Günlük Üretim ve Satış
+     panelinin üst bloğudur — iki ayrı panel kafa karıştırıyordu. */
+  function ustBlok(d) {
     var bugun = YU.tarih.bugun();
 
     d.tarihAlan = YU.ui.alan({
@@ -332,6 +334,10 @@
     }));
     hizli.appendChild(YU.ui.dugme({
       metin: 'Sonraki Gün', kucuk: true, tur: 'sade',
+      /* İleri yürüme geçmiş günleri düzeltmek içindir; bugünden öteye
+         geçilemez — gelecek güne kayıt D17 ile zaten reddedilir. */
+      pasif: d.tarih >= bugun,
+      baslik: d.tarih >= bugun ? 'Bugünden sonrasına kayıt girilemez' : '',
       onClick: function () { tarihIste(d, YU.tarih.ekle(d.tarih, 1)); }
     }));
     hizli.appendChild(YU.ui.dugme({
@@ -343,16 +349,37 @@
     d.durumKap = YU.h('div');
     gunDurumuTazele(d);
 
-    var solBlok = satirKap('center', 14);
+    var solBlok = YU.h('div', {
+      stil: { display: 'flex', flexDirection: 'column', gap: '10px', minWidth: '0', alignItems: 'flex-start' }
+    });
     solBlok.appendChild(d.tarihAlan.kok);
     solBlok.appendChild(hizli);
 
-    var satir = satirKap('flex-end', 18);
+    var satir = satirKap('flex-start', 18);
     satir.style.justifyContent = 'space-between';
     satir.appendChild(solBlok);
     satir.appendChild(d.durumKap);
 
-    return YU.ui.panel({ govde: satir });
+    return YU.h('div', {
+      stil: { padding: '16px 18px', borderBottom: '1px solid var(--ayrac)' }
+    }, satir);
+  }
+
+  /* Panel gövdesi: üstte tarih bloğu, altında tablo ya da boş durum. */
+  function girisPaneli(d, icerik) {
+    var govde = YU.h('div', {
+      stil: { display: 'flex', flexDirection: 'column', minWidth: '0' }
+    });
+    govde.appendChild(ustBlok(d));
+    govde.appendChild(icerik);
+
+    return YU.ui.panel({
+      baslik: 'Günlük Üretim ve Satış',
+      ikon: '#ic-pencil',
+      dolgusuz: true,
+      sag: YU.h('span', { metin: YU.fmt.sayi(d.satirlar.length) + ' malzeme · ' + YU.fmt.tarih(d.tarih) }),
+      govde: govde
+    });
   }
 
   /* ==================================================================
@@ -459,13 +486,7 @@
     var trler = sar.querySelectorAll('tbody tr');
     for (i = 0; i < d.satirlar.length && i < trler.length; i++) d.satirlar[i].tr = trler[i];
 
-    return YU.ui.panel({
-      baslik: 'Günlük Üretim ve Satış',
-      ikon: '#ic-pencil',
-      dolgusuz: true,
-      sag: YU.h('span', { metin: YU.fmt.sayi(d.satirlar.length) + ' malzeme · ' + YU.fmt.tarih(d.tarih) }),
-      govde: sar
-    });
+    return girisPaneli(d, sar);
   }
 
   /* ==================================================================
@@ -490,7 +511,7 @@
 
     var sol = sutunKap(4);
     sol.appendChild(YU.h('div', {
-      stil: { font: '500 12.5px/1.4 var(--font)', color: 'var(--metin)' },
+      stil: { font: '500 14.5px/1.4 var(--font)', color: 'var(--metin)' },
       metin: YU.fmt.tarih(d.tarih) + ' günü için ' + YU.fmt.sayi(d.satirlar.length) + ' satır'
     }));
     sol.appendChild(d.ozetMetin);
@@ -570,23 +591,18 @@
       })
     );
 
-    kap.appendChild(ustPanel(d));
-
     if (!d.satirlar.length) {
-      kap.appendChild(YU.ui.panel({
-        baslik: 'Günlük Üretim ve Satış', ikon: '#ic-pencil', dolgusuz: true,
-        govde: YU.ui.bosDurum({
-          ikon: '#ic-pencil',
-          baslik: 'Aktif Malzeme Yok',
-          metin: 'Giriş yapılabilmesi için en az bir aktif malzeme gerekiyor. Malzemeler Malzeme Yönetimi ekranından açılır.',
-          eylemler: YU.yonetici()
-            ? [YU.ui.dugme({
-                metin: 'Malzeme Yönetimi', ikon: '#ic-gear', tur: 'birincil',
-                onClick: function () { YU.git('malzeme-yonetimi'); }
-              })]
-            : []
-        })
-      }));
+      kap.appendChild(girisPaneli(d, YU.ui.bosDurum({
+        ikon: '#ic-pencil',
+        baslik: 'Aktif Malzeme Yok',
+        metin: 'Giriş yapılabilmesi için en az bir aktif malzeme gerekiyor. Malzemeler Malzeme Yönetimi ekranından açılır.',
+        eylemler: YU.yonetici()
+          ? [YU.ui.dugme({
+              metin: 'Malzeme Yönetimi', ikon: '#ic-gear', tur: 'birincil',
+              onClick: function () { YU.git('malzeme-yonetimi'); }
+            })]
+          : []
+      })));
       return;
     }
 
@@ -607,7 +623,7 @@
       return YU.fmt.tarihUzun(t) + ' · ' + YU.fmt.gunAdi(t) +
         ' · kuru küspe kolonları otomatik doldurulur';
     },
-    ikon: '#ic-pencil',
+    ikon: '#ic-list-plus',
     grup: 'Giriş',
     rol: 'Hepsi',
     ciz: ciz

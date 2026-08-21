@@ -55,8 +55,11 @@
      Hücre üreticileri
      ================================================================== */
 
-  function degerHucresi(v) {
+  function degerHucresi(v, alan) {
     if (bosDeger(v)) return YU.h('span', { sinif: 'yu-zayif', metin: '—' });
+    /* Ham log değeri yerine alanın anlamı: durum alanında 'Evet' değil 'Aktif'. */
+    var okunur = alan ? YU.log.degerCumlesi(alan, v) : null;
+    if (okunur) return YU.h('span', { metin: okunur });
     if (sayisalMi(v)) return YU.h('span', { sinif: 'yu-mono', metin: String(v) });
     return YU.h('span', { metin: String(v) });
   }
@@ -72,7 +75,7 @@
       stil: {
         display: 'inline-flex', alignItems: 'center', gap: '4px', marginLeft: '8px',
         color: artis ? 'var(--olumlu)' : 'var(--olumsuz)',
-        font: '500 11px/1 var(--mono)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap'
+        font: '600 13px/1 var(--sayi)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap'
       },
       title: (artis ? 'Artış' : 'Azalış') + ': ' + YU.fmt.kg(Math.abs(fark))
     }, YU.svg(artis ? '#ic-up' : '#ic-down', 11),
@@ -81,7 +84,7 @@
 
   function yeniDegerHucresi(satir) {
     var cip = farkCipi(satir.EskiDeger, satir.YeniDeger);
-    if (!cip) return degerHucresi(satir.YeniDeger);
+    if (!cip) return degerHucresi(satir.YeniDeger, satir.Alan);
     return YU.h('div', {
       stil: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap' }
     }, degerHucresi(satir.YeniDeger), cip);
@@ -146,7 +149,9 @@
         duz.push({
           satir: gruplar[i].satirlar[j],
           ilk: j === 0,
-          boyut: gruplar[i].satirlar.length
+          boyut: gruplar[i].satirlar.length,
+          /* Detay penceresi işlemin tamamını gösterir, tek satırı değil. */
+          grup: gruplar[i].satirlar
         });
       }
     }
@@ -157,41 +162,305 @@
      Tablo satırı
      ================================================================== */
 
+  /* ==================================================================
+     Kayıt çözümleme — log satırı hangi kaydı işaret ediyor?
+     DegisiklikLog yalnız (Tablo, KayitId) tutuyor; "hangi malzeme, hangi gün"
+     bilgisi kaydın kendisinde. Detay penceresi için buradan okunuyor.
+     ================================================================== */
+
+  var HAREKET_TIPI = {
+    DokmeUretim: 'Dökme üretim', Cuvallama: 'Çuvallama',
+    DokmeSatis: 'Dökme satış', Manuel: 'Manuel'
+  };
+
+  var OZEL_TIP_ADI = {
+    DokmeKuruKuspe: 'Dökme kuru küspe', CuvalKuruKuspe: 'Çuvallı kuru küspe'
+  };
+
+  /* [alan, ekran adı, biçim] */
+  var KAYIT_ALANLARI = {
+    KuruKuspeGunluk: [
+      ['Tarih', 'Tarih', 'tarih'], ['UretilenDokme', 'Üretilen dökme', 'kg'],
+      ['CuvalAdet', 'Çuvallanan adet', 'adet'], ['CuvalKg', 'Çuval karşılığı', 'kg'],
+      ['SatilanDokme', 'Satılan dökme', 'kg'], ['RowVersion', 'Sürüm', 'sayi']
+    ],
+    GunlukHareket: [
+      ['Tarih', 'Tarih', 'tarih'], ['MalzemeId', 'Malzeme', 'malzeme'],
+      ['Uretim', 'Üretim', 'kg'], ['Satis', 'Satış', 'kg'], ['RowVersion', 'Sürüm', 'sayi']
+    ],
+    SiloHareket: [
+      ['Tarih', 'Tarih', 'tarih'], ['SiloId', 'Silo', 'silo'],
+      ['HareketTipi', 'Hareket tipi', 'hareket'], ['GirenKg', 'Giren', 'kg'],
+      ['CikanKg', 'Çıkan', 'kg'], ['KaynakKayitId', 'Kaynak kayıt', 'kayit']
+    ],
+    DevirStok: [
+      ['MalzemeId', 'Malzeme', 'malzeme'], ['DevirTarihi', 'Devir tarihi', 'tarih'], ['Miktar', 'Miktar', 'kg']
+    ],
+    SiloDevirStok: [
+      ['SiloId', 'Silo', 'silo'], ['DevirTarihi', 'Devir tarihi', 'tarih'], ['Miktar', 'Miktar', 'kg']
+    ],
+    Kullanicilar: [
+      ['KullaniciAdi', 'Kullanıcı adı', 'metin'], ['AdSoyad', 'Ad soyad', 'metin'],
+      ['Rol', 'Rol', 'rol'], ['Aktif', 'Durum', 'aktif']
+    ],
+    Malzemeler: [
+      ['Ad', 'Ad', 'metin'], ['Birim', 'Birim', 'metin'], ['Sira', 'Sıra', 'sayi'],
+      ['OzelTip', 'Özel tip', 'ozeltip'], ['Aktif', 'Durum', 'aktif']
+    ]
+  };
+
+  function malzemeAdi(id) {
+    var l = db().malzemeler, i;
+    for (i = 0; i < l.length; i++) if (l[i].Id === id) return l[i].Ad;
+    return id === null || id === undefined ? '—' : 'Malzeme #' + id;
+  }
+
+  function siloAdi(id) {
+    var l = db().silolar, i;
+    for (i = 0; i < l.length; i++) if (l[i].Id === id) return l[i].Ad;
+    return id === null || id === undefined ? '—' : 'Silo #' + id;
+  }
+
+  function alanBicimle(tip, v) {
+    if (v === null || v === undefined || v === '') return '—';
+    if (tip === 'tarih') return YU.fmt.tarih(v);
+    if (tip === 'kg') return YU.fmt.kgU(Number(v) || 0);
+    if (tip === 'adet') return YU.fmt.sayi(Number(v) || 0) + ' adet';
+    if (tip === 'sayi') return YU.fmt.sayi(Number(v) || 0);
+    if (tip === 'malzeme') return malzemeAdi(v);
+    if (tip === 'silo') return siloAdi(v);
+    if (tip === 'hareket') return HAREKET_TIPI[v] || String(v);
+    if (tip === 'ozeltip') return OZEL_TIP_ADI[v] || String(v);
+    if (tip === 'rol') return v === 'Yonetici' ? 'Yönetici' : 'Operatör';
+    if (tip === 'aktif') return v === false ? 'Pasif' : 'Aktif';
+    if (tip === 'kayit') return '#' + v;
+    return String(v);
+  }
+
+  function kayitCoz(tablo, kayitId) {
+    var satir = YU.log.kayitBul(db(), tablo, kayitId);
+    return { satir: satir, bulundu: !!satir };
+  }
+
+  /* Künye ortak çözümleyiciden gelir (04-servis · YU.log.kayitEtiketi). */
+  function kayitEtiketi(tablo, satir) {
+    return satir ? YU.log.kayitEtiketi(db(), tablo, satir.Id) : null;
+  }
+
+  /* O kaydın TÜM log geçmişi — detay penceresindeki zaman çizelgesi. */
+  function kayitGecmisi(tablo, kayitId) {
+    var l = db().degisiklikLog, sonuc = [], i;
+    for (i = 0; i < l.length; i++) {
+      if (l[i].Tablo === tablo && l[i].KayitId === kayitId) sonuc.push(l[i]);
+    }
+    sonuc.sort(function (a, b) { return (b.Id || 0) - (a.Id || 0); });
+    return sonuc;
+  }
+
+  /* ==================================================================
+     Detay penceresi
+     ================================================================== */
+
+  function bolumBasligi(metin, sag) {
+    return YU.h('div', {
+      stil: {
+        display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+        gap: '10px', font: '600 14px/1.2 var(--font)', color: 'var(--metin-3)',
+        letterSpacing: '.04em', textTransform: 'uppercase',
+        paddingBottom: '8px', borderBottom: '1px solid var(--ayrac)'
+      }
+    }, YU.h('span', { metin: metin }), sag ? YU.h('span', {
+      sinif: 'yu-yardim', metin: sag, stil: { textTransform: 'none', letterSpacing: '0' }
+    }) : null);
+  }
+
+  function kunyeSatiri(etiket, deger) {
+    return YU.h('div', {
+      stil: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '14px', padding: '7px 0' }
+    },
+      YU.h('span', { metin: etiket, stil: { font: '400 14px/1.3 var(--font)', color: 'var(--metin-4)', flex: 'none' } }),
+      typeof deger === 'string'
+        ? YU.h('span', { metin: deger, stil: { font: '500 14.5px/1.3 var(--font)', textAlign: 'right' } })
+        : deger
+    );
+  }
+
+  function detayAc(oge) {
+    var s = oge.satir;
+    var grup = oge.grup || [s];
+    var coz = kayitCoz(s.Tablo, s.KayitId);
+    var etiket = kayitEtiketi(s.Tablo, coz.satir);
+    var alanTanimlari = KAYIT_ALANLARI[s.Tablo] || [];
+    var gecmis = kayitGecmisi(s.Tablo, s.KayitId);
+    var bolumler = [];
+
+    /* 1. Künye */
+    var kunye = YU.h('div', { stil: { display: 'flex', flexDirection: 'column' } },
+      kunyeSatiri('İşlem', YU.ui.rozet(islemAdi(s.Islem), ISLEM_RENGI[s.Islem] || 'notr')),
+      kunyeSatiri('Tablo', tabloAdi(s.Tablo)),
+      kunyeSatiri('Kayıt', YU.h('span', {
+        sinif: 'yu-mono',
+        metin: (s.KayitId === null || s.KayitId === undefined ? '—' : '#' + s.KayitId) +
+          (etiket ? '  ·  ' + etiket : '')
+      })),
+      kunyeSatiri('Kullanıcı', kullaniciAdi(s.KullaniciId)),
+      kunyeSatiri('Zaman', YU.fmt.tarihSaat(s.Tarih))
+    );
+    bolumler.push(YU.h('div', {}, bolumBasligi('Künye'), kunye));
+
+    /* 2. Bu işlemde ne değişti */
+    var degisimSatirlari = [], g, gs;
+    for (g = 0; g < grup.length; g++) {
+      gs = grup[g];
+      degisimSatirlari.push([
+        YU.h('span', { metin: gs.Alan || (gs.Islem === 'Ekle' ? 'Kayıt açıldı' : (gs.Islem === 'Sil' ? 'Kayıt silindi' : '—')),
+          sinif: gs.Alan ? '' : 'yu-zayif' }),
+        degerHucresi(gs.EskiDeger, gs.Alan),
+        yeniDegerHucresi(gs)
+      ]);
+    }
+    bolumler.push(YU.h('div', {},
+      bolumBasligi('Bu işlemde', grup.length + (grup.length > 1 ? ' alan' : ' kalem')),
+      YU.ui.tablo({
+        sutunlar: [
+          { baslik: 'Ne Değişti', genislik: 160 },
+          { baslik: 'Eski değer', hiza: 'sag' },
+          { baslik: 'Yeni değer', hiza: 'sag' }
+        ],
+        satirlar: degisimSatirlari, kompakt: true
+      })
+    ));
+
+    /* 3. Kaydın şu anki hâli */
+    var mevcutIcerik;
+    if (!coz.bulundu) {
+      mevcutIcerik = YU.h('div', {
+        sinif: 'yu-yardim',
+        metin: s.Islem === 'Sil'
+          ? 'Bu kayıt silindi; güncel hâli yok. Yukarıdaki değerler silinmeden önceki son durumdur.'
+          : 'Bu kayıt artık veritabanında bulunamıyor (silinmiş olabilir).',
+        stil: { padding: '12px 0' }
+      });
+    } else {
+      var mevcutSatirlar = [], a, tanim, deger;
+      for (a = 0; a < alanTanimlari.length; a++) {
+        tanim = alanTanimlari[a];
+        deger = coz.satir[tanim[0]];
+        mevcutSatirlar.push([
+          YU.h('span', { metin: tanim[1], stil: { color: 'var(--metin-4)' } }),
+          YU.h('span', { sinif: /kg|adet|sayi|tarih|kayit/.test(tanim[2]) ? 'yu-mono' : '', metin: alanBicimle(tanim[2], deger) })
+        ]);
+      }
+      mevcutSatirlar.push([
+        YU.h('span', { metin: 'Oluşturan', stil: { color: 'var(--metin-4)' } }),
+        YU.h('span', { metin: kullaniciAdi(coz.satir.OlusturanKullaniciId) +
+          (coz.satir.OlusturmaTarihi ? ' · ' + YU.fmt.tarihSaat(coz.satir.OlusturmaTarihi) : '') })
+      ]);
+      if (coz.satir.GuncelleyenKullaniciId !== undefined && coz.satir.GuncelleyenKullaniciId !== null) {
+        mevcutSatirlar.push([
+          YU.h('span', { metin: 'Güncelleyen', stil: { color: 'var(--metin-4)' } }),
+          YU.h('span', { metin: kullaniciAdi(coz.satir.GuncelleyenKullaniciId) +
+            (coz.satir.GuncellemeTarihi ? ' · ' + YU.fmt.tarihSaat(coz.satir.GuncellemeTarihi) : '') })
+        ]);
+      }
+      mevcutIcerik = YU.ui.tablo({
+        /* Bu tablo değişiklik değil, kaydın mevcut alanlarını listeliyor. */
+        sutunlar: [{ baslik: 'Bilgi', genislik: 170 }, { baslik: 'Değer', hiza: 'sag' }],
+        satirlar: mevcutSatirlar, kompakt: true
+      });
+    }
+    bolumler.push(YU.h('div', {},
+      bolumBasligi('Kaydın şu anki hâli', coz.bulundu ? null : 'kayıt yok'),
+      mevcutIcerik
+    ));
+
+    /* 4. Bu kaydın tüm geçmişi */
+    if (gecmis.length > 1) {
+      var gecmisSatirlari = [], t;
+      for (t = 0; t < gecmis.length; t++) {
+        gecmisSatirlari.push([
+          YU.h('span', { sinif: 'yu-mono', metin: YU.fmt.tarihSaat(gecmis[t].Tarih), stil: { whiteSpace: 'nowrap' } }),
+          YU.ui.rozet(islemAdi(gecmis[t].Islem), ISLEM_RENGI[gecmis[t].Islem] || 'notr'),
+          YU.h('span', { metin: kullaniciAdi(gecmis[t].KullaniciId) }),
+          YU.h('span', { metin: gecmis[t].Alan || '—', sinif: gecmis[t].Alan ? '' : 'yu-zayif' }),
+          degerHucresi(gecmis[t].EskiDeger, gecmis[t].Alan),
+          yeniDegerHucresi(gecmis[t])
+        ]);
+      }
+      bolumler.push(YU.h('div', {},
+        bolumBasligi('Bu kaydın tüm geçmişi', gecmis.length + ' kayıt'),
+        YU.ui.tablo({
+          sutunlar: [
+            { baslik: 'Zaman', genislik: 140 }, { baslik: 'İşlem', genislik: 88, hiza: 'orta' },
+            { baslik: 'Kullanıcı', genislik: 130 }, { baslik: 'Ne Değişti', genislik: 130 },
+            { baslik: 'Eski', hiza: 'sag' }, { baslik: 'Yeni', hiza: 'sag' }
+          ],
+          satirlar: gecmisSatirlari, kompakt: true
+        })
+      ));
+    }
+
+    var govde = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '22px' } });
+    for (var b = 0; b < bolumler.length; b++) govde.appendChild(bolumler[b]);
+
+    YU.ui.modal({
+      baslik: tabloAdi(s.Tablo) + (etiket ? ' · ' + etiket : ''),
+      govde: govde,
+      genislik: 720,
+      dugmeler: [{ metin: 'Kapat', tur: 'ikincil' }]
+    });
+  }
+
+  /* Ham alan değişiminin altına okunur karşılığı: "Aktif: Evet → Hayır"
+     yerine ne olduğu tek bakışta anlaşılsın. */
+  /* Alt cümle kaldırıldı: eski ve yeni değer artık 'Aktif → Pasif' diye
+     okunur yazıldığı için tekrar oluyordu. */
+  function alanHucresi(s) {
+    return YU.h('span', { metin: s.Alan || '—', sinif: s.Alan ? '' : 'yu-zayif' });
+  }
+
   function tabloSatiri(oge) {
     var s = oge.satir;
 
     if (!oge.ilk) {
       /* Devam satırı: tekrar eden künye boş bırakılır, bağ ↳ ile kurulur. */
       return {
+        onClick: function () { detayAc(oge); },
         hucreler: [
           YU.h('span', { sinif: 'yu-zayif', metin: '↳', title: 'Aynı işlemin devamı' }),
           '', '', '', '',
-          YU.h('span', { metin: s.Alan || '—' }),
-          degerHucresi(s.EskiDeger),
+          alanHucresi(s),
+          degerHucresi(s.EskiDeger, s.Alan),
           yeniDegerHucresi(s)
         ]
       };
     }
 
-    var kayitHucresi = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '2px' } },
+    /* Künye kayıttan çözülüyor: "#968" tek başına hangi malzemenin hangi
+       günü olduğunu söylemiyordu. */
+    var cozum = kayitCoz(s.Tablo, s.KayitId);
+    var kunye = kayitEtiketi(s.Tablo, cozum.satir);
+    var kayitHucresi = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '0' } },
       YU.h('span', {
         sinif: s.KayitId === null || s.KayitId === undefined ? 'yu-zayif' : 'yu-mono',
         metin: s.KayitId === null || s.KayitId === undefined ? '—' : '#' + s.KayitId
       }),
+      kunye ? YU.h('span', { sinif: 'yu-yardim', metin: kunye }) : null,
       oge.boyut > 1
         ? YU.h('span', { sinif: 'yu-yardim', metin: YU.fmt.sayi(oge.boyut) + ' alan' })
         : null
     );
 
     return {
+      onClick: function () { detayAc(oge); },
       hucreler: [
         YU.h('span', { sinif: 'yu-mono', metin: YU.fmt.tarihSaat(s.Tarih), stil: { whiteSpace: 'nowrap' } }),
         YU.h('span', { metin: kullaniciAdi(s.KullaniciId) }),
         YU.ui.rozet(islemAdi(s.Islem), ISLEM_RENGI[s.Islem] || 'notr'),
         YU.h('span', { metin: tabloAdi(s.Tablo) }),
         kayitHucresi,
-        YU.h('span', { metin: s.Alan || '—', sinif: s.Alan ? '' : 'yu-zayif' }),
-        degerHucresi(s.EskiDeger),
+        alanHucresi(s),
+        degerHucresi(s.EskiDeger, s.Alan),
         yeniDegerHucresi(s)
       ]
     };
@@ -209,7 +478,7 @@
       if (!d) return '';
       return YU.fmt.sayi(d.degisiklikLog.length) + ' değişiklik kaydı · alan bazında eski ve yeni değer';
     },
-    ikon: '#ic-dots',
+    ikon: '#ic-log-clock',
     grup: 'Yönetim',
     rol: 'Yonetici',
 
@@ -225,16 +494,6 @@
         }));
         return;
       }
-
-      kap.appendChild(YU.ui.serit({
-        tur: 'bilgi',
-        baslik: 'Bu İz Neden Tutuluyor?',
-        metin: 'Düzeltme bu uygulamada rutin bir işlem. Yalnızca “kim oluşturdu” tutulsaydı ' +
-          '“silo geçen hafta 240.000’di, şimdi neden 290.000?” sorusunun cevabı olmazdı (Şartname §6 v2). ' +
-          'DegisiklikLog her değişikliği alan bazında eski ve yeni değeriyle saklar. ' +
-          'Loglanan tablolar: ' + logTablolariMetni() + '. Silo tanımları bilinçli olarak dışarıdadır — ' +
-          'her tabloyu loglamak veritabanını gereksiz şişirir.'
-      }));
 
       if (!db().degisiklikLog.length) {
         kap.appendChild(YU.ui.bosDurum({
@@ -260,12 +519,6 @@
       sonuclariCiz(sonucKap, durum);
     }
   });
-
-  function logTablolariMetni() {
-    var liste = (YU.log && YU.log.TABLOLAR) || [], adlar = [], i;
-    for (i = 0; i < liste.length; i++) adlar.push(tabloAdi(liste[i]));
-    return adlar.join(', ');
-  }
 
   /* ==================================================================
      Filtre paneli — bir kez kurulur, sonuç alanı yeniden çizilir
@@ -397,7 +650,7 @@
             { baslik: 'İşlem', genislik: 96, hiza: 'orta' },
             { baslik: 'Tablo', genislik: 140 },
             { baslik: 'Kayıt', genislik: 92 },
-            { baslik: 'Alan', genislik: 130 },
+            { baslik: 'Ne Değişti', genislik: 150 },
             { baslik: 'Eski Değer', hiza: 'sag' },
             { baslik: 'Yeni Değer', hiza: 'sag' }
           ],

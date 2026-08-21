@@ -22,7 +22,7 @@
     UretilenDokme: "Üretilen Dökme", CuvalAdet: "Çuval Adedi", CuvalKg: "Çuval Kg",
     SatilanDokme: "Satılan Dökme", Uretim: "Üretim", Satis: "Satış",
     Miktar: "Miktar", DevirTarihi: "Devir Tarihi", Tarih: "Tarih",
-    Ad: "Ad", Birim: "Birim", Sira: "Sıra", OzelTip: "Özel Tip", Aktif: "Aktif",
+    Ad: "Ad", Birim: "Birim", Sira: "Sıra", OzelTip: "Özel Tip", Aktif: "Durum",
     Rol: "Rol", AdSoyad: "Ad Soyad", KullaniciAdi: "Kullanıcı Adı",
     ParolaHash: "Parola", Kapasite: "Kapasite"
   };
@@ -177,6 +177,98 @@
       if (metinDeger(e) === metinDeger(y)) continue;
       logYaz(depo, { tablo: tablo, kayitId: kayitId, alan: a, eski: e, yeni: y, kullaniciId: kullaniciId, islem: "Guncelle" });
     }
+  }
+
+  /* ---------- Log kaydı çözümleme ----------
+     DegisiklikLog yalnız (Tablo, KayitId) tutuyor. "Aktif: Evet → Hayır"
+     satırı tek başına hangi malzemenin pasifleştiğini söylemiyordu; künye
+     kaydın kendisinden okunuyor. Ekranlar bunu ortak kullanıyor. */
+
+  var LOG_HAREKET_ADI = {
+    DokmeUretim: "Dökme üretim", Cuvallama: "Çuvallama",
+    DokmeSatis: "Dökme satış", Manuel: "Manuel"
+  };
+
+  function logTablosu(depo, kod) {
+    if (kod === "KuruKuspeGunluk") return depo.kuruKuspeGunluk;
+    if (kod === "GunlukHareket") return depo.gunlukHareket;
+    if (kod === "SiloHareket") return depo.siloHareket;
+    if (kod === "DevirStok") return depo.devirStok;
+    if (kod === "SiloDevirStok") return depo.siloDevirStok;
+    if (kod === "Kullanicilar") return depo.kullanicilar;
+    if (kod === "Malzemeler") return depo.malzemeler;
+    if (kod === "Silolar") return depo.silolar;
+    return null;
+  }
+
+  function logKayitBul(depo, tablo, kayitId) {
+    var liste = logTablosu(depo, tablo), i;
+    if (!liste || kayitId === null || kayitId === undefined) return null;
+    for (i = 0; i < liste.length; i++) if (liste[i].Id === kayitId) return liste[i];
+    return null;
+  }
+
+  function malzemeAdiKisa(depo, id) {
+    var m = satirBul(depo.malzemeler, id);
+    return m ? m.Ad : (id === null || id === undefined ? "—" : "Malzeme #" + id);
+  }
+
+  function siloAdiKisa(depo, id) {
+    var s = satirBul(depo.silolar, id);
+    return s ? s.Ad : (id === null || id === undefined ? "—" : "Silo #" + id);
+  }
+
+  /* Kaydın insan okur künyesi. Kayıt silinmişse null döner. */
+  function logKayitEtiketi(depo, tablo, kayitId) {
+    var k = logKayitBul(depo, tablo, kayitId);
+    if (!k) return null;
+    if (tablo === "KuruKuspeGunluk") return YU.fmt.tarih(k.Tarih);
+    if (tablo === "GunlukHareket") return malzemeAdiKisa(depo, k.MalzemeId) + " · " + YU.fmt.tarih(k.Tarih);
+    if (tablo === "SiloHareket") {
+      return siloAdiKisa(depo, k.SiloId) + " · " + YU.fmt.tarih(k.Tarih) +
+        " · " + (LOG_HAREKET_ADI[k.HareketTipi] || k.HareketTipi);
+    }
+    if (tablo === "DevirStok") return malzemeAdiKisa(depo, k.MalzemeId) + " · " + YU.fmt.tarih(k.DevirTarihi);
+    if (tablo === "SiloDevirStok") return siloAdiKisa(depo, k.SiloId) + " · " + YU.fmt.tarih(k.DevirTarihi);
+    if (tablo === "Kullanicilar") return k.AdSoyad;
+    if (tablo === "Malzemeler") return k.Ad;
+    if (tablo === "Silolar") return k.Ad;
+    return null;
+  }
+
+  /* Log değerleri metin olarak saklanıyor (boolean -> "Evet"/"Hayır"). Ekranda
+     alanın anlamına göre karşılığı yazılır: durum alanında "Evet" değil "Aktif". */
+  function logDegerCumlesi(alan, deger) {
+    if (deger === null || deger === undefined || deger === "") return null;
+    var d = String(deger);
+    if (alan === "Durum" || alan === "Aktif") {
+      if (d === "Evet") return "Aktif";
+      if (d === "Hayır") return "Pasif";
+    }
+    if (alan === "Rol") {
+      if (d === "Yonetici") return "Yönetici";
+      if (d === "Operator") return "Operatör";
+    }
+    if (alan === "Özel Tip" || alan === "OzelTip") {
+      if (d === "DokmeKuruKuspe") return "Dökme kuru küspe";
+      if (d === "CuvalKuruKuspe") return "Çuvallı kuru küspe";
+    }
+    if (alan === "Hareket Tipi" || alan === "HareketTipi") {
+      if (LOG_HAREKET_ADI[d]) return LOG_HAREKET_ADI[d];
+    }
+    return null;
+  }
+
+  /* "Aktif: Evet → Hayır" gibi ham alan değişimlerinin okunur karşılığı.
+     Karşılığı yoksa null döner, çağıran genel biçime düşer. */
+  function logAlanCumlesi(alan, eski, yeni) {
+    if (alan === "Durum" || alan === "Aktif") {
+      if (yeni === "Hayır" || yeni === "Pasif") return "pasifleştirildi";
+      if (yeni === "Evet" || yeni === "Aktif") return "yeniden aktifleştirildi";
+    }
+    if (alan === "Rol") return "rolü " + (yeni === "Yonetici" ? "Yönetici" : "Operatör") + " oldu";
+    if (alan === "ParolaHash") return "parolası sıfırlandı";
+    return null;
   }
 
   /* ---------- YU.stok — saf okuma ---------- */
@@ -1045,6 +1137,10 @@
 
   YU.log = {
     TABLOLAR: LOGLANAN_TABLOLAR,
-    yaz: logYaz
+    yaz: logYaz,
+    kayitBul: logKayitBul,
+    kayitEtiketi: logKayitEtiketi,
+    alanCumlesi: logAlanCumlesi,
+    degerCumlesi: logDegerCumlesi
   };
 })();

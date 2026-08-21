@@ -143,11 +143,12 @@
     var tur = dolulukTur(oran);
     var devir = YU.stok.enSonDevir(depo, 'Silo', silo.Id, tarih);
 
+    /* Yüzde artık silo görselinin ortasında yazıyor (YU.ui.siloSekli);
+       başlıkta ayrıca rozet gösterilmez. */
     var bas = YU.h('div', { sinif: 'yu-panel-bas' },
       YU.h('div', { sinif: 'yu-kpi-ikon' }, YU.svg('#ic-building', 15)),
       YU.h('div', { sinif: 'yu-panel-baslik', metin: silo.Ad }),
-      silo.Aktif === false ? YU.ui.rozet('Pasif', 'notr') : null,
-      YU.ui.rozet(YU.fmt.yuzde(oran * 100), kapasite > 0 ? tur : 'notr')
+      silo.Aktif === false ? YU.ui.rozet('Pasif', 'notr') : null
     );
 
     var kapasiteSatiri = YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '6px' } },
@@ -155,10 +156,10 @@
       kapasiteNotu()
     );
 
-    var govde = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '12px' } },
+    var bilgi = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '12px', flex: '1', minWidth: '0' } },
       YU.h('div', null,
-        YU.h('div', { sinif: 'yu-kpi-deger', metin: YU.fmt.kg(satirVeri.mevcut) }),
-        YU.h('div', { sinif: 'yu-kpi-alt', metin: 'kg mevcut · ' + YU.fmt.ton(satirVeri.mevcut) })
+        YU.h('div', { sinif: 'yu-kpi-deger', metin: YU.fmt.kgU(satirVeri.mevcut) }),
+        YU.h('div', { sinif: 'yu-kpi-alt', metin: 'mevcut · ' + YU.fmt.ton(satirVeri.mevcut) })
       ),
       YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '7px' } },
         YU.ui.cubuk(oran, tur),
@@ -167,10 +168,16 @@
       kapasiteSatiri,
       YU.h('hr', { sinif: 'yu-ayrac yu-yatay' }),
       YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '8px' } },
-        satir(devir ? 'Devir · ' + YU.fmt.tarih(devir.DevirTarihi) : 'Devir', YU.fmt.kg(satirVeri.devir)),
-        satir('Giren', YU.fmt.kg(satirVeri.giren)),
-        satir('Çıkan', YU.fmt.kg(satirVeri.cikan))
+        satir(devir ? 'Devir · ' + YU.fmt.tarih(devir.DevirTarihi) : 'Devir', YU.fmt.kgU(satirVeri.devir)),
+        satir('Giren', YU.fmt.kgU(satirVeri.giren)),
+        satir('Çıkan', YU.fmt.kgU(satirVeri.cikan))
       )
+    );
+
+    /* Ana Sayfa kartıyla aynı düzen: solda doluluk görseli, sağda bilgiler. */
+    var govde = YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '16px' } },
+      YU.ui.siloSekli(oran, kapasite > 0 ? tur : 'notr'),
+      bilgi
     );
 
     return YU.h('div', { sinif: 'yu-panel' }, bas, govde);
@@ -186,19 +193,17 @@
     kapasite = YU.yuvarla(kapasite);
     var oran = kapasite > 0 ? mevcut / kapasite : 0;
 
+    /* .yu-hesap dikey fiş düzenidir; özet öğeleri yan yana durmalı, bu yüzden
+       yatay .yu-hesap-satir kabına alınır ve şerit boyunca eşit dağıtılır. */
     return YU.h('div', null,
       YU.h('div', { sinif: 'yu-hesap' },
-        hesapOge('Toplam mevcut', YU.fmt.kg(mevcut)),
-        hesapOge('Toplam kapasite', YU.fmt.kg(kapasite)),
-        hesapOge('Doluluk', YU.fmt.yuzde(oran * 100), kapasite > 0 ? dolulukTur(oran) : null),
-        hesapOge('Ton karşılığı', YU.fmt.ton(mevcut))
-      ),
-      YU.h('div', {
-        sinif: 'yu-yardim',
-        stil: { marginTop: '7px' },
-        metin: 'Dökme kuru küspe fiziksel olarak silolarda durur; stoğu siloların ' +
-          'toplamıdır (Şartname §5, kritik kural).'
-      })
+        YU.h('div', { sinif: 'yu-hesap-satir', stil: { justifyContent: 'space-between' } },
+          hesapOge('Toplam mevcut', YU.fmt.kgU(mevcut)),
+          hesapOge('Toplam kapasite', YU.fmt.kgU(kapasite)),
+          hesapOge('Doluluk', YU.fmt.yuzde(oran * 100), kapasite > 0 ? dolulukTur(oran) : null),
+          hesapOge('Ton karşılığı', YU.fmt.ton(mevcut))
+        )
+      )
     );
   }
 
@@ -307,7 +312,8 @@
         k = gosterilen[j].bakiye;
         satirlar.push({
           vurgu: k < 0 ? 'olumsuz' : null,
-          onClick: (function (t) { return function () { YU.git('gunluk-rapor', { tarih: t }); }; })(h.Tarih),
+          /* Tam sayfaya gitmek yerine küçük pencere: kullanıcı listeden kopmuyor. */
+          onClick: (function (t) { return function () { YU.gunPenceresi(t); }; })(h.Tarih),
           hucreler: [
             YU.fmt.tarih(h.Tarih),
             siloAdi(depo, h.SiloId),
@@ -339,6 +345,7 @@
           { baslik: 'Kaynak', genislik: 150 }
         ],
         satirlar: satirlar,
+        tiklamaIpucu: 'Günün raporunu açmak için tıklayın',
         bos: 'Bu süzgeçle eşleşen silo hareketi yok.'
       }));
     }

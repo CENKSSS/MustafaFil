@@ -164,43 +164,6 @@
   }
 
   /* ------------------------------------------------------------------
-     Üst açıklama ve açık soru notu
-     ------------------------------------------------------------------ */
-
-  function aciklamaSeridi() {
-    var serit = YU.ui.serit({
-      tur: 'bilgi', ikon: '#ic-wallet',
-      baslik: 'Stok = en son devir (seçilen tarihe kadar) + o tarihten sonraki üretim − satış',
-      metin: 'Devir, bir kampanyanın açılış stoğudur. Aynı malzeme için farklı tarihlerde birden çok ' +
-        'devir satırı olabilir; stok hesabında sorgulanan tarihe kadarki en son devir kullanılır ve ' +
-        'yalnızca o tarihten sonraki hareketler toplanır.'
-    });
-    var govde = serit.querySelector('.yu-serit-govde');
-    govde.appendChild(YU.h('div', {
-      stil: { marginTop: '6px' },
-      metin: 'Bir devri değiştirmek yalnız bugünü değil, o tarihten sonraki tüm günlerin stoğunu ' +
-        'değiştirir. Kaydetmeden önce etki önizlemede gösterilir.'
-    }));
-    govde.appendChild(YU.h('div', {
-      stil: { marginTop: '6px' },
-      metin: 'Dökme kuru küspe istisnadır: stoğu bu formülle değil, siloların toplamıyla hesaplanır ' +
-        '(Şartname §5). Dökme açılış stoğu Silo Devirleri sekmesinden girilir.'
-    }));
-    return serit;
-  }
-
-  function acikSoruNotu() {
-    return YU.ui.serit({
-      tur: 'uyari', ikon: '#ic-doc',
-      baslik: 'Açık Soru — Şartname §13, Soru 2',
-      metin: 'Gelecek kampanyada devir stoğun ne olacağı netleşmedi. Bu ekran §5’teki v2 varsayımını ' +
-        'uygular: her kampanya için ayrı bir devir satırı açılır, eski kampanya olduğu gibi durur. ' +
-        'Cevap “üzerine yazarız” olursa malzeme başına tek satırlık yapıya dönülür, buradaki ' +
-        '“yeni kampanya devri” akışı ve tarih listesi kalkar. Karar verilmeden bu ekranın davranışı kesin değildir.'
-    });
-  }
-
-  /* ------------------------------------------------------------------
      Tarih paneli
      ------------------------------------------------------------------ */
 
@@ -717,7 +680,6 @@
       if (p.sekme === 'silo' || p.sekme === 'malzeme') durum.sekme = p.sekme;
       if (p.tarih) durum.tarih[durum.sekme] = p.tarih;
 
-      kap.appendChild(aciklamaSeridi());
       kap.appendChild(YU.ui.sekmeler({
         sekmeler: [
           { kod: 'malzeme', metin: 'Malzeme Devirleri' },
@@ -730,7 +692,6 @@
       var govde = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '20px' } });
       dom.govde = govde;
       kap.appendChild(govde);
-      kap.appendChild(acikSoruNotu());
 
       govdeyiCiz();
     }
