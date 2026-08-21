@@ -1237,7 +1237,7 @@
       YU.h('div', { stil: { flex: '1', minWidth: '0' } }, baslik, alt),
       eylemler
     );
-    var kap = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '20px' } });
+    var kap = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '12px' } });
     var icerik = YU.h('div', { sinif: 'yu-icerik' }, sayfaBas, kap);
 
     dom.yan = yan; dom.menu = yan.querySelector('.yu-menu');
@@ -1475,7 +1475,7 @@
     var bas = null;
     if (s.baslik || s.sag || s.ikon) {
       bas = YU.h('div', { sinif: 'yu-panel-bas' },
-        s.ikon ? YU.h('span', { stil: { display: 'flex', color: 'var(--vurgu)' } }, YU.svg(s.ikon, 15)) : null,
+        s.ikon ? YU.h('span', { stil: { display: 'flex', color: 'var(--vurgu)' } }, YU.svg(s.ikon, 18)) : null,   /* 15 -> 18 (kullanıcı isteği) */
         YU.h('div', { sinif: 'yu-panel-baslik', metin: s.baslik || '', stil: { flex: '1' } }),
         s.sag ? YU.h('div', { sinif: 'yu-panel-sag' }, s.sag) : null
       );

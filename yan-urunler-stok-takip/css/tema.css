@@ -732,10 +732,12 @@ html[data-tema="acik"] input[type="date"]::-webkit-calendar-picker-indicator { f
    ========================================================================== */
 
 .yu-icerik {
-  padding: 26px 28px;
+  /* Yoğunluk sıkılaştırıldı (kullanıcı isteği, 21.08.2026): paneller arası
+     boşluk 20 -> 12, kenar dolgusu 26/28 -> 20/24. */
+  padding: 20px 24px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
   flex: 1;
   min-width: 0;
 }
@@ -835,7 +837,7 @@ html[data-tema="acik"] input[type="date"]::-webkit-calendar-picker-indicator { f
    KART — ızgara ve KPI
    ========================================================================== */
 
-.yu-izgara { display: grid; gap: 14px; }
+.yu-izgara { display: grid; gap: 10px; }
 .yu-izgara > * { min-width: 0; }
 
 .yu-iz-2 { grid-template-columns: repeat(2, 1fr); }
@@ -850,7 +852,7 @@ html[data-tema="acik"] input[type="date"]::-webkit-calendar-picker-indicator { f
 .yu-izgara.yu-esit > * { height: 100%; }
 
 .yu-kpi {
-  padding: 16px 17px;
+  padding: 13px 15px;
   border: 1px solid var(--kenar);
   border-radius: var(--r-l);
   background: var(--yuzey);
@@ -904,7 +906,7 @@ html[data-tema="acik"] input[type="date"]::-webkit-calendar-picker-indicator { f
    ========================================================================== */
 
 .yu-panel {
-  padding: 18px 20px;
+  padding: 14px 16px;
   border: 1px solid var(--kenar);
   border-radius: var(--r-l);
   background: var(--yuzey);
@@ -915,7 +917,7 @@ html[data-tema="acik"] input[type="date"]::-webkit-calendar-picker-indicator { f
   display: flex;
   align-items: center;
   gap: 9px;
-  margin-bottom: 16px;
+  margin-bottom: 11px;
 }
 .yu-panel-bas > svg { color: var(--vurgu); }
 
@@ -923,7 +925,7 @@ html[data-tema="acik"] input[type="date"]::-webkit-calendar-picker-indicator { f
    gövde metniyle aynı ağırlıkta kaldığı için başlıklar seçilemez oldu; sayfa
    başlığı (600 20px) ile gövde arasına oturacak şekilde büyütüldü. */
 .yu-panel-baslik {
-  font: 600 17px/1.2 var(--font);
+  font: 600 18px/1.2 var(--font);   /* 17 -> 18 (kullanıcı isteği, 21.08.2026) */
   letter-spacing: -.011em;
   color: var(--metin);
   flex: 1;

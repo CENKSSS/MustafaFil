@@ -380,6 +380,10 @@
       return;
     }
 
+    /* Künye en tepede (kullanıcı isteği, 21.08.2026): kim girdi, kim
+       güncelledi — güne bakan ilk onu görür. */
+    kap.appendChild(kayitPaneli(depo, ozet));
+
     if (ozet.kuruKuspe) {
       kap.appendChild(kuruKuspePaneli(ozet.kuruKuspe, ozet.hesap));
     } else {
@@ -396,7 +400,6 @@
 
     kap.appendChild(malzemePaneli(ozet));
     kap.appendChild(siloPaneli(depo, ozet, tarih));
-    kap.appendChild(kayitPaneli(depo, ozet));
   }
 
   YU.sayfaTanimla({
