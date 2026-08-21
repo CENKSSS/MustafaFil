@@ -767,92 +767,76 @@
     return a;
   }
 
-  /* Rapor merkezi — menüdeki "Raporlar" başlığına tıklayınca TAM EKRAN
-     açılan üç büyük kart: Stok Durumu, Silo Durumu, Günlük Rapor. Kartta
-     üstte ad, altında büyük ikon; üzerine gelince vurgu zemin. Esc ya da
-     Kapat ile çıkılır (kullanıcı isteği, 21.08.2026). */
+  /* Rapor merkezi — menüdeki "Raporlar" başlığına tıklayınca ortada açılan
+     pencere: üç büyük kart (Stok Durumu, Silo Durumu, Günlük Rapor). Kartta
+     üstte ad, altında büyük ikon; üzerine gelince vurgu zemin. Tam ekran
+     denendi, pencereye dönüldü — bir tık büyüğü (kullanıcı isteği, 21.08.2026). */
   var RAPOR_MERKEZI = [
-    { kod: 'stok-durumu', ad: 'Stok Durumu', ikon: '#ic-chart' },
-    { kod: 'silo-durumu', ad: 'Silo Durumu', ikon: '#ic-building' },
+    { kod: 'stok-durumu', ad: 'Stok Durumu Raporu', ikon: '#ic-chart' },
+    { kod: 'silo-durumu', ad: 'Silo Durumu Raporu', ikon: '#ic-building' },
     { kod: 'gunluk-rapor', ad: 'Günlük Rapor', ikon: '#ic-doc' }
   ];
 
   function raporMerkeziAc() {
-    var perde = YU.h('div', {
-      stil: {
-        position: 'fixed', top: '0', right: '0', bottom: '0', left: '0',
-        zIndex: '70', background: 'var(--zemin)',
-        display: 'flex', flexDirection: 'column'
-      }
-    });
-
-    function kapat() {
-      if (perde.parentNode) perde.parentNode.removeChild(perde);
-      document.removeEventListener('keydown', escDinle);
-    }
-    function escDinle(e) { if (e.key === 'Escape') kapat(); }
-    document.addEventListener('keydown', escDinle);
-
-    /* Üst bant: büyük başlık ortada, Kapat sağda; altındaki çizgi kolon
-       ayraçlarıyla birlikte ekranı bölen ızgarayı kurar (kullanıcı eskizi). */
-    perde.appendChild(YU.h('div', {
-      stil: {
-        position: 'relative', padding: '46px 32px 40px',
-        borderBottom: '1px solid var(--kenar-2)', flex: 'none', textAlign: 'center'
-      }
-    },
-      YU.h('div', {
-        metin: 'Raporlar',
-        stil: { font: '600 30px/1.15 var(--font)', letterSpacing: '-.015em', color: 'var(--metin)' }
-      }),
-      YU.h('div', {
-        stil: { position: 'absolute', top: '20px', right: '28px' }
-      }, YU.ui.dugme({ metin: 'Kapat', tur: 'ikincil', onClick: kapat }))
-    ));
-
-    /* Üç tam yükseklik kolon; aralarında boydan boya dikey ayraç. */
-    var kolonlar = YU.h('div', {
-      stil: { flex: '1', minHeight: '0', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)' }
+    var m;
+    var izgara = YU.h('div', {
+      stil: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }
     });
 
     for (var i = 0; i < RAPOR_MERKEZI.length; i++) {
-      (function (r, sira) {
+      (function (r) {
         var ikonKap;
-        function git() { kapat(); YU.git(r.kod); }
-        var kolon = YU.h('div', {
+        function git() { m.kapat(); YU.git(r.kod); }
+        var kart = YU.h('div', {
           role: 'button', tabindex: '0', title: r.ad,
           stil: {
             display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', gap: '34px', padding: '24px',
-            borderLeft: sira ? '1px solid var(--kenar-2)' : 'none',
-            cursor: 'pointer', textAlign: 'center', minWidth: '0',
-            transition: 'background-color .12s'
+            justifyContent: 'center', gap: '24px', padding: '44px 16px 38px',
+            border: '1px solid var(--kenar-2)', borderRadius: 'var(--r-l)',
+            background: 'var(--yuzey)', cursor: 'pointer', textAlign: 'center',
+            transition: 'background-color .12s, border-color .12s'
           },
           onClick: git,
           onKeyDown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); git(); } },
           onMouseEnter: function () {
-            kolon.style.background = 'var(--vurgu-zemin)';
+            kart.style.background = 'var(--vurgu-zemin)';
+            kart.style.borderColor = 'var(--vurgu)';
             ikonKap.style.color = 'var(--vurgu)';
           },
           onMouseLeave: function () {
-            kolon.style.background = 'transparent';
+            kart.style.background = 'var(--yuzey)';
+            kart.style.borderColor = 'var(--kenar-2)';
             ikonKap.style.color = 'var(--metin-2)';
           }
         });
-        kolon.appendChild(YU.h('div', {
+        kart.appendChild(YU.h('div', {
           metin: r.ad,
-          stil: { font: '600 21px/1.2 var(--font)', letterSpacing: '-.01em', color: 'var(--metin)' }
+          stil: { font: '600 17px/1.2 var(--font)', letterSpacing: '-.01em', color: 'var(--metin)' }
         }));
         ikonKap = YU.h('div', {
           stil: { color: 'var(--metin-2)', display: 'flex', transition: 'color .12s' }
-        }, YU.svg(r.ikon, 84));
-        kolon.appendChild(ikonKap);
-        kolonlar.appendChild(kolon);
-      })(RAPOR_MERKEZI[i], i);
+        }, YU.svg(r.ikon, 62));
+        kart.appendChild(ikonKap);
+        izgara.appendChild(kart);
+      })(RAPOR_MERKEZI[i]);
     }
 
-    perde.appendChild(kolonlar);
-    document.body.appendChild(perde);
+    /* Başlık sol şerit yerine gövdenin üstünde ORTALANIR (kullanıcı isteği,
+       21.08.2026); modalın kendi başlık şeridi bu yüzden kullanılmıyor. */
+    m = YU.ui.modal({
+      genislik: 720,
+      govde: [
+        YU.h('div', {
+          metin: 'Raporlar',
+          stil: {
+            font: '600 20px/1.2 var(--font)', letterSpacing: '-.012em',
+            color: 'var(--metin)', textAlign: 'center', padding: '8px 0 2px'
+          }
+        }),
+        izgara
+      ],
+      dugmeler: [{ metin: 'Kapat', tur: 'sade', onClick: function () { m.kapat(); } }]
+    });
   }
 
   function menuKur() {

@@ -94,7 +94,7 @@
 
     /* Günün tarihi panel BAŞLIĞININ ortasında BÜYÜK yazar — eskizdeki
        konumda: iri tarih, altında gün adı (kullanıcı isteği, 21.08.2026). */
-    var tarihBlok = YU.h('div', { stil: { marginRight: '18px', textAlign: 'center', flex: 'none' } },
+    var tarihBlok = YU.h('div', { stil: { margin: '0 auto', textAlign: 'center', flex: 'none' } },
       YU.h('div', {
         stil: { font: '650 26px/1.1 var(--sayi)', letterSpacing: '-.02em',
                 fontVariantNumeric: 'tabular-nums', color: 'var(--metin)' },
@@ -166,10 +166,15 @@
       ]
     });
 
-    /* Başlık satırı: [ikon][başlık] … [TARİH rozet] — tarih, sağ kabın
-       içinde rozetin hemen solunda durur (kullanıcı isteği: bayağı sağda). */
+    /* Başlık satırı: [ikon][başlık] … TARİH … [rozet] — tarih, başlığın
+       bittiği yerle rozet arasındaki boşluğun tam ortasında durur. Sağ kabın
+       kendi otomatik boşluğu kapatılır; yoksa boşluğu tarihle bölüşüp onu
+       sola kaydırıyordu. */
+    var basEl = panel.querySelector('.yu-panel-bas');
     var sagEl = panel.querySelector('.yu-panel-sag');
-    sagEl.insertBefore(tarihBlok, sagEl.firstChild);
+    basEl.querySelector('.yu-panel-baslik').style.flex = 'none';
+    sagEl.style.marginLeft = '0';
+    basEl.insertBefore(tarihBlok, sagEl);
 
     return panel;
   }
