@@ -181,6 +181,10 @@
         yas: gunToplami(depo, yasIdler, sonGun),
         poset: gunToplami(depo, posetIdler, sonGun)
       },
+      /* Kampanya boyunca üretilen/satılan çuvallı toplamı (dokmePencere
+         malzeme kimliğiyle çalışır, adı tarihseldir). */
+      kampanyaCuval: dokmePencere(depo, cuvalSatir ? cuvalSatir.malzeme.Id : null,
+        donem ? donem.bas : null, donem ? donem.bit : null),
       bos: !depo.kuruKuspeGunluk.length && !depo.gunlukHareket.length &&
            !depo.devirStok.length && !depo.siloDevirStok.length
     };
@@ -315,6 +319,26 @@
     });
   }
 
+  /* Kampanya toplamı: üretilen çuvallı kg + adet; mevcut stok kartından
+     farkı budur (kullanıcı isteği, 21.08.2026). */
+  function kartToplamCuval(o) {
+    var adet = Math.round(o.kampanyaCuval.uretim / YU.hesap.CUVAL_KG);
+    return kpiKarti({
+      etiket: 'Toplam Çuvallı Kuru Küspe', ikon: '#ic-sack',
+      deger: degerSatiri([
+        YU.h('span', { metin: YU.fmt.kg(o.kampanyaCuval.uretim) }), birimEki('kg üretim'),
+        birimEki('/'),
+        YU.h('span', { metin: YU.fmt.sayi(adet) }), birimEki('adet çuval')
+      ]),
+      alt: YU.h('div', {
+        sinif: 'yu-kpi-alt',
+        metin: o.donem
+          ? 'Kampanya ' + o.donem.ad + ' toplamı · satış ' + YU.fmt.kgU(o.kampanyaCuval.satis)
+          : 'Kampanya dönemi tanımlı değil.'
+      })
+    });
+  }
+
   function kartYas(o) {
     return kpiKarti({
       etiket: 'Yaş Küspe Stoğu', ikon: '#ic-beet',
@@ -444,6 +468,7 @@
   var KART_KATALOG = [
     { kod: 'dokme', ad: 'Toplam Dökme Kuru Küspe', aciklama: 'Siloların toplamı, doluluk ve 7 günlük değişim.', ciz: kartDokme },
     { kod: 'cuval', ad: 'Çuvallı Kuru Küspe', aciklama: 'kg karşılığı ve çuval adedi.', ciz: kartCuval },
+    { kod: 'toplam-cuval', ad: 'Toplam Çuvallı Kuru Küspe', aciklama: 'Kampanya boyunca üretilen çuvallı toplamı ve satışı.', ciz: kartToplamCuval },
     { kod: 'yas', ad: 'Yaş Küspe Stoğu', aciklama: 'Tonluk ve 25\'lik kırılımı.', ciz: kartYas },
     { kod: 'gunluk-dokme', ad: 'Günlük Dökme Üretim ve Satış', aciklama: 'Son kayıtlı günün dökme kuru küspe üretimi ve satışı.', ciz: kartGunlukDokme },
     { kod: 'gunluk-cuval', ad: 'Günlük Çuvallı Kuru Küspe Üretim ve Satış', aciklama: 'Son kayıtlı günün çuvallı kuru küspe üretimi ve satışı.', ciz: kartGunlukCuval },
@@ -456,7 +481,7 @@
     { kod: 'gun', ad: 'Kayıtlı Gün Sayısı', aciklama: 'Kampanyada veri girilmiş gün sayısı.', ciz: kartKayitliGun }
   ];
 
-  var VARSAYILAN_KARTLAR = ['dokme', 'cuval', 'yas', 'gunluk-dokme', 'gunluk-cuval', 'gunluk-yas', 'gunluk-poset', 'uretim30', 'satis30'];
+  var VARSAYILAN_KARTLAR = ['dokme', 'cuval', 'toplam-cuval', 'yas', 'gunluk-dokme', 'gunluk-cuval', 'gunluk-yas', 'gunluk-poset', 'uretim30', 'satis30'];
 
   function kartBul(kod) {
     for (var i = 0; i < KART_KATALOG.length; i++) if (KART_KATALOG[i].kod === kod) return KART_KATALOG[i];

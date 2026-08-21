@@ -472,14 +472,43 @@
       return (Number(a.Id) || 0) - (Number(b.Id) || 0);
     });
 
+    /* Sonradan geçersizleşen adımlar işaretlenir (kullanıcı isteği,
+       21.08.2026): aynı kaydın üstüne daha sonra yazılmışsa eski adımın
+       ayrıntısı ÜSTÜ ÇİZİLİ ama okunur kalır, sağında "Güncellendi" /
+       "Silindi" rozeti durur. Kurallar:
+       - sonra aynı kayıt silindiyse                        -> Silindi
+       - Ekle'nin kaydına sonra herhangi bir dokunuş        -> Güncellendi
+       - aynı ALANIN daha yeni bir güncellemesi varsa       -> Güncellendi */
+    var gecersiz = [], j, sonra;
+    for (i = 0; i < liste.length; i++) {
+      l = liste[i];
+      for (j = i + 1; j < liste.length; j++) {
+        sonra = liste[j];
+        if (sonra.Tablo !== l.Tablo || sonra.KayitId !== l.KayitId) continue;
+        if (sonra.Islem === 'Sil') { gecersiz[i] = 'Silindi'; break; }
+        if (l.Islem === 'Ekle') { gecersiz[i] = gecersiz[i] || 'Güncellendi'; }
+        else if (l.Islem === 'Guncelle' && l.Alan && sonra.Alan === l.Alan) { gecersiz[i] = 'Güncellendi'; }
+      }
+    }
+
     var satirlar = [];
     for (i = 0; i < liste.length; i++) {
       l = liste[i];
+      var ayrinti = islemAyrintisi(depo, l, tarih);
+      if (gecersiz[i]) {
+        ayrinti.style.textDecoration = 'line-through';
+        ayrinti.style.textDecorationColor = 'var(--metin-4)';
+        ayrinti.style.color = 'var(--metin-4)';
+        ayrinti = YU.h('span', { stil: { display: 'inline-flex', alignItems: 'center', gap: '9px', minWidth: '0' } },
+          ayrinti,
+          YU.ui.rozet(gecersiz[i], gecersiz[i] === 'Silindi' ? 'olumsuz' : 'bekleyen')
+        );
+      }
       satirlar.push([
         YU.h('span', { sinif: 'yu-mono', metin: YU.fmt.saat(l.Tarih), stil: { whiteSpace: 'nowrap' } }),
         YU.h('span', { metin: kullaniciAdi(depo, l.KullaniciId) || '—' }),
         YU.ui.rozet(ISLEM_ADI[l.Islem] || l.Islem, ISLEM_RENGI[l.Islem] || 'notr'),
-        islemAyrintisi(depo, l, tarih)
+        ayrinti
       ]);
     }
 

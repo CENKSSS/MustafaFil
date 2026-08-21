@@ -626,6 +626,25 @@
         }));
     }
 
+    /* 2b — sabah girilen atık satırı akşam sayımında düzeltildi: 180 değil
+       200 kg. Günün İşlem Geçmişi'nde ilk girişin "üstü çizili · Güncellendi"
+       görünmesi için kasıtlı örnek (kullanıcı isteği, 21.08.2026). */
+    m = malzemeler["Atık Kuru Küspe"];
+    if (m) {
+      var atikH = hareketBul(depo, sonGun, m.Id);
+      if (atikH) {
+        calistir(durum, "atık düzeltmesi · Atık Kuru Küspe", sonGun,
+          izle(depo, sonGun + "T16:05:00", function () {
+            return YU.servis.malzemeHareketKaydet(depo, {
+              tarih: sonGun, malzemeId: m.Id,
+              uretim: (Number(atikH.Uretim) || 0) + 20,
+              satis: Number(atikH.Satis) || 0,
+              rowVersion: atikH.RowVersion
+            }, operator2);
+          }));
+      }
+    }
+
     /* 3 — malzeme devri düzeltmesi: kampanya başı sayımı sonradan revize edildi */
     m = malzemeler["Kuyruk"];
     d = m ? devirBul(depo, m.Id, plan.devirTarihi) : null;
