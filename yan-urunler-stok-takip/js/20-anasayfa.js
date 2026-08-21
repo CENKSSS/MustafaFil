@@ -191,10 +191,6 @@
         tonluk: gunToplami(depo, yasIdler.filter(function (id) { return posetIdler.indexOf(id) < 0; }), sonGun),
         poset: gunToplami(depo, posetIdler, sonGun)
       },
-      /* Kampanya boyunca üretilen/satılan çuvallı toplamı (dokmePencere
-         malzeme kimliğiyle çalışır, adı tarihseldir). */
-      kampanyaCuval: dokmePencere(depo, cuvalSatir ? cuvalSatir.malzeme.Id : null,
-        donem ? donem.bas : null, donem ? donem.bit : null),
       bos: !depo.kuruKuspeGunluk.length && !depo.gunlukHareket.length &&
            !depo.devirStok.length && !depo.siloDevirStok.length
     };
@@ -295,7 +291,7 @@
   function kartCuval(o) {
     var cuvalAdet = Math.round(o.cuvalMevcut / YU.hesap.CUVAL_KG);
     return kpiKarti({
-      etiket: 'Çuvallı Kuru Küspe', ikon: '#ic-sack',
+      etiket: '50 KG Çuvallı Kuru Küspe', ikon: '#ic-sack',
       deger: degerSatiri([
         YU.h('span', { metin: YU.fmt.kg(o.cuvalMevcut) }), birimEki('kg'),
         birimEki('/'),
@@ -310,19 +306,10 @@
 
   /* Kampanya toplamı: üretilen çuvallı kg + adet; mevcut stok kartından
      farkı budur (kullanıcı isteği, 21.08.2026). */
-  function kartToplamCuval(o) {
-    var adet = Math.round(o.kampanyaCuval.uretim / YU.hesap.CUVAL_KG);
-    /* Sade gösterim: yalnız "kg / çuval"; kampanya ve satış satırı yok
-       (kullanıcı isteği, 21.08.2026). */
-    return kpiKarti({
-      etiket: 'Toplam Çuvallı Kuru Küspe', ikon: '#ic-sack',
-      deger: degerSatiri([
-        YU.h('span', { metin: YU.fmt.kg(o.kampanyaCuval.uretim) }), birimEki('kg'),
-        birimEki('/'),
-        YU.h('span', { metin: YU.fmt.sayi(adet) }), birimEki('çuval')
-      ])
-    });
-  }
+  /* "Toplam Çuvallı" kartı KALDIRILDI (Şartname §4, Demirbaş): çuvallama
+     üretim değil biçim değiştirmedir; kümülatif "çuval üretimi" kartı çift
+     sayım algısı doğuruyordu. Kuru küspe yalnız iki biçimde sunulur:
+     silolarda dökme, 50 kg çuvallarda çuvallı (§2). */
 
   /* Türler AYRI kartlarda, birleşik toplam gösterilmez (kullanıcı isteği,
      21.08.2026): bu kart yalnız tonluk, 25'lik kendi kartında. */
@@ -469,8 +456,7 @@
 
   var KART_KATALOG = [
     { kod: 'dokme', ad: 'Toplam Dökme Kuru Küspe', aciklama: 'Siloların toplamı, doluluk ve 7 günlük değişim.', ciz: kartDokme },
-    { kod: 'cuval', ad: 'Çuvallı Kuru Küspe', aciklama: 'kg karşılığı ve çuval adedi.', ciz: kartCuval },
-    { kod: 'toplam-cuval', ad: 'Toplam Çuvallı Kuru Küspe', aciklama: 'Kampanya boyunca üretilen çuvallı toplamı ve satışı.', ciz: kartToplamCuval },
+    { kod: 'cuval', ad: '50 KG Çuvallı Kuru Küspe', aciklama: 'Çuval stoğu: kg ve adet.', ciz: kartCuval },
     { kod: 'yas', ad: '1 Tonluk Yaş Küspe', aciklama: 'Tonluk büyük torba stoğu.', ciz: kartYas },
     { kod: 'yas-poset', ad: '25 KG Yaş Küspe', aciklama: '25\'lik poşet stoğu ve adet karşılığı.', ciz: kartYasPoset },
     { kod: 'gunluk-dokme', ad: 'Günlük Dökme Üretim ve Satış', aciklama: 'Son kayıtlı günün dökme kuru küspe üretimi ve satışı.', ciz: kartGunlukDokme },
@@ -484,7 +470,7 @@
     { kod: 'gun', ad: 'Kayıtlı Gün Sayısı', aciklama: 'Kampanyada veri girilmiş gün sayısı.', ciz: kartKayitliGun }
   ];
 
-  var VARSAYILAN_KARTLAR = ['dokme', 'cuval', 'toplam-cuval', 'yas', 'yas-poset', 'gunluk-dokme', 'gunluk-cuval', 'gunluk-yas', 'gunluk-poset', 'uretim30', 'satis30'];
+  var VARSAYILAN_KARTLAR = ['dokme', 'cuval', 'yas', 'yas-poset', 'gunluk-dokme', 'gunluk-cuval', 'gunluk-yas', 'gunluk-poset', 'uretim30', 'satis30'];
 
   function kartBul(kod) {
     for (var i = 0; i < KART_KATALOG.length; i++) if (KART_KATALOG[i].kod === kod) return KART_KATALOG[i];
