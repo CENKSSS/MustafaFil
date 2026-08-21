@@ -793,66 +793,65 @@
     function escDinle(e) { if (e.key === 'Escape') kapat(); }
     document.addEventListener('keydown', escDinle);
 
+    /* Üst bant: büyük başlık ortada, Kapat sağda; altındaki çizgi kolon
+       ayraçlarıyla birlikte ekranı bölen ızgarayı kurar (kullanıcı eskizi). */
     perde.appendChild(YU.h('div', {
       stil: {
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '20px 32px', borderBottom: '1px solid var(--kenar)', flex: 'none'
+        position: 'relative', padding: '46px 32px 40px',
+        borderBottom: '1px solid var(--kenar-2)', flex: 'none', textAlign: 'center'
       }
     },
-      YU.h('div', { sinif: 'yu-sayfa-baslik', metin: 'Raporlar' }),
-      YU.ui.dugme({ metin: 'Kapat', tur: 'ikincil', onClick: kapat })
+      YU.h('div', {
+        metin: 'Raporlar',
+        stil: { font: '600 30px/1.15 var(--font)', letterSpacing: '-.015em', color: 'var(--metin)' }
+      }),
+      YU.h('div', {
+        stil: { position: 'absolute', top: '20px', right: '28px' }
+      }, YU.ui.dugme({ metin: 'Kapat', tur: 'ikincil', onClick: kapat }))
     ));
 
-    var izgara = YU.h('div', {
-      stil: {
-        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
-        gap: '22px', width: 'min(1060px, 92%)', margin: 'auto'
-      }
+    /* Üç tam yükseklik kolon; aralarında boydan boya dikey ayraç. */
+    var kolonlar = YU.h('div', {
+      stil: { flex: '1', minHeight: '0', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)' }
     });
 
     for (var i = 0; i < RAPOR_MERKEZI.length; i++) {
-      (function (r) {
+      (function (r, sira) {
         var ikonKap;
         function git() { kapat(); YU.git(r.kod); }
-        var kart = YU.h('div', {
+        var kolon = YU.h('div', {
           role: 'button', tabindex: '0', title: r.ad,
           stil: {
             display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', gap: '26px', padding: '58px 20px 52px',
-            border: '1px solid var(--kenar-2)', borderRadius: 'var(--r-l)',
-            background: 'var(--yuzey)', cursor: 'pointer', textAlign: 'center',
-            transition: 'background-color .12s, border-color .12s'
+            justifyContent: 'center', gap: '34px', padding: '24px',
+            borderLeft: sira ? '1px solid var(--kenar-2)' : 'none',
+            cursor: 'pointer', textAlign: 'center', minWidth: '0',
+            transition: 'background-color .12s'
           },
           onClick: git,
           onKeyDown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); git(); } },
           onMouseEnter: function () {
-            kart.style.background = 'var(--vurgu-zemin)';
-            kart.style.borderColor = 'var(--vurgu)';
+            kolon.style.background = 'var(--vurgu-zemin)';
             ikonKap.style.color = 'var(--vurgu)';
           },
           onMouseLeave: function () {
-            kart.style.background = 'var(--yuzey)';
-            kart.style.borderColor = 'var(--kenar-2)';
+            kolon.style.background = 'transparent';
             ikonKap.style.color = 'var(--metin-2)';
           }
         });
-        kart.appendChild(YU.h('div', {
+        kolon.appendChild(YU.h('div', {
           metin: r.ad,
-          stil: { font: '600 19px/1.2 var(--font)', letterSpacing: '-.01em', color: 'var(--metin)' }
+          stil: { font: '600 21px/1.2 var(--font)', letterSpacing: '-.01em', color: 'var(--metin)' }
         }));
         ikonKap = YU.h('div', {
           stil: { color: 'var(--metin-2)', display: 'flex', transition: 'color .12s' }
-        }, YU.svg(r.ikon, 76));
-        kart.appendChild(ikonKap);
-        izgara.appendChild(kart);
-      })(RAPOR_MERKEZI[i]);
+        }, YU.svg(r.ikon, 84));
+        kolon.appendChild(ikonKap);
+        kolonlar.appendChild(kolon);
+      })(RAPOR_MERKEZI[i], i);
     }
 
-    /* Orta bölge kartları dikeyde ve yatayda ortalar; dar ekranda kayar. */
-    perde.appendChild(YU.h('div', {
-      stil: { flex: '1', display: 'flex', overflowY: 'auto', padding: '24px 0' }
-    }, izgara));
-
+    perde.appendChild(kolonlar);
     document.body.appendChild(perde);
   }
 
