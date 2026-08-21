@@ -12,7 +12,6 @@
   var YU = window.YU;
 
   var PENCERE_GUN = 30;      /* KPI karşılaştırma penceresi (§7 "son 30 gün") */
-  var TREND_GUN = 7;         /* silo toplamı trendi */
   var GRAFIK_GUN = 14;
   var HAREKET_SATIR = 6;
   var LOG_SATIR = 4;         /* son hareketlerin en fazla bu kadarı denetim izinden */
@@ -24,6 +23,11 @@
   var POSET_DESEN = /25/;    /* "Yaş Küspe (25'lik)" satırı adından ayırt edilir (SOZLESME §1). */
   var TONLUK_NOTU = 'Tonluk büyük torbanın kaç kg olduğu şartnamede belirtilmemiş; ' +
     'bu yüzden tonluk için adet gösterilmiyor.';
+  /* DİKKAT — ŞARTNAME DIŞI VARSAYIM (kullanıcı isteği, 21.08.2026): günlük
+     üretim/satış kartında tonluk değerler torba adedi olarak yazılır ve
+     1 torba = 1.000 kg kabul edilir. Bu kg değeri şartnamede YOKTUR; ürün
+     adındaki "1 Tonluk"tan türetildi. Şartname netleşirse burası güncellenir. */
+  var TONLUK_KG = 1000;
 
   var TABLO_ADI = {
     KuruKuspeGunluk: 'Kuru küspe günlük kaydı',
@@ -155,7 +159,6 @@
     }
 
     var dokmeToplam = YU.stok.dokmeToplam(depo, bugun);
-    var oncekiDokme = sonGun ? YU.stok.dokmeToplam(depo, YU.tarih.ekle(sonGun, -TREND_GUN)) : null;
 
     var p1bas = sonGun ? YU.tarih.ekle(sonGun, -(PENCERE_GUN - 1)) : null;
     var p0bit = sonGun ? YU.tarih.ekle(sonGun, -PENCERE_GUN) : null;
@@ -172,14 +175,12 @@
       malzemeler: malzemeler,
       dokmeId: dokmeId,
       dokmeToplam: dokmeToplam,
-      oncekiDokme: oncekiDokme,
       cuvalMevcut: cuvalSatir ? Number(cuvalSatir.mevcut) || 0 : 0,
       yasSatirlar: yasSatirlar,
       yasToplam: YU.yuvarla(yasToplam),
       yasTonluk: YU.yuvarla(yasTonlukToplam),
       yasPoset: YU.yuvarla(yasPosetToplam),
       kapasite: kapasite,
-      doluluk: kapasite > 0 ? dokmeToplam / kapasite : 0,
       pencereBas: p1bas,
       pencere: pencere,
       oncekiPencere: oncekiPencere,
@@ -266,13 +267,11 @@
      Kart üreticileri — her biri katalogdaki tek bir kartı çizer.
      ------------------------------------------------------------------ */
 
+  /* Alt açıklama satırı kaldırıldı (kullanıcı isteği, 21.08.2026). */
   function kartDokme(o) {
-    var trend = o.oncekiDokme === null ? null : degisim(o.dokmeToplam, o.oncekiDokme);
     return YU.ui.kpi({
       etiket: '3 Toplam Dökme Kuru Küspe', ikon: '#ic-silos',
-      deger: YU.fmt.kgU(o.dokmeToplam),
-      alt: YU.fmt.sayi(o.silolar.length) + ' silo · ' + YU.fmt.yuzde(o.doluluk * 100, 1) + ' dolu' +
-        (trend ? ' · ' + TREND_GUN + ' günde ' + trend : '')
+      deger: YU.fmt.kgU(o.dokmeToplam)
     });
   }
 
@@ -347,19 +346,26 @@
   /* Günlük kartlar: son kayıtlı günün üretim ve satışı tek kartta, çuval
      kartındaki "değer / değer" diliyle. Bugüne kayıt yoksa son gün gösterilir;
      alt satır hangi güne bakıldığını her zaman söyler. */
+  /* birimKg verilirse değerler kg değil ADET olarak yazılır (kg/birimKg):
+     çuval, poşet, torba — kullanıcı isteği, 21.08.2026. Dökmenin adet
+     kavramı olmadığı için o kartta kg kalır. */
   function gunlukKarti(s) {
     var g = s.veri;
+    var birim = s.birimAd || 'kg';
+    function deger(kg) {
+      return s.birimKg ? YU.fmt.sayi(Math.round(kg / s.birimKg)) : YU.fmt.kg(kg);
+    }
     return kpiKarti({
       etiket: s.etiket, ikon: s.ikon,
       deger: degerSatiri([
-        YU.h('span', { metin: YU.fmt.kg(g.uretim) }), birimEki('kg üretim'),
+        YU.h('span', { metin: deger(g.uretim) }), birimEki(birim + ' üretim'),
         birimEki('·'),
-        YU.h('span', { metin: YU.fmt.kg(g.satis) }), birimEki('kg satış')
+        YU.h('span', { metin: deger(g.satis) }), birimEki(birim + ' satış')
       ]),
       alt: YU.h('div', {
         sinif: 'yu-kpi-alt',
         metin: !s.sonGun ? 'Kayıtlı gün yok.'
-          : YU.fmt.tarih(s.sonGun) + ' · ' + YU.fmt.gunAdi(s.sonGun) + (s.notu ? ' · ' + s.notu : '')
+          : YU.fmt.tarih(s.sonGun) + ' · ' + YU.fmt.gunAdi(s.sonGun)
       })
     });
   }
@@ -372,29 +378,29 @@
   }
 
   function kartGunlukCuval(o) {
-    var adet = Math.round(o.gunluk.cuval.uretim / YU.hesap.CUVAL_KG);
     return gunlukKarti({
       etiket: '50 KG Çuvallı Üretim/Satış', ikon: '#ic-sack-flow',
       veri: o.gunluk.cuval, sonGun: o.sonGun,
-      notu: o.sonGun ? 'Üretim ' + YU.fmt.sayi(adet) + ' çuval' : null
+      birimAd: 'çuval', birimKg: YU.hesap.CUVAL_KG
     });
   }
 
   /* Türler ayrı sayılır: bu kart yalnız TONLUK yaş küspeyi gösterir;
-     25'lik, Günlük Poşetli kartında (kullanıcı isteği, 21.08.2026). */
+     25'lik, Günlük Poşetli kartında (kullanıcı isteği, 21.08.2026).
+     Torba adedi TONLUK_KG varsayımıyla türetilir — üstteki DİKKAT notuna bak. */
   function kartGunlukYas(o) {
     return gunlukKarti({
       etiket: '1 Tonluk Yaş Küspe Üretim/Satış', ikon: '#ic-beet-flow',
-      veri: o.gunluk.tonluk, sonGun: o.sonGun
+      veri: o.gunluk.tonluk, sonGun: o.sonGun,
+      birimAd: 'torba', birimKg: TONLUK_KG
     });
   }
 
   function kartGunlukPoset(o) {
-    var adet = Math.round(o.gunluk.poset.uretim / POSET_KG);
     return gunlukKarti({
       etiket: '25 KG Yaş Küspe Üretim/Satış', ikon: '#ic-bag',
       veri: o.gunluk.poset, sonGun: o.sonGun,
-      notu: o.sonGun ? 'Üretim ' + YU.fmt.sayi(adet) + ' poşet' : null
+      birimAd: 'poşet', birimKg: POSET_KG
     });
   }
 
