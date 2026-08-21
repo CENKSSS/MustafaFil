@@ -92,9 +92,9 @@
     var fark = hesap.siloNetDegisim;
     var durumB = hesap.durum === 'B';
 
-    /* Günün tarihi panelin sağ üst boşluğunda BÜYÜK yazar — eskizdeki
-       ölçüde: iri tarih, altında gün adı (kullanıcı isteği, 21.08.2026). */
-    var tarihBlok = YU.h('div', { stil: { marginLeft: 'auto', textAlign: 'right', flex: 'none' } },
+    /* Günün tarihi panel BAŞLIĞININ ortasında BÜYÜK yazar — eskizdeki
+       konumda: iri tarih, altında gün adı (kullanıcı isteği, 21.08.2026). */
+    var tarihBlok = YU.h('div', { stil: { margin: '0 auto', textAlign: 'center', flex: 'none' } },
       YU.h('div', {
         stil: { font: '650 26px/1.1 var(--sayi)', letterSpacing: '-.02em',
                 fontVariantNumeric: 'tabular-nums', color: 'var(--metin)' },
@@ -115,8 +115,7 @@
       hesapOge('Çuval Karşılığı', YU.fmt.kgU(hesap.cuvalKg), null,
         YU.fmt.sayi(adet) + ' × ' + YU.fmt.sayi(YU.hesap.CUVAL_KG) + ' kg'),
       hesapOge('Satılan Dökme', YU.fmt.kgU(hesap.satilanDokme), null,
-        'Doğrudan silodan dökme satış — ayrı kalem (Şartname §7 v2).'),
-      tarihBlok
+        'Doğrudan silodan dökme satış — ayrı kalem (Şartname §7 v2).')
     ]);
 
     /* 2. satır — sistemin hesabı; önemli sonuçlar renkle vurgulanır */
@@ -137,7 +136,7 @@
         'Gün sonunda siloların toplamına net etki.')
     ]);
 
-    return YU.ui.panel({
+    var panel = YU.ui.panel({
       baslik: 'Kuru Küspe Detayı',
       ikon: '#ic-doc',
       sag: YU.ui.rozet(
@@ -166,6 +165,14 @@
         })
       ]
     });
+
+    /* Başlık satırı: [ikon][başlık] … TARİH … [rozet] — başlığın esnemesi
+       kapatılır, tarih iki yandan otomatik boşlukla ortalanır. */
+    var basEl = panel.querySelector('.yu-panel-bas');
+    basEl.querySelector('.yu-panel-baslik').style.flex = 'none';
+    basEl.insertBefore(tarihBlok, basEl.querySelector('.yu-panel-sag'));
+
+    return panel;
   }
 
   /* ------------------------------------------------------------------
