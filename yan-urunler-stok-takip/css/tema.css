@@ -891,7 +891,9 @@ html[data-tema="acik"] input[type="date"]::-webkit-calendar-picker-indicator { f
 .yu-kpi.olumsuz  .yu-kpi-ikon { background: var(--olumsuz-zemin);  color: var(--olumsuz); }
 .yu-kpi.bekleyen .yu-kpi-ikon { background: var(--bekleyen-zemin); color: var(--bekleyen); }
 
-.yu-kpi-etiket { font: 500 14px/1.2 var(--font); color: var(--metin-3); flex: 1; min-width: 0; }
+/* Kart başlığı bir kademe kalın ve koyu — az ama hissedilir (kullanıcı
+   isteği, 21.08.2026). */
+.yu-kpi-etiket { font: 600 14px/1.2 var(--font); color: var(--metin-2); flex: 1; min-width: 0; }
 
 .yu-kpi-deger {
   font: 600 26px/1 var(--sayi);
