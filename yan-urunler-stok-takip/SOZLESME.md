@@ -252,7 +252,7 @@ Miktarı 0 olan satırlar yok sayılır, hareket yazılmaz.
 | D12 | Kullanıcı ve malzeme **silinmez**, pasifleştirilir |
 | D13 | `Σ satisCekisleri ≟ satilanDokme` (±0,01) → hata. `satilanDokme > 0` iken karşılık yoksa hata |
 | D14 | Kayıt/silme sonrası, işlem tarihinden **son kayıtlı güne** kadar her silonun bakiyesi ileri hesaplanır; herhangi bir gün negatifse işlem reddedilir, **hangi silo hangi tarihte** patladığı söylenir |
-| D15 | Gün sonu bakiyesi `Silolar.Kapasite`'yi aşarsa **uyarı** (engel değil). Silo başına, bakiye üzerinden |
+| D15 | Gün sonu bakiyesi `Silolar.Kapasite`'yi aşarsa **HATA — kayıt engellenir** (kullanıcı kararı, 21.08.2026; şartname v2'de uyarıydı). Silo başına, bakiye üzerinden; silo devri de kapasiteyi aşamaz |
 | D16 | Güncellemede `RowVersion` okunandan farklıysa reddet |
 
 ---

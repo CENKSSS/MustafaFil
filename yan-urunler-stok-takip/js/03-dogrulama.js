@@ -25,7 +25,7 @@
     { kod: "D12", tur: "Tasarim", metin: "Kullanıcı ve malzeme silinmez, yalnızca pasifleştirilir." },
     { kod: "D13", tur: "Hata", metin: "Dökme satış için silolardan çekilen toplam, girilen SatilanDokme değerine eşit olmalı (±0,01 kg)." },
     { kod: "D14", tur: "Hata", metin: "Kayıt veya silme sonrası, işlem tarihinden son kayıtlı güne kadar her silonun bakiyesi ileri doğru hesaplanır. Herhangi bir gün negatife düşüyorsa işlem reddedilir ve hangi silonun hangi tarihte patladığı söylenir." },
-    { kod: "D15", tur: "Uyari", metin: "Bir silonun gün sonu bakiyesi o silonun kapasitesini aşıyorsa uyarı gösterilir — kayıt engellenmez." },
+    { kod: "D15", tur: "Hata", metin: "Bir silonun gün sonu bakiyesi o silonun kapasitesini aşamaz — kayıt engellenir. (Kullanıcı kararı, 21.08.2026; şartname v2'de yumuşak uyarıydı.)" },
     { kod: "D16", tur: "Hata", metin: "Kayıt güncellenirken RowVersion değeri okunduğu andakinden farklıysa işlem reddedilir; kullanıcıya kaydın değiştiği söylenir ve yenilemesi istenir." },
     { kod: "D17", tur: "Hata", metin: "Gelecek bir tarihe üretim veya satış kaydı girilemez. Henüz gerçekleşmemiş bir günün rakamı olamaz. (Şartnamede yok — prototipte eklendi.)" }
   ];
@@ -358,13 +358,15 @@
           ") ama gün başı mevcudu " + kg(gunBasi) + ". Aşım: " + kg(YU.yuvarla(cikan - gunBasi)) + "."));
       }
 
-      /* D15 — yerleştirilen miktar değil, oluşan gün sonu bakiyesi ölçülür. */
+      /* D15 — yerleştirilen miktar değil, oluşan gün sonu bakiyesi ölçülür.
+         SERT ENGEL (kullanıcı kararı, 21.08.2026): şartname v2 bunu yumuşak
+         uyarı tanımlar; fabrika kararıyla kapasite aşan kayıt reddedilir. */
       gunSonu = YU.yuvarla(gunBasi + giren - cikan);
       kapasite = Number(silo.Kapasite) || 0;
       if (kapasite > 0 && gunSonu - kapasite > tol) {
-        uyarilar.push(kayit("D15", silo.Ad + " gün sonu bakiyesi " + kg(gunSonu) + " olur; kapasitesi " +
+        hatalar.push(kayit("D15", silo.Ad + " gün sonu bakiyesi " + kg(gunSonu) + " olur; kapasitesi " +
           kg(kapasite) + ". Aşım: " + kg(YU.yuvarla(gunSonu - kapasite)) + " (" + tr(tarih) +
-          "). Kayıt engellenmez, kontrol edin."));
+          "). Kapasite aşılamaz — kayıt engellendi."));
       }
     }
 
@@ -686,6 +688,11 @@
       hatalar.push(kayit(ALAN, "Devir miktarı sayı olmalı. Girilen: \"" + String(alan(devir, "Miktar", "miktar")) + "\"."));
     } else if (miktar < 0) {
       hatalar.push(kayit(ALAN, "Devir miktarı negatif olamaz. Girilen: " + kg(miktar) + "."));
+    } else if (siloMu && sahip && Number(sahip.Kapasite) > 0 && miktar - Number(sahip.Kapasite) > 0.01) {
+      /* D15'in devir ayağı (kullanıcı kararı, 21.08.2026): açılış stoğu da
+         silo kapasitesini aşamaz. */
+      hatalar.push(kayit("D15", sahip.Ad + " devri " + kg(miktar) + " girilemez; kapasitesi " +
+        kg(Number(sahip.Kapasite)) + ". Kapasite aşılamaz — kayıt engellendi."));
     }
 
     if (sahip && gecerliTarih(tarih)) {

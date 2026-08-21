@@ -200,19 +200,8 @@
      Sayfa başlığı eylemleri
      ================================================================== */
 
-  function sayfaEylemleri(o) {
-    var raporParam = o.sonGun ? { tarih: o.sonGun } : null;
-    YU.ui.sayfaEylemleri(
-      YU.ui.dugme({
-        metin: 'Günlük Giriş', ikon: '#ic-plus', tur: 'birincil',
-        onClick: function () { YU.git('kuru-kuspe', { tarih: o.sonGun || o.bugun }); }
-      }),
-      YU.ui.dugme({
-        metin: 'Günlük Rapor', ikon: '#ic-doc', tur: 'ikincil',
-        onClick: function () { YU.git('gunluk-rapor', raporParam); }
-      })
-    );
-  }
+  /* "Günlük Giriş" ve "Günlük Rapor" başlık düğmeleri kaldırıldı
+     (kullanıcı isteği, 21.08.2026); aynı ekranlara menüden gidilir. */
 
   /* Durum şeritleri kaldırıldı: aynı koşullar artık üst şeritteki ünlem
      (Uyarılar) düğmesinin listesinde yaşıyor — YU.uyarilar, 10-kabuk
@@ -466,123 +455,27 @@
     try { localStorage.setItem(KART_ANAHTAR, JSON.stringify(liste)); } catch (e) { /* özel mod */ }
   }
 
-  function kartlariSifirla() {
-    try { localStorage.removeItem(KART_ANAHTAR); } catch (e) { /* özel mod */ }
-  }
-
-  function kucukEylem(ikon, baslik, pasif, onClick) {
-    return YU.ui.dugme({ ikon: ikon, baslik: baslik, tur: 'sade', kucuk: true, pasif: pasif, onClick: onClick });
-  }
-
-  function kartSeciciAc() {
-    var secim = kartlariOku();
-    var liste = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '7px' } });
-
-    function baslikSatiri(metin) {
-      return YU.h('div', { sinif: 'yu-etiket', stil: { marginTop: '2px' }, metin: metin });
-    }
-
-    function kartSatiri(tanim, sira) {
-      var secili = sira !== null;
-      var sol = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '2px', flex: '1', minWidth: '0' } },
-        YU.h('div', { sinif: 'yu-guclu', metin: tanim.ad }),
-        YU.h('div', { sinif: 'yu-yardim', metin: tanim.aciklama })
-      );
-      var sag = YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '2px', flex: 'none' } });
-      if (secili) {
-        sag.appendChild(kucukEylem('#ic-up', 'Yukarı Taşı', sira === 0, function () { tasi(sira, -1); }));
-        sag.appendChild(kucukEylem('#ic-down', 'Aşağı Taşı', sira === secim.length - 1, function () { tasi(sira, 1); }));
-        sag.appendChild(YU.ui.dugme({
-          metin: 'Kaldır', tur: 'sade', kucuk: true,
-          onClick: function () { secim.splice(sira, 1); ciz(); }
-        }));
-      } else {
-        sag.appendChild(YU.ui.dugme({
-          metin: tanim.aile ? 'Aileyi Ekle' : 'Ekle', ikon: '#ic-plus', tur: 'ikincil', kucuk: true,
-          onClick: function () { secim.push(tanim.kod); ciz(); }
-        }));
-      }
-      return YU.h('div', {
-        stil: {
-          display: 'flex', alignItems: 'center', gap: '10px',
-          padding: '9px 11px', border: '1px solid var(--kenar)', borderRadius: 'var(--r)',
-          background: secili ? 'var(--yuzey-2)' : 'transparent'
-        }
-      }, secili ? YU.ui.rozet(String(sira + 1), 'vurgu') : YU.h('span', { stil: { width: '22px' } }), sol, sag);
-    }
-
-    function tasi(sira, yon) {
-      var hedef = sira + yon;
-      if (hedef < 0 || hedef >= secim.length) return;
-      var tut = secim[sira];
-      secim[sira] = secim[hedef];
-      secim[hedef] = tut;
-      ciz();
-    }
-
-    /* Demirbaş aile kilitli gösterilir: eklenip kaldırılamaz. */
-    function demirbasSatiri(tanim) {
-      var sol = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '2px', flex: '1', minWidth: '0' } },
-        YU.h('div', { sinif: 'yu-guclu', metin: tanim.ad }),
-        YU.h('div', { sinif: 'yu-yardim', metin: tanim.aciklama })
-      );
-      return YU.h('div', {
-        stil: {
-          display: 'flex', alignItems: 'center', gap: '10px',
-          padding: '9px 11px', border: '1px solid var(--kenar)', borderRadius: 'var(--r)',
-          background: 'var(--yuzey-2)'
-        }
-      }, sol, YU.ui.rozet('Demirbaş', 'vurgu'));
-    }
-
-    function ciz() {
-      YU.bos(liste);
-      var i;
-
-      liste.appendChild(baslikSatiri('Demirbaş'));
-      for (i = 0; i < KART_KATALOG.length; i++) {
-        if (KART_KATALOG[i].demirbas) liste.appendChild(demirbasSatiri(KART_KATALOG[i]));
-      }
-
-      liste.appendChild(baslikSatiri('Gösterilen Kartlar'));
-      if (!secim.length) liste.appendChild(YU.h('div', { sinif: 'yu-yardim', metin: 'Seçili kart yok — yalnız demirbaş stok kartları görünür.' }));
-      for (i = 0; i < secim.length; i++) liste.appendChild(kartSatiri(kartBul(secim[i]), i));
-
-      liste.appendChild(baslikSatiri('Eklenebilir Kartlar'));
-      var kalan = 0;
-      for (i = 0; i < KART_KATALOG.length; i++) {
-        if (KART_KATALOG[i].demirbas) continue;
-        if (secim.indexOf(KART_KATALOG[i].kod) >= 0) continue;
-        kalan++;
-        liste.appendChild(kartSatiri(KART_KATALOG[i], null));
-      }
-      if (!kalan) liste.appendChild(YU.h('div', { sinif: 'yu-yardim', metin: 'Katalogdaki tüm kartlar ekli.' }));
-    }
-
-    ciz();
-
-    var m = YU.ui.modal({
-      baslik: 'Ana Sayfa Kartları',
-      genislik: 560,
-      govde: [
-        YU.h('div', { sinif: 'yu-yardim', stil: { marginBottom: '10px' },
-          metin: 'Görmek istediğiniz kartları seçin, sırayı yukarı/aşağı düğmeleriyle değiştirin. Seçim bu tarayıcıda saklanır.' }),
-        liste
-      ],
-      dugmeler: [
-        { metin: 'Varsayılana Dön', onClick: function () { kartlariSifirla(); m.kapat(); YU.yenile(); } },
-        { metin: 'Vazgeç', onClick: function () { m.kapat(); } },
-        { metin: 'Kaydet', tur: 'birincil', onClick: function () { kartlariYaz(secim); m.kapat(); YU.yenile(); } }
-      ]
-    });
-  }
-
+  /* Kart yönetimi tek düğmeye indi (kullanıcı isteği, 21.08.2026):
+     "Kartları Seç" kaldırıldı; Üretim/Satış ailesi bu düğmeyle açılıp
+     kapanır. Aile açıkken düğmenin üstü çizilir — tıklamak kapatır. */
   function kartCubugu(secim) {
+    var acik = secim.indexOf('uretim-satis') >= 0;
+    var dugme = YU.ui.dugme({
+      metin: 'Üretim/Satış Kartlarını Göster', ikon: '#ic-swap', tur: 'ikincil', kucuk: true,
+      baslik: acik ? 'Açık — kapatmak için tıklayın' : 'Dört üretim/satış kartını açar',
+      onClick: function () {
+        var yeni = secim.slice();
+        var k = yeni.indexOf('uretim-satis');
+        if (k >= 0) yeni.splice(k, 1); else yeni.unshift('uretim-satis');
+        kartlariYaz(yeni);
+        YU.yenile();
+      }
+    });
+    if (acik) dugme.style.textDecoration = 'line-through';
     return YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' } },
       YU.h('span', { sinif: 'yu-etiket', metin: 'Özet Kartları' }),
-      YU.h('span', { sinif: 'yu-yardim', metin: 'Stok kartları demirbaş · ' + YU.fmt.sayi(secim.length) + ' seçim' }),
       YU.h('span', { stil: { flex: '1' } }),
-      YU.ui.dugme({ metin: 'Kartları Seç', ikon: '#ic-plus', tur: 'ikincil', kucuk: true, onClick: kartSeciciAc })
+      dugme
     );
   }
 
@@ -612,15 +505,7 @@
       if (tanim && !tanim.demirbas) ekle(tanim);
     }
 
-    if (!kartlar.length) {
-      kap.appendChild(YU.ui.bosDurum({
-        ikon: '#ic-chart',
-        baslik: 'Özet Kartı Seçilmedi',
-        metin: 'Ana sayfada görmek istediğiniz kartları "Kartları Seç" ile ekleyebilirsiniz.',
-        eylemler: [YU.ui.dugme({ metin: 'Kartları Seç', ikon: '#ic-plus', tur: 'birincil', onClick: kartSeciciAc })]
-      }));
-      return kap;
-    }
+    /* Demirbaş aile her zaman kart ürettiği için boş durum oluşmaz. */
 
     /* Kartlar satır başına 4'lü dizilir (kullanıcı isteği, 21.08.2026);
        dar ekran kırılımları yu-iz-4'ten gelir (≤1100 2'li, ≤700 tekli). */
@@ -1092,7 +977,6 @@
     }
 
     var o = ozet(depo);
-    sayfaEylemleri(o);
 
     if (o.bos) {
       kap.appendChild(ilkKullanimPaneli());

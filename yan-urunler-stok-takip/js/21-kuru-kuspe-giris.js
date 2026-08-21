@@ -897,9 +897,9 @@
         sonu = YU.yuvarla(gunBasi[id] + (yer[id] || 0) - (cek[id] || 0) - (sat[id] || 0));
         kapasite = Number(sr.silo.Kapasite) || 0;
         sr.gunSonu.textContent = YU.fmt.kgU(sonu);
-        sr.gunSonu.style.color = sonu < -tol
-          ? "var(--olumsuz)"
-          : (kapasite > 0 && sonu - kapasite > tol ? "var(--bekleyen)" : "");
+        sr.gunSonu.style.color = sonu < -tol || (kapasite > 0 && sonu - kapasite > tol)
+          ? "var(--olumsuz)"      /* aşım artık hata: D15 sert engel */
+          : "";
 
         oran = kapasite > 0 ? sonu / kapasite : 0;
         YU.bos(sr.cubukKap).appendChild(YU.ui.cubuk(oran,
@@ -907,9 +907,9 @@
         /* Yüzde kart başlığında duruyor; altta yalnız kapasite kalıyor ki
            aynı bilgi iki kez yazılmasın. */
         sr.yuzdeRozet.textContent = kapasite > 0 ? YU.fmt.yuzde(oran * 100) : "kapasite yok";
-        sr.yuzdeRozet.style.color = sonu < -tol
+        sr.yuzdeRozet.style.color = sonu < -tol || (kapasite > 0 && sonu - kapasite > tol)
           ? "var(--olumsuz)"
-          : (kapasite > 0 && sonu - kapasite > tol ? "var(--bekleyen)" : "");
+          : "";
         sr.cubukAlt.textContent = kapasite > 0 ? "kapasite " + YU.fmt.ton(kapasite) : "kapasite tanımsız";
       }
     }
@@ -931,6 +931,11 @@
     function ozetTazele(girdi) {
       var d = canliDenetim(girdi);
       var h = d.hatalar.length, u = d.uyarilar.length;
+
+      /* Engelleyen kural varken Kaydet BASILAMAZ (kullanıcı kararı,
+         21.08.2026): önce düzeltme, sonra kayıt. */
+      dugmeKaydet.disabled = h > 0;
+      dugmeKaydet.title = h > 0 ? "Önce hataları düzeltin — kayıt engellendi." : "Ctrl + Enter";
 
       if (!h && !u) {
         ozetBaslik.textContent = "Kayda hazır — engelleyen kural yok.";
