@@ -332,7 +332,7 @@
      21.08.2026): bu kart yalnız tonluk, 25'lik kendi kartında. */
   function kartYas(o) {
     return kpiKarti({
-      etiket: 'Yaş Küspe Stoğu', ikon: '#ic-beet',
+      etiket: '1 Tonluk Yaş Küspe', ikon: '#ic-beet',
       ipucu: TONLUK_NOTU,
       deger: degerSatiri([YU.h('span', { metin: YU.fmt.kg(o.yasTonluk) }), birimEki('kg')]),
       alt: YU.h('div', { sinif: 'yu-kpi-alt', metin: 'Tonluk büyük torba stoğu' })
@@ -342,7 +342,7 @@
   function kartYasPoset(o) {
     var adet = Math.round(o.yasPoset / POSET_KG);
     return kpiKarti({
-      etiket: '25\'lik Yaş Küspe Stoğu', ikon: '#ic-bag',
+      etiket: '25 KG Yaş Küspe', ikon: '#ic-bag',
       deger: degerSatiri([
         YU.h('span', { metin: YU.fmt.kg(o.yasPoset) }), birimEki('kg'),
         birimEki('/'),
@@ -475,8 +475,8 @@
     { kod: 'dokme', ad: 'Toplam Dökme Kuru Küspe', aciklama: 'Siloların toplamı, doluluk ve 7 günlük değişim.', ciz: kartDokme },
     { kod: 'cuval', ad: 'Çuvallı Kuru Küspe', aciklama: 'kg karşılığı ve çuval adedi.', ciz: kartCuval },
     { kod: 'toplam-cuval', ad: 'Toplam Çuvallı Kuru Küspe', aciklama: 'Kampanya boyunca üretilen çuvallı toplamı ve satışı.', ciz: kartToplamCuval },
-    { kod: 'yas', ad: 'Yaş Küspe Stoğu', aciklama: 'Tonluk büyük torba stoğu.', ciz: kartYas },
-    { kod: 'yas-poset', ad: '25\'lik Yaş Küspe Stoğu', aciklama: '25\'lik poşet stoğu ve adet karşılığı.', ciz: kartYasPoset },
+    { kod: 'yas', ad: '1 Tonluk Yaş Küspe', aciklama: 'Tonluk büyük torba stoğu.', ciz: kartYas },
+    { kod: 'yas-poset', ad: '25 KG Yaş Küspe', aciklama: '25\'lik poşet stoğu ve adet karşılığı.', ciz: kartYasPoset },
     { kod: 'gunluk-dokme', ad: 'Günlük Dökme Üretim ve Satış', aciklama: 'Son kayıtlı günün dökme kuru küspe üretimi ve satışı.', ciz: kartGunlukDokme },
     { kod: 'gunluk-cuval', ad: 'Günlük Çuvallı Kuru Küspe Üretim ve Satış', aciklama: 'Son kayıtlı günün çuvallı kuru küspe üretimi ve satışı.', ciz: kartGunlukCuval },
     { kod: 'gunluk-yas', ad: 'Günlük Tonluk Yaş Küspe Üretim ve Satış', aciklama: 'Son kayıtlı günün tonluk yaş küspe üretimi ve satışı.', ciz: kartGunlukYas },
