@@ -357,7 +357,7 @@
   ];
 
   var SILO_TANIMI = ["Silo 1", "Silo 2", "Silo 3"];
-  var SILO_KAPASITE = 3000000; // kg — silo başına varsayımı (Şartname §13 Soru 5a)
+  var SILO_KAPASITE = 3000000; // kg — SİLO BAŞINA; Soru 5a kullanıcı kararıyla kapatıldı (21.08.2026)
 
   function temelVeriUret() {
     var kullanicilar = [], malzemeler = [], silolar = [], i;

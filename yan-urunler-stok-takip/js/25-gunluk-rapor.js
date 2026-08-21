@@ -651,8 +651,10 @@
 
     kap.appendChild(malzemePaneli(depo, ozet));
     kap.appendChild(siloPaneli(depo, ozet, tarih));
-    /* Denetim izi: günün verisine dokunan her adım — güvenlik kaydı. */
-    kap.appendChild(gunIslemGecmisi(depo, tarih));
+    /* Denetim izi: günün verisine dokunan her adım — güvenlik kaydı.
+       Şartname §7 Değişiklik Geçmişi'ni YÖNETİCİYE ayırır; gün düzeyindeki
+       bu alt küme de aynı kurala tabidir (kullanıcı kararı, 21.08.2026). */
+    if (YU.yonetici()) kap.appendChild(gunIslemGecmisi(depo, tarih));
     /* Künye tek satır hâlinde EN ALTTA — asıl veriyi aşağı itmesin. */
     kap.appendChild(kayitPaneli(depo, ozet));
   }

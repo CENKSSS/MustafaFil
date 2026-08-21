@@ -439,10 +439,15 @@
   }
 
   function kartGunlukYas(o) {
+    /* Alt satır kırılımı yazar: 25'lik değeri de görünsün (kullanıcı
+       isteği, 21.08.2026). Tonluk = toplam − 25'lik. */
+    var tonlukUretim = YU.yuvarla(o.gunluk.yas.uretim - o.gunluk.poset.uretim);
     return gunlukKarti({
       etiket: 'Günlük Yaş Küspe Üretim ve Satış', ikon: '#ic-beet-flow',
       veri: o.gunluk.yas, sonGun: o.sonGun,
-      notu: o.sonGun ? 'Tonluk ve 25\'lik toplamı' : null
+      notu: o.sonGun
+        ? 'Üretim: Tonluk ' + YU.fmt.kgU(tonlukUretim) + ' · 25\'lik ' + YU.fmt.kgU(o.gunluk.poset.uretim)
+        : null
     });
   }
 

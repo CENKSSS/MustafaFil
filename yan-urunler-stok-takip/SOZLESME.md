@@ -103,8 +103,9 @@ DegisiklikLog   {Id, Tablo, KayitId, Alan, EskiDeger, YeniDeger,
 
 ### Başlangıç siloları
 `Silo 1`, `Silo 2`, `Silo 3` — her biri `Kapasite = 3000000` kg.
-> Şartname §13 Soru 5a hâlâ açık: 3.000 ton silo başına mı, üçünün toplamı mı?
-> Prototip **silo başına** varsayımını kullanır. Arayüzde bu varsayım bir nota bağlanır.
+> Şartname §13 Soru 5a KAPATILDI (kullanıcı kararı, 21.08.2026): 3.000 ton
+> SİLO BAŞINA kapasitedir — üç siloda toplam 9.000.000 kg. Artık varsayım
+> değil karardır; arayüzde ayrıca not gösterilmez.
 
 ### Başlangıç kullanıcıları
 | KullaniciAdi | AdSoyad | Rol |

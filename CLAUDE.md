@@ -122,6 +122,36 @@ olduğu gibi bildir; çalışmadıysa "çalıştıramadım" de.
 
 ---
 
+## KURAL 5 — Kapsam, kesinlik, anlatım (kullanıcı direktifi, 21.08.2026)
+
+### 5.1 — X dediysem Y'ye dokunma
+
+Kullanıcı **X yerini değiştir** dediyse **Y yeri değiştirilmez** — özellikle
+sayfa/ekran düzeyinde. "X raporunu değiştir" dendiyse Y raporuna, Y ekranına,
+Y tablosuna dokunulmaz. Bu ANAYASADIR:
+
+* İstek hangi ekranı/paneli işaret ediyorsa değişiklik oraya sınırlıdır.
+* "Tutarlılık için" bile olsa, başka bir ekrana aynı değişikliği yaymadan
+  önce **sorulur**; sorulmadan yayılmaz.
+* Ortak (paylaşılan) bir bileşene dokunmak diğer ekranları da etkileyecekse
+  bu etki önceden açıkça söylenir ve onay alınır.
+
+### 5.2 — Tahmine dayalı ilerleme yok, kesin yöntemle ilerle
+
+"Şurası tahminimce böyledir" **denmez**. Önce ana yapı incelenir ve
+öğrenilir; ona göre ilerlenir. Gerekirse araştırılır — ister projenin
+içinde (kod, şartname, sözleşme), ister Google'da **örnekleriyle**.
+Kesinleşmeden kod yazılmaz; kesinleşmeyen şey kullanıcıya "doğrulanmadı"
+diye işaretlenerek söylenir. (KURAL 4 ile birlikte uygulanır.)
+
+### 5.3 — Sade ve yalın Türkçeyle anlat
+
+Kullanıcıya anlatırken **sade, yalın Türkçe** kullanılır; amaç bilgiyi
+aktarmaktır. Jargon yığını, süreç dökümü, gereksiz uzatma yok — ne yapıldı,
+ne değişti, neye dikkat edilmeli: net cümlelerle.
+
+---
+
 ## Klasör düzeni
 
 ```
