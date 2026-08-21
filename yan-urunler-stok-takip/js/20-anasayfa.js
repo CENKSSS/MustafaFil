@@ -137,13 +137,19 @@
     var dokmeId = dokmeSatir ? dokmeSatir.malzeme.Id : null;
 
     var kapasite = 0, i, yasSatirlar = [], yasToplam = 0, yasIdler = [], posetIdler = [];
+    var yasTonlukToplam = 0, yasPosetToplam = 0;
     for (i = 0; i < silolar.length; i++) kapasite += Number(silolar[i].kapasite) || 0;
     for (i = 0; i < malzemeler.length; i++) {
       if (!malzemeler[i].malzeme || malzemeler[i].malzeme.Aktif === false) continue;
       if (/^Yaş Küspe/.test(String(malzemeler[i].malzeme.Ad))) {
         yasSatirlar.push(malzemeler[i]);
         yasIdler.push(malzemeler[i].malzeme.Id);
-        if (POSET_DESEN.test(kisaAd(malzemeler[i].malzeme.Ad))) posetIdler.push(malzemeler[i].malzeme.Id);
+        if (POSET_DESEN.test(kisaAd(malzemeler[i].malzeme.Ad))) {
+          posetIdler.push(malzemeler[i].malzeme.Id);
+          yasPosetToplam += Number(malzemeler[i].mevcut) || 0;
+        } else {
+          yasTonlukToplam += Number(malzemeler[i].mevcut) || 0;
+        }
         yasToplam += Number(malzemeler[i].mevcut) || 0;
       }
     }
@@ -170,6 +176,8 @@
       cuvalMevcut: cuvalSatir ? Number(cuvalSatir.mevcut) || 0 : 0,
       yasSatirlar: yasSatirlar,
       yasToplam: YU.yuvarla(yasToplam),
+      yasTonluk: YU.yuvarla(yasTonlukToplam),
+      yasPoset: YU.yuvarla(yasPosetToplam),
       kapasite: kapasite,
       doluluk: kapasite > 0 ? dokmeToplam / kapasite : 0,
       pencereBas: p1bas,
@@ -178,7 +186,9 @@
       gunluk: {
         dokme: gunToplami(depo, dokmeId === null ? [] : [dokmeId], sonGun),
         cuval: gunToplami(depo, cuvalSatir ? [cuvalSatir.malzeme.Id] : [], sonGun),
-        yas: gunToplami(depo, yasIdler, sonGun),
+        /* Türler ayrı sayılır, birleşik toplam yok (kullanıcı isteği,
+           21.08.2026): tonluk yalnız tonluk satırlarından gelir. */
+        tonluk: gunToplami(depo, yasIdler.filter(function (id) { return posetIdler.indexOf(id) < 0; }), sonGun),
         poset: gunToplami(depo, posetIdler, sonGun)
       },
       /* Kampanya boyunca üretilen/satılan çuvallı toplamı (dokmePencere
@@ -255,29 +265,8 @@
     );
   }
 
-  /* Yaş küspe kırılımı: her satır kg olarak yazılır; adet yalnızca 25'lik poşet
-     için türetilir (bkz. POSET_KG yorumu — tonluk torbanın kg'ı bilinmiyor). */
-  function yasDetayi(o) {
-    if (!o.yasSatirlar.length) {
-      return YU.h('div', { sinif: 'yu-kpi-alt', metin: 'Tanımlı yaş küspe malzemesi yok.' });
-    }
-
-    var parcalar = [], i, ad, kg;
-    for (i = 0; i < o.yasSatirlar.length; i++) {
-      ad = kisaAd(o.yasSatirlar[i].malzeme.Ad);
-      kg = Number(o.yasSatirlar[i].mevcut) || 0;
-      if (i) parcalar.push(' · ');
-      parcalar.push(ad + ' ', detaySayi(YU.fmt.kg(kg)), ' kg');
-      if (POSET_DESEN.test(ad)) {
-        parcalar.push(' / ', detaySayi(YU.fmt.sayi(Math.round(kg / POSET_KG))), ' adet poşet');
-      }
-    }
-
-    return YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '4px' } },
-      YU.h('div', { stil: { font: '400 14.5px/1.5 var(--font)', color: 'var(--metin-4)' } }, parcalar),
-      YU.h('div', { sinif: 'yu-kpi-alt', metin: '1 poşet ' + YU.fmt.sayi(POSET_KG) + ' kg küspe' })
-    );
-  }
+  /* yasDetayi kaldırıldı: tonluk ve 25'lik artık ayrı kartlarda, birleşik
+     kırılım satırı yok (kullanıcı isteği, 21.08.2026). */
 
   function pencereFarki(o, alan) {
     var fark = degisim(o.pencere[alan], o.oncekiPencere[alan]);
@@ -339,12 +328,27 @@
     });
   }
 
+  /* Türler AYRI kartlarda, birleşik toplam gösterilmez (kullanıcı isteği,
+     21.08.2026): bu kart yalnız tonluk, 25'lik kendi kartında. */
   function kartYas(o) {
     return kpiKarti({
       etiket: 'Yaş Küspe Stoğu', ikon: '#ic-beet',
       ipucu: TONLUK_NOTU,
-      deger: degerSatiri([YU.h('span', { metin: YU.fmt.kg(o.yasToplam) }), birimEki('kg')]),
-      alt: yasDetayi(o)
+      deger: degerSatiri([YU.h('span', { metin: YU.fmt.kg(o.yasTonluk) }), birimEki('kg')]),
+      alt: YU.h('div', { sinif: 'yu-kpi-alt', metin: 'Tonluk büyük torba stoğu' })
+    });
+  }
+
+  function kartYasPoset(o) {
+    var adet = Math.round(o.yasPoset / POSET_KG);
+    return kpiKarti({
+      etiket: '25\'lik Yaş Küspe Stoğu', ikon: '#ic-bag',
+      deger: degerSatiri([
+        YU.h('span', { metin: YU.fmt.kg(o.yasPoset) }), birimEki('kg'),
+        birimEki('/'),
+        YU.h('span', { metin: YU.fmt.sayi(adet) }), birimEki('adet poşet')
+      ]),
+      alt: YU.h('div', { sinif: 'yu-kpi-alt', metin: '1 poşet ' + YU.fmt.sayi(POSET_KG) + ' kg küspe' })
     });
   }
 
@@ -438,16 +442,13 @@
     });
   }
 
+  /* Türler ayrı sayılır: bu kart yalnız TONLUK yaş küspeyi gösterir;
+     25'lik, Günlük Poşetli kartında (kullanıcı isteği, 21.08.2026). */
   function kartGunlukYas(o) {
-    /* Alt satır kırılımı yazar: 25'lik değeri de görünsün (kullanıcı
-       isteği, 21.08.2026). Tonluk = toplam − 25'lik. */
-    var tonlukUretim = YU.yuvarla(o.gunluk.yas.uretim - o.gunluk.poset.uretim);
     return gunlukKarti({
-      etiket: 'Günlük Yaş Küspe Üretim ve Satış', ikon: '#ic-beet-flow',
-      veri: o.gunluk.yas, sonGun: o.sonGun,
-      notu: o.sonGun
-        ? 'Üretim: Tonluk ' + YU.fmt.kgU(tonlukUretim) + ' · 25\'lik ' + YU.fmt.kgU(o.gunluk.poset.uretim)
-        : null
+      etiket: 'Günlük Tonluk Yaş Küspe Üretim ve Satış', ikon: '#ic-beet-flow',
+      veri: o.gunluk.tonluk, sonGun: o.sonGun,
+      notu: o.sonGun ? 'Tonluk büyük torba' : null
     });
   }
 
@@ -474,10 +475,11 @@
     { kod: 'dokme', ad: 'Toplam Dökme Kuru Küspe', aciklama: 'Siloların toplamı, doluluk ve 7 günlük değişim.', ciz: kartDokme },
     { kod: 'cuval', ad: 'Çuvallı Kuru Küspe', aciklama: 'kg karşılığı ve çuval adedi.', ciz: kartCuval },
     { kod: 'toplam-cuval', ad: 'Toplam Çuvallı Kuru Küspe', aciklama: 'Kampanya boyunca üretilen çuvallı toplamı ve satışı.', ciz: kartToplamCuval },
-    { kod: 'yas', ad: 'Yaş Küspe Stoğu', aciklama: 'Tonluk ve 25\'lik kırılımı.', ciz: kartYas },
+    { kod: 'yas', ad: 'Yaş Küspe Stoğu', aciklama: 'Tonluk büyük torba stoğu.', ciz: kartYas },
+    { kod: 'yas-poset', ad: '25\'lik Yaş Küspe Stoğu', aciklama: '25\'lik poşet stoğu ve adet karşılığı.', ciz: kartYasPoset },
     { kod: 'gunluk-dokme', ad: 'Günlük Dökme Üretim ve Satış', aciklama: 'Son kayıtlı günün dökme kuru küspe üretimi ve satışı.', ciz: kartGunlukDokme },
     { kod: 'gunluk-cuval', ad: 'Günlük Çuvallı Kuru Küspe Üretim ve Satış', aciklama: 'Son kayıtlı günün çuvallı kuru küspe üretimi ve satışı.', ciz: kartGunlukCuval },
-    { kod: 'gunluk-yas', ad: 'Günlük Yaş Küspe Üretim ve Satış', aciklama: 'Son kayıtlı günün yaş küspe üretimi ve satışı.', ciz: kartGunlukYas },
+    { kod: 'gunluk-yas', ad: 'Günlük Tonluk Yaş Küspe Üretim ve Satış', aciklama: 'Son kayıtlı günün tonluk yaş küspe üretimi ve satışı.', ciz: kartGunlukYas },
     { kod: 'gunluk-poset', ad: 'Günlük Poşetli Yaş Küspe Üretim ve Satış', aciklama: 'Son kayıtlı günün 25\'lik poşet yaş küspe üretimi ve satışı.', ciz: kartGunlukPoset },
     { kod: 'uretim30', ad: 'Son 30 Günün Dökme Üretimi', aciklama: 'Pencere toplamı ve önceki döneme göre fark.', ciz: kartUretim30 },
     { kod: 'satis30', ad: 'Son 30 Günün Dökme Satışı', aciklama: 'Pencere toplamı ve üretime oranı.', ciz: kartSatis30 },
@@ -486,7 +488,7 @@
     { kod: 'gun', ad: 'Kayıtlı Gün Sayısı', aciklama: 'Kampanyada veri girilmiş gün sayısı.', ciz: kartKayitliGun }
   ];
 
-  var VARSAYILAN_KARTLAR = ['dokme', 'cuval', 'toplam-cuval', 'yas', 'gunluk-dokme', 'gunluk-cuval', 'gunluk-yas', 'gunluk-poset', 'uretim30', 'satis30'];
+  var VARSAYILAN_KARTLAR = ['dokme', 'cuval', 'toplam-cuval', 'yas', 'yas-poset', 'gunluk-dokme', 'gunluk-cuval', 'gunluk-yas', 'gunluk-poset', 'uretim30', 'satis30'];
 
   function kartBul(kod) {
     for (var i = 0; i < KART_KATALOG.length; i++) if (KART_KATALOG[i].kod === kod) return KART_KATALOG[i];
