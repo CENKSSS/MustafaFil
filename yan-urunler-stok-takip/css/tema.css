@@ -1764,9 +1764,10 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
    Panelin mavi zemini yerine aynı oranda turuncu karışım (kullanıcı isteği,
    23.08.2026). Mavi ton .yu-panel / .yu-kpi temel kuralında.
    ========================================================================== */
+/* Ton 55 (turuncu) -> 35 (kırmızıya kayan turuncu) — kullanıcı isteği, 23.08.2026. */
 .yu-panel.yu-turuncu {
-  background: color-mix(in srgb, oklch(0.72 0.17 55) 19%, var(--yuzey));
-  border-color: color-mix(in srgb, oklch(0.72 0.17 55) 55%, var(--kenar));
+  background: color-mix(in srgb, oklch(0.68 0.19 35) 19%, var(--yuzey));
+  border-color: color-mix(in srgb, oklch(0.68 0.19 35) 55%, var(--kenar));
 }
 
 
