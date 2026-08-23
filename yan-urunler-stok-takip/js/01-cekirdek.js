@@ -326,7 +326,9 @@
     ["KuruKuspeGunluk", "kuruKuspeGunluk"],
     ["SiloHareket", "siloHareket"],
     ["DegisiklikLog", "degisiklikLog"],
-    // Arka plan arşivi — SOZLESME §1 dışıdır, hiçbir ekranda görünmez.
+    // Arka plan arşivi — SOZLESME §1 dışıdır. Tek görünürlük istisnası
+    // (kullanıcı isteği, 23.08.2026): silinen SiloHareket kopyaları, Kuru
+    // Küspe Günlük Giriş > Günün Silo Hareketleri panelinde çizili listelenir.
     // İleride eklenecek modüller (rapor, çöp kutusu, tarihsel grafik) boş
     // başlamasın diye veri şimdiden birikir (kullanıcı isteği, 21.08.2026).
     ["OlayGunlugu", "olayGunlugu"],

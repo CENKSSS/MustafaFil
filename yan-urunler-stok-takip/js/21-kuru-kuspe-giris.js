@@ -318,12 +318,16 @@
       stil: { display: "grid", gridTemplateColumns: "minmax(0, 1120px) minmax(300px, 340px)", gap: "18px", alignItems: "start" }
     }, govde, sagKolon);
 
-    /* ---------- 1. Üzerine yazma uyarısı (Şartname §7, v2) ---------- */
+    /* ---------- 1. Kayıtlı gün uyarısı (Şartname §7, v2 — kullanıcı isteği,
+       23.08.2026): şerit yerine sayfa açılınca küçük pencere. Kaydet/silme
+       sonrası yeniden çizimde tekrar açılmaz (sonuç şeridi zaten anlatır);
+       rozet ve alt başlık "kayıtlı gün" demeye devam eder. */
 
     if (kayit) {
       var damga = kayit.GuncellemeTarihi || kayit.OlusturmaTarihi;
       var kimId = kayit.GuncellemeTarihi ? kayit.GuncelleyenKullaniciId : kayit.OlusturanKullaniciId;
       var kim = kullaniciAdi(db, kimId) || "bilinmeyen kullanıcı";
+      /* Üst şerit her zaman durur (kullanıcı isteği, 23.08.2026). */
       govde.appendChild(YU.ui.serit({
         tur: "uyari",
         baslik: "Bu Gün Daha Önce Kaydedilmiş",
@@ -334,6 +338,25 @@
           onClick: function () { YU.git("gunluk-rapor", { tarih: tarih }); }
         }
       }));
+    }
+
+    if (kayit && !(bekleyenSonuc && bekleyenSonuc.tarih === tarih)) {
+      YU.ui.modal({
+        baslik: "Kayıtlı Gün",
+        genislik: 440,
+        govde: [
+          YU.h("div", {
+            metin: (tarih === YU.tarih.bugun() ? "Bugüne" : YU.fmt.tarih(tarih) + " gününe") +
+              " ait veriler girilmiştir. İstersen düzenleyebilirsin; ama kaydedersen eski kayıt silinir, bu yeni kayıt olur.",
+            stil: { font: "400 14.5px/1.6 var(--font)", color: "var(--metin)" }
+          }),
+          YU.h("div", {
+            sinif: "yu-yardim",
+            metin: kim + " · " + YU.fmt.tarih(tarih) + " " + YU.fmt.saat(damga) + " girmiş."
+          })
+        ],
+        dugmeler: [{ metin: "Tamam", tur: "birincil" }]
+      });
     }
 
     /* Sonuç kabı yalnız içi doluyken gövdeye takılır: boş dururken gövde
@@ -1068,7 +1091,7 @@
         YU.h("span", { sinif: "yu-yardim", metin: "Bu günü görüntüle:" }),
         baglanti("Günlük Rapor", "gunluk-rapor", { tarih: tarih }));
       /* Son değişiklikler ekranı yönetici yetkisindedir; operatöre gösterilmez. */
-      if (YU.yonetici()) baglantilar.appendChild(baglanti("Değişiklik Geçmişi", "degisiklik-gecmisi"));
+      if (YU.yonetici()) baglantilar.appendChild(baglanti("Değişiklik Geçmişi", "degisiklik-gecmisi", { tarih: tarih }));   /* o günle filtreli açılır */
 
       var gvd = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "10px" } },
         YU.h("div", {
@@ -1226,6 +1249,36 @@
           giren > 0 ? YU.fmt.kg(giren) : "—",
           cikan > 0 ? YU.fmt.kg(cikan) : "—",
           kaydeden(h)
+        ]);
+      }
+
+      /* Üzerine yazmada ya da gün silmede kaldırılan hareketler — arşiv
+         kopyasından okunur ve Değişiklik Geçmişi'ndeki gibi ÇİZİLİ gösterilir
+         (kullanıcı isteği, 23.08.2026). */
+      var silinenler = [], sk, hk;
+      for (i2 = 0; i2 < (db.silinenKayitlar || []).length; i2++) {
+        sk = db.silinenKayitlar[i2];
+        if (sk.Tablo === "SiloHareket" && sk.Kayit && sk.Kayit.Tarih === tarih) silinenler.push(sk);
+      }
+      silinenler.sort(function (a, b) { return String(a.SilmeTarihi).localeCompare(String(b.SilmeTarihi)); });
+
+      function cizili(metin) {
+        return YU.h("span", { metin: metin, stil: { textDecoration: "line-through", textDecorationColor: "var(--metin-4)", color: "var(--metin-4)" } });
+      }
+
+      for (i2 = 0; i2 < silinenler.length; i2++) {
+        sk = silinenler[i2];
+        hk = sk.Kayit;
+        var siloKaydi = null;
+        for (var j2 = 0; j2 < db.silolar.length; j2++) if (db.silolar[j2].Id === hk.SiloId) siloKaydi = db.silolar[j2];
+        satirlar.push([
+          cizili(siloKaydi ? siloKaydi.Ad : "Silo #" + hk.SiloId),
+          YU.h("span", { stil: { display: "inline-flex", alignItems: "center", gap: "8px", minWidth: "0" } },
+            cizili(TIP_ADI[hk.HareketTipi] || hk.HareketTipi),
+            YU.ui.rozet("Silindi", "olumsuz")),
+          (Number(hk.GirenKg) || 0) > 0 ? cizili(YU.fmt.kg(hk.GirenKg)) : YU.h("span", { sinif: "yu-zayif", metin: "—" }),
+          (Number(hk.CikanKg) || 0) > 0 ? cizili(YU.fmt.kg(hk.CikanKg)) : YU.h("span", { sinif: "yu-zayif", metin: "—" }),
+          YU.h("span", { sinif: "yu-zayif", metin: (kullaniciAdi(db, sk.KullaniciId) || "—") + " · " + YU.fmt.saat(sk.SilmeTarihi) + " sildi" })
         ]);
       }
 

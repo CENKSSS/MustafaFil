@@ -682,18 +682,29 @@
          Üstüne eklenirse silo stoğu şişer (Şartname §4). */
       silinen = 0;
       if (mevcut) {
+        /* Her silinen hareket AYRI ve değerleriyle loglanır (kullanıcı isteği,
+           23.08.2026): Değişiklik Geçmişi "hangi değer silindi" sorusuna
+           cevap verir. §4 davranışı aynıdır; yalnız iz ayrıntılandı. */
+        var TIP_AD = { DokmeUretim: "Dökme Üretim", Cuvallama: "Çuvallama", DokmeSatis: "Dökme Satış" };
+        var eskiHareket, eskiSilo, miktarMetni;
         for (i = depo.siloHareket.length - 1; i >= 0; i--) {
-          if (depo.siloHareket[i].KaynakKayitId === mevcut.Id) {
-            depo.siloHareket.splice(i, 1);
-            silinen++;
+          if (depo.siloHareket[i].KaynakKayitId !== mevcut.Id) continue;
+          eskiHareket = depo.siloHareket[i];
+          depo.siloHareket.splice(i, 1);
+          silinen++;
+          if (logla) {
+            eskiSilo = satirBul(depo.silolar, eskiHareket.SiloId);
+            miktarMetni = (Number(eskiHareket.GirenKg) || 0) > 0
+              ? "giren " + YU.fmt.kgU(eskiHareket.GirenKg)
+              : "çıkan " + YU.fmt.kgU(eskiHareket.CikanKg);
+            logYaz(depo, {
+              tablo: "SiloHareket", kayitId: eskiHareket.Id, alan: null,
+              eski: YU.fmt.tarih(tarih) + " · " + (eskiSilo ? eskiSilo.Ad : "Silo #" + eskiHareket.SiloId) +
+                " · " + (TIP_AD[eskiHareket.HareketTipi] || eskiHareket.HareketTipi) + " · " + miktarMetni +
+                " — düzeltmede silindi",
+              yeni: null, kullaniciId: kullaniciId, islem: "Sil"
+            });
           }
-        }
-        if (silinen && logla) {
-          logYaz(depo, {
-            tablo: "SiloHareket", kayitId: mevcut.Id, alan: null,
-            eski: YU.fmt.sayi(silinen) + " hareket (" + YU.fmt.tarih(tarih) + ") düzeltme için silindi",
-            yeni: null, kullaniciId: kullaniciId, islem: "Sil"
-          });
         }
       }
 
@@ -1251,7 +1262,22 @@
 
   YU.servis = {
     kuruKuspeKaydet: arsivli("kuruKuspeKaydet", kuruKuspeKaydet, {
-      tarih: function (depo, girdi) { return girdi ? girdi.tarih : null; }
+      tarih: function (depo, girdi) { return girdi ? girdi.tarih : null; },
+      /* Üzerine yazmada silinecek eski silo hareketlerinin tam kopyası
+         (kullanıcı isteği, 23.08.2026); yalnız çağrı BAŞARILIYSA arşivlenir.
+         Günün Silo Hareketleri paneli bunları çizili gösterir. */
+      silinecekler: function (depo, girdi) {
+        if (!girdi || !girdi.tarih) return [];
+        var mevcut = null, i, l = [];
+        for (i = 0; i < depo.kuruKuspeGunluk.length; i++) {
+          if (depo.kuruKuspeGunluk[i].Tarih === girdi.tarih) { mevcut = depo.kuruKuspeGunluk[i]; break; }
+        }
+        if (!mevcut) return [];
+        for (i = 0; i < depo.siloHareket.length; i++) {
+          if (depo.siloHareket[i].KaynakKayitId === mevcut.Id) l.push(depo.siloHareket[i]);
+        }
+        return l.length ? [{ tablo: "SiloHareket", kayitlar: l, baglam: "Üzerine yazma · " + girdi.tarih }] : [];
+      }
     }),
     gunSil: arsivli("gunSil", gunSil, {
       tarih: function (depo, tarih) { return tarih; },

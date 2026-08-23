@@ -584,7 +584,7 @@
     grup: 'Yönetim',
     rol: 'Yonetici',
 
-    ciz: function (kap) {
+    ciz: function (kap, param) {
       YU.bos(kap);
 
       /* Yönlendirici zaten yetki kapısı işletiyor; ekran kendi kontrolünü de yapar. */
@@ -614,6 +614,10 @@
       }
 
       var durum = { tablo: '', kullanici: '', islem: '', silo: '', bas: '', bit: '', arama: '', sayfa: 0 };
+      /* Bağlantıyla gelen tarih (kullanıcı isteği, 23.08.2026): sayfa o günle
+         filtreli açılır — kuru küspe onay penceresindeki bağlantı bunu kullanır. */
+      var pt = param && param.tarih;
+      if (typeof pt === 'string' && /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(pt)) { durum.bas = pt; durum.bit = pt; }
       var sonucKap = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '20px' } });
 
       kap.appendChild(filtrePaneli(durum, function () { sonuclariCiz(sonucKap, durum); }));
@@ -676,11 +680,11 @@
        durumu paylaştıkları için kart tıklandığında kutu da eşitlenir. */
     durum.islemEsitle = function (v) { islemAlan.ayarla(v); };
     var basAlan = YU.ui.alan({
-      etiket: 'Başlangıç', tip: 'tarih', deger: '',
+      etiket: 'Başlangıç', tip: 'tarih', deger: durum.bas || '',
       onChange: function () { durum.bas = basAlan.deger(); degisti(); }
     });
     var bitAlan = YU.ui.alan({
-      etiket: 'Bitiş', tip: 'tarih', deger: '',
+      etiket: 'Bitiş', tip: 'tarih', deger: durum.bit || '',
       onChange: function () { durum.bit = bitAlan.deger(); degisti(); }
     });
     var aramaAlan = YU.ui.alan({
