@@ -509,18 +509,6 @@
         }
       }
 
-      /* Tam kilograma bölünür, artık son siloya bırakılır: fabrikada siloya
-         küsuratlı kilo yazılmaz, toplam yine birebir tutar (D3/D5/D13). */
-      function esitDagit() {
-        var n = silolar.length, kalan = gereken, g = {}, k, pay, m;
-        pay = Math.floor(gereken / n);
-        for (k = 0; k < n; k++) {
-          m = k === n - 1 ? YU.yuvarla(kalan) : pay;
-          g[silolar[k].Id] = m;
-          kalan = YU.yuvarla(kalan - m);
-        }
-        yaz(g);
-      }
 
       function eylem(fn) {
         return function () { if (!etkin) return; fn(); guncelle(); };
@@ -528,10 +516,10 @@
 
       /* "Hepsi Silo 1'e" düğmesi kalktı: kutu içindeki "Hepsini Ekle" aynı işi
          her silo için yapıyor; iki düğme aynı işi yapınca hiyerarşi bozuluyordu. */
-      var dugmeEsit = YU.ui.dugme({ metin: "Eşit Böl", kucuk: true, tur: "ikincil", onClick: eylem(esitDagit) });
+      /* Eşit Böl kaldırıldı (kullanıcı isteği, 23.08.2026); yalnız Temizle. */
       var dugmeTemizle = YU.ui.dugme({ metin: "Temizle", kucuk: true, tur: "sade", onClick: eylem(temizle) });
-      dugmeler.push(dugmeEsit, dugmeTemizle);
-      var dugmeSatiri = satir({ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }, dugmeEsit, dugmeTemizle);
+      dugmeler.push(dugmeTemizle);
+      var dugmeSatiri = satir({ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }, dugmeTemizle);
 
       /* display değerleri açıkça yazılır ("" değil): inline display kuruluyor,
          "" yazmak onu siler ve blok düz akışa düşer. */
@@ -740,10 +728,10 @@
     siloIzgara.style.alignContent = "start";
     sagKolon.appendChild(adim3);
 
-    /* ---------- 8. Bu günün kayıtlı hareketleri (yalnız varsa) ---------- */
+    /* ---------- 8. Günün silo hareketleri (her zaman görünür) ---------- */
 
-    var kayitliPanel = panelGunHareketleri();
-    if (kayitliPanel) govde.appendChild(kayitliPanel);
+    /* Her zaman görünür; boşken açıklama yazar (2. Versiyondaki gibi — kullanıcı isteği, 23.08.2026). */
+    govde.appendChild(panelGunHareketleri());
 
     /* ---------- Canlı hesap ---------- */
 
@@ -916,19 +904,18 @@
         ? YU.fmt.sayi(adet) + " çuval = " + YU.fmt.kgU(h.cuvalKg) + " · çuvallı stoğa yazılır, siloya girmez."
         : CUVAL_YARDIM;
 
-      /* Siloya giren: net üretim yoksa blok pasif kalır, sebebi tek cümle. */
+      /* Siloya giren: blok pasifken yönlendirme cümlesi YOK (kullanıcı isteği,
+         23.08.2026); yalnız gerçekten bilgi taşıyan iki durum yazılır. */
       var girenBos = null;
-      if (!(h.netDokmeUretim > tol)) {
-        if (!(uretim > 0) && !(h.cuvalKg > 0)) girenBos = "Üretilen dökme yazılınca bu kutular açılır.";
-        else if (h.cuvalKg > uretim + tol) girenBos = "Bugün üretilenden fazla çuvallanmış; siloya giriş yok. Aradaki fark aşağıda silodan çıkar.";
+      if (!(h.netDokmeUretim > tol) && (uretim > 0 || h.cuvalKg > 0)) {
+        if (h.cuvalKg > uretim + tol) girenBos = "Bugün üretilenden fazla çuvallanmış; siloya giriş yok. Aradaki fark aşağıda silodan çıkar.";
         else girenBos = "Üretimin tamamı çuvallanmış; siloya giriş yok.";
       }
       kalemUretim.tazele(h.netDokmeUretim, girenBos, null);
 
       /* Silodan çıkan: satış her gün olabilir; çuvallama çekişi yalnız
          üretimden fazla çuvallanan günde (Şartname §4 Durum B) belirir. */
-      kalemSatis.tazele(h.satilanDokme,
-        !(h.satilanDokme > tol) ? "Satılan dökme yazılınca bu kutular açılır." : null, null);
+      kalemSatis.tazele(h.satilanDokme, null, null);
       kalemCuvallama.tazele(h.silodanCekilecek, null,
         h.silodanCekilecek > tol
           ? "Bugün " + YU.fmt.kgU(uretim) + " üretilmiş ama " + YU.fmt.kgU(h.cuvalKg) + " (" + YU.fmt.sayi(adet) +
@@ -1046,7 +1033,6 @@
     function panelGunHareketleri() {
       var ozet = YU.stok.gunOzeti(db, tarih);
       var satirlar = [], i2, h, giren, cikan;
-      if (!ozet.siloHareketleri.length) return null;
 
       /* Kim, saat kaçta kaydetti — gün yazılmaz, panel zaten tek güne ait. */
       function kaydeden(hareket) {
@@ -1073,7 +1059,7 @@
       }
 
       return YU.ui.panel({
-        baslik: "Bu Günün Kayıtlı Silo Hareketleri",
+        baslik: "Günün Silo Hareketleri",
         ikon: "#ic-building",
         sag: YU.ui.rozet(YU.fmt.tarih(tarih), "notr"),
         govde: [
@@ -1086,7 +1072,8 @@
               { baslik: "Kaydeden", hiza: "sag" }
             ],
             satirlar: satirlar,
-            kompakt: true
+            kompakt: true,
+            bos: "Bu güne ait silo hareketi yok. Kaydettiğinizde burada listelenir."
           })
         ]
       });
