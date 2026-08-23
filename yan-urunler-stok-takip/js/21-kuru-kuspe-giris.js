@@ -286,16 +286,9 @@
     var gunBasi = {};
     var i;
 
-    YU.ui.sayfaEylemleri(
-      YU.ui.dugme({
-        metin: "Günlük Rapor", ikon: "#ic-doc", tur: "ikincil",
-        onClick: function () { YU.git("gunluk-rapor", { tarih: tarih }); }
-      }),
-      YU.ui.dugme({
-        metin: "Geçmiş Girişler", ikon: "#ic-calendar", tur: "ikincil",
-        onClick: function () { YU.git("gecmis-girisler"); }
-      })
-    );
+    /* Günlük Rapor / Geçmiş Girişler sayfa başlığından tarih şeridine taşındı
+       (kullanıcı isteği, 23.08.2026). */
+    YU.ui.sayfaEylemleri();
 
     if (!silolar.length) {
       kap.appendChild(YU.ui.bosDurum({
@@ -314,15 +307,16 @@
        ekranlar arasında gezinirken birikmez. */
     /* Geniş ekranda paneller gereksiz büyüyordu; sayfa genişliği sınırlanır
        (kullanıcı isteği, 23.08.2026). Sol hizalı: başlıkla aynı akış. */
-    var govde = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "18px", maxWidth: "1120px" } });
-    /* İki sütun (kullanıcı isteği, 23.08.2026): solda adım 1-2, sağda adım 3
-       "Gün Sonu ve Kayıt" dikey dizilir ve kaydırırken yerinde kalır; Kaydet
-       hep göz önünde. sagKolon adım 3 kurulunca doldurulur. */
-    var sagKolon = YU.h("div", { stil: { minWidth: "0" } });   /* grid stretch: sol sütun boyunda */
-    kap.appendChild(YU.h("div", {
-      /* stretch: sağ panel sol sütunla aynı tavan/taban hizasında (kullanıcı isteği, 23.08.2026). */
-      stil: { display: "grid", gridTemplateColumns: "minmax(0, 1120px) minmax(300px, 340px)", gap: "18px", alignItems: "stretch" }
-    }, govde, sagKolon));
+    var govde = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "18px", minWidth: "0", gridColumn: "1", gridRow: "1" } });
+    /* Yerleşim (kullanıcı isteği, 23.08.2026): tarih şeridi grid DIŞINDA tam
+       satırdır; ③ paneli ①in tavanıyla aynı hizada başlar. Grid iki satırdır:
+       solda üstte adım 1-2, altta Günün Silo Hareketleri; sağ sütun İKİ satırı
+       birden kaplar ki içerik boyundaki yapışkan panel, sayfa kayarken hareket
+       panelinin hizasına kadar inebilsin. */
+    var sagKolon = YU.h("div", { stil: { minWidth: "0", gridColumn: "2", gridRow: "1 / 3", alignSelf: "stretch" } });
+    var yerlesim = YU.h("div", {
+      stil: { display: "grid", gridTemplateColumns: "minmax(0, 1120px) minmax(300px, 340px)", gap: "18px", alignItems: "start" }
+    }, govde, sagKolon);
 
     /* ---------- 1. Üzerine yazma uyarısı (Şartname §7, v2) ---------- */
 
@@ -403,9 +397,19 @@
         })
       ),
       YU.h("span", { stil: { flex: "1" } }),
+      YU.ui.dugme({
+        metin: "Günlük Rapor", ikon: "#ic-doc", tur: "ikincil", kucuk: true,
+        onClick: function () { YU.git("gunluk-rapor", { tarih: tarih }); }
+      }),
+      YU.ui.dugme({
+        metin: "Geçmiş Girişler", ikon: "#ic-calendar", tur: "ikincil", kucuk: true,
+        onClick: function () { YU.git("gecmis-girisler"); }
+      }),
       YU.ui.rozet(kayit ? "Kayıtlı Gün" : "Kayıt Yok", kayit ? "bekleyen" : "notr")
     );
-    govde.appendChild(tarihSatiri);
+    tarihSatiri.style.maxWidth = "1478px";   /* 1120 + 18 + 340: iki sütunun toplam genişliği */
+    kap.appendChild(tarihSatiri);
+    kap.appendChild(yerlesim);
 
     /* ---------- 3. Ham girdiler (Şartname §4: operatör yalnız ham rakam girer) ---------- */
 
@@ -712,12 +716,19 @@
     /* Panel sütun boyunca uzar; durum + Kaydet dibe yaslanır. */
     adim3.style.display = "flex";
     adim3.style.flexDirection = "column";
-    /* Yapışkan (kullanıcı isteği, 23.08.2026): boy = kolon boyu, ama ekrandan
-       uzunsa ekrana sığar ve kaydırırken tepede durur; içi gerekirse kayar. */
+    /* Yapışkan ve dinamik (kullanıcı isteği, 23.08.2026): boyu içeriği kadar,
+       ekrandan uzunsa ekrana sığar (silo listesi içte kayar), tepede yapışık. */
     adim3.style.position = "sticky";
     adim3.style.top = "78px";
     adim3.style.boxSizing = "border-box";
-    adim3.style.height = "min(100%, calc(100vh - 98px))";
+    adim3.style.maxHeight = "calc(100vh - 98px)";
+    /* Taban ② ile hizalı (kullanıcı isteği, 23.08.2026): panel en az sol yığın
+       (adım 1-2) kadar uzundur. guncelle() her çağrıldığında tazelenir —
+       gözlemci değil eşzamanlı ölçüm: arka plan sekmesinde de doğru kalır. */
+    function tabanHizala() {
+      /* Ekrandan uzun panel yapışamaz; taban hizası ekrana sığan kadarıyla sınırlı. */
+      adim3.style.minHeight = Math.min(govde.offsetHeight, window.innerHeight - 98) + "px";
+    }
     var adim3Govde = adim3.querySelector(".yu-panel-govde");
     adim3Govde.style.flex = "1";
     adim3Govde.style.minHeight = "0";
@@ -731,7 +742,11 @@
     /* ---------- 8. Günün silo hareketleri (her zaman görünür) ---------- */
 
     /* Her zaman görünür; boşken açıklama yazar (2. Versiyondaki gibi — kullanıcı isteği, 23.08.2026). */
-    govde.appendChild(panelGunHareketleri());
+    var hareketPaneli = panelGunHareketleri();
+    hareketPaneli.style.gridColumn = "1";
+    hareketPaneli.style.gridRow = "2";
+    hareketPaneli.style.minWidth = "0";
+    yerlesim.appendChild(hareketPaneli);
 
     /* ---------- Canlı hesap ---------- */
 
@@ -875,20 +890,38 @@
       durumListe.style.display = maddeler && maddeler.length ? "block" : "none";
     }
 
+    /* BRÜT giriş kontrolü (kullanıcı isteği, 23.08.2026): herhangi bir alana
+       sıfırdan büyük değer yazılmış mı? +500 giren ve 500 çıkan bir gün NET 0
+       olsa da değişmiş sayılır — net değil brüt bakılır. */
+    function girisVarMi(girdi) {
+      function poz(n) { return isFinite(n) && n > 0; }
+      if (poz(girdi.uretilenDokme) || poz(girdi.cuvalAdet) || poz(girdi.satilanDokme)) return true;
+      var listeler = [girdi.yerlestirmeler, girdi.cekisler, girdi.satisCekisleri], k, j;
+      for (k = 0; k < listeler.length; k++) {
+        for (j = 0; j < (listeler[k] || []).length; j++) if (poz(listeler[k][j].miktar)) return true;
+      }
+      return false;
+    }
+
     function ozetTazele(girdi) {
       var d = canliDenetim(girdi);
       var h = d.hatalar.length, u = d.uyarilar.length;
+      var girisVar = girisVarMi(girdi);
 
       /* Engelleyen kural varken Kaydet BASILAMAZ (kullanıcı kararı,
-         21.08.2026): önce düzeltme, sonra kayıt. */
-      dugmeKaydet.disabled = h > 0;
-      dugmeKaydet.title = h > 0 ? "Önce yukarıdaki noktaları düzelt." : "Ctrl + Enter";
+         21.08.2026); hiç giriş yokken de yeni gün için basılamaz. */
+      dugmeKaydet.disabled = h > 0 || (!girisVar && !kayit);
+      dugmeKaydet.title = h > 0 ? "Önce yukarıdaki noktaları düzelt." : (!girisVar && !kayit ? "Önce bir rakam gir." : "Ctrl + Enter");
 
       if (h) {
         durumYaz("#ic-alert", "var(--olumsuz)",
           "Kaydetmeden önce düzeltilmesi gereken " + (h === 1 ? "bir nokta" : h + " nokta") + " var:", d.hatalar);
       } else if (u) {
         durumYaz("#ic-bell", "var(--bekleyen)", "Kaydedilebilir; yine de şuna dikkat:", d.uyarilar);
+      } else if (!girisVar) {
+        /* Boş günde "her şey tamam" DENMEZ (kullanıcı isteği, 23.08.2026). */
+        if (kayit) durumYaz("#ic-alert", "var(--bekleyen)", "Tüm değerler 0 — kaydedersen bu günün kayıtlı hareketleri silinir.", null);
+        else durumYaz("#ic-doc", "var(--metin-4)", "Henüz giriş yok — rakam yazınca durum burada görünür.", null);
       } else {
         durumYaz("#ic-checklist", "var(--olumlu)", "Her şey tamam — kaydedebilirsin.", null);
       }
@@ -927,6 +960,7 @@
       var girdi = girdiTopla();
       gunSonuTazele(girdi, h);
       ozetTazele(girdi);
+      tabanHizala();
     }
 
     /* ---------- Kaydetme ve silme ---------- */
