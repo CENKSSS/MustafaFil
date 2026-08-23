@@ -743,16 +743,23 @@
        panel başlığında durur. Başlığa parametre gibi sayı basmak, seçilmiş
        bir pencere izlenimi veriyordu (kullanıcı düzeltmesi, 23.08.2026).
        Tek istisna son sütun: orada gün sayısı BİLGİNİN KENDİSİDİR. */
+    /* Sütun başlığı önce İNSAN SÖZCÜĞÜNÜ söyler ("Bu Sezon"), kampanya adı
+       arkasından gelir. Programı ilk kez açan biri "Kampanya 2025/2026"
+       yazısından hangisinin geçen sezon olduğunu çıkaramıyordu
+       (kullanıcı geri bildirimi, 23.08.2026). */
     var sutunlar = [
       { baslik: 'Gösterge' },
-      { baslik: 'Kampanya ' + d.bu.donem.ad, hiza: 'sag', mono: true, genislik: 190 },
-      { baslik: d.gecmis ? 'Kampanya ' + d.gecmis.donem.ad : 'Geçmiş Kampanya', hiza: 'sag', mono: true, genislik: 190 }
+      { baslik: 'Bu Sezon · ' + d.bu.donem.ad, hiza: 'sag', mono: true, genislik: 190 },
+      { baslik: d.gecmis ? 'Geçen Sezon · ' + d.gecmis.donem.ad : 'Geçen Sezon', hiza: 'sag', mono: true, genislik: 190 }
     ];
     if (!d.tamAralikMi) {
       sutunlar.push({ baslik: 'Seçili Aralık Farkı', hiza: 'sag', mono: true, genislik: 160 });
       sutunlar.push({ baslik: 'Aralık %', hiza: 'sag', genislik: 100 });
     }
-    sutunlar.push({ baslik: gunMetni(d.sonGun) + ' Farkı', hiza: 'sag', genislik: 200 });
+    /* Başlıkta gün sayısı YOK (kullanıcı tercihi, 23.08.2026): '30. gün Farkı'
+       tek bir günün farkı gibi okunuyordu. Kaçıncı günde olunduğu sayfa alt
+       başlığında, aralık çipinde ve tablo üstü açıklamada zaten yazıyor. */
+    sutunlar.push({ baslik: 'Sezon Başından Bugüne', hiza: 'sag', genislik: 210 });
 
     var tablo = YU.ui.tablo({
       sutunlar: sutunlar,
@@ -768,18 +775,43 @@
         'iki kampanyada da kaydı olan ' + YU.fmt.sayi(d.ortakGun) + ' gün üzerinden hesaplanabiliyor — ' +
         'bu seçilmiş bir aralık değil, verinin bittiği yerdir.');
     }
-    notlar.push('Son sütun (' + gunMetni(d.sonGun) + ' Farkı) seçili aralıktan BAĞIMSIZDIR: ' +
-      'kampanyanın 1. gününden bugüne ' + YU.fmt.sayi(d.sonGun) + ' günlük toplamları karşılaştırır; ' +
-      'geçmiş kampanyanın da aynı ' + YU.fmt.sayi(d.sonGun) + ' günü alınır.' +
-      (d.tamAralikMi ? ' Seçili aralık kampanyanın tamamı olduğu için ayrıca aralık farkı sütunu gösterilmez.' : ''));
+    notlar.push('“Sezon Başından Bugüne” sütunu üstteki tarih aralığından BAĞIMSIZDIR: ' +
+      'her iki sezonun da ilk ' + YU.fmt.sayi(d.sonGun) + ' gününü toplayıp karşılaştırır.' +
+      (d.tamAralikMi ? ' Seçili aralık zaten sezonun tamamı olduğu için ayrıca aralık farkı sütunu gösterilmez.' : ''));
     notlar.push('Satıra tıklayınca o gösterge grafikte açılır.');
+
+    /* Tablonun ÜSTÜNDE tek cümlelik açıklama: kampanya günü mantığı bu
+       ekranın en anlaşılmaz yeri. Somut tarih vermek kavramı oturtuyor.
+       Ayrıntılı notlar tablonun altında kalır. */
+    var ustAciklama = null;
+    if (d.gecmis) {
+      ustAciklama = YU.h('div', {
+        stil: {
+          display: 'flex', alignItems: 'flex-start', gap: '9px',
+          padding: '11px 18px', borderBottom: '1px solid var(--ayrac)',
+          background: 'var(--yuzey-2)'
+        }
+      },
+        YU.h('span', { stil: { display: 'flex', color: 'var(--vurgu)', flex: 'none', marginTop: '1px' } }, YU.svg('#ic-doc', 14)),
+        YU.h('div', {
+          sinif: 'yu-yardim',
+          stil: { margin: '0' },
+          metin: 'Karşılaştırma takvim tarihine göre değil KAMPANYA GÜNÜNE göre yapılır. ' +
+            'Bu sezon ' + YU.fmt.sayi(d.sonGun) + ' gündür sürüyor (' +
+            YU.fmt.tarih(d.bu.donem.bas) + '’dan ' + YU.fmt.tarih(YU.analiz.gunTarihi(d.bu, d.sonGun)) + '’a); ' +
+            'geçen sezonun da başlangıcından itibaren aynı ' + YU.fmt.sayi(d.sonGun) + ' günü alındı (' +
+            YU.fmt.tarih(YU.analiz.gunTarihi(d.gecmis, 1)) + ' – ' +
+            YU.fmt.tarih(YU.analiz.gunTarihi(d.gecmis, Math.min(d.sonGun, d.gecmis.sonGun))) + ').'
+        })
+      );
+    }
 
     return YU.ui.panel({
       baslik: d.tamAralikMi ? 'Kampanya Toplamları' : 'Seçili Aralık Toplamları',
       ikon: '#ic-doc',
       sag: YU.fmt.sayi(d.gostergeler.length) + ' gösterge · ' + aralikMetni(d),
       dolgusuz: true,
-      govde: [tablo, YU.h('div', { sinif: 'yu-yardim', metin: notlar.join(' '), stil: { padding: '10px 18px 12px' } })]
+      govde: [ustAciklama, tablo, YU.h('div', { sinif: 'yu-yardim', metin: notlar.join(' '), stil: { padding: '10px 18px 12px' } })]
     });
   }
 
