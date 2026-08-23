@@ -998,7 +998,6 @@
 
   YU.sayfaTanimla({
     kod: 'anasayfa',
-    zemin: 'gri',   /* gri zemin + beyaz panel denemesi (kullanıcı isteği, 23.08.2026) */
     baslik: 'Ana Sayfa',
     altBaslik: function () {
       var depo = YU.db;

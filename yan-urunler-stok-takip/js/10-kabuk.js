@@ -1402,9 +1402,10 @@
 
     var tanim = YU.sayfalar[kod];
 
-    /* Sayfa tanımı zemin: 'gri' derse içerik alanı gri zemin + beyaz panel
-       düzenine geçer (tema.css .yu-zemin-gri); diğer sayfalarda sınıf düşer. */
-    dom.icerik.className = 'yu-icerik' + (tanim && tanim.zemin ? ' yu-zemin-' + tanim.zemin : '');
+    /* İçerik zemini: varsayılan 'gri' (gri zemin + beyaz panel, tema.css
+       .yu-zemin-gri — kullanıcı isteği, 23.08.2026). Sayfa tanımı zemin: 'duz'
+       derse sınıf kuralsız kalır ve ortak mavi panel düzeni görünür. */
+    dom.icerik.className = 'yu-icerik yu-zemin-' + ((tanim && tanim.zemin) || 'gri');
 
     if (!tanim) {
       basligiYaz('Sayfa Bulunamadı', '#/' + kod + ' adresine karşılık gelen bir ekran yok.');

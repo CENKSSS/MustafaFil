@@ -261,6 +261,7 @@
 
   YU.sayfaTanimla({
     kod: KOD,
+    zemin: "duz",   /* gri zemin düzeninin dışında: mavi/turuncu adım panelleri (kullanıcı isteği, 23.08.2026) */
     baslik: "Kuru Küspe Günlük Giriş",
     ikon: "#ic-plus",
     grup: "Giriş",
