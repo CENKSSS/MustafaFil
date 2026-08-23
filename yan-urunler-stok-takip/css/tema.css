@@ -110,19 +110,19 @@
 @media (prefers-color-scheme: dark) {
   html:not([data-tema="acik"]) {
     color-scheme: dark;
-    --zemin:          #0b0d10;
-    --yan-zemin:      #08090b;
-    --ust-zemin:      #0d0f13;
-    --yuzey:          #0d0f13;
-    --yuzey-2:        rgba(255,255,255,.03);
-    --yuzey-3:        rgba(255,255,255,.05);
-    --yuzey-4:        rgba(255,255,255,.06);
+    --zemin:          #0e1627;
+    --yan-zemin:      #0a1120;
+    --ust-zemin:      #101a2e;
+    --yuzey:          #16223a;
+    --yuzey-2:        rgba(255,255,255,.04);
+    --yuzey-3:        rgba(255,255,255,.06);
+    --yuzey-4:        rgba(255,255,255,.08);
 
-    --kenar:          rgba(255,255,255,.06);
-    --kenar-2:        rgba(255,255,255,.09);
-    --kenar-3:        rgba(255,255,255,.12);
-    --ayrac:          rgba(255,255,255,.06);
-    --ayrac-2:        rgba(255,255,255,.05);
+    --kenar:          rgba(148,170,210,.14);
+    --kenar-2:        rgba(148,170,210,.18);
+    --kenar-3:        rgba(148,170,210,.24);
+    --ayrac:          rgba(148,170,210,.10);
+    --ayrac-2:        rgba(148,170,210,.08);
 
     --metin:          #ecf0f3;
     --metin-2:        #ced4dd;
@@ -133,7 +133,7 @@
     --vurgu:          oklch(0.66 0.13 250);
     --vurgu-koyu:     oklch(0.74 0.12 250);
     --vurgu-zemin:    rgba(90,140,230,.16);
-    --vurgu-uzeri:    #08090b;
+    --vurgu-uzeri:    #0a1120;
 
     --olumlu:         #6ee7a0;
     --olumlu-zemin:   rgba(110,231,160,.12);
@@ -141,7 +141,7 @@
     --olumsuz-zemin:  rgba(248,113,113,.12);
     --bekleyen:       #e9b872;
     --bekleyen-zemin: rgba(233,184,114,.12);
-    --notr-zemin:     rgba(255,255,255,.06);
+    --notr-zemin:     rgba(255,255,255,.07);
 
     /* Koyu temada derinlik gölgeyle değil katman tonuyla kurulur. */
     --golge:          none;
@@ -151,14 +151,14 @@
     --grafik-1:       oklch(0.66 0.13 250);
     --grafik-2:       oklch(0.75 0.10 250);
     --grafik-3:       oklch(0.84 0.07 250);
-    --grafik-4:       #2b3238;
+    --grafik-4:       #2a3650;
     --kat-1: #3E8FD4;
     --kat-2: #BC8620;
     --kat-3: #22A87E;
     --kat-4: #D2703A;
     --kat-5: #4C93CE;
     --kat-6: #C077A3;
-    --grafik-ikincil: #3a4152;
+    --grafik-ikincil: #3b4a66;
     --grafik-alan:    rgba(90,140,230,.12);
     --grafik-izgara:  rgba(255,255,255,.07);
 
@@ -167,11 +167,11 @@
     --silo-cizgi:     #c7cdd6;
     --silo-yazi:      #171a1f;
 
-    --tablo-bas-zemin: #232e3d;   /* mavi panel üstünde bir ton koyu şerit (23.08.2026) */
-    --gri-zemin:      #0b0d10;
-    --gri-panel:      rgba(255,255,255,.04);
-    --gri-kenar:      rgba(255,255,255,.12);
-    --gri-tablo-bas:  #15181d;
+    --tablo-bas-zemin: #1d2a44;   /* mavi panel üstünde bir ton koyu şerit (23.08.2026) */
+    --gri-zemin:      #0e1627;
+    --gri-panel:      #16223a;
+    --gri-kenar:      rgba(148,170,210,.20);
+    --gri-tablo-bas:  #1d2a44;
   }
 }
 
@@ -180,19 +180,19 @@ html[data-tema="acik"] { color-scheme: light; }
 
 html[data-tema="koyu"] {
   color-scheme: dark;
-  --zemin:          #0b0d10;
-  --yan-zemin:      #08090b;
-  --ust-zemin:      #0d0f13;
-  --yuzey:          #0d0f13;
-  --yuzey-2:        rgba(255,255,255,.03);
-  --yuzey-3:        rgba(255,255,255,.05);
-  --yuzey-4:        rgba(255,255,255,.06);
+  --zemin:          #0e1627;
+  --yan-zemin:      #0a1120;
+  --ust-zemin:      #101a2e;
+  --yuzey:          #16223a;
+  --yuzey-2:        rgba(255,255,255,.04);
+  --yuzey-3:        rgba(255,255,255,.06);
+  --yuzey-4:        rgba(255,255,255,.08);
 
-  --kenar:          rgba(255,255,255,.06);
-  --kenar-2:        rgba(255,255,255,.09);
-  --kenar-3:        rgba(255,255,255,.12);
-  --ayrac:          rgba(255,255,255,.06);
-  --ayrac-2:        rgba(255,255,255,.05);
+  --kenar:          rgba(148,170,210,.14);
+  --kenar-2:        rgba(148,170,210,.18);
+  --kenar-3:        rgba(148,170,210,.24);
+  --ayrac:          rgba(148,170,210,.10);
+  --ayrac-2:        rgba(148,170,210,.08);
 
   --metin:          #ecf0f3;
   --metin-2:        #ced4dd;
@@ -203,7 +203,7 @@ html[data-tema="koyu"] {
   --vurgu:          oklch(0.66 0.13 250);
   --vurgu-koyu:     oklch(0.74 0.12 250);
   --vurgu-zemin:    rgba(90,140,230,.16);
-  --vurgu-uzeri:    #08090b;
+  --vurgu-uzeri:    #0a1120;
 
   --olumlu:         #6ee7a0;
   --olumlu-zemin:   rgba(110,231,160,.12);
@@ -211,7 +211,7 @@ html[data-tema="koyu"] {
   --olumsuz-zemin:  rgba(248,113,113,.12);
   --bekleyen:       #e9b872;
   --bekleyen-zemin: rgba(233,184,114,.12);
-  --notr-zemin:     rgba(255,255,255,.06);
+  --notr-zemin:     rgba(255,255,255,.07);
 
   --golge:          none;
   --golge-2:        none;
@@ -220,14 +220,14 @@ html[data-tema="koyu"] {
   --grafik-1:       oklch(0.66 0.13 250);
   --grafik-2:       oklch(0.72 0.12 250);
   --grafik-3:       oklch(0.82 0.08 250);
-  --grafik-4:       #3a4152;
+  --grafik-4:       #2a3650;
   --kat-1: #3E8FD4;
   --kat-2: #BC8620;
   --kat-3: #22A87E;
   --kat-4: #D2703A;
   --kat-5: #4C93CE;
   --kat-6: #C077A3;
-  --grafik-ikincil: #3a4152;
+  --grafik-ikincil: #3b4a66;
   --grafik-alan:    rgba(90,140,230,.12);
   --grafik-izgara:  rgba(255,255,255,.07);
 
@@ -236,11 +236,11 @@ html[data-tema="koyu"] {
   --silo-cizgi:     #c7cdd6;
   --silo-yazi:      #171a1f;
 
-  --tablo-bas-zemin: #232e3d;   /* mavi panel üstünde bir ton koyu şerit (23.08.2026) */
-  --gri-zemin:      #0b0d10;
-  --gri-panel:      rgba(255,255,255,.04);
-  --gri-kenar:      rgba(255,255,255,.12);
-  --gri-tablo-bas:  #15181d;
+  --tablo-bas-zemin: #1d2a44;   /* mavi panel üstünde bir ton koyu şerit (23.08.2026) */
+  --gri-zemin:      #0e1627;
+  --gri-panel:      #16223a;
+  --gri-kenar:      rgba(148,170,210,.20);
+  --gri-tablo-bas:  #1d2a44;
 }
 
 
@@ -685,6 +685,77 @@ html[data-tema="acik"] input[type="date"]::-webkit-calendar-picker-indicator { f
   transition: background-color .12s, border-color .12s;
 }
 .yu-cip:hover { background: var(--yuzey-3); }
+
+/* Açılır çip — tıklanınca altında kutu açan filtre düğmesi.
+   Tasarım referansındaki "Durum: Tümü" / dönem seçici çipinin dili:
+   ikon + etiket + ok, kenarlıklı, üzerine gelince zemin belirir. */
+.yu-cip.acilir { padding-right: 8px; }
+.yu-cip.acik {
+  background: var(--vurgu-zemin);
+  border-color: transparent;
+  color: var(--vurgu);
+}
+/* #ic-chevron sağa bakar (M9 6l6 6-6 6); açılır kutu ALTTA açıldığı için
+   90° döndürülüp aşağı çevrilir — kenar çubuğu seçicisiyle (.yu-secici-ok)
+   aynı davranış (kullanıcı düzeltmesi, 23.08.2026). */
+.yu-cip-ok {
+  display: flex;
+  color: var(--metin-5);
+  flex: none;
+  transform: rotate(90deg);
+  transition: transform .15s;
+}
+.yu-cip.acik .yu-cip-ok { transform: rotate(-90deg); color: var(--vurgu); }
+.yu-cip-etiket { color: var(--metin-5); }
+.yu-cip-deger { color: var(--metin-2); font-weight: 500; }
+
+/* Araç şeridi — ekranın filtre satırı. Paneller gibi kutulanmaz; ince bir
+   alt çizgiyle içerikten ayrılır ki üç bant üst üste yığılmasın. */
+.yu-arac {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.yu-arac-sag { margin-left: auto; }
+.yu-arac-ayrac {
+  width: 1px;
+  height: 20px;
+  background: var(--kenar-2);
+  flex: none;
+}
+
+/* Segment düğmesi — iki üç seçenekli tercihler için. Açılır liste açmaya
+   değmeyecek kadar az seçenek varsa hepsi görünür durur.
+   Seçili öge vurgu zeminiyle işaretlenir: koyu temada gölge kullanılamaz
+   (CLAUDE.md KURAL 1), zemin tonu iki temada da çalışır. */
+.yu-secim-grubu {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  background: var(--yuzey-3);
+  border: 1px solid var(--kenar-2);
+  border-radius: var(--r);
+  flex: none;
+}
+.yu-secim-oge {
+  padding: 5px 11px;
+  border: 0;
+  background: transparent;
+  border-radius: 5px;
+  font: 400 14.5px/1 var(--font);
+  color: var(--metin-4);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color .12s, color .12s;
+}
+.yu-secim-oge:hover { color: var(--metin-2); }
+.yu-secim-oge.aktif {
+  background: var(--vurgu-zemin);
+  color: var(--vurgu);
+  font-weight: 500;
+}
+
 
 /* Ünlem (Uyarılar) ve zil (Son Hareketler) düğmeleri bu sınıfı paylaşır.
    Üzerine gelince zemin belirir ki tıklanabilir oldukları duyurulsun
