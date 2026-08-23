@@ -203,6 +203,7 @@
   function ikiSutun(solBaslik, sol, sagBaslik, sag) {
     var solKol = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "14px", minWidth: "0", paddingRight: "22px" } }, altEtiket(solBaslik), sol);
     var sagKol = YU.h("div", {
+      sinif: "yu-kk-hover",
       stil: {
         display: "flex", flexDirection: "column", gap: "12px", minWidth: "0",
         padding: "14px 18px 16px", background: "var(--yuzey-2)",
@@ -363,6 +364,7 @@
     }
 
     var tarihSatiri = YU.h("div", {
+      sinif: "yu-kk-hover",
       stil: {
         display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap",
         padding: "8px 14px", background: "var(--yuzey-2)",
@@ -588,26 +590,29 @@
 
     /* ---------- 5. Adım 1 ve 2: Siloya Giren / Silodan Çıkan ---------- */
 
+    /* Adım paneli: ortak panel + sayfaya özel hover sınıfı (tema.css sonu). */
+    function adimPaneli(govdeListesi) {
+      var p = YU.ui.panel({ govde: govdeListesi });
+      p.className += " yu-kk-hover";
+      return p;
+    }
+
     function rakamYigini() {
       var kap = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "14px" } });
       for (var a = 0; a < arguments.length; a++) kap.appendChild(arguments[a].kok);
       return kap;
     }
 
-    govde.appendChild(YU.ui.panel({
-      govde: [
+    govde.appendChild(adimPaneli([
         adimBasligi(1, "giren", "Siloya Giren"),
         ikiSutun("Bugünün Rakamları", rakamYigini(uretilenAlan, cuvalAlan), "Silolara Dağıt", kalemUretim.kok)
-      ]
-    }));
+    ]));
 
-    govde.appendChild(YU.ui.panel({
-      govde: [
+    govde.appendChild(adimPaneli([
         adimBasligi(2, "cikan", "Silodan Çıkan"),
         ikiSutun("Bugünün Rakamları", rakamYigini(satilanAlan), "Silolardan Çek",
           YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "18px" } }, kalemSatis.kok, kalemCuvallama.kok))
-      ]
-    }));
+    ]));
 
     /* Kayıtlı günü aç: silo hareketleri alanlara geri yazılır. */
     if (kayit) {
@@ -629,6 +634,7 @@
         var sonu = YU.h("span", { metin: "—", stil: { font: "600 20px/1 var(--sayi)", letterSpacing: "-.02em", fontVariantNumeric: "tabular-nums" } });
         var cubukKap = YU.h("div");
         var kart = YU.h("div", {
+          sinif: "yu-kk-hover",
           stil: {
             display: "flex", flexDirection: "column", gap: "8px", minWidth: "0",
             padding: "12px 14px", border: "1px solid var(--kenar)", borderRadius: "var(--r)", background: "var(--yuzey-2)"
@@ -654,6 +660,7 @@
     /* Net etki, silo kartlarıyla aynı sırada dördüncü kart: "bugün silolar
        toplamda ne kadar değişti" sorusunun cevabı, silolarla yan yana okunur. */
     siloIzgara.appendChild(YU.h("div", {
+      sinif: "yu-kk-hover",
       stil: {
         display: "flex", flexDirection: "column", gap: "8px", minWidth: "0", justifyContent: "center",
         padding: "12px 14px", border: "1px dashed var(--kenar-3)", borderRadius: "var(--r)"
@@ -691,19 +698,17 @@
       dugmeKaydet
     );
 
-    govde.appendChild(YU.ui.panel({
-      govde: [
+    govde.appendChild(adimPaneli([
         adimBasligi(3, "notr", "Gün Sonu ve Kayıt"),
         siloIzgara,
         YU.h("div", { sinif: "yu-ayrac yu-yatay" }),
         durumSatiri
-      ]
-    }));
+    ]));
 
     /* ---------- 8. Bu günün kayıtlı hareketleri (yalnız varsa) ---------- */
 
     var kayitliPanel = panelGunHareketleri();
-    if (kayitliPanel) govde.appendChild(kayitliPanel);
+    if (kayitliPanel) { kayitliPanel.className += " yu-kk-hover"; govde.appendChild(kayitliPanel); }
 
     /* ---------- Canlı hesap ---------- */
 

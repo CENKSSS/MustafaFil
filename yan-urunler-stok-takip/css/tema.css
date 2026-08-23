@@ -1739,3 +1739,18 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
   .yu-tablo-sar.yu-yapiskan thead th { position: static; top: auto; }
   .yu-tablo tbody tr:hover { background: none; }
 }
+
+
+/* ==========================================================================
+   KURU KÜSPE GÜNLÜK GİRİŞ — adım panelleri ve iç kutular (js/21)
+   Üzerine gelince sınır belirginleşir, paneller arası ayrım okunur (kullanıcı
+   isteği, 23.08.2026). KPI kartıyla aynı dil: kenar-3 + --golge-2 (koyu temada
+   --golge-2 = none; derinlik gölgeyle değil katman tonuyla kurulur).
+   ========================================================================== */
+.yu-kk-hover { transition: border-color .12s, box-shadow .12s, background-color .12s; }
+/* kenar-3 açık temada kenardan zar zor ayrılıyor; sınır metin tonuyla
+   karıştırılarak iki temada da belirgin ama bağırmayan bir çizgi elde edilir. */
+.yu-kk-hover:hover {
+  border-color: color-mix(in srgb, var(--metin-5) 55%, var(--kenar));
+  box-shadow: var(--golge-2);
+}
