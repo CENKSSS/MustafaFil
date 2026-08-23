@@ -860,12 +860,17 @@
         { baslik: 'Devir (Kg)', hiza: 'sag', mono: true, genislik: 132 },
         { baslik: 'Toplam Üretim (Kg)', hiza: 'sag', mono: true, genislik: 160 },
         { baslik: 'Toplam Satış (Kg)', hiza: 'sag', mono: true, genislik: 150 },
-        { baslik: 'Mevcut (Kg)', hiza: 'sag', mono: true, genislik: 142 }
+        { baslik: 'Mevcut (Kg)', hiza: 'sag', mono: true, genislik: 170 }
       ],
       satirlar: satirlar,
       bos: 'Aktif malzeme bulunamadı.',
       yapiskan: true
     });
+
+    /* Sayı kolonları panelin sağ kenarına yapışıyordu; son kolonun sağ dolgusu
+       açılarak blok hafifçe sola çekildi (kullanıcı isteği, 23.08.2026). */
+    var sonHucreler = tablo.querySelectorAll('tr > th:last-child, tr > td:last-child');
+    for (i = 0; i < sonHucreler.length; i++) sonHucreler[i].style.paddingRight = '40px';
 
     return YU.ui.panel({
       baslik: 'Malzeme Stokları',
