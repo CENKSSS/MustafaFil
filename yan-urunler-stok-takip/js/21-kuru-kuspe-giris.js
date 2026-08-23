@@ -203,11 +203,10 @@
   function ikiSutun(solBaslik, sol, sagBaslik, sag) {
     var solKol = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "14px", minWidth: "0", paddingRight: "22px" } }, altEtiket(solBaslik), sol);
     var sagKol = YU.h("div", {
-      sinif: "yu-kk-hover",
       stil: {
         display: "flex", flexDirection: "column", gap: "12px", minWidth: "0",
-        padding: "14px 18px 16px", background: "var(--yuzey-2)",
-        border: "1px solid var(--ayrac)", borderRadius: "var(--r)"
+        padding: "14px 18px 16px", background: "var(--yuzey)",
+        border: "1px solid var(--kenar)", borderRadius: "var(--r)"
       }
     }, altEtiket(sagBaslik), sag);
     return YU.h("div", { stil: { display: "grid", gridTemplateColumns: "minmax(250px, 1fr) minmax(0, 2fr)", alignItems: "start" } }, solKol, sagKol);
@@ -364,7 +363,6 @@
     }
 
     var tarihSatiri = YU.h("div", {
-      sinif: "yu-kk-hover",
       stil: {
         display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap",
         padding: "8px 14px", background: "var(--yuzey-2)",
@@ -590,10 +588,11 @@
 
     /* ---------- 5. Adım 1 ve 2: Siloya Giren / Silodan Çıkan ---------- */
 
-    /* Adım paneli: ortak panel + sayfaya özel hover sınıfı (tema.css sonu). */
+    /* Adım paneli: ortak panel + sayfaya özel soluk mavi zemin (tema.css sonu);
+       içindeki kutular beyaz kalır, panel sınırı böyle okunur. Hover yok. */
     function adimPaneli(govdeListesi) {
       var p = YU.ui.panel({ govde: govdeListesi });
-      p.className += " yu-kk-hover";
+      p.className += " yu-kk-panel";
       return p;
     }
 
@@ -634,10 +633,9 @@
         var sonu = YU.h("span", { metin: "—", stil: { font: "600 20px/1 var(--sayi)", letterSpacing: "-.02em", fontVariantNumeric: "tabular-nums" } });
         var cubukKap = YU.h("div");
         var kart = YU.h("div", {
-          sinif: "yu-kk-hover",
           stil: {
             display: "flex", flexDirection: "column", gap: "8px", minWidth: "0",
-            padding: "12px 14px", border: "1px solid var(--kenar)", borderRadius: "var(--r)", background: "var(--yuzey-2)"
+            padding: "12px 14px", border: "1px solid var(--kenar)", borderRadius: "var(--r)", background: "var(--yuzey)"
           }
         },
           YU.h("div", { stil: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "8px" } },
@@ -660,10 +658,9 @@
     /* Net etki, silo kartlarıyla aynı sırada dördüncü kart: "bugün silolar
        toplamda ne kadar değişti" sorusunun cevabı, silolarla yan yana okunur. */
     siloIzgara.appendChild(YU.h("div", {
-      sinif: "yu-kk-hover",
       stil: {
         display: "flex", flexDirection: "column", gap: "8px", minWidth: "0", justifyContent: "center",
-        padding: "12px 14px", border: "1px dashed var(--kenar-3)", borderRadius: "var(--r)"
+        padding: "12px 14px", border: "1px dashed var(--kenar-3)", borderRadius: "var(--r)", background: "var(--yuzey)"
       }
     },
       YU.h("span", { metin: "Bugün silolara net etki", stil: { font: "600 13.5px/1.2 var(--font)", color: "var(--metin-2)" } }),
@@ -708,7 +705,7 @@
     /* ---------- 8. Bu günün kayıtlı hareketleri (yalnız varsa) ---------- */
 
     var kayitliPanel = panelGunHareketleri();
-    if (kayitliPanel) { kayitliPanel.className += " yu-kk-hover"; govde.appendChild(kayitliPanel); }
+    if (kayitliPanel) { kayitliPanel.className += " yu-kk-panel"; govde.appendChild(kayitliPanel); }
 
     /* ---------- Canlı hesap ---------- */
 
