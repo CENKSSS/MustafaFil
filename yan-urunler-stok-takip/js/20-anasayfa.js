@@ -742,6 +742,22 @@
     return oran > 0.9 ? 'Kalan kapasite ' + kalan + ' · D15 eşiğine yaklaşıldı' : 'Kalan kapasite ' + kalan;
   }
 
+  /* Bir silonun en son giriş (ya da çıkış) gördüğü gün ve o günün toplamı.
+     Aynı gün birden çok kayıt olabilir (çuvallama çekişi + satış çekişi);
+     gün toplamı alınır. Hiç yoksa null. */
+  function sonSiloHareketi(depo, siloId, alan) {
+    var sonTarih = null, toplam = 0, i, h, m;
+    for (i = 0; i < depo.siloHareket.length; i++) {
+      h = depo.siloHareket[i];
+      if (h.SiloId !== siloId) continue;
+      m = Number(h[alan]) || 0;
+      if (m <= 0) continue;
+      if (sonTarih === null || h.Tarih > sonTarih) { sonTarih = h.Tarih; toplam = m; }
+      else if (h.Tarih === sonTarih) toplam += m;
+    }
+    return sonTarih === null ? null : { tarih: sonTarih, miktar: YU.yuvarla(toplam) };
+  }
+
   function siloSatiri(etiket, deger) {
     return YU.h('div', { stil: { display: 'flex', alignItems: 'baseline', gap: '10px' } },
       YU.h('span', { sinif: 'yu-etiket', metin: etiket, stil: { flex: '1', minWidth: '0' } }),
@@ -751,6 +767,8 @@
 
   function siloKarti(s) {
     var oran = Number(s.doluluk) || 0;
+    var sonGiren = sonSiloHareketi(YU.db, s.silo.Id, 'GirenKg');
+    var sonCikan = sonSiloHareketi(YU.db, s.silo.Id, 'CikanKg');
     var tur = cubukTuru(oran);
     var ac = function () { YU.git('silo-durumu', { silo: s.silo.Id }); };
 
@@ -781,8 +799,11 @@
             YU.h('hr', { sinif: 'yu-ayrac yu-yatay' }),
             YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '8px' } },
               siloSatiri(devir ? 'Devir · ' + YU.fmt.tarih(devir.DevirTarihi) : 'Devir', YU.fmt.kgU(s.devir)),
-              siloSatiri('Giren', YU.fmt.kgU(s.giren)),
-              siloSatiri('Çıkan', YU.fmt.kgU(s.cikan))
+              /* Kampanya toplamı değil, EN SON hareket: o silonun en son giriş
+                 aldığı günün toplam girişi ve en son çıkış yaptığı günün toplam
+                 çıkışı, tarihiyle (kullanıcı isteği, 23.08.2026). */
+              siloSatiri(sonGiren ? 'En Son Giren · ' + YU.fmt.tarih(sonGiren.tarih) : 'En Son Giren', sonGiren ? YU.fmt.kgU(sonGiren.miktar) : '—'),
+              siloSatiri(sonCikan ? 'En Son Çıkan · ' + YU.fmt.tarih(sonCikan.tarih) : 'En Son Çıkan', sonCikan ? YU.fmt.kgU(sonCikan.miktar) : '—')
             )
           )
         )
