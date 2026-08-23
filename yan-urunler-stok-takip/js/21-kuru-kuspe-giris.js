@@ -1001,7 +1001,42 @@
 
     /* ---------- Kaydetme ve silme ---------- */
 
+    /* Kaydet HER ZAMAN onay penceresi açar (kullanıcı isteği, 23.08.2026):
+       ne kaydedileceğinin özeti + "emin misin". Tarih bugün değilse ayrıca
+       geçmişin değiştirildiği açıkça söylenir ve düğme tehlike renginde olur. */
     function kaydet() {
+      /* Ctrl+Enter da buradan geçer: düğme pasifken (hata ya da boş gün) kayıt yok. */
+      if (dugmeKaydet.disabled) return;
+
+      var bugun = YU.tarih.bugun();
+      var gecmis = tarih < bugun;
+      var g = girdiTopla();
+      var hesap = YU.hesap.kuruKuspe(g.uretilenDokme, g.cuvalAdet, g.satilanDokme);
+      var f = YU.tarih.fark(tarih, bugun);
+      var gunEtiketi = YU.fmt.tarih(tarih) + " " + YU.fmt.gunAdi(tarih) +
+        (gecmis ? (f === 1 ? " (dün)" : " (" + YU.fmt.sayi(f) + " gün önce)") : " (bugün)");
+      var ozet = "Üretilen dökme " + YU.fmt.kgU(g.uretilenDokme) +
+        " · çuvallanan " + YU.fmt.sayi(g.cuvalAdet) + " çuval (" + YU.fmt.kgU(hesap.cuvalKg) + ")" +
+        " · satılan dökme " + YU.fmt.kgU(g.satilanDokme) + " kaydedilecek.";
+      var kayitCumlesi = kayit
+        ? "O günün mevcut kaydının ÜZERİNE yazılacak: eski silo hareketleri silinip yenileri yazılacak."
+        : "Yeni kayıt eklenecek.";
+
+      YU.ui.onay({
+        baslik: gecmis ? "Geçmiş Bir Günü Değiştiriyorsun" : "Kaydı Onayla",
+        tehlike: gecmis,
+        onayMetni: gecmis ? "Evet, Geçmişi Değiştir" : "Evet, Kaydet",
+        metin: gunEtiketi + " gününe kayıt yapıyorsun." +
+          (gecmis ? " DİKKAT: bu tarih bugün değil, GEÇMİŞ ÜZERİNDE işlem yapıyorsun. " : " ") +
+          ozet + " " + kayitCumlesi +
+          (gecmis ? " Sonraki günlerin silo bakiyeleri buna göre yeniden hesaplanır." : "") +
+          " Emin misin?"
+      }).then(function (evet) {
+        if (evet) kaydetUygula();
+      });
+    }
+
+    function kaydetUygula() {
       YU.bos(sonucKap);
       if (sonucKap.parentNode) sonucKap.parentNode.removeChild(sonucKap);
       boyalariSil();
