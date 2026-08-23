@@ -1402,6 +1402,10 @@
 
     var tanim = YU.sayfalar[kod];
 
+    /* Sayfa tanımı zemin: 'gri' derse içerik alanı gri zemin + beyaz panel
+       düzenine geçer (tema.css .yu-zemin-gri); diğer sayfalarda sınıf düşer. */
+    dom.icerik.className = 'yu-icerik' + (tanim && tanim.zemin ? ' yu-zemin-' + tanim.zemin : '');
+
     if (!tanim) {
       basligiYaz('Sayfa Bulunamadı', '#/' + kod + ' adresine karşılık gelen bir ekran yok.');
       kap.appendChild(YU.ui.bosDurum({

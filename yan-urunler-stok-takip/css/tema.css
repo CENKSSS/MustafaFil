@@ -94,6 +94,11 @@
   /* Yapışkan tablo başlığının zemini OPAK olmalı: yuzey-2 koyu temada yarı
      saydamdır ve kayan satırlar başlığın altından görünür. */
   --tablo-bas-zemin: #d2dfee;   /* mavi panel üstünde bir ton koyu şerit (23.08.2026) */
+  /* Gri zemin + beyaz panel düzeni (.yu-zemin-gri) */
+  --gri-zemin:      #eef0f4;
+  --gri-panel:      #ffffff;
+  --gri-kenar:      #d8dde5;
+  --gri-tablo-bas:  #f3f5f8;
 
   /* Tarayıcıya sayfanın temayı kendisinin yönettiğini bildirir: tarayıcının
      otomatik koyulaştırması devreye girmez, kaydırma çubuğu ve yerleşik tarih
@@ -163,6 +168,10 @@
     --silo-yazi:      #171a1f;
 
     --tablo-bas-zemin: #232e3d;   /* mavi panel üstünde bir ton koyu şerit (23.08.2026) */
+    --gri-zemin:      #0b0d10;
+    --gri-panel:      rgba(255,255,255,.04);
+    --gri-kenar:      rgba(255,255,255,.12);
+    --gri-tablo-bas:  #15181d;
   }
 }
 
@@ -228,6 +237,10 @@ html[data-tema="koyu"] {
   --silo-yazi:      #171a1f;
 
   --tablo-bas-zemin: #232e3d;   /* mavi panel üstünde bir ton koyu şerit (23.08.2026) */
+  --gri-zemin:      #0b0d10;
+  --gri-panel:      rgba(255,255,255,.04);
+  --gri-kenar:      rgba(255,255,255,.12);
+  --gri-tablo-bas:  #15181d;
 }
 
 
@@ -1755,3 +1768,17 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
   background: color-mix(in srgb, oklch(0.72 0.17 55) 19%, var(--yuzey));
   border-color: color-mix(in srgb, oklch(0.72 0.17 55) 55%, var(--kenar));
 }
+
+
+/* ==========================================================================
+   GRİ ZEMİN + BEYAZ PANEL — .yu-zemin-gri (sayfa tanımında zemin: 'gri')
+   Mavi panel denemesine alternatif (kullanıcı isteği, 23.08.2026): içerik
+   alanı açık gri, paneller ve kartlar beyaz, ince ama belirgin kenar. Koyu
+   temada panel zemin üstüne katman tonudur (gölge yok). Şimdilik Ana Sayfa.
+   ========================================================================== */
+.yu-icerik.yu-zemin-gri { background: var(--gri-zemin); }
+.yu-icerik.yu-zemin-gri .yu-panel,
+.yu-icerik.yu-zemin-gri .yu-kpi { background: var(--gri-panel); border-color: var(--gri-kenar); }
+.yu-icerik.yu-zemin-gri .yu-kpi:hover { border-color: color-mix(in srgb, var(--metin-5) 45%, var(--gri-kenar)); }
+.yu-icerik.yu-zemin-gri .yu-tablo thead th { background: var(--gri-tablo-bas); }
+@media print { .yu-icerik.yu-zemin-gri { background: #fff; } }
