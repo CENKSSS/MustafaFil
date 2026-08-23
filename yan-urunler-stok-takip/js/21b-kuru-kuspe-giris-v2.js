@@ -173,6 +173,31 @@
     Manuel: "Manuel"
   };
 
+  /* "Hepsini Ekle" kutunun İÇİNDE durur (kullanıcı isteği, 23.08.2026):
+     tek çerçevede sayı → kg eki → ayırıcı çizgi → düğme. Düğme kutunun
+     sarmalayıcısına (position: relative) mutlak konumlanır; kg eki sola
+     kaydırılır, kutunun sağ dolgusu ikisini de kapsayacak kadar açılır. */
+  var HEPSI_GENISLIK = 92;   /* px — düğme sütunu */
+  function kutuyaDugmeKoy(alan, dugme) {
+    var sar = alan.kok.querySelector(".yu-girdi-sar");
+    var ek = sar.querySelector(".yu-girdi-sag");
+    var ekGenislik = 22;     /* "kg" yazısı */
+    dugme.style.position = "absolute";
+    dugme.style.top = "1px";
+    dugme.style.bottom = "1px";
+    dugme.style.right = "1px";
+    dugme.style.width = HEPSI_GENISLIK + "px";
+    dugme.style.padding = "0 4px";
+    dugme.style.border = "0";
+    dugme.style.borderLeft = "1px solid var(--kenar-2)";
+    dugme.style.borderRadius = "0 var(--r) var(--r) 0";
+    dugme.style.font = "500 13px/1 var(--font)";
+    sar.appendChild(dugme);
+    if (ek) ek.style.right = (HEPSI_GENISLIK + 1 + 10) + "px";
+    alan.girdi.style.paddingRight = (HEPSI_GENISLIK + 1 + 10 + ekGenislik + 8) + "px";
+    return alan;
+  }
+
   /* ---------------------------------------------------------------
      Sayfa
      --------------------------------------------------------------- */
@@ -434,9 +459,8 @@
             (function (d) {
               var a = YU.ui.alan({ tip: "sayi", sag: "kg", onInput: guncelle });
               a.girdi.setAttribute("aria-label", d.ariaAd + " · " + silo.Ad);
-              /* Sağına "Hepsini Ekle" düğmesi geliyor (kolonKur ekler); düğme
-                 kutuyla aynı satırda kalır, kutu gerekirse daralır. */
-              a.kok.style.flex = "1 1 auto";
+              /* "Hepsini Ekle" kutunun içine kolonKur'da yerleşir. */
+              a.kok.style.flex = "1";
               a.kok.style.minWidth = "0";
               alanlar[d.kod] = a;
               var etiket = YU.h("span", { sinif: "yu-silo-etiket", stil: { flex: "none" } },
@@ -446,7 +470,7 @@
                 }),
                 document.createTextNode(d.ad)
               );
-              var satirEl = YU.h("div", { sinif: "yu-silo-satir yu-silo-alan", stil: { flexWrap: "nowrap" } }, etiket, a.kok);
+              var satirEl = YU.h("div", { sinif: "yu-silo-satir yu-silo-alan" }, etiket, a.kok);
               kolonSatirlari[d.kod] = satirEl;
               girisKap.appendChild(satirEl);
             })(DAGITIM[k]);
@@ -567,19 +591,18 @@
         ];
         var dugmeKap = satir(yatay("6px"), dugmeler[0], dugmeler[1], dugmeler[2], dugmeler[3]);
 
-        /* Her silo satırının sağında "Hepsini Ekle": gereken miktarın TAMAMI o
+        /* Her silo kutusunun içinde "Hepsini Ekle": gereken miktarın TAMAMI o
            siloya yazılır, bu kalemin öbür silo kutuları boşalır (kullanıcı
            isteği, 23.08.2026). */
         var satirDugmeleri = [];
         for (var r0 = 0; r0 < satirlar.length; r0++) {
           (function (sr) {
             var b = YU.ui.dugme({
-              metin: "Hepsini Ekle", kucuk: true, tur: "ikincil",
+              metin: "Hepsini Ekle", kucuk: true, tur: "sade",
               baslik: "Gereken miktarın tamamını " + sr.silo.Ad + " silosuna yaz",
               onClick: eylem(function () { var g = {}; g[sr.silo.Id] = gereken; yaz(g); })
             });
-            b.style.flex = "none";
-            sr.kolonSatirlari[d.kod].appendChild(b);
+            kutuyaDugmeKoy(sr.alanlar[d.kod], b);
             satirDugmeleri.push(b);
           })(satirlar[r0]);
         }

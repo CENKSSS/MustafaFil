@@ -186,6 +186,31 @@
 
   function ayrac() { return YU.h("div", { sinif: "yu-ayrac yu-yatay" }); }
 
+  /* "Hepsini Ekle" kutunun İÇİNDE durur (kullanıcı isteği, 23.08.2026):
+     tek çerçevede sayı → kg eki → ayırıcı çizgi → düğme. Düğme kutunun
+     sarmalayıcısına (position: relative) mutlak konumlanır; kg eki sola
+     kaydırılır, kutunun sağ dolgusu ikisini de kapsayacak kadar açılır. */
+  var HEPSI_GENISLIK = 92;   /* px — düğme sütunu */
+  function kutuyaDugmeKoy(alan, dugme) {
+    var sar = alan.kok.querySelector(".yu-girdi-sar");
+    var ek = sar.querySelector(".yu-girdi-sag");
+    var ekGenislik = 22;     /* "kg" yazısı */
+    dugme.style.position = "absolute";
+    dugme.style.top = "1px";
+    dugme.style.bottom = "1px";
+    dugme.style.right = "1px";
+    dugme.style.width = HEPSI_GENISLIK + "px";
+    dugme.style.padding = "0 4px";
+    dugme.style.border = "0";
+    dugme.style.borderLeft = "1px solid var(--kenar-2)";
+    dugme.style.borderRadius = "0 var(--r) var(--r) 0";
+    dugme.style.font = "500 13px/1 var(--font)";
+    sar.appendChild(dugme);
+    if (ek) ek.style.right = (HEPSI_GENISLIK + 1 + 10) + "px";
+    alan.girdi.style.paddingRight = (HEPSI_GENISLIK + 1 + 10 + ekGenislik + 8) + "px";
+    return alan;
+  }
+
   /* Ham girdi alanları operatörün tek işi: büyük yazı, rahat kutu.
      Sağ dolgu tek tek yazılır: "padding" kısayolu, son ek ("kg") için CSS'in
      ayırdığı sağ boşluğu siliyor ve sayı ekin altına giriyordu (23.08.2026).
@@ -386,30 +411,27 @@
       );
       var aciklama = YU.h("div", { stil: { display: "none", font: "400 14px/1.5 var(--font)", color: "var(--metin-3)" } });
 
-      var kutuIzgara = YU.h("div", { stil: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(236px, 1fr))", gap: "10px", maxWidth: "900px" } });
+      var kutuIzgara = YU.h("div", { stil: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "10px", maxWidth: "900px" } });
       for (r = 0; r < silolar.length; r++) {
         (function (silo) {
           var a = YU.ui.alan({ tip: "sayi", sag: "kg", onInput: guncelle });
           a.girdi.setAttribute("aria-label", d.ariaAd + " · " + silo.Ad);
-          a.kok.style.flex = "1 1 auto";
-          a.kok.style.minWidth = "0";
           alanlar.push(a);
-          /* Satırın sağında "Hepsini Ekle": gereken miktarın TAMAMI bu siloya
+          /* Kutunun içinde "Hepsini Ekle": gereken miktarın TAMAMI bu siloya
              yazılır, bu kalemin öbür silo kutuları boşalır (kullanıcı isteği). */
           var hepsi = YU.ui.dugme({
-            metin: "Hepsini Ekle", kucuk: true, tur: "ikincil",
+            metin: "Hepsini Ekle", kucuk: true, tur: "sade",
             baslik: "Gereken miktarın tamamını " + silo.Ad + " silosuna yaz",
             onClick: eylem(function () { var g = {}; g[silo.Id] = gereken; yaz(g); })
           });
-          hepsi.style.flex = "none";
+          kutuyaDugmeKoy(a, hepsi);
           dugmeler.push(hepsi);
           kutuIzgara.appendChild(YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "6px", minWidth: "0" } },
             YU.h("div", { stil: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" } },
               YU.h("span", { metin: silo.Ad, stil: { font: "600 14.5px/1.2 var(--font)", color: "var(--metin)" } }),
               YU.h("span", { sinif: "yu-yardim", metin: "gün başı " + YU.fmt.kgU(gunBasi[silo.Id]), stil: { whiteSpace: "nowrap" } })
             ),
-            /* Düğme kutuyla aynı satırda kalır, alta sarmaz (kullanıcı isteği). */
-            YU.h("div", { stil: { display: "flex", alignItems: "center", gap: "8px", flexWrap: "nowrap" } }, a.kok, hepsi)
+            a.kok
           ));
         })(silolar[r]);
       }
