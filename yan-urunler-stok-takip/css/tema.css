@@ -1778,8 +1778,11 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
    temada panel zemin üstüne katman tonudur (gölge yok). Şimdilik Ana Sayfa.
    ========================================================================== */
 .yu-icerik.yu-zemin-gri { background: var(--gri-zemin); }
+/* gri-duz: zemin gri ama paneller ortak (mavi/turuncu) düzeninde kalır —
+   Kuru Küspe Günlük Giriş (kullanıcı isteği, 23.08.2026). */
+.yu-icerik.yu-zemin-gri-duz { background: var(--gri-zemin); }
 .yu-icerik.yu-zemin-gri .yu-panel,
 .yu-icerik.yu-zemin-gri .yu-kpi { background: var(--gri-panel); border-color: var(--gri-kenar); }
 .yu-icerik.yu-zemin-gri .yu-kpi:hover { border-color: color-mix(in srgb, var(--metin-5) 45%, var(--gri-kenar)); }
 .yu-icerik.yu-zemin-gri .yu-tablo thead th { background: var(--gri-tablo-bas); }
-@media print { .yu-icerik.yu-zemin-gri { background: #fff; } }
+@media print { .yu-icerik.yu-zemin-gri, .yu-icerik.yu-zemin-gri-duz { background: #fff; } }
