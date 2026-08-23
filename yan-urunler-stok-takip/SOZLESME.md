@@ -358,6 +358,14 @@ YU.ui.tablo({sutunlar, satirlar, bos, kompakt})
    // sutunlar: [{baslik, genislik, hiza:'sol'|'sag'|'orta', mono:bool}]
    // satirlar: [[hucre, ...]]  hucre: string | Element
 YU.ui.rozet(metin, tur)                 // tur:'olumlu'|'olumsuz'|'bekleyen'|'notr'|'vurgu'
+YU.ui.acilirCip({etiket, metin, ikon, baslik, genislik, hiza, dolgu, enGenis,
+                 govde: Element | function(kapat) -> Element})
+   // Tıklanınca altında kutu açan filtre çipi (referanstaki "Durum: Tümü" dili).
+   // Ekranın filtre satırını tek satıra indirmek için: seçim kutuları kutunun
+   // içine girer, çipte yalnız SEÇİLİ DEĞER yazar. Ok aşağı bakar, kutu açıkken
+   // yukarı döner. Dışarı tıklama ve Esc kapatır.
+YU.ui.secimGrubu({secenekler:[{deger, metin}], deger, onDegis})   // segment düğmesi
+YU.ui.acilirSatir({metin, sag, secili, onClick})                  // açılır kutu liste satırı
 YU.ui.cubuk(oran, tur)                  // 0..1 ilerleme çubuğu
 YU.ui.bosDurum({ikon, baslik, metin, eylemler:[Element]})
 YU.ui.serit({tur:'hata'|'uyari'|'bilgi'|'basari', baslik, metin, eylem})
@@ -516,7 +524,9 @@ AÇIK                                  KOYU
 .yu-kabuk .yu-yan .yu-marka .yu-marka-kare .yu-marka-ad .yu-secici
 .yu-menu .yu-menu-grup .yu-menu-grup-bas .yu-menu-oge .yu-menu-oge.aktif
 .yu-yan-kart .yu-yan-kart-bas .yu-yan-kart-metin
-.yu-ana .yu-ust .yu-ara .yu-cip .yu-zil .yu-kullanici .yu-avatar .yu-kullanici-ad .yu-kullanici-rol
+.yu-ana .yu-ust .yu-ara .yu-cip .yu-cip.acilir .yu-cip.acik .yu-cip-ok .yu-cip-etiket .yu-cip-deger
+.yu-arac .yu-arac-sag .yu-arac-ayrac .yu-secim-grubu .yu-secim-oge .yu-secim-oge.aktif
+.yu-zil .yu-kullanici .yu-avatar .yu-kullanici-ad .yu-kullanici-rol
 .yu-icerik .yu-sayfa-bas .yu-sayfa-baslik .yu-sayfa-alt .yu-eylemler
 .yu-dugme .yu-dugme.birincil .yu-dugme.ikincil .yu-dugme.tehlike .yu-dugme.sade .yu-dugme.kucuk
 .yu-izgara .yu-iz-2 .yu-iz-3 .yu-iz-4 .yu-iz-yan .yu-iz-yan-ters

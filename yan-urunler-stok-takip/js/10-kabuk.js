@@ -1606,6 +1606,106 @@
     return YU.h('span', { sinif: 'yu-rozet ' + (tur || 'notr'), metin: metin === null || metin === undefined ? '' : String(metin) });
   };
 
+  /* ------------------------------------------------------------------
+     Açılır çip — tıklanınca altında kutu açan filtre düğmesi.
+     Tasarım referansındaki "Durum: Tümü" / dönem seçici çipinin dili.
+     Ekranın filtre satırını üç banttan tek satıra indirmek için var:
+     seçim kutuları kutunun içine girer, çipte yalnız SEÇİLİ DEĞER yazar.
+
+       {etiket, metin, ikon, baslik, genislik, hiza, dolgu,
+        govde: Element | function(kapat) -> Element}
+
+     `govde` işlev verilirse her açılışta yeniden kurulur (taze durum) ve
+     kutuyu kapatan işlevi parametre olarak alır. */
+  YU.ui.acilirCip = function (s) {
+    s = s || {};
+    var tamMetin = s.metin === null || s.metin === undefined ? '' : String(s.metin);
+    /* Uzun değer çipi şişirip araç şeridini alt satıra kırıyordu; değer
+       kırpılır, tamamı title'da kalır (kullanıcı düzeltmesi, 23.08.2026). */
+    var degerEl = YU.h('span', { sinif: 'yu-cip-deger', metin: tamMetin });
+    if (s.enGenis) {
+      degerEl.style.maxWidth = s.enGenis + 'px';
+      degerEl.style.overflow = 'hidden';
+      degerEl.style.textOverflow = 'ellipsis';
+      degerEl.style.whiteSpace = 'nowrap';
+    }
+    var cip = YU.h('button', {
+      tip: 'button',
+      sinif: 'yu-cip acilir',
+      title: (s.baslik ? s.baslik + ': ' : '') + tamMetin,
+      onClick: function () {
+        if (acikPopup && acikPopup.tetik === cip) { popupKapat(); isaretle(); return; }
+        var kutu = popupKutu(s.genislik || 320, s.hiza);
+        if (s.dolgu) kutu.style.padding = s.dolgu;
+        if (s.baslik) kutu.appendChild(popupBaslik(s.baslik));
+        cocukEkle(kutu, typeof s.govde === 'function' ? s.govde(function () { popupKapat(); isaretle(); }) : s.govde);
+        popupAc(cip, kutu, true);
+        isaretle();
+      }
+    },
+      s.ikon ? YU.svg(s.ikon, 14) : null,
+      s.etiket ? YU.h('span', { sinif: 'yu-cip-etiket', metin: s.etiket }) : null,
+      degerEl,
+      YU.h('span', { sinif: 'yu-cip-ok' }, YU.svg('#ic-chevron', 12))
+    );
+
+    /* Kutu açıkken çip vurgulu durur: hangi filtrenin açık olduğu belli olsun. */
+    function isaretle() {
+      var acik = !!(acikPopup && acikPopup.tetik === cip);
+      cip.className = 'yu-cip acilir' + (acik ? ' acik' : '');
+    }
+    return cip;
+  };
+
+  /* Segment düğmesi — iki üç seçenekli tercihler. Açılır liste açmaya
+     değmeyecek kadar az seçenek varsa hepsi görünür durur.
+       {secenekler:[{deger, metin}], deger, onDegis(deger)} */
+  YU.ui.secimGrubu = function (s) {
+    s = s || {};
+    var secenekler = s.secenekler || [];
+    var kap = YU.h('div', { sinif: 'yu-secim-grubu', role: 'group' });
+    for (var i = 0; i < secenekler.length; i++) {
+      (function (sec) {
+        kap.appendChild(YU.h('button', {
+          tip: 'button',
+          sinif: 'yu-secim-oge' + (sec.deger === s.deger ? ' aktif' : ''),
+          metin: sec.metin,
+          'aria-pressed': sec.deger === s.deger ? 'true' : 'false',
+          onClick: function () { if (sec.deger !== s.deger && s.onDegis) s.onDegis(sec.deger); }
+        }));
+      })(secenekler[i]);
+    }
+    return kap;
+  };
+
+  /* Açılır kutu içinde kullanılacak seçim listesi satırı. */
+  YU.ui.acilirSatir = function (s) {
+    s = s || {};
+    var satir = YU.h('button', {
+      tip: 'button',
+      stil: {
+        display: 'flex', alignItems: 'center', gap: '9px', width: '100%',
+        padding: '9px 10px', border: '0', borderRadius: 'var(--r-s)',
+        background: s.secili ? 'var(--vurgu-zemin)' : 'transparent',
+        color: s.secili ? 'var(--vurgu)' : 'var(--metin-2)',
+        font: (s.secili ? '500' : '400') + ' 14.5px/1.3 var(--font)',
+        textAlign: 'left', cursor: 'pointer'
+      },
+      onClick: s.onClick || null
+    },
+      YU.h('span', { metin: s.metin, stil: { flex: '1', minWidth: '0' } }),
+      s.sag ? YU.h('span', { metin: s.sag, stil: { font: '400 13px/1 var(--sayi)', color: 'var(--metin-4)', flex: 'none' } }) : null,
+      s.secili ? YU.svg('#ic-up', 13) : null
+    );
+    satir.addEventListener('mouseenter', function () {
+      if (!s.secili) satir.style.background = 'var(--yuzey-3)';
+    });
+    satir.addEventListener('mouseleave', function () {
+      if (!s.secili) satir.style.background = 'transparent';
+    });
+    return satir;
+  };
+
   /* Ölçü satırı: "168.000 kg / 168 ton / 6.720 adet".
      Sayı bulunduğu yerin yazı tipini sürdürür, birim küçük ve soluk yazılır;
      böylece kg / ton / adet ayrımı tek bakışta okunur. Parçalar dar kolonda

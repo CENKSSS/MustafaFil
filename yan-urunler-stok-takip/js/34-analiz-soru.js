@@ -217,6 +217,7 @@
 
     /* --- yardım --- */
     { kavram: 'yardim', deger: 'evet', terimler: [
+      'daha fazla ornek', 'baska ne sorabilirim', 'tum ornekler',
       'yardim', 'ne sorabilirim', 'neler sorabilirim', 'ne sorabilirsin', 'ne sorabiliriz',
       'ornek soru', 'ornek sorular', 'nasil kullanilir', 'nasil kullaniyorum', 'yapabildiklerin',
       'neler yapabilirsin', 'ne yapabilirsin', 'komutlar', 'ne bilirsin', 'kullanim' ] },
@@ -1553,8 +1554,12 @@
 
     if (c.niyet === 'yardim') {
       var y = cevapYardim();
-      y.basarili = true; y.cozum = c;
+      y.basarili = true;
+      y.cozum = c;
+      y.niyet = c.niyet;
+      y.guven = c.guven;
       y.anlam = ['Yardım'];
+      y.eslesmeler = soru.kelimeEslesmeleri(c);
       return y;
     }
 

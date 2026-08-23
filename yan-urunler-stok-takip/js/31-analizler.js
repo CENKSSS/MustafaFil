@@ -33,6 +33,7 @@
   var RENK_BU = 'var(--vurgu)';        /* mavi — bu kampanya */
   var RENK_GECMIS = 'var(--olumsuz)';  /* kırmızı — geçmiş kampanya */
   var GRAFIK_YUKSEKLIK = 240;
+  var ORNEK_SINIRI = 7;    /* soru kutusunda gösterilen hazır soru sayısı */
 
   /* Son soru ve cevabı ekranda kalır: gösterge seçimi değişip sayfa yeniden
      çizilince cevap kaybolmamalı. */
@@ -45,12 +46,6 @@
   function miktar(v, birim) {
     if (v === null || v === undefined || !isFinite(Number(v))) return '—';
     return birim === 'adet' ? YU.fmt.sayi(v) + ' adet' : YU.fmt.kgU(v);
-  }
-
-  /* KPI değeri: sayı büyük, birim küçük (YU.ui.olcu). */
-  function olcu(v, birim) {
-    if (v === null || v === undefined || !isFinite(Number(v))) return '—';
-    return YU.ui.olcu([{ sayi: birim === 'adet' ? YU.fmt.sayi(v) : YU.fmt.kg(v), birim: birim }], 'sol');
   }
 
   /* Eksen birimi grafiğin TAVANINA göre seçilir: küçük ölçekte '0,75 ton'
@@ -119,6 +114,33 @@
     return YU.fmt.sayi(d.basGun) + '–' + gunMetni(d.bitGun);
   }
 
+  /* İki tarih aynı yıldaysa yıl bir kez yazılır: "14.08 – 20.08.2026".
+     Çipte yer dar; yılı iki kez yazmak satırı kırıyordu. */
+  function kisaAralik(basISO, bitISO) {
+    var bas = YU.fmt.tarih(basISO), bit = YU.fmt.tarih(bitISO);
+    if (String(basISO).slice(0, 4) === String(bitISO).slice(0, 4)) bas = bas.slice(0, 5);
+    return bas + ' – ' + bit;
+  }
+
+  /* "N. Gün Farkı" hücresi: kampanya başından bugüne iki kampanyanın
+     toplamları ve aradaki fark. Yüzde ile birlikte miktarı da yazar ki
+     "%0,6 geride" ne kadar ediyor tek bakışta görünsün. */
+  function gunlukFarkHucresi(k) {
+    if (k.fark === null || k.gecmisOrtak === null) {
+      return YU.h('span', { sinif: 'yu-zayif', metin: '—' });
+    }
+    var tur = farkTuru(k.fark);
+    return YU.h('div', {
+      stil: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }
+    },
+      YU.h('span', {
+        metin: isaretli(k.fark) + ' ' + k.gosterge.birim,
+        stil: { font: '400 12.5px/1 var(--sayi)', color: 'var(--metin-4)', fontVariantNumeric: 'tabular-nums' }
+      }),
+      YU.ui.rozet(yuzdeMetni(k.yuzde), tur)
+    );
+  }
+
   /* Aynı gün sıralarının geçmiş kampanyada denk geldiği takvim aralığı. */
   function gecmisAralikMetni(d) {
     if (!d.gecmis) return null;
@@ -160,24 +182,33 @@
     var satir = YU.h('div', { stil: { display: 'flex', gap: '8px', alignItems: 'flex-end' } },
       alan.kok, dugme, sonSoru.cevap ? temizle : null);
 
-    /* Hazır sorular: tıklanınca doğrudan sorulur. */
-    var ornekler = YU.soru.ornekler();
+    /* Hazır sorular: tıklanınca doğrudan sorulur. Yalnız ilk birkaçı durur —
+       on dörtnün tamamı iki satır kaplayıp paneli şişiriyordu; kalanlar
+       "Daha fazla" ile yardım cevabında listelenir. */
+    var ornekler = YU.soru.ornekler().slice(0, ORNEK_SINIRI);
     var cipler = YU.h('div', {
       stil: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '12px' }
     });
-    for (var i = 0; i < ornekler.length; i++) {
-      (function (metin) {
-        cipler.appendChild(YU.h('button', {
-          tip: 'button', metin: metin,
-          stil: {
-            font: '400 12px/1 var(--font)', color: 'var(--metin-3)',
-            background: 'var(--yuzey-3)', border: '1px solid var(--kenar)',
-            borderRadius: '999px', padding: '6px 11px', cursor: 'pointer'
-          },
-          onClick: function () { alan.ayarla(metin); sor(metin); }
-        }));
-      })(ornekler[i]);
+
+    function ornekCipi(metin, vurgulu) {
+      return YU.h('button', {
+        tip: 'button', metin: metin,
+        stil: {
+          font: '400 12px/1 var(--font)',
+          color: vurgulu ? 'var(--vurgu)' : 'var(--metin-3)',
+          background: vurgulu ? 'var(--vurgu-zemin)' : 'var(--yuzey-3)',
+          border: '1px solid ' + (vurgulu ? 'transparent' : 'var(--kenar)'),
+          borderRadius: '999px', padding: '6px 11px', cursor: 'pointer'
+        },
+        onClick: function () {
+          alan.ayarla(metin);
+          sor(metin);
+        }
+      });
     }
+
+    for (var i = 0; i < ornekler.length; i++) cipler.appendChild(ornekCipi(ornekler[i], false));
+    cipler.appendChild(ornekCipi('Daha fazla örnek', true));
 
     return YU.ui.panel({
       baslik: 'Soru Sor',
@@ -431,71 +462,131 @@
   }
 
   /* ==================================================================
-     4. Ayar paneli — dönem, gösterge, görünüm
+     4. Araç şeridi — ekranın filtre satırı
+
+     Önceki sürümde üç bant üst üste duruyordu: dört tam genişlik seçim
+     kutusu, altında tarih satırı, altında açıklama. Ekran veriye
+     başlamadan üç bant harcıyordu (kullanıcı düzeltmesi, 23.08.2026).
+     Şimdi TEK SATIR: seçim kutuları açılır çiplerin içine girdi, çipte
+     yalnız seçili değer yazıyor. Tasarım referansındaki "Durum: Tümü" /
+     dönem seçici çipinin dili korundu.
      ================================================================== */
 
   function ayarPaneli(d) {
-    var buSecenek = [], karsiSecenek = [], gostergeSecenek = [], i;
-    for (i = d.donemler.length - 1; i >= 0; i--) {
-      buSecenek.push({ deger: d.donemler[i].ad, metin: 'Kampanya ' + d.donemler[i].ad });
-      if (d.donemler[i].ad !== d.bu.donem.ad) {
-        karsiSecenek.push({ deger: d.donemler[i].ad, metin: 'Kampanya ' + d.donemler[i].ad });
+    var serit = YU.h('div', { sinif: 'yu-arac' },
+      karsilastirmaCipi(d),
+      gostergeCipi(d),
+      YU.h('span', { sinif: 'yu-arac-ayrac' }),
+      gorunumSecimi(d),
+      YU.h('div', { sinif: 'yu-arac-sag' }, aralikCipi(d))
+    );
+    return YU.h('div', {
+      stil: {
+        padding: '12px 14px', border: '1px solid var(--kenar)',
+        borderRadius: 'var(--r-l)', background: 'var(--yuzey)'
       }
-    }
-    if (!karsiSecenek.length) karsiSecenek.push({ deger: '', metin: 'Karşılaştırılacak kampanya yok' });
-    for (i = 0; i < d.gostergeler.length; i++) gostergeSecenek.push({ deger: d.gostergeler[i].kod, metin: d.gostergeler[i].ad });
+    }, serit);
+  }
 
-    var buAlani, karsiAlani, gostergeAlani, modAlani;
+  /* --- karşılaştırılan kampanyalar --- */
 
-    function git() {
-      YU.git(SAYFA, {
-        bu: buAlani.deger(),
-        karsi: karsiAlani.deger(),
-        gosterge: gostergeAlani.deger(),
-        mod: modAlani.deger()
-      });
-    }
+  function karsilastirmaCipi(d) {
+    var metin = d.gecmis
+      ? d.bu.donem.ad + ' ↔ ' + d.gecmis.donem.ad
+      : d.bu.donem.ad + ' (tek kampanya)';
 
-    buAlani = YU.ui.alan({ etiket: 'Bu Kampanya', tip: 'secim', secenekler: buSecenek, deger: d.bu.donem.ad, onChange: git });
-    karsiAlani = YU.ui.alan({
-      etiket: 'Geçmiş Kampanya', tip: 'secim', secenekler: karsiSecenek,
-      deger: d.gecmis ? d.gecmis.donem.ad : '', pasif: !d.gecmis, onChange: git
-    });
-    gostergeAlani = YU.ui.alan({ etiket: 'Gösterge', tip: 'secim', secenekler: gostergeSecenek, deger: d.gosterge.kod, onChange: git });
-    modAlani = YU.ui.alan({
-      etiket: 'Görünüm', tip: 'secim',
-      secenekler: [{ deger: 'gunluk', metin: 'Günlük' }, { deger: 'birikimli', metin: 'Birikimli (O Güne Kadar Toplam)' }],
-      deger: d.mod, onChange: git
-    });
+    return YU.ui.acilirCip({
+      ikon: '#ic-calendar-dots', metin: metin, enGenis: 190,
+      baslik: 'Karşılaştırılan kampanyalar', genislik: 300, dolgu: '6px 12px 12px',
+      govde: function () {
+        var buSecenek = [], karsiSecenek = [], i;
+        for (i = d.donemler.length - 1; i >= 0; i--) {
+          buSecenek.push({ deger: d.donemler[i].ad, metin: 'Kampanya ' + d.donemler[i].ad });
+          if (d.donemler[i].ad !== d.bu.donem.ad) {
+            karsiSecenek.push({ deger: d.donemler[i].ad, metin: 'Kampanya ' + d.donemler[i].ad });
+          }
+        }
+        if (!karsiSecenek.length) karsiSecenek.push({ deger: '', metin: 'Karşılaştırılacak kampanya yok' });
 
-    return YU.ui.panel({
-      govde: [
-        YU.h('div', { sinif: 'yu-izgara yu-iz-4' }, buAlani.kok, karsiAlani.kok, gostergeAlani.kok, modAlani.kok),
-        YU.h('div', { sinif: 'yu-ayrac yu-yatay', stil: { margin: '16px 0' } }),
-        aralikSatiri(d)
-      ]
+        var buAlani, karsiAlani;
+        function git() {
+          /* Kampanya değişince gün aralığı sıfırlanır: eski aralık yeni
+             kampanyada başka günlere denk gelirdi. */
+          YU.git(SAYFA, bagKur(d, {
+            bu: buAlani.deger(), karsi: karsiAlani.deger(), basGun: null, bitGun: null
+          }));
+        }
+        buAlani = YU.ui.alan({ etiket: 'Bu Kampanya', tip: 'secim', secenekler: buSecenek, deger: d.bu.donem.ad, onChange: git });
+        karsiAlani = YU.ui.alan({
+          etiket: 'Karşılaştırılan', tip: 'secim', secenekler: karsiSecenek,
+          deger: d.gecmis ? d.gecmis.donem.ad : '', pasif: !d.gecmis, onChange: git
+        });
+        return YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '12px' } },
+          buAlani.kok, karsiAlani.kok);
+      }
     });
   }
 
-  /* ------------------------------------------------------------------
-     Tarih aralığı
-     Varsayılan kampanyanın TAMAMIDIR (devir gününden bugüne). Kullanıcı
-     daraltmak isterse üstten tarih seçer; seçim gün sırasına çevrilir,
-     geçmiş kampanya aynı gün sıralarıyla karşılaştırılır.
-     ------------------------------------------------------------------ */
+  /* --- gösterge --- */
 
-  function aralikSatiri(d) {
+  function gostergeCipi(d) {
+    return YU.ui.acilirCip({
+      ikon: '#ic-chart', metin: d.gosterge.ad, enGenis: 200,
+      baslik: 'Gösterge', genislik: 340,
+      govde: function (kapat) {
+        var kap = YU.h('div');
+        for (var i = 0; i < d.gostergeler.length; i++) {
+          (function (g) {
+            kap.appendChild(YU.ui.acilirSatir({
+              metin: g.ad,
+              secili: g.kod === d.gosterge.kod,
+              onClick: function () { kapat(); YU.git(SAYFA, bagKur(d, { gosterge: g.kod })); }
+            }));
+          })(d.gostergeler[i]);
+        }
+        return kap;
+      }
+    });
+  }
+
+  /* --- görünüm: iki seçenek, açılır listeye değmez --- */
+
+  function gorunumSecimi(d) {
+    return YU.ui.secimGrubu({
+      deger: d.mod,
+      secenekler: [{ deger: 'gunluk', metin: 'Günlük' }, { deger: 'birikimli', metin: 'Birikimli' }],
+      onDegis: function (v) { YU.git(SAYFA, bagKur(d, { mod: v })); }
+    });
+  }
+
+  /* --- tarih aralığı --- */
+
+  function aralikCipi(d) {
+    var metin = d.tamAralikMi
+      ? 'Tüm kampanya · ' + YU.fmt.sayi(d.gunSayisi) + ' gün'
+      : kisaAralik(YU.analiz.gunTarihi(d.bu, d.basGun), YU.analiz.gunTarihi(d.bu, d.bitGun)) +
+        ' · ' + YU.fmt.sayi(d.gunSayisi) + ' gün';
+
+    return YU.ui.acilirCip({
+      ikon: '#ic-calendar', metin: metin, hiza: 'sag', enGenis: 230,
+      baslik: 'Tarih aralığı', genislik: 340, dolgu: '6px 12px 12px',
+      govde: function (kapat) { return aralikKutusu(d, kapat); }
+    });
+  }
+
+  function aralikKutusu(d, kapat) {
     var enErken = YU.analiz.gunTarihi(d.bu, 1);
     var enGec = YU.analiz.gunTarihi(d.bu, d.sonGun);
     var basAlani, bitAlani;
 
-    function git(ek) {
-      YU.git(SAYFA, bagKur(d, ek));
+    function git(basGun, bitGun) {
+      kapat();
+      YU.git(SAYFA, bagKur(d, { basGun: basGun, bitGun: bitGun }));
     }
     function tarihtenGit() {
       var b = YU.analiz.tarihGunu(d.bu, basAlani.deger());
       var t = YU.analiz.tarihGunu(d.bu, bitAlani.deger());
-      git({ basGun: b || 1, bitGun: t || d.sonGun });
+      git(b || 1, t || d.sonGun);
     }
 
     basAlani = YU.ui.alan({
@@ -511,92 +602,41 @@
     bitAlani.girdi.setAttribute('min', enErken);
     bitAlani.girdi.setAttribute('max', enGec);
 
-    function hizli(metin, basGun, bitGun) {
-      var secili = d.basGun === basGun && d.bitGun === bitGun;
-      return YU.ui.dugme({
-        metin: metin, tur: secili ? 'birincil' : 'ikincil', kucuk: true,
-        onClick: function () { git({ basGun: basGun, bitGun: bitGun }); }
-      });
+    /* Hazır aralıklar — seçili olan vurguyla işaretlenir. */
+    var hazir = [{ metin: 'Kampanyanın tamamı', bas: 1, bit: d.sonGun }];
+    if (d.sonGun > 7) hazir.push({ metin: 'Son 7 gün', bas: d.sonGun - 6, bit: d.sonGun });
+    if (d.sonGun > 30) hazir.push({ metin: 'Son 30 gün', bas: d.sonGun - 29, bit: d.sonGun });
+    if (d.sonGun >= 4) {
+      var orta = Math.ceil(d.sonGun / 2);
+      hazir.push({ metin: 'İlk yarı', bas: 1, bit: orta });
+      hazir.push({ metin: 'İkinci yarı', bas: orta + 1, bit: d.sonGun });
     }
 
-    var son7 = Math.max(1, d.sonGun - 6);
-    var son30 = Math.max(1, d.sonGun - 29);
-    var kisayollar = YU.h('div', { stil: { display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' } },
-      hizli('Kampanyanın Tamamı', 1, d.sonGun),
-      hizli('Son 7 Gün', son7, d.sonGun),
-      d.sonGun > 30 ? hizli('Son 30 Gün', son30, d.sonGun) : null,
-      d.sonGun >= 2 ? hizli('İlk Yarı', 1, Math.ceil(d.sonGun / 2)) : null,
-      d.sonGun >= 2 ? hizli('İkinci Yarı', Math.ceil(d.sonGun / 2) + 1, d.sonGun) : null
-    );
+    var liste = YU.h('div');
+    for (var i = 0; i < hazir.length; i++) {
+      (function (h) {
+        liste.appendChild(YU.ui.acilirSatir({
+          metin: h.metin,
+          sag: YU.fmt.sayi(h.bit - h.bas + 1) + ' gün',
+          secili: d.basGun === h.bas && d.bitGun === h.bit,
+          onClick: function () { git(h.bas, h.bit); }
+        }));
+      })(hazir[i]);
+    }
 
-    var bilgi = [aralikMetni(d) + ' · ' + YU.fmt.sayi(d.gunSayisi) + ' gün'];
+    var bilgi = [aralikMetni(d)];
     if (d.gecmis) bilgi.push('Kampanya ' + d.gecmis.donem.ad + ' aynı günleri: ' + gecmisAralikMetni(d));
-    bilgi.push('Kampanya ' + d.bu.donem.ad + ' devir günü ' + YU.fmt.tarih(d.bu.donem.bas) +
-      ', son kayıt ' + YU.fmt.tarih(d.bu.donem.bit) + '.');
 
     return YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '10px' } },
-      YU.h('div', { stil: { display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' } },
-        basAlani.kok, bitAlani.kok,
-        YU.h('div', { stil: { flex: '1', minWidth: '200px', paddingBottom: '2px' } }, kisayollar)
-      ),
+      liste,
+      YU.h('div', { sinif: 'yu-ayrac yu-yatay' }),
+      YU.h('div', { stil: { display: 'flex', gap: '10px' } }, basAlani.kok, bitAlani.kok),
       YU.h('div', { sinif: 'yu-yardim', metin: bilgi.join(' · ') })
     );
   }
 
   /* ==================================================================
-     5. KPI kartları
-     ================================================================== */
-
-  function kpiIzgarasi(d) {
-    var g = d.gosterge;
-    var k = YU.analiz.karsilastir(d, g);
-    var N = k.gun;
-
-    var gunKarti = YU.ui.kpi({
-      etiket: d.tamAralikMi ? 'Kampanya Günü' : 'Seçili Aralık', ikon: '#ic-calendar',
-      deger: d.tamAralikMi ? gunMetni(d.sonGun) : aralikMetni(d),
-      alt: '1. gün ' + YU.fmt.tarih(d.bu.donem.bas) +
-        (d.bugun.ham > d.bugun.gun
-          ? ' · bugün ' + gunMetni(d.bugun.ham) + ', son kayıt ' + YU.fmt.tarih(d.bu.donem.bit)
-          : ' · bugün ' + YU.fmt.tarih(YU.tarih.bugun())) +
-        (d.tamAralikMi ? '' : ' · ' + YU.fmt.sayi(d.gunSayisi) + ' gün seçili')
-    });
-
-    /* Kampanyanın TAMAMI: 1. günden bugüne. Geçmiş kampanyanın kaydı erken
-       bitse bile bu kartlar kısalmaz — hiçbir gün diğerinden önemsiz değil. */
-    var buKarti = YU.ui.kpi({
-      etiket: 'Bu Kampanya ' + d.bu.donem.ad, ikon: '#ic-up', renk: 'vurgu',
-      deger: olcu(k.bu, g.birim),
-      alt: aralikMetni(d) + ' toplamı · ' + gunMetni(N) + ': ' + miktar(k.buGun, g.birim)
-    });
-
-    var gecmisKarti = YU.ui.kpi({
-      etiket: d.gecmis ? 'Geçmiş Kampanya ' + d.gecmis.donem.ad : 'Geçmiş Kampanya',
-      ikon: '#ic-calendar-dots', renk: 'olumsuz',
-      deger: d.gecmis ? olcu(k.gecmis, g.birim) : '—',
-      alt: !d.gecmis ? 'Karşılaştırılacak ikinci kampanya yok'
-        : (k.kisitliMi
-          ? YU.fmt.sayi(d.basGun) + '–' + gunMetni(k.ortakBit) + ' toplamı · kaydı ' + gunMetni(k.ortakBit) + ' bitiyor'
-          : aralikMetni(d) + ' toplamı · ' + gunMetni(N) + ': ' + miktar(k.gecmisGun, g.birim))
-    });
-
-    /* Fark yalnız ORTAK günler üzerinden hesaplanabilir; kısıt varsa bunu
-       kartın altında düz Türkçeyle söyler, başlıkta parametre gibi durmaz. */
-    var farkKarti = YU.ui.kpi({
-      etiket: 'Fark', ikon: '#ic-percent', renk: farkTuru(k.fark),
-      deger: k.fark === null ? '—' : (k.yuzde === null ? isaretli(k.fark) : yuzdeMetni(k.yuzde)),
-      alt: k.fark === null
-        ? 'Fark için iki kampanya gerekir'
-        : (k.fark === 0 ? 'İki kampanya başa baş'
-          : isaretli(k.fark) + ' ' + g.birim + ' · bu kampanya ' + (k.fark > 0 ? 'önde' : 'geride')) +
-          (k.kisitliMi ? ' · iki kampanyada da kaydı olan ' + YU.fmt.sayi(k.ortakGun) + ' gün' : '')
-    });
-
-    return YU.h('div', { sinif: 'yu-izgara yu-iz-4' }, gunKarti, buKarti, gecmisKarti, farkKarti);
-  }
-
-  /* ==================================================================
-     6. Grafik paneli
+     5. Grafik paneli
      ================================================================== */
 
   function grafikPaneli(d) {
@@ -655,29 +695,41 @@
   }
 
   /* ==================================================================
-     7. Karşılaştırma tablosu
+     6. Karşılaştırma tablosu
      ================================================================== */
 
   function tabloPaneli(d) {
     var N = d.bitGun, ortakBit = d.ortakBit, satirlar = [], i;
     var hepsi = YU.analiz.tumKarsilastirma(d);
 
+    /* BUGÜNE KADAR sütunu — seçili aralıktan BAĞIMSIZDIR (kullanıcı isteği,
+       23.08.2026). Kampanyanın 1. gününden bugünkü N. güne kadar iki
+       kampanyanın toplamını karşılaştırır: "19. gündeyiz, 19 günde geçen
+       kampanyaya göre neredeyiz". Üstten aralık daraltılsa bile bu sütun
+       hep aynı soruyu yanıtlar. */
+    var bugunAralik = { basGun: 1, bitGun: d.sonGun };
+
     /* Fark, ORTAK günler üzerinden hesaplanır. Bu yüzden fark sütununun
        yanındaki iki sayı da ortak günlerin sayısı olmalıdır; yoksa "fark"
-       ekranda görünen iki sayının farkına eşit çıkmaz. Kampanyanın tam
-       toplamı, kısıt varsa AYRI bir sütunda durur. */
+       ekranda görünen iki sayının farkına eşit çıkmaz. */
     for (i = 0; i < hepsi.length; i++) {
       (function (k) {
         var g = k.gosterge;
         var aktif = g.kod === d.gosterge.kod;
+        var bugune = YU.analiz.karsilastir(d, g, bugunAralik);
         var hucreler = [YU.h('span', { sinif: aktif ? 'yu-guclu' : '', metin: g.ad })];
         hucreler.push(miktar(k.buOrtak, g.birim));
         hucreler.push(k.gecmisOrtak === null ? '—' : miktar(k.gecmisOrtak, g.birim));
-        hucreler.push(k.fark === null ? '—' : YU.h('span', {
-          metin: isaretli(k.fark) + ' ' + g.birim,
-          stil: { color: RENK_METIN[farkTuru(k.fark)] }
-        }));
-        hucreler.push(k.yuzde === null ? '—' : YU.ui.rozet(yuzdeMetni(k.yuzde), farkTuru(k.fark)));
+        /* Aralık daraltılmadıysa "aralık farkı" ile "N. gün farkı" AYNI
+           şeydir; aynı sayıyı iki kez basmamak için yalnız sonuncusu yazılır. */
+        if (!d.tamAralikMi) {
+          hucreler.push(k.fark === null ? '—' : YU.h('span', {
+            metin: isaretli(k.fark) + ' ' + g.birim,
+            stil: { color: RENK_METIN[farkTuru(k.fark)] }
+          }));
+          hucreler.push(k.yuzde === null ? '—' : YU.ui.rozet(yuzdeMetni(k.yuzde), farkTuru(k.fark)));
+        }
+        hucreler.push(gunlukFarkHucresi(bugune));
         satirlar.push({
           vurgu: aktif ? 'vurgu' : null,
           ipucu: aktif ? 'Grafikte gösteriliyor' : 'Grafikte göstermek için tıklayın',
@@ -689,14 +741,18 @@
 
     /* Sütun başlığında gün aralığı YAZMAZ: aralık zaten üstteki seçicide ve
        panel başlığında durur. Başlığa parametre gibi sayı basmak, seçilmiş
-       bir pencere izlenimi veriyordu (kullanıcı düzeltmesi, 23.08.2026). */
+       bir pencere izlenimi veriyordu (kullanıcı düzeltmesi, 23.08.2026).
+       Tek istisna son sütun: orada gün sayısı BİLGİNİN KENDİSİDİR. */
     var sutunlar = [
       { baslik: 'Gösterge' },
-      { baslik: 'Kampanya ' + d.bu.donem.ad, hiza: 'sag', mono: true, genislik: 200 },
-      { baslik: d.gecmis ? 'Kampanya ' + d.gecmis.donem.ad : 'Geçmiş Kampanya', hiza: 'sag', mono: true, genislik: 200 },
-      { baslik: 'Fark', hiza: 'sag', mono: true, genislik: 170 },
-      { baslik: 'Fark %', hiza: 'sag', genislik: 105 }
+      { baslik: 'Kampanya ' + d.bu.donem.ad, hiza: 'sag', mono: true, genislik: 190 },
+      { baslik: d.gecmis ? 'Kampanya ' + d.gecmis.donem.ad : 'Geçmiş Kampanya', hiza: 'sag', mono: true, genislik: 190 }
     ];
+    if (!d.tamAralikMi) {
+      sutunlar.push({ baslik: 'Seçili Aralık Farkı', hiza: 'sag', mono: true, genislik: 160 });
+      sutunlar.push({ baslik: 'Aralık %', hiza: 'sag', genislik: 100 });
+    }
+    sutunlar.push({ baslik: gunMetni(d.sonGun) + ' Farkı', hiza: 'sag', genislik: 200 });
 
     var tablo = YU.ui.tablo({
       sutunlar: sutunlar,
@@ -712,6 +768,10 @@
         'iki kampanyada da kaydı olan ' + YU.fmt.sayi(d.ortakGun) + ' gün üzerinden hesaplanabiliyor — ' +
         'bu seçilmiş bir aralık değil, verinin bittiği yerdir.');
     }
+    notlar.push('Son sütun (' + gunMetni(d.sonGun) + ' Farkı) seçili aralıktan BAĞIMSIZDIR: ' +
+      'kampanyanın 1. gününden bugüne ' + YU.fmt.sayi(d.sonGun) + ' günlük toplamları karşılaştırır; ' +
+      'geçmiş kampanyanın da aynı ' + YU.fmt.sayi(d.sonGun) + ' günü alınır.' +
+      (d.tamAralikMi ? ' Seçili aralık kampanyanın tamamı olduğu için ayrıca aralık farkı sütunu gösterilmez.' : ''));
     notlar.push('Satıra tıklayınca o gösterge grafikte açılır.');
 
     return YU.ui.panel({
@@ -724,7 +784,7 @@
   }
 
   /* ==================================================================
-     8. Sayfa
+     7. Sayfa
      ================================================================== */
 
   function ciz(kap, param) {
@@ -758,7 +818,6 @@
       }));
     }
 
-    kap.appendChild(kpiIzgarasi(d));
     kap.appendChild(grafikPaneli(d));
     kap.appendChild(tabloPaneli(d));
   }
