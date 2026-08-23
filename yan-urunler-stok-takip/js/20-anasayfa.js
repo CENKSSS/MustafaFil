@@ -515,6 +515,8 @@
 
     /* Kartlar satır başına 4'lü dizilir (kullanıcı isteği, 21.08.2026);
        dar ekran kırılımları yu-iz-4'ten gelir (≤1100 2'li, ≤700 tekli). */
+    /* Kartlar soluk mavi zeminli (.yu-mavi, tema.css sonu — kullanıcı isteği, 23.08.2026). */
+    for (i = 0; i < kartlar.length; i++) kartlar[i].className += ' yu-mavi';
     kap.appendChild(YU.h('div', { sinif: 'yu-izgara yu-iz-4 yu-esit' }, kartlar));
     return kap;
   }
@@ -815,7 +817,11 @@
 
   function siloIzgarasi(o) {
     var iz = YU.h('div', { sinif: 'yu-izgara yu-iz-3' }), i;
-    for (i = 0; i < o.silolar.length; i++) iz.appendChild(siloKarti(o.silolar[i]));
+    for (i = 0; i < o.silolar.length; i++) {
+      var sk = siloKarti(o.silolar[i]);
+      sk.className += ' yu-mavi';   /* soluk mavi zemin (kullanıcı isteği, 23.08.2026) */
+      iz.appendChild(sk);
+    }
     return iz;
   }
 
@@ -864,7 +870,7 @@
       yapiskan: true
     });
 
-    return YU.ui.panel({
+    var malzemePanel = YU.ui.panel({
       baslik: 'Malzeme Stokları',
       ikon: '#ic-chart',
       dolgusuz: true,
@@ -874,6 +880,8 @@
       }),
       govde: tablo
     });
+    malzemePanel.className += ' yu-mavi';   /* soluk mavi zemin (kullanıcı isteği, 23.08.2026) */
+    return malzemePanel;
   }
 
   /* ==================================================================

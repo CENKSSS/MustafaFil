@@ -588,11 +588,11 @@
 
     /* ---------- 5. Adım 1 ve 2: Siloya Giren / Silodan Çıkan ---------- */
 
-    /* Adım paneli: ortak panel + sayfaya özel soluk mavi zemin (tema.css sonu);
+    /* Adım paneli: ortak panel + soluk mavi zemin (.yu-mavi, tema.css sonu);
        içindeki kutular beyaz kalır, panel sınırı böyle okunur. Hover yok. */
     function adimPaneli(govdeListesi, ekSinif) {
       var p = YU.ui.panel({ govde: govdeListesi });
-      p.className += " yu-kk-panel" + (ekSinif ? " " + ekSinif : "");
+      p.className += " yu-mavi" + (ekSinif ? " " + ekSinif : "");
       return p;
     }
 
@@ -611,7 +611,7 @@
         adimBasligi(2, "cikan", "Silodan Çıkan"),
         ikiSutun("Bugünün Rakamları", rakamYigini(satilanAlan), "Silolardan Çek",
           YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "18px" } }, kalemSatis.kok, kalemCuvallama.kok))
-    ], "cikan"));   /* hafif turuncu zemin (tema.css) */
+    ], "yu-turuncu"));   /* hafif turuncu zemin (tema.css) */
 
     /* Kayıtlı günü aç: silo hareketleri alanlara geri yazılır. */
     if (kayit) {
@@ -705,7 +705,7 @@
     /* ---------- 8. Bu günün kayıtlı hareketleri (yalnız varsa) ---------- */
 
     var kayitliPanel = panelGunHareketleri();
-    if (kayitliPanel) { kayitliPanel.className += " yu-kk-panel"; govde.appendChild(kayitliPanel); }
+    if (kayitliPanel) { kayitliPanel.className += " yu-mavi"; govde.appendChild(kayitliPanel); }
 
     /* ---------- Canlı hesap ---------- */
 

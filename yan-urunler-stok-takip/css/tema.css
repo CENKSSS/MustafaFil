@@ -1742,20 +1742,23 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
 
 
 /* ==========================================================================
-   KURU KÜSPE GÜNLÜK GİRİŞ — adım panelleri (js/21)
-   Sayfa zemini (#fdfdfe) ile panel (#fff) ayırt edilemiyordu. Paneller soluk
-   maviye boyanır, içlerindeki kutular beyaz kalır; hover YOK (kullanıcı
-   isteği, 23.08.2026). Ton tema vurgusundan karıştırılır: açık temada beyaz
-   üstüne %7 mavi, koyu temada yüzeye aynı oranda mavi katman.
+   SOLUK ZEMİNLİ PANEL VE KARTLAR — .yu-mavi / .yu-turuncu
+   Sayfa zemini (#fdfdfe) ile beyaz panel/kart ayırt edilemiyordu. Sınıfı
+   taşıyan panel ve KPI kartı soluk maviye boyanır, içindeki kutular beyaz
+   kalır; hover yok (kullanıcı isteği, 23.08.2026). Kullananlar: Kuru Küspe
+   Günlük Giriş adım panelleri (js/21), Ana Sayfa kartları ve Malzeme
+   Stokları paneli (js/20). Ton tema vurgusundan karıştırılır: açık temada
+   beyaz üstüne %7 mavi, koyu temada yüzeye aynı oranda mavi katman.
    ========================================================================== */
-.yu-panel.yu-kk-panel {
+.yu-panel.yu-mavi, .yu-kpi.yu-mavi {
   background: color-mix(in srgb, var(--vurgu) 7%, var(--yuzey));
   border-color: color-mix(in srgb, var(--vurgu) 22%, var(--kenar));
 }
-/* Silodan Çıkan adımı hafif turuncu (kullanıcı isteği, 23.08.2026): aynı
-   karışım mantığı, mavi yerine turuncu; yön ayrımı zeminden de okunur. */
-.yu-panel.yu-kk-panel.cikan {
+/* Hafif turuncu çeşitlemesi (Silodan Çıkan adımı): aynı karışım, mavi yerine turuncu. */
+.yu-panel.yu-turuncu, .yu-kpi.yu-turuncu {
   background: color-mix(in srgb, oklch(0.72 0.17 55) 9%, var(--yuzey));
   border-color: color-mix(in srgb, oklch(0.72 0.17 55) 30%, var(--kenar));
 }
-@media print { .yu-panel.yu-kk-panel, .yu-panel.yu-kk-panel.cikan { background: #fff; border-color: #bbb; } }
+@media print {
+  .yu-panel.yu-mavi, .yu-kpi.yu-mavi, .yu-panel.yu-turuncu, .yu-kpi.yu-turuncu { background: #fff; border-color: #bbb; }
+}
