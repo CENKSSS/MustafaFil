@@ -817,6 +817,28 @@
     }
 
     /* Gün sonu bakiyesi giren ve çıkanların hepsinden doğar. */
+    /* Doluluk çubuğu iki parçalı (kullanıcı isteği, 23.08.2026): mavi = gün
+       başından kalan, YEŞİL = bugün giren, KIRMIZI = bugün çıkan. Küçük
+       değişimler (3.000 tonda 500 kg) görünsün diye değişim parçasının en az
+       6px genişliği var. Kapasite aşımı/eksi bakiyede taban da kırmızıdır. */
+    function dolulukCubugu(basKg, sonuKg, kapasite, sorun) {
+      var bar = YU.h("div", { sinif: "yu-cubuk", stil: { display: "flex" } });
+      if (!(kapasite > 0)) return bar;
+      var fark = sonuKg - basKg;
+      var taban = Math.max(0, Math.min(basKg, sonuKg)) / kapasite;
+      bar.appendChild(YU.h("div", {
+        sinif: "yu-cubuk-dolu" + (sorun ? " olumsuz" : ""),
+        stil: { width: (Math.min(1, taban) * 100).toFixed(3) + "%", flex: "none", borderRadius: "0" }
+      }));
+      if (Math.abs(fark) > tol) {
+        bar.appendChild(YU.h("div", {
+          sinif: "yu-cubuk-dolu " + (fark > 0 ? "olumlu" : "olumsuz"),
+          stil: { width: (Math.min(1, Math.abs(fark) / kapasite) * 100).toFixed(3) + "%", minWidth: "6px", flex: "none", borderRadius: "0" }
+        }));
+      }
+      return bar;
+    }
+
     function gunSonuTazele(girdi, h) {
       var yer = siloBazinda(girdi.yerlestirmeler);
       var cek = siloBazinda(girdi.cekisler);
@@ -831,7 +853,7 @@
         so.sonu.textContent = YU.fmt.kgU(sonu);
         so.sonu.style.color = sorun ? "var(--olumsuz)" : "";
         oran = so.kapasite > 0 ? sonu / so.kapasite : 0;
-        YU.bos(so.cubukKap).appendChild(YU.ui.cubuk(oran, sorun ? "olumsuz" : (oran >= 0.9 ? "bekleyen" : "vurgu")));
+        YU.bos(so.cubukKap).appendChild(dolulukCubugu(gunBasi[id], sonu, so.kapasite, sorun));
         so.yuzde.textContent = so.kapasite > 0 ? YU.fmt.yuzde(oran * 100) + " dolu" : "kapasite yok";
         so.yuzde.style.color = sorun ? "var(--olumsuz)" : "";
       }
