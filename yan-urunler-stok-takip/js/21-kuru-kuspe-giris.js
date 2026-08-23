@@ -318,9 +318,10 @@
     /* İki sütun (kullanıcı isteği, 23.08.2026): solda adım 1-2, sağda adım 3
        "Gün Sonu ve Kayıt" dikey dizilir ve kaydırırken yerinde kalır; Kaydet
        hep göz önünde. sagKolon adım 3 kurulunca doldurulur. */
-    var sagKolon = YU.h("div", { stil: { position: "sticky", top: "78px", minWidth: "0" } });
+    var sagKolon = YU.h("div", { stil: { display: "flex", flexDirection: "column", minWidth: "0" } });
     kap.appendChild(YU.h("div", {
-      stil: { display: "grid", gridTemplateColumns: "minmax(0, 1120px) minmax(300px, 340px)", gap: "18px", alignItems: "start" }
+      /* stretch: sağ panel sol sütunla aynı tavan/taban hizasında (kullanıcı isteği, 23.08.2026). */
+      stil: { display: "grid", gridTemplateColumns: "minmax(0, 1120px) minmax(300px, 340px)", gap: "18px", alignItems: "stretch" }
     }, govde, sagKolon));
 
     /* ---------- 1. Üzerine yazma uyarısı (Şartname §7, v2) ---------- */
@@ -341,12 +342,17 @@
       }));
     }
 
+    /* Sonuç kabı yalnız içi doluyken gövdeye takılır: boş dururken gövde
+       boşluğu (gap) yüzünden tarih şeridini 18px aşağı itiyordu. */
     var sonucKap = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "12px" } });
-    govde.appendChild(sonucKap);
+    function sonucGoster() {
+      if (!sonucKap.parentNode) govde.insertBefore(sonucKap, govde.firstChild);
+    }
 
     if (bekleyenSonuc && bekleyenSonuc.tarih === tarih) {
       var onceki = YU.ui.serit({ tur: bekleyenSonuc.tur, baslik: bekleyenSonuc.baslik, metin: bekleyenSonuc.metin });
       seritSatirlari(onceki, bekleyenSonuc.satirlar);
+      sonucGoster();
       sonucKap.appendChild(onceki);
       if (bekleyenSonuc.uyarilar && bekleyenSonuc.uyarilar.length) {
         sonucKap.appendChild(YU.ui.hataListesi(bekleyenSonuc.uyarilar, "uyari"));
@@ -706,12 +712,18 @@
       dugmeSil
     );
 
-    sagKolon.appendChild(adimPaneli([
+    var adim3 = adimPaneli([
         adimBasligi(3, "notr", "Gün Sonu ve Kayıt"),
         siloIzgara,
-        YU.h("div", { sinif: "yu-ayrac yu-yatay" }),
+        YU.h("div", { sinif: "yu-ayrac yu-yatay", stil: { marginTop: "auto" } }),
         durumSatiri
-    ]));
+    ]);
+    /* Panel sütun boyunca uzar; durum + Kaydet dibe yaslanır. */
+    adim3.style.display = "flex";
+    adim3.style.flexDirection = "column";
+    adim3.style.flex = "1";
+    adim3.querySelector(".yu-panel-govde").style.flex = "1";
+    sagKolon.appendChild(adim3);
 
     /* ---------- 8. Bu günün kayıtlı hareketleri (yalnız varsa) ---------- */
 
@@ -897,12 +909,14 @@
 
     function kaydet() {
       YU.bos(sonucKap);
+      if (sonucKap.parentNode) sonucKap.parentNode.removeChild(sonucKap);
       boyalariSil();
 
       var girdi = girdiTopla();
       var s = YU.servis.kuruKuspeKaydet(db, girdi, YU.oturum.kullanici);
 
       if (!s.ok) {
+        sonucGoster();
         sonucKap.appendChild(YU.ui.hataListesi(s.hatalar, "hata"));
         if (s.uyarilar.length) sonucKap.appendChild(YU.ui.hataListesi(s.uyarilar, "uyari"));
         alanlariBoya(s.hatalar);
@@ -962,6 +976,7 @@
         var s = YU.servis.gunSil(db, tarih, YU.oturum.kullanici);
         if (!s.ok) {
           YU.bos(sonucKap);
+          sonucGoster();
           sonucKap.appendChild(YU.ui.hataListesi(s.hatalar, "hata"));
           YU.ui.bildir("Gün silinemedi.", "hata");
           if (sonucKap.scrollIntoView) sonucKap.scrollIntoView({ block: "nearest" });
