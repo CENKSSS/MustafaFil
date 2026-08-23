@@ -315,7 +315,13 @@
     /* Geniş ekranda paneller gereksiz büyüyordu; sayfa genişliği sınırlanır
        (kullanıcı isteği, 23.08.2026). Sol hizalı: başlıkla aynı akış. */
     var govde = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "18px", maxWidth: "1120px" } });
-    kap.appendChild(govde);
+    /* İki sütun (kullanıcı isteği, 23.08.2026): solda adım 1-2, sağda adım 3
+       "Gün Sonu ve Kayıt" dikey dizilir ve kaydırırken yerinde kalır; Kaydet
+       hep göz önünde. sagKolon adım 3 kurulunca doldurulur. */
+    var sagKolon = YU.h("div", { stil: { position: "sticky", top: "78px", minWidth: "0" } });
+    kap.appendChild(YU.h("div", {
+      stil: { display: "grid", gridTemplateColumns: "minmax(0, 1120px) minmax(300px, 340px)", gap: "18px", alignItems: "start" }
+    }, govde, sagKolon));
 
     /* ---------- 1. Üzerine yazma uyarısı (Şartname §7, v2) ---------- */
 
@@ -627,7 +633,7 @@
 
     var netEtki = YU.h("span", { metin: "—", stil: { font: "600 20px/1 var(--sayi)", letterSpacing: "-.02em", fontVariantNumeric: "tabular-nums", color: "var(--metin)" } });
     var siloOzetleri = [];
-    var siloIzgara = YU.h("div", { stil: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: "10px" } });
+    var siloIzgara = YU.h("div", { stil: { display: "grid", gridTemplateColumns: "1fr", gap: "10px" } });   /* sağ sütunda dikey */
 
     for (i = 0; i < silolar.length; i++) {
       (function (silo) {
@@ -689,16 +695,18 @@
       metin: "Günü Sil", ikon: "#ic-trash", tur: "tehlike", onClick: gunuSil
     }) : null;
 
-    var durumSatiri = YU.h("div", { stil: yatay("14px") },
-      satir({ display: "flex", gap: "10px", flex: "1", minWidth: "260px", alignItems: "flex-start" },
+    dugmeKaydet.style.width = "100%";
+    if (dugmeSil) dugmeSil.style.width = "100%";
+    var durumSatiri = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "12px" } },
+      satir({ display: "flex", gap: "10px", alignItems: "flex-start" },
         durumIkon,
         YU.h("div", { stil: { minWidth: "0" } }, durumBaslik, durumListe)
       ),
-      dugmeSil,
-      dugmeKaydet
+      dugmeKaydet,
+      dugmeSil
     );
 
-    govde.appendChild(adimPaneli([
+    sagKolon.appendChild(adimPaneli([
         adimBasligi(3, "notr", "Gün Sonu ve Kayıt"),
         siloIzgara,
         YU.h("div", { sinif: "yu-ayrac yu-yatay" }),
