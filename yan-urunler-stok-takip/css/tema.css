@@ -1752,4 +1752,10 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
   background: color-mix(in srgb, var(--vurgu) 7%, var(--yuzey));
   border-color: color-mix(in srgb, var(--vurgu) 22%, var(--kenar));
 }
-@media print { .yu-panel.yu-kk-panel { background: #fff; border-color: #bbb; } }
+/* Silodan Çıkan adımı hafif turuncu (kullanıcı isteği, 23.08.2026): aynı
+   karışım mantığı, mavi yerine turuncu; yön ayrımı zeminden de okunur. */
+.yu-panel.yu-kk-panel.cikan {
+  background: color-mix(in srgb, oklch(0.72 0.17 55) 9%, var(--yuzey));
+  border-color: color-mix(in srgb, oklch(0.72 0.17 55) 30%, var(--kenar));
+}
+@media print { .yu-panel.yu-kk-panel, .yu-panel.yu-kk-panel.cikan { background: #fff; border-color: #bbb; } }
