@@ -2590,6 +2590,9 @@
     var renk2 = (seri2 && seri2.renk) || 'var(--olumsuz)';
     var ad1 = seri1.ad || 'Seri 1', ad2 = (seri2 && seri2.ad) || 'Seri 2';
     var bicim = typeof s.bicim === 'function' ? s.bicim : YU.fmt.kgU;
+    /* eksenBicim(deger, tavan) — tavan da verilir ki biçimleyici birimi
+       (kg / ton) grafiğin bütünü için TEK SEFERDE seçebilsin; yoksa aynı
+       eksende "0 kg" ile "1 ton" yan yana düşüyordu. */
     var eksenBicim = typeof s.eksenBicim === 'function' ? s.eksenBicim : function (v) { return YU.fmt.sayi(v); };
     var H = s.yukseklik || 220;
     var W = 600, i, n = noktalar.length;
@@ -2610,11 +2613,15 @@
       if (a !== null && a > enB) enB = a;
       if (b !== null && b > enB) enB = b;
     }
-    /* Tavan "güzel" bir sayıya yuvarlanır: kılavuz çizgileri yuvarlak değerlere oturur. */
+    /* Tavan "güzel" bir sayıya yuvarlanır: kılavuz çizgileri yuvarlak
+       değerlere oturur. Merdiven sık tutuldu; seyrek merdivende veri
+       grafiğin yarısında kalıyordu (23.08.2026 ölçümü). */
+    var MERDIVEN = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 7.5, 10];
     var kaba = enB > 0 ? enB / 4 : 1;
     var us = Math.pow(10, Math.floor(Math.log(kaba) / Math.LN10));
-    var k = kaba / us;
-    var adim = (k <= 1 ? 1 : (k <= 2 ? 2 : (k <= 2.5 ? 2.5 : (k <= 5 ? 5 : 10)))) * us;
+    var k = kaba / us, basamak = MERDIVEN[MERDIVEN.length - 1];
+    for (var mi = 0; mi < MERDIVEN.length; mi++) if (k <= MERDIVEN[mi]) { basamak = MERDIVEN[mi]; break; }
+    var adim = basamak * us;
     var tavan = adim * 4;
 
     function xKoord(i2) { return n === 1 ? W / 2 : (i2 / (n - 1)) * W; }
@@ -2708,11 +2715,11 @@
        Görünmez ölçü etiketi sütunun genişliğini en uzun değere göre açar. */
     var eksen = YU.h('div', { stil: { position: 'relative', height: H + 'px', flex: 'none' } });
     var enUzun = '';
-    for (i = 0; i <= 4; i++) { var m = eksenBicim(adim * i); if (m.length > enUzun.length) enUzun = m; }
+    for (i = 0; i <= 4; i++) { var m = eksenBicim(adim * i, tavan); if (m.length > enUzun.length) enUzun = m; }
     eksen.appendChild(YU.h('span', { metin: enUzun, stil: { visibility: 'hidden', font: '400 11.5px/1 var(--font)', whiteSpace: 'nowrap' } }));
     for (i = 0; i <= 4; i++) {
       eksen.appendChild(YU.h('span', {
-        metin: eksenBicim(adim * i),
+        metin: eksenBicim(adim * i, tavan),
         stil: {
           position: 'absolute', right: '0', top: yKoord(adim * i) + 'px', transform: 'translateY(-50%)',
           font: '400 11.5px/1 var(--font)', color: 'var(--metin-5)', whiteSpace: 'nowrap',

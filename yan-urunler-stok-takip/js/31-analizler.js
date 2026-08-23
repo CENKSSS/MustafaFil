@@ -11,6 +11,11 @@
        karşılaştırma iki tarafta da veri olan ilk K gün üzerinden yapılır.
    Grafikte mavi = bu kampanya, kırmızı = geçmiş kampanya.
 
+   Ekranın üstünde SORU KUTUSU durur (kullanıcı isteği, 23.08.2026): Türkçe
+   yazılan soru YU.soru ile çözümlenir, cevap YU.analiz'in hesapladığı
+   rakamlarla kurulur ve yanına grafiği çizilir. Hesap ekranla ortaktır —
+   cevapta geçen sayı ile tablodaki sayı aynı koddan gelir.
+
    Görsel dil: design-reference/accounting-dashboard artboard 2a (açık) / 1b (koyu).
    SÖZLEŞME §6 (UI imzaları), §9 (sınıf adları).
    Dosya yüklenirken hiçbir şey çizmez; yalnızca YU.sayfaTanimla çağırır. */
@@ -23,6 +28,10 @@
   var RENK_BU = 'var(--vurgu)';        /* mavi — bu kampanya */
   var RENK_GECMIS = 'var(--olumsuz)';  /* kırmızı — geçmiş kampanya */
   var GRAFIK_YUKSEKLIK = 240;
+
+  /* Son soru ve cevabı ekranda kalır: gösterge seçimi değişip sayfa yeniden
+     çizilince cevap kaybolmamalı. */
+  var sonSoru = { metin: '', cevap: null };
 
   /* ------------------------------------------------------------------
      Küçük yardımcılar
@@ -39,21 +48,20 @@
     return YU.ui.olcu([{ sayi: birim === 'adet' ? YU.fmt.sayi(v) : YU.fmt.kg(v), birim: birim }], 'sol');
   }
 
+  /* Eksen birimi grafiğin TAVANINA göre seçilir: küçük ölçekte '0,75 ton'
+     okunmuyor, büyük ölçekte '1.000.000 kg' eksene sığmıyor. */
+  var TON_ESIGI = 10000;
   function eksenMetni(birim) {
-    return birim === 'adet'
-      ? function (v) { return YU.fmt.sayi(v); }
-      : function (v) { return YU.fmt.ton(v); };
+    if (birim === 'adet') return function (v) { return YU.fmt.sayi(v); };
+    return function (v, tavan) {
+      return (Number(tavan) || 0) >= TON_ESIGI ? YU.fmt.ton(v) : YU.fmt.kg(v) + ' kg';
+    };
   }
 
   function gunMetni(n) { return YU.fmt.sayi(n) + '. gün'; }
 
   function isaretli(v) {
     return (v > 0 ? '+' : (v < 0 ? '-' : '')) + YU.fmt.kg(Math.abs(v));
-  }
-
-  function yuzdeFark(bu, gecmis) {
-    if (gecmis === null || bu === null || !(Math.abs(gecmis) > 0)) return null;
-    return ((bu - gecmis) / Math.abs(gecmis)) * 100;
   }
 
   function yuzdeMetni(p) {
@@ -66,99 +74,343 @@
     return d > 0 ? 'olumlu' : 'olumsuz';
   }
 
+  var RENK_METIN = {
+    olumlu: 'var(--olumlu)', olumsuz: 'var(--olumsuz)',
+    bekleyen: 'var(--bekleyen)', vurgu: 'var(--vurgu)', notr: 'var(--metin-4)'
+  };
+
   /* ------------------------------------------------------------------
-     Göstergeler — neyin karşılaştırılacağı
-     Kuru küspe kalemleri KuruKuspeGunluk'tan (kk), diğer malzemeler
-     GunlukHareket'ten (gh) okunur. Dökme malzemenin GunlukHareket satırı
-     çuvallama düşülmüş NET üretimdir; burada brüt üretim (UretilenDokme)
-     karşılaştırılır, çuvallama ayrı gösterge olarak verilir.
+     Ekran durumu — URL parametrelerinden
+     Veri ve hesap YU.analiz'den gelir (js/33-analiz-veri.js).
      ------------------------------------------------------------------ */
 
-  function gostergeler(depo) {
-    var liste = [
-      { kod: 'dokme-uretim', ad: 'Dökme Küspe Üretimi (Brüt)', birim: 'kg', kaynak: 'kk', alan: 'UretilenDokme' },
-      { kod: 'dokme-satis', ad: 'Dökme Küspe Satışı', birim: 'kg', kaynak: 'kk', alan: 'SatilanDokme' },
-      { kod: 'cuvallama', ad: 'Çuvallama', birim: 'adet', kaynak: 'kk', alan: 'CuvalAdet' }
-    ];
+  function durum(depo, param) {
+    param = param || {};
+    var ozet = YU.analiz.ozet(depo, param.bu || null, param.karsi || null);
+    if (!ozet) return null;
+    ozet.gosterge = YU.analiz.gostergeBul(ozet.gostergeler, param.gosterge) || ozet.gostergeler[0] || null;
+    ozet.mod = param.mod === 'birikimli' ? 'birikimli' : 'gunluk';
+    return ozet;
+  }
 
-    var veriliMalzeme = {}, i;
-    for (i = 0; i < depo.gunlukHareket.length; i++) veriliMalzeme[depo.gunlukHareket[i].MalzemeId] = true;
+  function bagKur(d, ek) {
+    var p = {
+      bu: d.bu.donem.ad,
+      karsi: d.gecmis ? d.gecmis.donem.ad : null,
+      gosterge: d.gosterge ? d.gosterge.kod : null,
+      mod: d.mod
+    };
+    if (ek) for (var k in ek) if (Object.prototype.hasOwnProperty.call(ek, k)) p[k] = ek[k];
+    return p;
+  }
 
-    var malzemeler = depo.malzemeler.slice().sort(function (a, b) {
-      return (Number(a.Sira) || 0) - (Number(b.Sira) || 0) || (Number(a.Id) || 0) - (Number(b.Id) || 0);
+  /* ==================================================================
+     1. Soru kutusu
+     ================================================================== */
+
+  function soruPaneli(depo) {
+    var alan = YU.ui.alan({
+      tip: 'metin',
+      yerTutucu: 'Örnek: geçen seneye göre nasıl ilerliyoruz?'
     });
-    for (i = 0; i < malzemeler.length; i++) {
-      var m = malzemeler[i];
-      if (m.OzelTip === 'DokmeKuruKuspe') continue;                 /* yukarıda: brüt üretim + satış */
-      if (m.Aktif === false && !veriliMalzeme[m.Id]) continue;     /* pasif ve hiç verisi yok */
-      if (m.OzelTip !== 'CuvalKuruKuspe') {                         /* çuvallının üretimi = çuvallama */
-        liste.push({ kod: 'm' + m.Id + '-uretim', ad: m.Ad + ' · Üretim', birim: 'kg', kaynak: 'gh', alan: 'Uretim', malzemeId: m.Id });
+    alan.kok.style.flex = '1';
+    alan.kok.style.minWidth = '0';
+    if (sonSoru.metin) alan.ayarla(sonSoru.metin);
+
+    function sor(metin) {
+      var soru = metin === undefined ? alan.deger() : metin;
+      if (!soru || !String(soru).trim()) { alan.odakla(); return; }
+      sonSoru.metin = soru;
+      sonSoru.cevap = YU.soru.cevapla(depo, soru);
+      YU.yenile();
+    }
+
+    alan.girdi.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); sor(); }
+    });
+
+    var dugme = YU.ui.dugme({ metin: 'Sor', ikon: '#ic-search', tur: 'birincil', onClick: function () { sor(); } });
+    var temizle = YU.ui.dugme({
+      metin: 'Temizle', tur: 'sade', kucuk: true,
+      onClick: function () { sonSoru.metin = ''; sonSoru.cevap = null; YU.yenile(); }
+    });
+
+    var satir = YU.h('div', { stil: { display: 'flex', gap: '8px', alignItems: 'flex-end' } },
+      alan.kok, dugme, sonSoru.cevap ? temizle : null);
+
+    /* Hazır sorular: tıklanınca doğrudan sorulur. */
+    var ornekler = YU.soru.ornekler();
+    var cipler = YU.h('div', {
+      stil: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '12px' }
+    });
+    for (var i = 0; i < ornekler.length; i++) {
+      (function (metin) {
+        cipler.appendChild(YU.h('button', {
+          tip: 'button', metin: metin,
+          stil: {
+            font: '400 12px/1 var(--font)', color: 'var(--metin-3)',
+            background: 'var(--yuzey-3)', border: '1px solid var(--kenar)',
+            borderRadius: '999px', padding: '6px 11px', cursor: 'pointer'
+          },
+          onClick: function () { alan.ayarla(metin); sor(metin); }
+        }));
+      })(ornekler[i]);
+    }
+
+    return YU.ui.panel({
+      baslik: 'Soru Sor',
+      ikon: '#ic-search',
+      sag: 'Türkçe harf kullanmak zorunlu değil',
+      govde: [satir, cipler]
+    });
+  }
+
+  /* ==================================================================
+     2. Cevap kartı
+     ================================================================== */
+
+  /* "Anladığım" şeridi — motorun ne anladığı MUTLAKA görünür. Yanlış okuma
+     sessiz kalmasın; kullanıcı rozetlere bakıp sorusunu düzeltebilsin. */
+  function anlamSeridi(cevap) {
+    if (!cevap.anlam || !cevap.anlam.length) return null;
+    var kap = YU.h('div', {
+      stil: { display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }
+    }, YU.h('span', {
+      metin: 'Anladığım:',
+      stil: { font: '400 12px/1 var(--font)', color: 'var(--metin-4)', marginRight: '2px' }
+    }));
+    for (var i = 0; i < cevap.anlam.length; i++) {
+      kap.appendChild(YU.ui.rozet(cevap.anlam[i], i === 0 ? 'vurgu' : 'notr'));
+    }
+    return kap;
+  }
+
+  /* Yazılan kelime ile anlaşılan terim farklıysa gösterilir: yazım hatası
+     düzeltmesi de, yanlış eşleşme de burada görünür. */
+  function duzeltmeSeridi(cevap) {
+    if (!cevap.eslesmeler) return null;
+    var farklar = [], i;
+    for (i = 0; i < cevap.eslesmeler.length; i++) {
+      var e = cevap.eslesmeler[i];
+      if (e.birebir) continue;
+      farklar.push(e.yazilan + ' → ' + e.anlasilan);
+    }
+    if (!farklar.length) return null;
+    return YU.h('div', {
+      sinif: 'yu-yardim',
+      metin: 'Okuduğum: ' + farklar.join(' · '),
+      stil: { marginTop: '2px' }
+    });
+  }
+
+  function cevapSatirlari(cevap) {
+    if (!cevap.satirlar || !cevap.satirlar.length) return null;
+    var satirlar = [], i;
+    for (i = 0; i < cevap.satirlar.length; i++) {
+      var s = cevap.satirlar[i];
+      var deger = s.deger;
+      satirlar.push([
+        s.etiket,
+        s.tur ? YU.h('span', { metin: String(deger), stil: { color: RENK_METIN[s.tur] || 'var(--metin)' } }) : String(deger)
+      ]);
+    }
+    return YU.ui.tablo({
+      sutunlar: [{ baslik: '', genislik: 240 }, { baslik: '', hiza: 'sol' }],
+      satirlar: satirlar
+    });
+  }
+
+  function guvenRozeti(cevap) {
+    if (typeof cevap.guven !== 'number') return null;
+    var y = Math.round(cevap.guven * 100);
+    var tur = cevap.guven >= 0.75 ? 'olumlu' : (cevap.guven >= 0.45 ? 'bekleyen' : 'olumsuz');
+    return YU.ui.rozet('Güven %' + y, tur);
+  }
+
+  function oneriCipleri(oneriler, depo) {
+    if (!oneriler || !oneriler.length) return null;
+    var kap = YU.h('div', { stil: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px' } });
+    for (var i = 0; i < oneriler.length; i++) {
+      (function (metin) {
+        kap.appendChild(YU.h('button', {
+          tip: 'button', metin: metin,
+          stil: {
+            font: '400 12px/1 var(--font)', color: 'var(--vurgu)',
+            background: 'var(--vurgu-zemin)', border: '1px solid transparent',
+            borderRadius: '999px', padding: '6px 11px', cursor: 'pointer'
+          },
+          onClick: function () {
+            sonSoru.metin = metin;
+            sonSoru.cevap = YU.soru.cevapla(depo, metin);
+            YU.yenile();
+          }
+        }));
+      })(oneriler[i]);
+    }
+    return kap;
+  }
+
+  function cevapKarti(depo, cevap, d) {
+    var govde = [];
+    var anlam = anlamSeridi(cevap);
+    if (anlam) govde.push(anlam);
+
+    govde.push(YU.h('div', {
+      metin: cevap.baslik,
+      stil: {
+        font: (cevap.basarili ? '500' : '400') + ' 15.5px/1.55 var(--font)',
+        color: cevap.basarili ? 'var(--metin)' : 'var(--metin-3)',
+        marginTop: anlam ? '4px' : '0'
       }
-      liste.push({ kod: 'm' + m.Id + '-satis', ad: m.Ad + ' · Satış', birim: 'kg', kaynak: 'gh', alan: 'Satis', malzemeId: m.Id });
+    }));
+
+    var duzeltme = duzeltmeSeridi(cevap);
+    if (duzeltme) govde.push(duzeltme);
+
+    var tablo = cevapSatirlari(cevap);
+    if (tablo) {
+      tablo.style.marginTop = '4px';
+      tablo.style.border = '1px solid var(--kenar)';
+      tablo.style.borderRadius = 'var(--r)';
+      govde.push(tablo);
     }
-    return liste;
-  }
 
-  function gostergeBul(liste, kod) {
-    for (var i = 0; i < liste.length; i++) if (liste[i].kod === kod) return liste[i];
-    return liste[0] || null;
-  }
+    var g1 = grafikCiz(cevap.grafik);
+    if (g1) govde.push(grafikKutusu(cevap.grafik.baslik, g1));
+    var g2 = grafikCiz(cevap.ikinciGrafik);
+    if (g2) govde.push(grafikKutusu(cevap.ikinciGrafik.baslik, g2));
 
-  /* ------------------------------------------------------------------
-     Kampanya verisi — gün sırasına göre okuma
-     ------------------------------------------------------------------ */
+    var oneri = oneriCipleri(cevap.oneriler, depo);
+    if (oneri) govde.push(oneri);
 
-  /* Dönem: YU.donem.liste() ögesi {ad, bas, bit, kayitliGun}. */
-  function kampanyaVerisi(depo, donem) {
-    var kayitli = {}, kk = {}, gh = {}, i, h;
-    var gunler = YU.stok.kayitliGunler(depo, donem.bas, donem.bit);
-    for (i = 0; i < gunler.length; i++) kayitli[gunler[i].tarih] = true;
-    for (i = 0; i < depo.kuruKuspeGunluk.length; i++) {
-      h = depo.kuruKuspeGunluk[i];
-      if (h.Tarih >= donem.bas && h.Tarih <= donem.bit) kk[h.Tarih] = h;
+    /* Cevabın kaynağı ekranda açılabilsin: aynı gösterge, aynı dönem. */
+    if (cevap.bag && cevap.basarili) {
+      govde.push(YU.h('div', { stil: { display: 'flex', gap: '8px', marginTop: '4px' } },
+        YU.ui.dugme({
+          metin: cevap.bag.kod === SAYFA ? 'Bu Sayfada Aç' : 'İlgili Ekranı Aç',
+          ikon: '#ic-chart', tur: 'ikincil', kucuk: true,
+          onClick: function () { YU.git(cevap.bag.kod, cevap.bag.param); }
+        })
+      ));
     }
-    for (i = 0; i < depo.gunlukHareket.length; i++) {
-      h = depo.gunlukHareket[i];
-      if (h.Tarih >= donem.bas && h.Tarih <= donem.bit) gh[h.Tarih + '|' + h.MalzemeId] = h;
+
+    return YU.ui.panel({
+      baslik: 'Cevap',
+      ikon: '#ic-doc',
+      sag: cevap.basarili ? guvenRozeti(cevap) : YU.ui.rozet('Anlaşılmadı', 'olumsuz'),
+      govde: govde
+    });
+  }
+
+  function grafikKutusu(baslik, icerik) {
+    return YU.h('div', {
+      stil: {
+        border: '1px solid var(--kenar)', borderRadius: 'var(--r-l)',
+        padding: '14px 16px', marginTop: '4px'
+      }
+    },
+      YU.h('div', {
+        metin: baslik || '',
+        stil: { font: '500 13px/1.2 var(--font)', color: 'var(--metin-3)', marginBottom: '12px' }
+      }),
+      icerik
+    );
+  }
+
+  /* ==================================================================
+     3. Grafik tanımından çizim
+     Cevap motoru yalnızca TANIM üretir (hangi seri, hangi renk, hangi
+     nokta); çizim burada, ekranın grafik diliyle yapılır.
+     ================================================================== */
+
+  function grafikCiz(spec) {
+    if (!spec) return null;
+    if (spec.tur === 'karsilastirma') {
+      return YU.ui.karsilastirmaGrafik({
+        noktalar: spec.noktalar,
+        seri1: spec.seri1,
+        seri2: spec.seri2,
+        yukseklik: GRAFIK_YUKSEKLIK,
+        bicim: function (v) { return miktar(v, spec.birim); },
+        eksenBicim: eksenMetni(spec.birim)
+      });
     }
-    var sonGun = YU.tarih.fark(donem.bas, donem.bit) + 1;    /* son kayıtlı günün sırası */
-    if (!isFinite(sonGun) || sonGun < 1) sonGun = 1;
-    return { donem: donem, kayitli: kayitli, kk: kk, gh: gh, sonGun: sonGun, kayitliGun: gunler.length };
+    if (spec.tur === 'sira') return siraCubuklari(spec);
+    if (spec.tur === 'deger') return degerCubuklari(spec);
+    return null;
   }
 
-  /* Gün kayıtlıysa değer (satır yoksa 0), gün hiç girilmemişse null. */
-  function gunDegeri(veri, gosterge, tarih) {
-    if (!veri.kayitli[tarih]) return null;
-    var satir = gosterge.kaynak === 'kk' ? veri.kk[tarih] : veri.gh[tarih + '|' + gosterge.malzemeId];
-    return satir ? (Number(satir[gosterge.alan]) || 0) : 0;
-  }
-
-  /* n günlük dizi: gunluk[i] = (i+1). günün değeri; birikimli[i] = o güne
-     kadarki toplam. Son kayıtlı günden sonrası null (çizgi orada biter). */
-  function seri(veri, gosterge, n) {
-    var gunluk = [], birikimli = [], toplam = 0, i;
-    for (i = 0; i < n; i++) {
-      var icerde = i < veri.sonGun;
-      var v = icerde ? gunDegeri(veri, gosterge, YU.tarih.ekle(veri.donem.bas, i)) : null;
-      gunluk.push(v);
-      if (v !== null) toplam = YU.yuvarla(toplam + v);
-      birikimli.push(icerde ? toplam : null);
+  /* Yüzde çubukları — tasarım referansındaki "Gider Kategorileri" dili. */
+  function siraCubuklari(spec) {
+    var kap = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '11px' } });
+    if (!spec.ogeler || !spec.ogeler.length) {
+      return YU.h('div', { sinif: 'yu-bos-metin', metin: 'Karşılaştırılabilir kalem yok.' });
     }
-    return { gunluk: gunluk, birikimli: birikimli, toplam: toplam };
+    for (var i = 0; i < spec.ogeler.length; i++) {
+      var o = spec.ogeler[i];
+      var oran = spec.enBuyuk > 0 ? Math.min(1, Math.abs(o.yuzde) / spec.enBuyuk) : 0;
+      kap.appendChild(YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '12px' } },
+        YU.h('div', {
+          metin: o.ad,
+          stil: {
+            flex: '0 0 200px', minWidth: '0', font: '400 12.5px/1.3 var(--font)',
+            color: 'var(--metin-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+          }
+        }),
+        YU.h('div', { stil: { flex: '1', minWidth: '60px' } }, YU.ui.cubuk(oran, o.tur)),
+        YU.h('div', {
+          metin: yuzdeMetni(o.yuzde),
+          stil: {
+            flex: '0 0 76px', textAlign: 'right', font: '500 12.5px/1 var(--sayi)',
+            color: RENK_METIN[o.tur] || 'var(--metin)', fontVariantNumeric: 'tabular-nums'
+          }
+        }),
+        YU.h('div', {
+          metin: (o.deger > 0 ? '+' : (o.deger < 0 ? '-' : '')) +
+            (o.birim === 'adet' ? YU.fmt.sayi(Math.abs(o.deger)) + ' adet' : YU.fmt.kgU(Math.abs(o.deger))),
+          stil: {
+            flex: '0 0 130px', textAlign: 'right', font: '400 12px/1 var(--sayi)',
+            color: 'var(--metin-4)', fontVariantNumeric: 'tabular-nums'
+          }
+        })
+      ));
+    }
+    return kap;
   }
 
-  /* Bugün bu kampanyanın kaçıncı günü: 1. gün = devir günü. Bugün son
-     kayıtlı günün ilerisindeyse son kayıtlı güne çekilir; kampanya henüz
-     başlamamışsa da son kayıtlı gün kullanılır. */
-  function bugunkuGun(veri) {
-    var ham = YU.tarih.fark(veri.donem.bas, YU.tarih.bugun()) + 1;
-    if (!isFinite(ham) || ham < 1) ham = veri.sonGun;
-    return { ham: ham, gun: Math.max(1, Math.min(ham, veri.sonGun)) };
+  /* Mutlak değer çubukları — stok ve silo dökümü. */
+  function degerCubuklari(spec) {
+    var kap = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '11px' } });
+    if (!spec.ogeler || !spec.ogeler.length) {
+      return YU.h('div', { sinif: 'yu-bos-metin', metin: 'Gösterilecek kayıt yok.' });
+    }
+    for (var i = 0; i < spec.ogeler.length; i++) {
+      var o = spec.ogeler[i];
+      kap.appendChild(YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '12px' } },
+        YU.h('div', {
+          metin: o.ad,
+          stil: {
+            flex: '0 0 200px', minWidth: '0', font: '400 12.5px/1.3 var(--font)',
+            color: 'var(--metin-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+          }
+        }),
+        YU.h('div', { stil: { flex: '1', minWidth: '60px' } }, YU.ui.cubuk(o.oran || 0, o.tur)),
+        YU.h('div', {
+          metin: (o.birim === 'adet' ? YU.fmt.sayi(o.deger) + ' adet' : YU.fmt.kgU(o.deger)) +
+            (o.ek ? ' · ' + o.ek : ''),
+          stil: {
+            flex: '0 0 200px', textAlign: 'right', font: '500 12.5px/1 var(--sayi)',
+            color: RENK_METIN[o.tur] || 'var(--metin)', fontVariantNumeric: 'tabular-nums'
+          }
+        })
+      ));
+    }
+    return kap;
   }
 
-  /* ------------------------------------------------------------------
-     Ekran parçaları
-     ------------------------------------------------------------------ */
+  /* ==================================================================
+     4. Ayar paneli — dönem, gösterge, görünüm
+     ================================================================== */
 
   function ayarPaneli(d) {
     var buSecenek = [], karsiSecenek = [], gostergeSecenek = [], i;
@@ -199,12 +451,13 @@
     });
   }
 
+  /* ==================================================================
+     5. KPI kartları
+     ================================================================== */
+
   function kpiIzgarasi(d) {
     var g = d.gosterge, K = d.karsilastirmaGunu;
-    var buSeri = seri(d.bu, g, K);
-    var gecmisSeri = d.gecmis ? seri(d.gecmis, g, K) : null;
-    var buSon = buSeri.gunluk[K - 1];
-    var gecmisSon = gecmisSeri ? gecmisSeri.gunluk[K - 1] : null;
+    var k = YU.analiz.karsilastir(d, g, K);
 
     var gunKarti = YU.ui.kpi({
       etiket: 'Kampanya Günü', ikon: '#ic-calendar',
@@ -217,37 +470,40 @@
 
     var buKarti = YU.ui.kpi({
       etiket: 'Bu Kampanya ' + d.bu.donem.ad, ikon: '#ic-up', renk: 'vurgu',
-      deger: olcu(buSeri.toplam, g.birim),
-      alt: '1–' + gunMetni(K) + ' toplamı · ' + gunMetni(K) + ': ' + miktar(buSon, g.birim)
+      deger: olcu(k.bu, g.birim),
+      alt: '1–' + gunMetni(K) + ' toplamı · ' + gunMetni(K) + ': ' + miktar(k.buGun, g.birim)
     });
 
     var gecmisKarti = YU.ui.kpi({
-      etiket: d.gecmis ? 'Geçmiş Kampanya ' + d.gecmis.donem.ad : 'Geçmiş Kampanya', ikon: '#ic-calendar-dots', renk: 'olumsuz',
-      deger: gecmisSeri ? olcu(gecmisSeri.toplam, g.birim) : '—',
-      alt: gecmisSeri
-        ? '1–' + gunMetni(K) + ' toplamı · ' + gunMetni(K) + ': ' + miktar(gecmisSon, g.birim)
+      etiket: d.gecmis ? 'Geçmiş Kampanya ' + d.gecmis.donem.ad : 'Geçmiş Kampanya',
+      ikon: '#ic-calendar-dots', renk: 'olumsuz',
+      deger: d.gecmis ? olcu(k.gecmis, g.birim) : '—',
+      alt: d.gecmis
+        ? '1–' + gunMetni(K) + ' toplamı · ' + gunMetni(K) + ': ' + miktar(k.gecmisGun, g.birim)
         : 'Karşılaştırılacak ikinci kampanya yok'
     });
 
-    var fark = gecmisSeri ? YU.yuvarla(buSeri.toplam - gecmisSeri.toplam) : null;
-    var yuzde = gecmisSeri ? yuzdeFark(buSeri.toplam, gecmisSeri.toplam) : null;
     var farkKarti = YU.ui.kpi({
-      etiket: 'Fark (İlk ' + YU.fmt.sayi(K) + ' Gün)', ikon: '#ic-percent', renk: farkTuru(fark),
-      deger: fark === null ? '—' : (yuzde === null ? isaretli(fark) : yuzdeMetni(yuzde)),
-      alt: fark === null
+      etiket: 'Fark (İlk ' + YU.fmt.sayi(K) + ' Gün)', ikon: '#ic-percent', renk: farkTuru(k.fark),
+      deger: k.fark === null ? '—' : (k.yuzde === null ? isaretli(k.fark) : yuzdeMetni(k.yuzde)),
+      alt: k.fark === null
         ? 'Fark için iki kampanya gerekir'
-        : (fark === 0
+        : (k.fark === 0
           ? 'İki kampanya başa baş'
-          : isaretli(fark) + ' ' + g.birim + ' · bu kampanya ' + (fark > 0 ? 'önde' : 'geride'))
+          : isaretli(k.fark) + ' ' + g.birim + ' · bu kampanya ' + (k.fark > 0 ? 'önde' : 'geride'))
     });
 
     return YU.h('div', { sinif: 'yu-izgara yu-iz-4' }, gunKarti, buKarti, gecmisKarti, farkKarti);
   }
 
+  /* ==================================================================
+     6. Grafik paneli
+     ================================================================== */
+
   function grafikPaneli(d) {
     var g = d.gosterge, N = d.bugun.gun, birikimli = d.mod === 'birikimli';
-    var buSeri = seri(d.bu, g, N);
-    var gecmisSeri = d.gecmis ? seri(d.gecmis, g, N) : null;
+    var buSeri = YU.analiz.seri(d.bu, g, N);
+    var gecmisSeri = d.gecmis ? YU.analiz.seri(d.gecmis, g, N) : null;
     var buDizi = birikimli ? buSeri.birikimli : buSeri.gunluk;
     var gecmisDizi = gecmisSeri ? (birikimli ? gecmisSeri.birikimli : gecmisSeri.gunluk) : null;
 
@@ -258,8 +514,8 @@
         baslik: gunMetni(i + 1),
         deger1: buDizi[i],
         deger2: gecmisDizi ? gecmisDizi[i] : null,
-        alt1: YU.fmt.tarih(YU.tarih.ekle(d.bu.donem.bas, i)),
-        alt2: d.gecmis ? YU.fmt.tarih(YU.tarih.ekle(d.gecmis.donem.bas, i)) : null
+        alt1: YU.fmt.tarih(YU.analiz.gunTarihi(d.bu, i + 1)),
+        alt2: d.gecmis ? YU.fmt.tarih(YU.analiz.gunTarihi(d.gecmis, i + 1)) : null
       });
     }
 
@@ -276,52 +532,51 @@
     var cumleler = ['Yatay eksen kampanya günüdür; devir günü 1. gün sayılır.'];
     if (d.gecmis) {
       cumleler.push('Aynı gün sırası karşılaştırılır: bu kampanyanın ' + gunMetni(K) + ' (' +
-        YU.fmt.tarih(YU.tarih.ekle(d.bu.donem.bas, K - 1)) + ') karşısında geçmiş kampanyanın ' + gunMetni(K) + ' (' +
-        YU.fmt.tarih(YU.tarih.ekle(d.gecmis.donem.bas, K - 1)) + ') durur.');
+        YU.fmt.tarih(YU.analiz.gunTarihi(d.bu, K)) + ') karşısında geçmiş kampanyanın ' + gunMetni(K) + ' (' +
+        YU.fmt.tarih(YU.analiz.gunTarihi(d.gecmis, K)) + ') durur.');
       if (K < N) {
         cumleler.push('Geçmiş kampanyanın kaydı ' + gunMetni(d.gecmis.sonGun) + ' bitiyor; kırmızı çizgi orada kesilir.');
       }
     } else {
       cumleler.push('Karşılaştırma için ikinci bir kampanya gerekir.');
     }
-    var aciklama = YU.h('div', { sinif: 'yu-yardim', metin: cumleler.join(' ') });
 
     return YU.ui.panel({
       baslik: (birikimli ? 'Birikimli Karşılaştırma · ' : 'Günlük Karşılaştırma · ') + g.ad,
       ikon: '#ic-chart',
       sag: '1–' + gunMetni(N),
-      govde: [grafik, aciklama]
+      govde: [grafik, YU.h('div', { sinif: 'yu-yardim', metin: cumleler.join(' ') })]
     });
   }
 
+  /* ==================================================================
+     7. Karşılaştırma tablosu
+     ================================================================== */
+
   function tabloPaneli(d) {
     var K = d.karsilastirmaGunu, satirlar = [], i;
-    for (i = 0; i < d.gostergeler.length; i++) {
-      (function (g) {
-        var bu = seri(d.bu, g, K).toplam;
-        var gecmis = d.gecmis ? seri(d.gecmis, g, K).toplam : null;
-        var fark = gecmis === null ? null : YU.yuvarla(bu - gecmis);
-        var yuzde = gecmis === null ? null : yuzdeFark(bu, gecmis);
-        var aktif = g.kod === d.gosterge.kod;
+    var hepsi = YU.analiz.tumKarsilastirma(d, K);
 
+    for (i = 0; i < hepsi.length; i++) {
+      (function (k) {
+        var g = k.gosterge;
+        var aktif = g.kod === d.gosterge.kod;
         satirlar.push({
           vurgu: aktif ? 'vurgu' : null,
           ipucu: aktif ? 'Grafikte gösteriliyor' : 'Grafikte göstermek için tıklayın',
-          onClick: function () {
-            YU.git(SAYFA, { bu: d.bu.donem.ad, karsi: d.gecmis ? d.gecmis.donem.ad : '', gosterge: g.kod, mod: d.mod });
-          },
+          onClick: function () { YU.git(SAYFA, bagKur(d, { gosterge: g.kod })); },
           hucreler: [
             YU.h('span', { sinif: aktif ? 'yu-guclu' : '', metin: g.ad }),
-            miktar(bu, g.birim),
-            gecmis === null ? '—' : miktar(gecmis, g.birim),
-            fark === null ? '—' : YU.h('span', {
-              metin: isaretli(fark) + ' ' + g.birim,
-              stil: { color: fark > 0 ? 'var(--olumlu)' : (fark < 0 ? 'var(--olumsuz)' : 'var(--metin-4)') }
+            miktar(k.bu, g.birim),
+            k.gecmis === null ? '—' : miktar(k.gecmis, g.birim),
+            k.fark === null ? '—' : YU.h('span', {
+              metin: isaretli(k.fark) + ' ' + g.birim,
+              stil: { color: RENK_METIN[farkTuru(k.fark)] }
             }),
-            yuzde === null ? '—' : YU.ui.rozet(yuzdeMetni(yuzde), farkTuru(fark))
+            k.yuzde === null ? '—' : YU.ui.rozet(yuzdeMetni(k.yuzde), farkTuru(k.fark))
           ]
         });
-      })(d.gostergeler[i]);
+      })(hepsi[i]);
     }
 
     var tablo = YU.ui.tablo({
@@ -346,54 +601,15 @@
     return YU.ui.panel({
       baslik: 'İlk ' + YU.fmt.sayi(K) + ' Günün Toplamları',
       ikon: '#ic-doc',
-      sag: d.gostergeler.length + ' gösterge',
+      sag: YU.fmt.sayi(d.gostergeler.length) + ' gösterge',
       dolgusuz: true,
       govde: [tablo, YU.h('div', { sinif: 'yu-yardim', metin: notlar.join(' '), stil: { padding: '10px 18px 12px' } })]
     });
   }
 
-  /* ------------------------------------------------------------------
-     Sayfa
-     ------------------------------------------------------------------ */
-
-  function donemBul(liste, ad) {
-    for (var i = 0; i < liste.length; i++) if (liste[i].ad === ad) return liste[i];
-    return null;
-  }
-
-  /* URL parametrelerinden ekran durumu; eksik ya da hatalı parametre
-     varsayılana düşer. Varsayılan geçmiş kampanya: bu kampanyadan bir önceki. */
-  function durum(depo, param) {
-    var donemler = YU.donem.liste();
-    if (!donemler.length) return null;
-    param = param || {};
-
-    var buDonem = donemBul(donemler, param.bu) || YU.donem.aktif() || donemler[donemler.length - 1];
-    var gecmisDonem = null;
-    if (param.karsi && param.karsi !== buDonem.ad) gecmisDonem = donemBul(donemler, param.karsi);
-    if (!gecmisDonem) {
-      /* Liste devir tarihine göre sıralı: bir önceki dönem, yoksa bir sonraki. */
-      var sira = donemler.indexOf(buDonem);
-      gecmisDonem = donemler[sira - 1] || donemler[sira + 1] || null;
-    }
-
-    var liste = gostergeler(depo);
-    var bu = kampanyaVerisi(depo, buDonem);
-    var gecmis = gecmisDonem ? kampanyaVerisi(depo, gecmisDonem) : null;
-    var bugun = bugunkuGun(bu);
-
-    return {
-      donemler: donemler,
-      bu: bu,
-      gecmis: gecmis,
-      bugun: bugun,
-      /* İki tarafta da veri olan ilk K gün: geçmiş kampanya daha kısaysa orada biter. */
-      karsilastirmaGunu: gecmis ? Math.max(1, Math.min(bugun.gun, gecmis.sonGun)) : bugun.gun,
-      gostergeler: liste,
-      gosterge: gostergeBul(liste, param.gosterge),
-      mod: param.mod === 'birikimli' ? 'birikimli' : 'gunluk'
-    };
-  }
+  /* ==================================================================
+     8. Sayfa
+     ================================================================== */
 
   function ciz(kap, param) {
     var depo = YU.db;
@@ -413,6 +629,9 @@
       kap.appendChild(YU.ui.bosDurum({ ikon: '#ic-chart', baslik: 'Gösterge Yok', metin: 'Karşılaştırılacak malzeme tanımı bulunamadı.' }));
       return;
     }
+
+    kap.appendChild(soruPaneli(depo));
+    if (sonSoru.cevap) kap.appendChild(cevapKarti(depo, sonSoru.cevap, d));
 
     kap.appendChild(ayarPaneli(d));
 

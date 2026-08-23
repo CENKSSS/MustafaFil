@@ -62,7 +62,11 @@ yan-urunler-stok-takip/
     ├── 05-tohum.js         referans kampanya verisi (deterministik)
     ├── 10-kabuk.js         yönlendirici, kenar çubuğu, üst şerit, tema, UI kütüphanesi
     ├── 20…31-*.js          ekranlar (31: Analizler)
+    ├── 32-analiz-dil.js    Türkçe dil araçları (katlama, ek atma, yazım hatası)
+    ├── 33-analiz-veri.js   analiz veri katmanı (kampanya gün serileri)
+    ├── 34-analiz-soru.js   soru çözümleme + cevap üretimi
     ├── 40-kabul-testleri.js  12 kabul testinin tarayıcı içi koşucusu
+    ├── 41-soru-testleri.js   359 soruluk dil külliyatı + ölçüm ekranı
     └── 99-baslat.js        açılış
 ```
 
@@ -87,7 +91,37 @@ yan-urunler-stok-takip/
 | Kullanıcı Yönetimi | Yönetici |
 | Değişiklik Geçmişi | Yönetici |
 | Analizler | Yönetici |
+| Soru Testleri | Yönetici |
 | Kabul Testleri | Yönetici |
+
+---
+
+## Soru sorma (Analizler ekranı)
+
+**Yönetici** olarak gir → *Analizler*. Üstteki kutuya Türkçe soru yaz:
+
+```
+Geçen seneye göre nasıl ilerliyoruz?
+Toprak satışı geçen seneye göre nasıl?
+15. günde ne kadar üretmişiz?
+En çok artan kalem hangisi?
+Son 7 günde üretim nasıl?
+Elimizde ne kadar toprak var?
+```
+
+**Türkçe harf kullanmak zorunlu değil.** "gecen sene dokme kuspe" ile
+"geçen sene dökme küspe" aynıdır; yazım hatası da (harf düşmesi, devrik
+harf, bitişik yazım) tolere edilir.
+
+Cevabın üstünde **"Anladığım:"** rozetleri durur — motorun soruyu nasıl
+okuduğu her zaman görünür. Yanlış anladıysa oradan fark edilir.
+
+İnternet, yapay zekâ servisi ve kütüphane **kullanılmaz**; veri
+bilgisayardan çıkmaz. Rakamlar ekranın kullandığı hesap katmanından gelir,
+cevap uydurulmaz — veri yoksa "veri yok" der.
+
+Doğruluk **ölçülür**: *Soru Testleri* ekranı 359 soruluk külliyatı
+çalıştırır (15'i cevaplanmaması gereken tuzak sorusudur).
 
 ---
 
