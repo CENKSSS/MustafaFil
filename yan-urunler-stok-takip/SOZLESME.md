@@ -409,7 +409,7 @@ Grafiklerin tamamı **inline SVG**; kütüphane yok (tasarım referansı kuralı
 | `malzeme-yonetimi` | Malzeme Yönetimi | Yönetim | Yonetici | `28-malzeme-yonetimi.js` |
 | `kullanici-yonetimi` | Kullanıcı Yönetimi | Yönetim | Yonetici | `29-kullanici-yonetimi.js` |
 | `degisiklik-gecmisi` | Değişiklik Geçmişi | Yönetim | Yonetici | `30-degisiklik-gecmisi.js` |
-| `analizler` | Analizler | Yönetim | Yonetici | `31-analizler.js` — kampanyaları GÜN SIRASINA göre karşılaştırır (devir günü = 1. gün; bugün N. günse geçmiş kampanyanın N. günü karşısına konur). Kampanyalar grafiğin üstündeki EFSANEDEN işaretlenir; işaretli olanlar çizilir ve tabloda birer sütun alır. Renk sırası sabit: en yeni mavi, bir önceki kırmızı. Analiz penceresi VARSAYILAN OLARAK KAMPANYANIN TAMAMIDIR, üstteki tarih aralığıyla daraltılabilir. URL: `?kampanyalar=a,b&gosterge=&mod=gunluk|birikimli&basGun=&bitGun=` (`bu`/`karsi` de kabul edilir) |
+| `analizler` | Analizler | Yönetim | Yonetici | `31-analizler.js` — kampanyaları GÜN SIRASINA göre karşılaştırır (devir günü = 1. gün; bugün N. günse geçmiş kampanyanın N. günü karşısına konur). Kampanyalar grafiğin üstündeki EFSANEDEN onay kutusuyla işaretlenir; işaretli olanlar çizilir ve tabloda birer sütun alır. GÖSTERİM SIRASI eskiden yeniye (soldan sağa artan); RENK ise yenilik sırasına göre sabittir (en yeni mavi, bir önceki kırmızı) — listedeki yeri değişse de kampanyanın rengi değişmez. Analiz penceresi VARSAYILAN OLARAK KAMPANYANIN TAMAMIDIR, üstteki tarih aralığıyla daraltılabilir. URL: `?kampanyalar=a,b&gosterge=&mod=gunluk|birikimli&basGun=&bitGun=` (`bu`/`karsi` de kabul edilir) |
 | `soru-testleri` | Soru Testleri | Yönetim | Yonetici | `41-soru-testleri.js` — soru motorunun ölçüm külliyatı; niyet, malzeme, ölçüt, gün ve kapsam ayrı ayrı denetlenir. Tuzak soruları CEVAPLANMAMALIDIR. |
 | `kabul-testleri` | Kabul Testleri | Yönetim | Yonetici | `40-kabul-testleri.js` |
 
@@ -532,7 +532,7 @@ AÇIK                                  KOYU
 .yu-yan-kart .yu-yan-kart-bas .yu-yan-kart-metin
 .yu-ana .yu-ust .yu-ara .yu-cip .yu-cip.acilir .yu-cip.acik .yu-cip-ok .yu-cip-etiket .yu-cip-deger
 .yu-arac .yu-arac-sag .yu-arac-ayrac .yu-secim-grubu .yu-secim-oge .yu-secim-oge.aktif
-.yu-efsane-oge .yu-efsane-oge.secili
+.yu-efsane-oge .yu-efsane-oge.secili .yu-efsane-kutu
 .yu-zil .yu-kullanici .yu-avatar .yu-kullanici-ad .yu-kullanici-rol
 .yu-icerik .yu-sayfa-bas .yu-sayfa-baslik .yu-sayfa-alt .yu-eylemler
 .yu-dugme .yu-dugme.birincil .yu-dugme.ikincil .yu-dugme.tehlike .yu-dugme.sade .yu-dugme.kucuk

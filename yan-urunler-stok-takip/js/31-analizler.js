@@ -133,21 +133,46 @@
     return p;
   }
 
-  /* Bütün kampanyalar, YENİDEN ESKİYE. Renk bu sıraya göre verilir; bir
-     kampanyanın rengi işaret açılıp kapandıkça değişmez. */
+  /* Bütün kampanyalar, ESKİDEN YENİYE — soldan sağa doğru artan sıra
+     (kullanıcı isteği, 23.08.2026): en solda en eski sezon, en sağda içinde
+     bulunduğumuz sezon. Zaman çizgisi gibi okunur.
+     RENK ise tersinden, YENİLİK sırasına göre verilir: en yeni kampanya
+     mavi, bir önceki kırmızı. Böylece listedeki yeri değişse de bir
+     kampanyanın rengi sabit kalır. */
   function tumKampanyalar(d) {
-    var l = d.donemler.slice().sort(function (a, b) {
+    var yenidenEskiye = d.donemler.slice().sort(function (a, b) {
       return a.bas < b.bas ? 1 : (a.bas > b.bas ? -1 : 0);
     });
+    var renkler = {}, i;
+    for (i = 0; i < yenidenEskiye.length; i++) renkler[yenidenEskiye[i].ad] = YU.analiz.kampanyaRengi(i);
+
+    var eskidenYeniye = d.donemler.slice().sort(function (a, b) {
+      return a.bas < b.bas ? -1 : (a.bas > b.bas ? 1 : 0);
+    });
     var sonuc = [];
-    for (var i = 0; i < l.length; i++) {
+    for (i = 0; i < eskidenYeniye.length; i++) {
       sonuc.push({
-        donem: l[i],
-        renk: YU.analiz.kampanyaRengi(i),
-        secili: d.seciliAdlar.indexOf(l[i].ad) >= 0
+        donem: eskidenYeniye[i],
+        renk: renkler[eskidenYeniye[i].ad],
+        secili: d.seciliAdlar.indexOf(eskidenYeniye[i].ad) >= 0
       });
     }
     return sonuc;
+  }
+
+  /* Seçili kampanyalar, ekranda gösterim sırasıyla (eskiden yeniye).
+     `d.veriler` yeniden eskiye durur — hesap katmanı bu = veriler[0]
+     kabulüyle çalışıyor; yalnız GÖSTERİM ters çevrilir. */
+  function gosterimSirasi(d) {
+    return d.veriler.slice().reverse();
+  }
+
+  /* Bir kampanyanın "bu sezon / geçen sezon" etiketi, listedeki yerine
+     değil KENDİ YENİLİĞİNE bağlıdır. */
+  function sezonEtiketi(d, veri) {
+    if (d.veriler[0] && d.veriler[0].donem.ad === veri.donem.ad) return 'Bu Sezon · ';
+    if (d.veriler[1] && d.veriler[1].donem.ad === veri.donem.ad) return 'Geçen Sezon · ';
+    return '';
   }
 
   /* Bir kampanyanın işaretini açıp kapatır. En az bir kampanya seçili
@@ -707,10 +732,10 @@
 
     var cumleler = ['Yatay eksen kampanya günüdür; devir günü 1. gün sayılır. ' +
       'Kampanyalar aynı gün sırasında karşılaştırılır: ' + gunMetni(N) + ' ↔ ' + gunMetni(N) + '.'];
-    var tarihler = [];
-    for (i = 0; i < d.veriler.length; i++) {
-      tarihler.push(d.veriler[i].donem.ad + ' → ' +
-        YU.fmt.tarih(YU.analiz.gunTarihi(d.veriler[i], Math.min(N, d.veriler[i].sonGun))));
+    var tarihler = [], sirali = gosterimSirasi(d);
+    for (i = 0; i < sirali.length; i++) {
+      tarihler.push(sirali[i].donem.ad + ' → ' +
+        YU.fmt.tarih(YU.analiz.gunTarihi(sirali[i], Math.min(N, sirali[i].sonGun))));
     }
     if (tarihler.length) cumleler.push(gunMetni(N) + ' hangi tarihe denk geliyor: ' + tarihler.join(', ') + '.');
     if (d.kisitliMi) {
@@ -753,8 +778,9 @@
         var hucreler = [YU.h('span', { sinif: aktif ? 'yu-guclu' : '', metin: g.ad })];
         /* Seçili her kampanya için bir sütun; fark sütunları en yeni iki
            kampanyayı karşılaştırır (grafikteki mavi ve kırmızı çizgi). */
-        for (var v = 0; v < d.veriler.length; v++) {
-          var pv = YU.analiz.pencere(d.veriler[v], g, d.basGun, Math.min(d.bitGun, d.veriler[v].sonGun));
+        var sirali = gosterimSirasi(d);
+        for (var v = 0; v < sirali.length; v++) {
+          var pv = YU.analiz.pencere(sirali[v], g, d.basGun, Math.min(d.bitGun, sirali[v].sonGun));
           hucreler.push(pv.kayitliGun ? miktar(pv.toplam, g.birim) : '—');
         }
         /* Aralık daraltılmadıysa "aralık farkı" ile "N. gün farkı" AYNI
@@ -785,9 +811,12 @@
        yazısından hangisinin geçen sezon olduğunu çıkaramıyordu
        (kullanıcı geri bildirimi, 23.08.2026). */
     var sutunlar = [{ baslik: 'Gösterge' }];
-    for (i = 0; i < d.veriler.length; i++) {
-      var onEk = i === 0 ? 'Bu Sezon · ' : (i === 1 ? 'Geçen Sezon · ' : '');
-      sutunlar.push({ baslik: onEk + d.veriler[i].donem.ad, hiza: 'sag', mono: true, genislik: 180 });
+    var sutunSirasi = gosterimSirasi(d);
+    for (i = 0; i < sutunSirasi.length; i++) {
+      sutunlar.push({
+        baslik: sezonEtiketi(d, sutunSirasi[i]) + sutunSirasi[i].donem.ad,
+        hiza: 'sag', mono: true, genislik: 180
+      });
     }
     if (!d.tamAralikMi) {
       sutunlar.push({ baslik: 'Seçili Aralık Farkı', hiza: 'sag', mono: true, genislik: 160 });

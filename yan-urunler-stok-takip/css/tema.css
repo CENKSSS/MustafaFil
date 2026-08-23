@@ -776,6 +776,34 @@ button.yu-efsane-oge { cursor: pointer; }
 button.yu-efsane-oge:hover { background: var(--yuzey-3); border-color: var(--kenar-2); }
 .yu-efsane-oge.secili { color: var(--metin-2); font-weight: 500; }
 
+/* Efsane işareti — gerçek onay kutusu (kullanıcı isteği, 23.08.2026).
+   Renkli kare tek başına "tıklanabilir" demiyordu; işaretli durumda içine
+   tik konur. Tik ayrı bir ikon değil, iki kenarlıktan çizilir — tasarım
+   referansındaki 20 ikonun dışına çıkılmaz (CLAUDE.md KURAL 1). */
+.yu-efsane-kutu {
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  border: 1.5px solid currentColor;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color .12s;
+}
+.yu-efsane-kutu::after {
+  content: '';
+  width: 3px;
+  height: 7px;
+  margin-top: -2px;
+  border: solid var(--vurgu-uzeri);
+  border-width: 0 1.8px 1.8px 0;
+  transform: rotate(45deg);
+  opacity: 0;
+  transition: opacity .12s;
+}
+.yu-efsane-oge.secili .yu-efsane-kutu::after { opacity: 1; }
+
 
 
 /* Ünlem (Uyarılar) ve zil (Son Hareketler) düğmeleri bu sınıfı paylaşır.

@@ -2288,7 +2288,11 @@
       role: 'tooltip',
       stil: {
         position: 'fixed', left: '0', top: '0', zIndex: '90',
-        pointerEvents: 'none', maxWidth: '280px',
+        /* Kutu, kampanya adı + tarih + miktar taşıyan satırlara göre
+           genişletildi (280px'te satırlar kutunun dışına taşıyordu —
+           kullanıcı bildirimi, 23.08.2026). Üst sınır yine var ki uzun
+           metin ekranı boydan boya kaplamasın; sığmayan etiket sarar. */
+        pointerEvents: 'none', maxWidth: '360px',
         padding: '9px 11px', borderRadius: 'var(--r)',
         background: 'var(--yuzey)', border: '1px solid var(--kenar-3)',
         boxShadow: 'var(--golge-2)', display: 'none'
@@ -2339,14 +2343,35 @@
       metin: baslik,
       stil: { font: '500 14px/1.2 var(--font)', color: 'var(--metin)', whiteSpace: 'nowrap' }
     }));
+    /* Satırda ETİKET sarar, MİKTAR sarmaz. Önce satırın tamamı `nowrap`
+       idi: uzun kampanya adı + tarih + miktar kutunun genişliğini aşıyor,
+       sayı kutunun dışında kalıyordu. Şimdi etiket daralıp gerekirse alt
+       satıra iner; sayı hep bütün hâlde ve sağda durur. */
     for (var i = 0; i < satirlar.length; i++) {
       var r = satirlar[i];
-      kap.appendChild(YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '9px', whiteSpace: 'nowrap' } },
-        YU.h('span', { stil: { width: '8px', height: '8px', borderRadius: '2px', flex: 'none', background: r.renk } }),
-        YU.h('span', { metin: r.ad, stil: { flex: '1', font: '400 13.5px/1.3 var(--font)', color: 'var(--metin-4)' } }),
+      kap.appendChild(YU.h('div', {
+        stil: { display: 'flex', alignItems: 'flex-start', gap: '9px' }
+      },
+        YU.h('span', {
+          stil: {
+            width: '8px', height: '8px', borderRadius: '2px', flex: 'none',
+            background: r.renk, marginTop: '4px'
+          }
+        }),
+        YU.h('span', {
+          metin: r.ad,
+          stil: {
+            flex: '1 1 auto', minWidth: '0', font: '400 13.5px/1.3 var(--font)',
+            color: 'var(--metin-4)', overflowWrap: 'anywhere'
+          }
+        }),
         YU.h('span', {
           metin: r.deger,
-          stil: { font: '600 13.5px/1.3 var(--sayi)', color: 'var(--metin)', fontVariantNumeric: 'tabular-nums' }
+          stil: {
+            flex: 'none', whiteSpace: 'nowrap', marginLeft: 'auto',
+            font: '600 13.5px/1.3 var(--sayi)', color: 'var(--metin)',
+            fontVariantNumeric: 'tabular-nums'
+          }
         })
       ));
     }
@@ -2706,14 +2731,26 @@
     for (var i = 0; i < seriler.length; i++) {
       (function (sr, ix) {
         var secili = sr.secili !== false;
-        var kare = YU.h('span', {
-          stil: {
-            width: '10px', height: '10px', borderRadius: '3px', flex: 'none',
-            background: secili ? sr.renk : 'transparent',
-            border: '1.5px solid ' + sr.renk,
-            opacity: secili ? '1' : '.5'
-          }
-        });
+        /* Onay kutusu YALNIZ tıklanabilir efsanede çizilir: işaretliyken seri
+           rengiyle dolar ve içinde tik görünür (tik CSS'te iki kenarlıkla
+           çizilir), işaretsizken boş kutu kalır. Tıklanamayan efsanede
+           (cevap kartındaki grafikler) düz renk karesi durur — tıklanmayan
+           bir onay kutusu göstermek yanıltıcı olurdu. */
+        var kare = onTikla
+          ? YU.h('span', {
+            sinif: 'yu-efsane-kutu',
+            stil: {
+              color: sr.renk,
+              background: secili ? sr.renk : 'transparent',
+              opacity: secili ? '1' : '.65'
+            }
+          })
+          : YU.h('span', {
+            stil: {
+              width: '9px', height: '9px', borderRadius: '2px',
+              flex: 'none', background: sr.renk
+            }
+          });
         var icerik = [kare, YU.h('span', { metin: sr.ad })];
         var sinif = 'yu-efsane-oge' + (secili ? ' secili' : '');
         var oge;
