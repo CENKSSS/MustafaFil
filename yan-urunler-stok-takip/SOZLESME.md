@@ -45,6 +45,7 @@ js/27-devir-stok.js
 js/28-malzeme-yonetimi.js
 js/29-kullanici-yonetimi.js
 js/30-degisiklik-gecmisi.js
+js/31-analizler.js
 js/40-kabul-testleri.js
 js/99-baslat.js       YU.baslat()
 ```
@@ -365,6 +366,9 @@ YU.ui.modal({baslik, govde, genislik, dugmeler:[{metin,tur,onClick}]}) -> {kapat
 YU.ui.sutunGrafik({veri:[{etiket, deger1, deger2}], yukseklik, renk1, renk2, efsane})
 YU.ui.cizgiGrafik({veri:[{etiket, deger}], yukseklik})
 YU.ui.halkaGrafik({dilimler:[{etiket, deger, renk}], boyut})
+YU.ui.karsilastirmaGrafik({noktalar:[{etiket, baslik, deger1, deger2, alt1, alt2}],
+                           seri1:{ad, renk}, seri2:{ad, renk}|null, yukseklik, bicim, eksenBicim})
+   // iki seri aynı x ekseninde (i. nokta = (i+1). kampanya günü); null değer çizgiyi koparır
 YU.ui.hataListesi(hatalar)              // D-kodlu hata/uyarı listesi elemanı
 ```
 
@@ -387,6 +391,7 @@ Grafiklerin tamamı **inline SVG**; kütüphane yok (tasarım referansı kuralı
 | `malzeme-yonetimi` | Malzeme Yönetimi | Yönetim | Yonetici | `28-malzeme-yonetimi.js` |
 | `kullanici-yonetimi` | Kullanıcı Yönetimi | Yönetim | Yonetici | `29-kullanici-yonetimi.js` |
 | `degisiklik-gecmisi` | Değişiklik Geçmişi | Yönetim | Yonetici | `30-degisiklik-gecmisi.js` |
+| `analizler` | Analizler | Yönetim | Yonetici | `31-analizler.js` — kampanyaları GÜN SIRASINA göre karşılaştırır (devir günü = 1. gün; bugün N. günse geçmiş kampanyanın N. günü karşısına konur); mavi = bu kampanya, kırmızı = geçmiş. URL: `?bu=&karsi=&gosterge=&mod=gunluk|birikimli` |
 | `kabul-testleri` | Kabul Testleri | Yönetim | Yonetici | `40-kabul-testleri.js` |
 
 ### İkon eşlemesi (tasarım referansındaki 20 ikon dışına ÇIKILMAZ)
@@ -395,7 +400,7 @@ Grafiklerin tamamı **inline SVG**; kütüphane yok (tasarım referansı kuralı
 `stok-durumu→#ic-chart` · `silo-durumu→#ic-building` · `gunluk-rapor→#ic-doc` ·
 `gecmis-girisler→#ic-calendar` · `devir-stok→#ic-wallet` ·
 `malzeme-yonetimi→#ic-gear` · `kullanici-yonetimi→#ic-users` ·
-`degisiklik-gecmisi→#ic-dots` · `kabul-testleri→#ic-percent`
+`degisiklik-gecmisi→#ic-dots` · `analizler→#ic-bars-up` · `kabul-testleri→#ic-percent`
 
 ---
 

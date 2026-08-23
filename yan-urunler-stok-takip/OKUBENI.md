@@ -61,7 +61,7 @@ yan-urunler-stok-takip/
     ├── 04-servis.js        stok sorguları + kayıt servisleri (transaction karşılığı)
     ├── 05-tohum.js         referans kampanya verisi (deterministik)
     ├── 10-kabuk.js         yönlendirici, kenar çubuğu, üst şerit, tema, UI kütüphanesi
-    ├── 20…30-*.js          11 ekran
+    ├── 20…31-*.js          ekranlar (31: Analizler)
     ├── 40-kabul-testleri.js  12 kabul testinin tarayıcı içi koşucusu
     └── 99-baslat.js        açılış
 ```
@@ -86,6 +86,7 @@ yan-urunler-stok-takip/
 | Malzeme Yönetimi | Yönetici |
 | Kullanıcı Yönetimi | Yönetici |
 | Değişiklik Geçmişi | Yönetici |
+| Analizler | Yönetici |
 | Kabul Testleri | Yönetici |
 
 ---
