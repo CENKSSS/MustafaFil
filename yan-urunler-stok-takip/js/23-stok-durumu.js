@@ -280,13 +280,17 @@
   }
 
   function tabloPaneli(d) {
+    /* Sütun araları açık (kullanıcı isteği, 23.08.2026 — "sıkışık kalmışlar"):
+       sayı sütunları sağa yaslı olduğu için fazladan genişlik, komşu sütunla
+       arasında boşluk olarak okunur. Devir Tarihi de aynı nedenle sağa yaslandı;
+       yoksa soldaki Devir rakamına yapışık duruyordu. */
     var sutunlar = [
       { baslik: 'Malzeme' },
-      { baslik: 'Devir', genislik: 150, hiza: 'sag', mono: true },
-      { baslik: 'Devir Tarihi', genislik: 110 },
-      { baslik: 'Toplam Üretim', genislik: 162, hiza: 'sag', mono: true },
-      { baslik: 'Toplam Satış', genislik: 162, hiza: 'sag', mono: true },
-      { baslik: 'Mevcut', genislik: 162, hiza: 'sag', mono: true }
+      { baslik: 'Devir', genislik: 180, hiza: 'sag', mono: true },
+      { baslik: 'Devir Tarihi', genislik: 140, hiza: 'sag' },
+      { baslik: 'Toplam Üretim', genislik: 195, hiza: 'sag', mono: true },
+      { baslik: 'Toplam Satış', genislik: 195, hiza: 'sag', mono: true },
+      { baslik: 'Mevcut', genislik: 195, hiza: 'sag', mono: true }
     ];
 
     var satirlar = [], dokmeSira = -1, i, r, acKapa = null, ok = null;
