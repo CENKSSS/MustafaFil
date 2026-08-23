@@ -8,13 +8,15 @@
    toplamlardır — kural kopyalanmaz, servis çağrılır.
 
    DÜZEN (kullanıcı isteği, 23.08.2026 — eski düzen git etiketi `kuru-kuspe-eski`
-   altında duruyor): sayfa malın akışını anlatır, iki ana bölümden oluşur.
+   altında ve 2. Versiyon sayfasında duruyor): sayfa malın akışını anlatır,
+   numaralı üç adımdan oluşur; 1 ve 2'de solda rakamlar, sağda dağıtım.
      1. SİLOYA GİREN  — üretilen dökme + çuvallanan → siloya girecek net miktar
                         ve hangi siloya.
      2. SİLODAN ÇIKAN — satılan dökme (+ üretimden fazla çuvallandıysa çuvallama
                         çekişi) → silodan çıkacak miktar ve hangi silodan.
-   Altta gün sonu silo durumu ve Kaydet. Ekranda kural kodu, sürüm numarası ya
-   da şartname atfı yoktur; metinler bilgisayar bilmeyen operatör için yazıldı.
+     3. GÜN SONU VE KAYIT — silo bakiyeleri, net etki, durum ve Kaydet.
+   Ekranda kural kodu, sürüm numarası ya da şartname atfı yoktur; metinler
+   bilgisayar bilmeyen operatör için yazıldı.
    Şartname §4 korunur: operatör yalnız ham rakamları girer, sistem neti hesaplar,
    dağıtımda son söz kullanıcıdadır; §7 anlık hesap; D1–D16 YU.dogrula'dan. */
 (function () {
@@ -163,28 +165,52 @@
     Manuel: "Manuel"
   };
 
-  /* Bölüm başlığı: yön rengiyle boyalı ikon karesi + kalın başlık + tek satır
-     açıklama. Yeşil = siloya giren, kırmızı = silodan çıkan; renk yalnız anlam
-     taşıdığı yerde (tasarım referansı, renk kuralı). */
-  function bolumBasligi(yon, baslik, aciklama) {
-    var giren = yon === "giren";
-    return YU.h("div", { stil: { display: "flex", alignItems: "center", gap: "13px", marginBottom: "4px" } },
+  /* HUD (kullanıcı isteği, 23.08.2026 — "hiyerarşi kötü"): sayfa NUMARALI
+     ÜÇ ADIMDIR ve her adımın içinde iki sütun vardır: solda kullanıcının
+     yazdığı rakamlar (birincil, beyaz zemin, büyük kutu), sağda silolara
+     dağıtım (ikincil, gri zeminli kutu). Okuma sırası soldan sağa, yukarıdan
+     aşağı: rakamı yaz → siloya dağıt → sonraki adım. Yeşil = siloya giren,
+     kırmızı = silodan çıkan; renk yalnız anlam taşıdığı yerde. */
+
+  var ADIM_RENK = {
+    giren: { zemin: "var(--olumlu-zemin)", renk: "var(--olumlu)" },
+    cikan: { zemin: "var(--olumsuz-zemin)", renk: "var(--olumsuz)" },
+    notr: { zemin: "var(--vurgu-zemin)", renk: "var(--vurgu)" }
+  };
+
+  function adimBasligi(no, yon, baslik, sag) {
+    var r = ADIM_RENK[yon] || ADIM_RENK.notr;
+    return YU.h("div", { stil: { display: "flex", alignItems: "center", gap: "12px", paddingBottom: "12px", borderBottom: "1px solid var(--ayrac)" } },
       YU.h("span", {
+        metin: String(no),
         stil: {
           display: "flex", alignItems: "center", justifyContent: "center", flex: "none",
-          width: "36px", height: "36px", borderRadius: "var(--r)",
-          background: giren ? "var(--olumlu-zemin)" : "var(--olumsuz-zemin)",
-          color: giren ? "var(--olumlu)" : "var(--olumsuz)"
+          width: "28px", height: "28px", borderRadius: "50%",
+          background: r.zemin, color: r.renk, font: "700 14px/1 var(--sayi)"
         }
-      }, YU.svg(giren ? "#ic-down" : "#ic-up", 19)),
-      YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "3px", minWidth: "0" } },
-        YU.h("div", { metin: baslik, stil: { font: "700 19px/1.2 var(--font)", letterSpacing: "-.012em", color: "var(--metin)" } }),
-        aciklama ? YU.h("div", { metin: aciklama, stil: { font: "400 14px/1.4 var(--font)", color: "var(--metin-3)" } }) : null
-      )
+      }),
+      YU.h("div", { metin: baslik, stil: { font: "700 20px/1.2 var(--font)", letterSpacing: "-.014em", color: "var(--metin)", flex: "1", minWidth: "0" } }),
+      sag || null
     );
   }
 
-  function ayrac() { return YU.h("div", { sinif: "yu-ayrac yu-yatay" }); }
+  /* Küçük büyük-harfli alt başlık: sütunun ne olduğunu söyler, başlıkla yarışmaz. */
+  function altEtiket(metin) {
+    return YU.h("div", { metin: metin, stil: { font: "600 12px/1 var(--font)", letterSpacing: ".07em", textTransform: "uppercase", color: "var(--metin-4)" } });
+  }
+
+  /* Adım gövdesi: sol sütun rakamlar (1 pay), sağ sütun dağıtım (2 pay, gri kutu). */
+  function ikiSutun(solBaslik, sol, sagBaslik, sag) {
+    var solKol = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "14px", minWidth: "0", paddingRight: "22px" } }, altEtiket(solBaslik), sol);
+    var sagKol = YU.h("div", {
+      stil: {
+        display: "flex", flexDirection: "column", gap: "12px", minWidth: "0",
+        padding: "14px 18px 16px", background: "var(--yuzey-2)",
+        border: "1px solid var(--ayrac)", borderRadius: "var(--r)"
+      }
+    }, altEtiket(sagBaslik), sag);
+    return YU.h("div", { stil: { display: "grid", gridTemplateColumns: "minmax(250px, 1fr) minmax(0, 2fr)", alignItems: "start" } }, solKol, sagKol);
+  }
 
   /* "Hepsini Ekle" kutunun İÇİNDE durur (kullanıcı isteği, 23.08.2026):
      tek çerçevede sayı → kg eki → ayırıcı çizgi → düğme. Düğme kutunun
@@ -216,12 +242,16 @@
      ayırdığı sağ boşluğu siliyor ve sayı ekin altına giriyordu (23.08.2026).
      Uzun ek (çuval) için sağ boşluk ayrıca verilir. */
   function buyukAlan(alan, sagBosluk) {
-    alan.girdi.style.font = "500 18px/1.3 var(--sayi)";
-    alan.girdi.style.paddingTop = "10px";
-    alan.girdi.style.paddingBottom = "10px";
+    alan.girdi.style.font = "500 19px/1.3 var(--sayi)";
+    alan.girdi.style.paddingTop = "11px";
+    alan.girdi.style.paddingBottom = "11px";
     alan.girdi.style.paddingLeft = "12px";
     if (sagBosluk) alan.girdi.style.paddingRight = sagBosluk;
     alan.girdi.style.fontVariantNumeric = "tabular-nums";
+    /* Birincil alan: etiketi gövde metniyle aynı ağırlıkta, silo kutularının
+       etiketlerinden bir kademe güçlü. */
+    var etiket = alan.kok.querySelector("label");
+    if (etiket) { etiket.style.font = "600 14.5px/1.3 var(--font)"; etiket.style.color = "var(--metin-2)"; }
     return alan;
   }
 
@@ -317,9 +347,10 @@
 
     /* ---------- 2. Tarih satırı ---------- */
 
+    /* Tarih küçük bir kontrol: koca panel değil, tek satırlık ince şerit.
+       Gün adı ve kayıt durumu sayfa alt başlığında zaten yazıyor. */
     var tarihAlan = YU.ui.alan({
-      etiket: "Tarih", tip: "tarih", deger: tarih, genislik: "180px",
-      yardim: YU.fmt.gunAdi(tarih) + (tarih === YU.tarih.bugun() ? " · bugün" : ""),
+      tip: "tarih", deger: tarih, genislik: "158px",
       onChange: function () {
         var v = tarihAlan.girdi.value;
         if (gecerliTarih(v)) YU.git(KOD, { tarih: v });
@@ -331,7 +362,14 @@
       YU.git(KOD, { tarih: fark === 0 ? YU.tarih.bugun() : YU.tarih.ekle(tarih, fark) });
     }
 
-    var tarihSatiri = YU.h("div", { sinif: "yu-panel", stil: yatay("14px") },
+    var tarihSatiri = YU.h("div", {
+      stil: {
+        display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap",
+        padding: "8px 14px", background: "var(--yuzey-2)",
+        border: "1px solid var(--kenar)", borderRadius: "var(--r)"
+      }
+    },
+      YU.h("span", { metin: "Tarih", stil: { font: "600 13.5px/1 var(--font)", color: "var(--metin-2)" } }),
       tarihAlan.kok,
       satir(yatay("6px"),
         YU.ui.dugme({ metin: "Önceki Gün", kucuk: true, tur: "ikincil", onClick: function () { gunGit(-1); } }),
@@ -379,12 +417,6 @@
       onInput: guncelle
     }));
 
-    function girdiIzgarasi() {
-      var iz = YU.h("div", { stil: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "14px", maxWidth: "760px" } });
-      for (var a = 0; a < arguments.length; a++) iz.appendChild(arguments[a].kok);
-      return iz;
-    }
-
     /* ---------- 4. Kalem (silo dağıtımı) bileşeni ----------
        Her kalem (üretim yerleştirme / satış çekişi / çuvallama çekişi) aynı
        bileşendir: başlıkta gereken miktar büyük yazılır, altında silo başına bir
@@ -403,15 +435,20 @@
 
       var buyuk = YU.h("span", {
         metin: "—",
-        stil: { font: "600 26px/1 var(--sayi)", letterSpacing: "-.02em", fontVariantNumeric: "tabular-nums", color: renk, whiteSpace: "nowrap" }
+        stil: { font: "600 24px/1 var(--sayi)", letterSpacing: "-.02em", fontVariantNumeric: "tabular-nums", color: renk, whiteSpace: "nowrap" }
       });
+      var sayac = YU.h("span", { sinif: "yu-mono", stil: { fontSize: "13.5px", whiteSpace: "nowrap", color: "var(--metin-3)" } });
+      var rozetKap = YU.h("span", { stil: { display: "inline-flex" } });
+      /* Başlık satırı: solda kalem adı + gereken miktar, sağda dağıtılan sayacı + durum. */
       var basSatir = YU.h("div", { stil: { display: "flex", alignItems: "baseline", gap: "12px", flexWrap: "wrap" } },
-        YU.h("span", { metin: d.baslik, stil: { font: "600 15.5px/1.2 var(--font)", color: "var(--metin)" } }),
-        buyuk
+        YU.h("span", { metin: d.baslik, stil: { font: "600 15px/1.2 var(--font)", color: "var(--metin)" } }),
+        buyuk,
+        YU.h("span", { stil: { flex: "1" } }),
+        sayac, rozetKap
       );
-      var aciklama = YU.h("div", { stil: { display: "none", font: "400 14px/1.5 var(--font)", color: "var(--metin-3)" } });
+      var aciklama = YU.h("div", { stil: { display: "none", font: "400 13.5px/1.5 var(--font)", color: "var(--metin-3)" } });
 
-      var kutuIzgara = YU.h("div", { stil: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "10px", maxWidth: "900px" } });
+      var kutuIzgara = YU.h("div", { stil: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "10px" } });
       for (r = 0; r < silolar.length; r++) {
         (function (silo) {
           var a = YU.ui.alan({ tip: "sayi", sag: "kg", onInput: guncelle });
@@ -428,7 +465,7 @@
           dugmeler.push(hepsi);
           kutuIzgara.appendChild(YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "6px", minWidth: "0" } },
             YU.h("div", { stil: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" } },
-              YU.h("span", { metin: silo.Ad, stil: { font: "600 14.5px/1.2 var(--font)", color: "var(--metin)" } }),
+              YU.h("span", { metin: silo.Ad, stil: { font: "600 13.5px/1.2 var(--font)", color: "var(--metin-2)" } }),
               YU.h("span", { sinif: "yu-yardim", metin: "gün başı " + YU.fmt.kgU(gunBasi[silo.Id]), stil: { whiteSpace: "nowrap" } })
             ),
             a.kok
@@ -457,8 +494,6 @@
         }
       }
 
-      function ilkSiloya() { var g = {}; g[silolar[0].Id] = gereken; yaz(g); }
-
       /* Tam kilograma bölünür, artık son siloya bırakılır: fabrikada siloya
          küsuratlı kilo yazılmaz, toplam yine birebir tutar (D3/D5/D13). */
       function esitDagit() {
@@ -476,17 +511,12 @@
         return function () { if (!etkin) return; fn(); guncelle(); };
       }
 
-      var sayac = YU.h("span", { sinif: "yu-mono", stil: { fontSize: "14.5px", whiteSpace: "nowrap", color: "var(--metin-2)" } });
-      var rozetKap = YU.h("span", { stil: { display: "inline-flex" } });
-      var dugmeHepsiIlk = YU.ui.dugme({ metin: d.dugmeHepsi, kucuk: true, tur: "ikincil", baslik: silolar[0].Ad, onClick: eylem(ilkSiloya) });
+      /* "Hepsi Silo 1'e" düğmesi kalktı: kutu içindeki "Hepsini Ekle" aynı işi
+         her silo için yapıyor; iki düğme aynı işi yapınca hiyerarşi bozuluyordu. */
       var dugmeEsit = YU.ui.dugme({ metin: "Eşit Böl", kucuk: true, tur: "ikincil", onClick: eylem(esitDagit) });
       var dugmeTemizle = YU.ui.dugme({ metin: "Temizle", kucuk: true, tur: "sade", onClick: eylem(temizle) });
-      dugmeler.push(dugmeHepsiIlk, dugmeEsit, dugmeTemizle);
-      var dugmeSatiri = satir({ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" },
-        dugmeHepsiIlk, dugmeEsit, dugmeTemizle,
-        YU.h("span", { stil: { flex: "1" } }),
-        sayac, rozetKap
-      );
+      dugmeler.push(dugmeEsit, dugmeTemizle);
+      var dugmeSatiri = satir({ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }, dugmeEsit, dugmeTemizle);
 
       /* display değerleri açıkça yazılır ("" değil): inline display kuruluyor,
          "" yazmak onu siler ve blok düz akışa düşer. */
@@ -539,15 +569,15 @@
 
     var kalemUretim = kalemKur({
       kod: "uretim", yon: "giren", baslik: "Siloya girecek", hepGoster: true,
-      ariaAd: "Üretimden girecek", dugmeHepsi: "Hepsi " + silolar[0].Ad + "'e"
+      ariaAd: "Üretimden girecek"
     });
     var kalemSatis = kalemKur({
-      kod: "satis", yon: "cikan", baslik: "Satış için silodan çıkacak", hepGoster: true,
-      ariaAd: "Satış için çıkacak", dugmeHepsi: "Hepsi " + silolar[0].Ad + "'den"
+      kod: "satis", yon: "cikan", baslik: "Satış için çıkacak", hepGoster: true,
+      ariaAd: "Satış için çıkacak"
     });
     var kalemCuvallama = kalemKur({
-      kod: "cuvallama", yon: "cikan", baslik: "Çuvallama için silodan çıkacak", hepGoster: false,
-      ariaAd: "Çuvallama için çıkacak", dugmeHepsi: "Hepsi " + silolar[0].Ad + "'den"
+      kod: "cuvallama", yon: "cikan", baslik: "Çuvallama için çıkacak", hepGoster: false,
+      ariaAd: "Çuvallama için çıkacak"
     });
     var kalemler = [kalemUretim, kalemSatis, kalemCuvallama];
 
@@ -556,24 +586,26 @@
       return null;
     }
 
-    /* ---------- 5. İki bölüm: Siloya Giren / Silodan Çıkan ---------- */
+    /* ---------- 5. Adım 1 ve 2: Siloya Giren / Silodan Çıkan ---------- */
+
+    function rakamYigini() {
+      var kap = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "14px" } });
+      for (var a = 0; a < arguments.length; a++) kap.appendChild(arguments[a].kok);
+      return kap;
+    }
 
     govde.appendChild(YU.ui.panel({
       govde: [
-        bolumBasligi("giren", "Siloya Giren", "Bugün üretilen dökme kuru küspe ve siloya yerleşen kısmı."),
-        girdiIzgarasi(uretilenAlan, cuvalAlan),
-        ayrac(),
-        kalemUretim.kok
+        adimBasligi(1, "giren", "Siloya Giren"),
+        ikiSutun("Bugünün Rakamları", rakamYigini(uretilenAlan, cuvalAlan), "Silolara Dağıt", kalemUretim.kok)
       ]
     }));
 
     govde.appendChild(YU.ui.panel({
       govde: [
-        bolumBasligi("cikan", "Silodan Çıkan", "Bugün silodan satılan ya da çekilen dökme kuru küspe."),
-        girdiIzgarasi(satilanAlan),
-        ayrac(),
-        kalemSatis.kok,
-        kalemCuvallama.kok
+        adimBasligi(2, "cikan", "Silodan Çıkan"),
+        ikiSutun("Bugünün Rakamları", rakamYigini(satilanAlan), "Silolardan Çek",
+          YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "18px" } }, kalemSatis.kok, kalemCuvallama.kok))
       ]
     }));
 
@@ -584,11 +616,11 @@
       kalemSatis.yaz(gunHareketleri(db, tarih, "DokmeSatis"));
     }
 
-    /* ---------- 6. Gün sonu silo durumu ---------- */
+    /* ---------- 6. Adım 3: Gün sonu silo durumu + kayıt (tek panel) ---------- */
 
-    var netEtki = YU.h("span", { sinif: "yu-mono", metin: "—", stil: { fontSize: "15px", fontWeight: "600", color: "var(--metin)" } });
+    var netEtki = YU.h("span", { metin: "—", stil: { font: "600 20px/1 var(--sayi)", letterSpacing: "-.02em", fontVariantNumeric: "tabular-nums", color: "var(--metin)" } });
     var siloOzetleri = [];
-    var siloIzgara = YU.h("div", { stil: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "10px" } });
+    var siloIzgara = YU.h("div", { stil: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: "10px" } });
 
     for (i = 0; i < silolar.length; i++) {
       (function (silo) {
@@ -619,14 +651,20 @@
       })(silolar[i]);
     }
 
-    govde.appendChild(YU.ui.panel({
-      baslik: "Gün Sonu Silo Durumu",
-      ikon: "#ic-silos",
-      sag: [YU.h("span", { metin: "Bugün silolara net etki", stil: { color: "var(--metin-3)" } }), netEtki],
-      govde: [siloIzgara]
-    }));
+    /* Net etki, silo kartlarıyla aynı sırada dördüncü kart: "bugün silolar
+       toplamda ne kadar değişti" sorusunun cevabı, silolarla yan yana okunur. */
+    siloIzgara.appendChild(YU.h("div", {
+      stil: {
+        display: "flex", flexDirection: "column", gap: "8px", minWidth: "0", justifyContent: "center",
+        padding: "12px 14px", border: "1px dashed var(--kenar-3)", borderRadius: "var(--r)"
+      }
+    },
+      YU.h("span", { metin: "Bugün silolara net etki", stil: { font: "600 13.5px/1.2 var(--font)", color: "var(--metin-2)" } }),
+      netEtki,
+      YU.h("div", { sinif: "yu-yardim", metin: "giren − çıkan" })
+    ));
 
-    /* ---------- 7. Alt bar — canlı durum + eylemler ---------- */
+    /* ---------- 7. Durum satırı + eylemler (Adım 3'ün altı) ---------- */
 
     var durumIkon = YU.h("span", { stil: { display: "flex", flex: "none", alignSelf: "flex-start", marginTop: "1px" } });
     var durumBaslik = YU.h("div", { stil: { font: "600 15.5px/1.35 var(--font)", color: "var(--metin)" } });
@@ -644,7 +682,7 @@
       metin: "Günü Sil", ikon: "#ic-trash", tur: "tehlike", onClick: gunuSil
     }) : null;
 
-    var altBar = YU.h("div", { sinif: "yu-panel", stil: yatay("14px") },
+    var durumSatiri = YU.h("div", { stil: yatay("14px") },
       satir({ display: "flex", gap: "10px", flex: "1", minWidth: "260px", alignItems: "flex-start" },
         durumIkon,
         YU.h("div", { stil: { minWidth: "0" } }, durumBaslik, durumListe)
@@ -652,7 +690,15 @@
       dugmeSil,
       dugmeKaydet
     );
-    govde.appendChild(altBar);
+
+    govde.appendChild(YU.ui.panel({
+      govde: [
+        adimBasligi(3, "notr", "Gün Sonu ve Kayıt"),
+        siloIzgara,
+        YU.h("div", { sinif: "yu-ayrac yu-yatay" }),
+        durumSatiri
+      ]
+    }));
 
     /* ---------- 8. Bu günün kayıtlı hareketleri (yalnız varsa) ---------- */
 
