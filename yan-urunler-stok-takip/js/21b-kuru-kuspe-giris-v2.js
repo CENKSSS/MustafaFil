@@ -388,19 +388,19 @@
 
     var DAGITIM = [
       {
-        kod: "uretim", yon: "giren", ust: "GİREN", ad: "Üretim",
+        kod: "uretim", yon: "giren", ust: "GİREN", ad: "Üretim", hepGoster: true,
         ariaAd: "Üretimden girecek",
         dugmeHepsi: "Tümü İlk Siloya", dugmeUygun: "En Boş Siloya",
         pasif: "Net dökme üretim 0 kg; bu gün siloya yerleştirme yapılamaz (D4)."
       },
       {
-        kod: "cuvallama", yon: "cikan", ust: "ÇIKAN", ad: "Çuvallama",
+        kod: "cuvallama", yon: "cikan", ust: "ÇIKAN", ad: "Çuvallama", hepGoster: false,
         ariaAd: "Çuvallama için çıkacak",
         dugmeHepsi: "Tümü İlk Silodan", dugmeUygun: "En Dolu Silodan",
         pasif: "Çuvallama için silodan çıkış gerekmiyor (D6)."
       },
       {
-        kod: "satis", yon: "cikan", ust: "ÇIKAN", ad: "Satış",
+        kod: "satis", yon: "cikan", ust: "ÇIKAN", ad: "Satış", hepGoster: true,
         ariaAd: "Satış için çıkacak",
         dugmeHepsi: "Tümü İlk Silodan", dugmeUygun: "En Dolu Silodan",
         pasif: "Satılan dökme 0 kg; silodan satış çıkışı gerekmiyor (D13)."
@@ -434,7 +434,9 @@
             (function (d) {
               var a = YU.ui.alan({ tip: "sayi", sag: "kg", onInput: guncelle });
               a.girdi.setAttribute("aria-label", d.ariaAd + " · " + silo.Ad);
-              a.kok.style.flex = "1";
+              /* Sağına "Hepsini Ekle" düğmesi geliyor (kolonKur ekler); dar
+                 kartta düğme alt satıra sarsın diye kutu esnek, satır sarılır. */
+              a.kok.style.flex = "1 1 110px";
               a.kok.style.minWidth = "0";
               alanlar[d.kod] = a;
               var etiket = YU.h("span", { sinif: "yu-silo-etiket", stil: { flex: "none" } },
@@ -444,7 +446,7 @@
                 }),
                 document.createTextNode(d.ad)
               );
-              var satirEl = YU.h("div", { sinif: "yu-silo-satir yu-silo-alan" }, etiket, a.kok);
+              var satirEl = YU.h("div", { sinif: "yu-silo-satir yu-silo-alan", stil: { flexWrap: "wrap" } }, etiket, a.kok);
               kolonSatirlari[d.kod] = satirEl;
               girisKap.appendChild(satirEl);
             })(DAGITIM[k]);
@@ -565,6 +567,23 @@
         ];
         var dugmeKap = satir(yatay("6px"), dugmeler[0], dugmeler[1], dugmeler[2], dugmeler[3]);
 
+        /* Her silo satırının sağında "Hepsini Ekle": gereken miktarın TAMAMI o
+           siloya yazılır, bu kalemin öbür silo kutuları boşalır (kullanıcı
+           isteği, 23.08.2026). */
+        var satirDugmeleri = [];
+        for (var r0 = 0; r0 < satirlar.length; r0++) {
+          (function (sr) {
+            var b = YU.ui.dugme({
+              metin: "Hepsini Ekle", kucuk: true, tur: "ikincil",
+              baslik: "Gereken miktarın tamamını " + sr.silo.Ad + " silosuna yaz",
+              onClick: eylem(function () { var g = {}; g[sr.silo.Id] = gereken; yaz(g); })
+            });
+            b.style.flex = "none";
+            sr.kolonSatirlari[d.kod].appendChild(b);
+            satirDugmeleri.push(b);
+          })(satirlar[r0]);
+        }
+
         var yonNoktasi = YU.h("span", {
           stil: {
             width: "8px", height: "8px", borderRadius: "2px", flex: "none",
@@ -590,15 +609,20 @@
         }, basSatir, dugmeKap);
         ozetKap.appendChild(blok);
 
-        /* Gerekmeyen kalem hiç görünmez: kartlarda o satır kalkar, altındaki
-           özet satırı da gizlenir. Böylece ekranda yalnız o günün işi kalır. */
-        function kolonGoster(gorunur) {
-          for (var r = 0; r < satirlar.length; r++) {
-            satirlar[r].kolonSatirlari[d.kod].style.display = gorunur ? "" : "none";
+        /* Üretim ve satış kalemleri HER ZAMAN görünür (kullanıcı isteği,
+           23.08.2026): gerekmiyorsa kutular ve düğmeler pasifleşir, tutar "—"
+           olur. Çuvallama çekişi istisnadır, yalnız gerektiğinde belirir. */
+        function kolonEtkin(acik) {
+          var r;
+          for (r = 0; r < satirlar.length; r++) {
+            satirlar[r].alanlar[d.kod].girdi.disabled = !acik;
+            /* "" değil "flex": satırın yerleşimi sınıfla kurulu ama gizleme
+               inline yazıldığı için geri alınırken de inline "flex" yazılır. */
+            satirlar[r].kolonSatirlari[d.kod].style.display = (acik || d.hepGoster) ? "flex" : "none";
           }
-          /* "" değil "flex": bloğun yerleşimi inline display:flex ile kurulu,
-             "" yazmak onu siler ve blok düz akışa düşer. */
-          blok.style.display = gorunur ? "flex" : "none";
+          for (r = 0; r < satirDugmeleri.length; r++) satirDugmeleri[r].disabled = !acik;
+          for (r = 0; r < dugmeler.length; r++) dugmeler[r].disabled = !acik;
+          blok.style.display = (acik || d.hepGoster) ? "flex" : "none";
         }
 
         function tazele(yeniGereken) {
@@ -609,8 +633,13 @@
           /* Gerek kalmadığında alanlar boşaltılır: dolu kalırsa D4/D6/D13 kesin
              hata verir, kullanıcı sebebini aramak zorunda kalır. */
           if (sayisal && !etkin) temizle();
-          kolonGoster(etkin);
-          if (!etkin) return;
+          kolonEtkin(etkin);
+          if (!etkin) {
+            toplamMetin.textContent = "—";
+            toplamMetin.style.color = "var(--metin-4)";
+            YU.bos(rozetKap);
+            return;
+          }
 
           var girilen = toplam();
           var fark = YU.yuvarla(gereken - girilen);
@@ -631,30 +660,8 @@
 
       for (k = 0; k < DAGITIM.length; k++) kolonlar.push(kolonKur(DAGITIM[k]));
 
-      /* Hiç kalem yokken düğmelerin kaybolması "neden yok?" sorusunu doğuruyordu.
-         Şerit her zaman duruyor; tıklanınca sebebini kırmızı yazıyla söylüyor. */
-      var bosHata = YU.h("div", {
-        stil: { font: "400 14px/1.4 var(--font)", color: "var(--olumsuz)", display: "none", flex: "1" }
-      });
-      function bosUyar() {
-        bosHata.textContent = "Dağıtılacak miktar yok. Önce üretilen dökme, çuvallanan adet ya da satılan dökme alanına rakam girin.";
-        bosHata.style.display = "";
-      }
-      var bosDugmeler = [
-        YU.ui.dugme({ metin: "Tümü İlk Siloya", kucuk: true, tur: "ikincil", onClick: bosUyar }),
-        YU.ui.dugme({ metin: "Eşit Dağıt", kucuk: true, tur: "ikincil", onClick: bosUyar }),
-        YU.ui.dugme({ metin: "En Boş Siloya", kucuk: true, tur: "ikincil", onClick: bosUyar }),
-        YU.ui.dugme({ metin: "Temizle", kucuk: true, tur: "sade", onClick: bosUyar })
-      ];
-      var bosDugmeKap = satir(yatay("6px"), bosDugmeler[0], bosDugmeler[1], bosDugmeler[2], bosDugmeler[3]);
-      bosDugmeKap.style.marginLeft = "auto";
-      var bosSatiri = satir(yatay("12px"),
-        YU.h("span", { metin: "Dağıtım", stil: { font: "500 14.5px/1.15 var(--font)", color: "var(--metin-4)" } }),
-        bosHata, bosDugmeKap);
-      bosSatiri.style.padding = "12px 18px";
-      bosSatiri.style.rowGap = "8px";
-      bosSatiri.style.flex = "1 1 100%";
-      ozetKap.appendChild(bosSatiri);
+      /* Eski "Dağıtım" yer tutucu şeridi kalktı: üretim ve satış blokları artık
+         hep görünür, gerekmiyorsa pasif (kullanıcı isteği, 23.08.2026). */
 
       var basRozet = YU.ui.rozet("—", "notr");
 
@@ -686,20 +693,10 @@
            ilki çizgisiz kalır. */
         var ilkGorunur = true;
         for (r = 0; r < kolonlar.length; r++) {
-          if (!kolonlar[r].etkinMi()) continue;
+          if (kolonlar[r].blok.style.display === "none") continue;
           kolonlar[r].blok.style.borderLeft = ilkGorunur ? "none" : "1px solid var(--ayrac)";
           ilkGorunur = false;
         }
-
-        /* Giriş alanı kalmadıysa kartın ayracı ile boş giriş kabı da gizlenir;
-           yoksa kartın ortasında sebepsiz bir çizgi kalıyor. */
-        for (r = 0; r < satirlar.length; r++) {
-          satirlar[r].girisKap.style.display = etkinSayi ? "" : "none";
-          satirlar[r].ayrac.style.display = etkinSayi ? "" : "none";
-        }
-        /* Şerit hep duruyor; kalem yoksa yerine "Dağıtım" satırı geçiyor. */
-        bosSatiri.style.display = etkinSayi ? "none" : "flex";
-        if (etkinSayi) { bosHata.textContent = ""; bosHata.style.display = "none"; }
 
         if (etkinSayi) {
           basRozet.className = "yu-rozet vurgu";

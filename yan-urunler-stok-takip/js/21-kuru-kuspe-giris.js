@@ -357,14 +357,17 @@
     /* ---------- 4. Kalem (silo dağıtımı) bileşeni ----------
        Her kalem (üretim yerleştirme / satış çekişi / çuvallama çekişi) aynı
        bileşendir: başlıkta gereken miktar büyük yazılır, altında silo başına bir
-       kutu, en altta kolaylık düğmeleri ve "dağıtılan / gereken" sayacı.
-       Gerekmeyen kalem tamamen kaybolur; yerine tek satırlık sade bir cümle
-       kalır (Şartname §4: dağıtım otomatik yapılmaz, son söz kullanıcıda). */
+       kutu ve sağında "Hepsini Ekle", en altta kolaylık düğmeleri ve
+       "dağıtılan / gereken" sayacı. Üretim ve satış kalemleri HER ZAMAN görünür
+       (kullanıcı isteği, 23.08.2026): gerekmiyorsa 0 kg yazar, kutular ve
+       düğmeler pasifleşir, tek cümle sebebini söyler. Çuvallama çekişi
+       istisna olduğu için yalnız gerektiğinde belirir (Şartname §4: dağıtım
+       otomatik yapılmaz, son söz kullanıcıda). */
 
     function kalemKur(d) {
       var giren = d.yon === "giren";
       var renk = giren ? "var(--olumlu)" : "var(--olumsuz)";
-      var alanlar = [], r;
+      var alanlar = [], dugmeler = [], r;
       var gereken = 0, etkin = false;
 
       var buyuk = YU.h("span", {
@@ -377,18 +380,29 @@
       );
       var aciklama = YU.h("div", { stil: { display: "none", font: "400 14px/1.5 var(--font)", color: "var(--metin-3)" } });
 
-      var kutuIzgara = YU.h("div", { stil: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "10px", maxWidth: "760px" } });
+      var kutuIzgara = YU.h("div", { stil: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(236px, 1fr))", gap: "10px", maxWidth: "900px" } });
       for (r = 0; r < silolar.length; r++) {
         (function (silo) {
           var a = YU.ui.alan({ tip: "sayi", sag: "kg", onInput: guncelle });
           a.girdi.setAttribute("aria-label", d.ariaAd + " · " + silo.Ad);
+          a.kok.style.flex = "1 1 120px";
+          a.kok.style.minWidth = "0";
           alanlar.push(a);
+          /* Satırın sağında "Hepsini Ekle": gereken miktarın TAMAMI bu siloya
+             yazılır, bu kalemin öbür silo kutuları boşalır (kullanıcı isteği). */
+          var hepsi = YU.ui.dugme({
+            metin: "Hepsini Ekle", kucuk: true, tur: "ikincil",
+            baslik: "Gereken miktarın tamamını " + silo.Ad + " silosuna yaz",
+            onClick: eylem(function () { var g = {}; g[silo.Id] = gereken; yaz(g); })
+          });
+          hepsi.style.flex = "none";
+          dugmeler.push(hepsi);
           kutuIzgara.appendChild(YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "6px", minWidth: "0" } },
             YU.h("div", { stil: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" } },
               YU.h("span", { metin: silo.Ad, stil: { font: "600 14.5px/1.2 var(--font)", color: "var(--metin)" } }),
               YU.h("span", { sinif: "yu-yardim", metin: "gün başı " + YU.fmt.kgU(gunBasi[silo.Id]), stil: { whiteSpace: "nowrap" } })
             ),
-            a.kok
+            YU.h("div", { stil: { display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" } }, a.kok, hepsi)
           ));
         })(silolar[r]);
       }
@@ -435,22 +449,23 @@
 
       var sayac = YU.h("span", { sinif: "yu-mono", stil: { fontSize: "14.5px", whiteSpace: "nowrap", color: "var(--metin-2)" } });
       var rozetKap = YU.h("span", { stil: { display: "inline-flex" } });
+      var dugmeHepsiIlk = YU.ui.dugme({ metin: d.dugmeHepsi, kucuk: true, tur: "ikincil", baslik: silolar[0].Ad, onClick: eylem(ilkSiloya) });
+      var dugmeEsit = YU.ui.dugme({ metin: "Eşit Böl", kucuk: true, tur: "ikincil", onClick: eylem(esitDagit) });
+      var dugmeTemizle = YU.ui.dugme({ metin: "Temizle", kucuk: true, tur: "sade", onClick: eylem(temizle) });
+      dugmeler.push(dugmeHepsiIlk, dugmeEsit, dugmeTemizle);
       var dugmeSatiri = satir({ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" },
-        YU.ui.dugme({ metin: d.dugmeHepsi, kucuk: true, tur: "ikincil", baslik: silolar[0].Ad, onClick: eylem(ilkSiloya) }),
-        YU.ui.dugme({ metin: "Eşit Böl", kucuk: true, tur: "ikincil", onClick: eylem(esitDagit) }),
-        YU.ui.dugme({ metin: "Temizle", kucuk: true, tur: "sade", onClick: eylem(temizle) }),
+        dugmeHepsiIlk, dugmeEsit, dugmeTemizle,
         YU.h("span", { stil: { flex: "1" } }),
         sayac, rozetKap
       );
 
       /* display değerleri açıkça yazılır ("" değil): inline display kuruluyor,
          "" yazmak onu siler ve blok düz akışa düşer. */
-      var icerik = YU.h("div", { stil: { display: "none", flexDirection: "column", gap: "12px" } }, basSatir, aciklama, kutuIzgara, dugmeSatiri);
-      var bos = YU.h("div", { stil: { display: "none", font: "400 14.5px/1.5 var(--font)", color: "var(--metin-4)" } });
-      var kok = YU.h("div", { stil: { display: "none", flexDirection: "column" } }, icerik, bos);
+      var kok = YU.h("div", { stil: { display: d.hepGoster ? "flex" : "none", flexDirection: "column", gap: "12px" } },
+        basSatir, aciklama, kutuIzgara, dugmeSatiri);
 
       function tazele(yeniGereken, bosMetin, aciklamaMetni) {
-        var sayisal = isFinite(yeniGereken);
+        var sayisal = isFinite(yeniGereken), k;
         gereken = sayisal ? YU.yuvarla(yeniGereken) : 0;
         etkin = sayisal && gereken > tol;
 
@@ -458,15 +473,22 @@
            hata verir, kullanıcı sebebini aramak zorunda kalır. */
         if (sayisal && !etkin) temizle();
 
-        icerik.style.display = etkin ? "flex" : "none";
-        bos.textContent = bosMetin || "";
-        bos.style.display = (!etkin && bosMetin) ? "block" : "none";
-        kok.style.display = (etkin || bosMetin) ? "flex" : "none";
-        if (!etkin) return;
+        /* Blok hep yerinde durur; gerekmiyorsa kutular ve düğmeler pasif. */
+        for (k = 0; k < alanlar.length; k++) alanlar[k].girdi.disabled = !etkin;
+        for (k = 0; k < dugmeler.length; k++) dugmeler[k].disabled = !etkin;
+        kok.style.display = (etkin || d.hepGoster) ? "flex" : "none";
 
         buyuk.textContent = YU.fmt.kgU(gereken);
-        aciklama.textContent = aciklamaMetni || "";
-        aciklama.style.display = aciklamaMetni ? "block" : "none";
+        buyuk.style.color = etkin ? renk : "var(--metin-4)";
+        var metin = etkin ? aciklamaMetni : bosMetin;
+        aciklama.textContent = metin || "";
+        aciklama.style.display = metin ? "block" : "none";
+
+        if (!etkin) {
+          sayac.textContent = "";
+          YU.bos(rozetKap);
+          return;
+        }
 
         var girilen = toplam();
         var fark = YU.yuvarla(gereken - girilen);
@@ -487,15 +509,15 @@
     }
 
     var kalemUretim = kalemKur({
-      kod: "uretim", yon: "giren", baslik: "Siloya girecek",
+      kod: "uretim", yon: "giren", baslik: "Siloya girecek", hepGoster: true,
       ariaAd: "Üretimden girecek", dugmeHepsi: "Hepsi " + silolar[0].Ad + "'e"
     });
     var kalemSatis = kalemKur({
-      kod: "satis", yon: "cikan", baslik: "Satış için silodan çıkacak",
+      kod: "satis", yon: "cikan", baslik: "Satış için silodan çıkacak", hepGoster: true,
       ariaAd: "Satış için çıkacak", dugmeHepsi: "Hepsi " + silolar[0].Ad + "'den"
     });
     var kalemCuvallama = kalemKur({
-      kod: "cuvallama", yon: "cikan", baslik: "Çuvallama için silodan çıkacak",
+      kod: "cuvallama", yon: "cikan", baslik: "Çuvallama için silodan çıkacak", hepGoster: false,
       ariaAd: "Çuvallama için çıkacak", dugmeHepsi: "Hepsi " + silolar[0].Ad + "'den"
     });
     var kalemler = [kalemUretim, kalemSatis, kalemCuvallama];
@@ -757,10 +779,10 @@
         ? YU.fmt.sayi(adet) + " çuval = " + YU.fmt.kgU(h.cuvalKg) + " · çuvallı stoğa yazılır, siloya girmez."
         : CUVAL_YARDIM;
 
-      /* Siloya giren: net üretim yoksa sebebini tek cümleyle söyle. */
+      /* Siloya giren: net üretim yoksa blok pasif kalır, sebebi tek cümle. */
       var girenBos = null;
       if (!(h.netDokmeUretim > tol)) {
-        if (!(uretim > 0) && !(h.cuvalKg > 0)) girenBos = "Üretilen dökme yazılınca siloya girecek miktar burada görünür.";
+        if (!(uretim > 0) && !(h.cuvalKg > 0)) girenBos = "Üretilen dökme yazılınca bu kutular açılır.";
         else if (h.cuvalKg > uretim + tol) girenBos = "Bugün üretilenden fazla çuvallanmış; siloya giriş yok. Aradaki fark aşağıda silodan çıkar.";
         else girenBos = "Üretimin tamamı çuvallanmış; siloya giriş yok.";
       }
@@ -769,7 +791,7 @@
       /* Silodan çıkan: satış her gün olabilir; çuvallama çekişi yalnız
          üretimden fazla çuvallanan günde (Şartname §4 Durum B) belirir. */
       kalemSatis.tazele(h.satilanDokme,
-        !(h.satilanDokme > tol) ? "Satılan dökme yazılınca silodan çıkacak miktar burada görünür." : null, null);
+        !(h.satilanDokme > tol) ? "Satılan dökme yazılınca bu kutular açılır." : null, null);
       kalemCuvallama.tazele(h.silodanCekilecek, null,
         h.silodanCekilecek > tol
           ? "Bugün " + YU.fmt.kgU(uretim) + " üretilmiş ama " + YU.fmt.kgU(h.cuvalKg) + " (" + YU.fmt.sayi(adet) +
