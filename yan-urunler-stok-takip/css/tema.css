@@ -93,7 +93,7 @@
 
   /* Yapışkan tablo başlığının zemini OPAK olmalı: yuzey-2 koyu temada yarı
      saydamdır ve kayan satırlar başlığın altından görünür. */
-  --tablo-bas-zemin: #f6f8fa;
+  --tablo-bas-zemin: #d2dfee;   /* mavi panel üstünde bir ton koyu şerit (23.08.2026) */
 
   /* Tarayıcıya sayfanın temayı kendisinin yönettiğini bildirir: tarayıcının
      otomatik koyulaştırması devreye girmez, kaydırma çubuğu ve yerleşik tarih
@@ -162,7 +162,7 @@
     --silo-cizgi:     #c7cdd6;
     --silo-yazi:      #171a1f;
 
-    --tablo-bas-zemin: #15181d;
+    --tablo-bas-zemin: #232e3d;   /* mavi panel üstünde bir ton koyu şerit (23.08.2026) */
   }
 }
 
@@ -227,7 +227,7 @@ html[data-tema="koyu"] {
   --silo-cizgi:     #c7cdd6;
   --silo-yazi:      #171a1f;
 
-  --tablo-bas-zemin: #15181d;
+  --tablo-bas-zemin: #232e3d;   /* mavi panel üstünde bir ton koyu şerit (23.08.2026) */
 }
 
 
@@ -858,9 +858,9 @@ html[data-tema="acik"] input[type="date"]::-webkit-calendar-picker-indicator { f
 
 .yu-kpi {
   padding: 13px 15px;
-  border: 1px solid var(--kenar);
+  border: 1px solid color-mix(in srgb, var(--vurgu) 45%, var(--kenar));   /* panelle aynı mavi (23.08.2026) */
   border-radius: var(--r-l);
-  background: var(--yuzey);
+  background: color-mix(in srgb, var(--vurgu) 15%, var(--yuzey));
   display: flex;
   flex-direction: column;
   gap: 11px;
@@ -868,7 +868,7 @@ html[data-tema="acik"] input[type="date"]::-webkit-calendar-picker-indicator { f
   transition: border-color .12s, box-shadow .12s;
 }
 .yu-kpi:hover {
-  border-color: var(--kenar-3);
+  border-color: color-mix(in srgb, var(--vurgu) 60%, var(--kenar));
   box-shadow: var(--golge-2);   /* koyu temada --golge-2 = none */
 }
 
@@ -912,11 +912,15 @@ html[data-tema="acik"] input[type="date"]::-webkit-calendar-picker-indicator { f
    PANEL
    ========================================================================== */
 
+/* Panel zemini soluk mavi (kullanıcı isteği, 23.08.2026 — tüm sayfalar):
+   yüzeye %15 vurgu mavisi, sınır %45. Tema ne olursa olsun karışım vurgudan
+   türediği için üç tema bloğunda ayrı tanım gerekmez. İçerideki kutular
+   (girdi, beyaz kart) var(--yuzey) ile beyaz kalır ve ayrım okunur. */
 .yu-panel {
   padding: 14px 16px;
-  border: 1px solid var(--kenar);
+  border: 1px solid color-mix(in srgb, var(--vurgu) 45%, var(--kenar));
   border-radius: var(--r-l);
-  background: var(--yuzey);
+  background: color-mix(in srgb, var(--vurgu) 15%, var(--yuzey));
   min-width: 0;
 }
 
@@ -1714,6 +1718,7 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
   body { background: #fff; color: #000; }
   a { color: #000; text-decoration: none; }
 
+  .yu-panel, .yu-kpi, .yu-panel.yu-turuncu { background: #fff; }
   .yu-panel,
   .yu-kpi,
   .yu-tablo-sar,
@@ -1742,33 +1747,11 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
 
 
 /* ==========================================================================
-   SOLUK ZEMİNLİ PANEL VE KARTLAR — .yu-mavi / .yu-turuncu
-   Sayfa zemini (#fdfdfe) ile beyaz panel/kart ayırt edilemiyordu. Sınıfı
-   taşıyan panel ve KPI kartı soluk maviye boyanır, içindeki kutular beyaz
-   kalır; hover yok (kullanıcı isteği, 23.08.2026). Kullananlar: Kuru Küspe
-   Günlük Giriş adım panelleri (js/21), Ana Sayfa kartları ve Malzeme
-   Stokları paneli (js/20). Ton tema vurgusundan karıştırılır: açık temada
-   beyaz üstüne %7 mavi, koyu temada yüzeye aynı oranda mavi katman.
+   TURUNCU PANEL — .yu-turuncu (Kuru Küspe Günlük Giriş, Silodan Çıkan adımı)
+   Panelin mavi zemini yerine aynı oranda turuncu karışım (kullanıcı isteği,
+   23.08.2026). Mavi ton .yu-panel / .yu-kpi temel kuralında.
    ========================================================================== */
-.yu-panel.yu-mavi, .yu-kpi.yu-mavi {
-  background: color-mix(in srgb, var(--vurgu) 7%, var(--yuzey));
-  border-color: color-mix(in srgb, var(--vurgu) 22%, var(--kenar));
-}
-/* Hafif turuncu çeşitlemesi (Silodan Çıkan adımı): aynı karışım, mavi yerine turuncu. */
-.yu-panel.yu-turuncu, .yu-kpi.yu-turuncu {
-  background: color-mix(in srgb, oklch(0.72 0.17 55) 9%, var(--yuzey));
-  border-color: color-mix(in srgb, oklch(0.72 0.17 55) 30%, var(--kenar));
-}
-/* Sert çeşitleme (.yu-koyu): Kuru Küspe Günlük Giriş adım panelleri — soluk
-   ton silik kaldı, karışım oranı iki kat (kullanıcı isteği, 23.08.2026). */
-.yu-panel.yu-mavi.yu-koyu {
-  background: color-mix(in srgb, var(--vurgu) 15%, var(--yuzey));
-  border-color: color-mix(in srgb, var(--vurgu) 45%, var(--kenar));
-}
-.yu-panel.yu-turuncu.yu-koyu {
+.yu-panel.yu-turuncu {
   background: color-mix(in srgb, oklch(0.72 0.17 55) 19%, var(--yuzey));
   border-color: color-mix(in srgb, oklch(0.72 0.17 55) 55%, var(--kenar));
-}
-@media print {
-  .yu-panel.yu-mavi, .yu-kpi.yu-mavi, .yu-panel.yu-turuncu, .yu-kpi.yu-turuncu { background: #fff; border-color: #bbb; }
 }

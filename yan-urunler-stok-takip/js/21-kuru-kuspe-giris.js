@@ -588,11 +588,11 @@
 
     /* ---------- 5. Adım 1 ve 2: Siloya Giren / Silodan Çıkan ---------- */
 
-    /* Adım paneli: ortak panel + soluk mavi zemin (.yu-mavi, tema.css sonu);
+    /* Adım paneli: ortak panel (mavi zemin tema.css .yu-panel kuralından gelir);
        içindeki kutular beyaz kalır, panel sınırı böyle okunur. Hover yok. */
     function adimPaneli(govdeListesi, ekSinif) {
       var p = YU.ui.panel({ govde: govdeListesi });
-      p.className += " yu-mavi yu-koyu" + (ekSinif ? " " + ekSinif : "");   /* yu-koyu: sert ton */
+      if (ekSinif) p.className += " " + ekSinif;
       return p;
     }
 
@@ -705,7 +705,7 @@
     /* ---------- 8. Bu günün kayıtlı hareketleri (yalnız varsa) ---------- */
 
     var kayitliPanel = panelGunHareketleri();
-    if (kayitliPanel) { kayitliPanel.className += " yu-mavi yu-koyu"; govde.appendChild(kayitliPanel); }
+    if (kayitliPanel) govde.appendChild(kayitliPanel);
 
     /* ---------- Canlı hesap ---------- */
 
