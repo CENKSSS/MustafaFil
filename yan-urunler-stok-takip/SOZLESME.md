@@ -378,9 +378,15 @@ YU.ui.modal({baslik, govde, genislik, dugmeler:[{metin,tur,onClick}]}) -> {kapat
 YU.ui.sutunGrafik({veri:[{etiket, deger1, deger2}], yukseklik, renk1, renk2, efsane})
 YU.ui.cizgiGrafik({veri:[{etiket, deger}], yukseklik})
 YU.ui.halkaGrafik({dilimler:[{etiket, deger, renk}], boyut})
-YU.ui.karsilastirmaGrafik({noktalar:[{etiket, baslik, deger1, deger2, alt1, alt2}],
-                           seri1:{ad, renk}, seri2:{ad, renk}|null, yukseklik, bicim, eksenBicim})
-   // iki seri aynı x ekseninde (i. nokta = (i+1). kampanya günü); null değer çizgiyi koparır
+YU.ui.karsilastirmaGrafik({noktalar:[{etiket, baslik}], yukseklik, bicim, eksenBicim,
+   seriler:[{ad, renk, secili, degerler:[...], altlar:[...]}],   // N SERİ
+   onSeriTikla: function(indeks, seri, yeniDurum)})              // verilirse efsane SEÇİCİ olur
+   // Bütün seriler aynı x eksenini paylaşır (i. nokta = (i+1). kampanya günü).
+   // secili:false olan seri ÇİZİLMEZ ama efsanede durur; tıklanınca geri gelir.
+   // Eksen tavanı yalnız çizilen serilere göre hesaplanır. İpucundaki "Fark"
+   // satırı yalnız TAM İKİ seri seçiliyken çıkar — üç seride fark belirsizdir.
+   // null değer çizgiyi koparır.
+   // Eski kullanım da geçerlidir: {noktalar:[{deger1, deger2, alt1, alt2}], seri1, seri2}
 YU.ui.hataListesi(hatalar)              // D-kodlu hata/uyarı listesi elemanı
 ```
 
@@ -403,7 +409,7 @@ Grafiklerin tamamı **inline SVG**; kütüphane yok (tasarım referansı kuralı
 | `malzeme-yonetimi` | Malzeme Yönetimi | Yönetim | Yonetici | `28-malzeme-yonetimi.js` |
 | `kullanici-yonetimi` | Kullanıcı Yönetimi | Yönetim | Yonetici | `29-kullanici-yonetimi.js` |
 | `degisiklik-gecmisi` | Değişiklik Geçmişi | Yönetim | Yonetici | `30-degisiklik-gecmisi.js` |
-| `analizler` | Analizler | Yönetim | Yonetici | `31-analizler.js` — kampanyaları GÜN SIRASINA göre karşılaştırır (devir günü = 1. gün; bugün N. günse geçmiş kampanyanın N. günü karşısına konur); mavi = bu kampanya, kırmızı = geçmiş. Analiz penceresi VARSAYILAN OLARAK KAMPANYANIN TAMAMIDIR, üstteki tarih aralığıyla daraltılabilir. URL: `?bu=&karsi=&gosterge=&mod=gunluk|birikimli&basGun=&bitGun=` |
+| `analizler` | Analizler | Yönetim | Yonetici | `31-analizler.js` — kampanyaları GÜN SIRASINA göre karşılaştırır (devir günü = 1. gün; bugün N. günse geçmiş kampanyanın N. günü karşısına konur). Kampanyalar grafiğin üstündeki EFSANEDEN işaretlenir; işaretli olanlar çizilir ve tabloda birer sütun alır. Renk sırası sabit: en yeni mavi, bir önceki kırmızı. Analiz penceresi VARSAYILAN OLARAK KAMPANYANIN TAMAMIDIR, üstteki tarih aralığıyla daraltılabilir. URL: `?kampanyalar=a,b&gosterge=&mod=gunluk|birikimli&basGun=&bitGun=` (`bu`/`karsi` de kabul edilir) |
 | `soru-testleri` | Soru Testleri | Yönetim | Yonetici | `41-soru-testleri.js` — soru motorunun ölçüm külliyatı; niyet, malzeme, ölçüt, gün ve kapsam ayrı ayrı denetlenir. Tuzak soruları CEVAPLANMAMALIDIR. |
 | `kabul-testleri` | Kabul Testleri | Yönetim | Yonetici | `40-kabul-testleri.js` |
 
@@ -526,6 +532,7 @@ AÇIK                                  KOYU
 .yu-yan-kart .yu-yan-kart-bas .yu-yan-kart-metin
 .yu-ana .yu-ust .yu-ara .yu-cip .yu-cip.acilir .yu-cip.acik .yu-cip-ok .yu-cip-etiket .yu-cip-deger
 .yu-arac .yu-arac-sag .yu-arac-ayrac .yu-secim-grubu .yu-secim-oge .yu-secim-oge.aktif
+.yu-efsane-oge .yu-efsane-oge.secili
 .yu-zil .yu-kullanici .yu-avatar .yu-kullanici-ad .yu-kullanici-rol
 .yu-icerik .yu-sayfa-bas .yu-sayfa-baslik .yu-sayfa-alt .yu-eylemler
 .yu-dugme .yu-dugme.birincil .yu-dugme.ikincil .yu-dugme.tehlike .yu-dugme.sade .yu-dugme.kucuk

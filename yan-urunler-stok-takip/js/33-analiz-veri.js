@@ -182,16 +182,38 @@
     var donemler = YU.donem.liste();
     if (!donemler.length) return null;
 
-    var buDonem = (buAd && analiz.donemBul(buAd)) || YU.donem.aktif() || donemler[donemler.length - 1];
-    var gecmisDonem = null;
-    if (gecmisAd && gecmisAd !== buDonem.ad) gecmisDonem = analiz.donemBul(gecmisAd);
-    if (!gecmisDonem) {
-      var sira = donemler.indexOf(buDonem);
-      gecmisDonem = donemler[sira - 1] || donemler[sira + 1] || null;
+    /* `buAd` bir DİZİ ise çoklu seçim: verilen kampanyaların hepsi grafikte
+       çizilir (kullanıcı isteği, 23.08.2026 — kampanyalar tek tek seçilmek
+       yerine efsanede işaretlenir). Liste YENİDEN ESKİYE sıralanır;
+       `bu` = en yeni seçili, `gecmis` = ondan bir önceki seçili. Böylece
+       gün numaralandırması ve mevcut bütün hesaplar aynen çalışır. */
+    var seciliDonemler = [], i;
+    if (Object.prototype.toString.call(buAd) === '[object Array]') {
+      for (i = 0; i < buAd.length; i++) {
+        var aday = analiz.donemBul(buAd[i]);
+        if (aday && seciliDonemler.indexOf(aday) < 0) seciliDonemler.push(aday);
+      }
+      seciliDonemler.sort(function (a, b) { return a.bas < b.bas ? 1 : (a.bas > b.bas ? -1 : 0); });
     }
 
-    var bu = analiz.kampanyaVerisi(depo, buDonem);
-    var gecmis = gecmisDonem ? analiz.kampanyaVerisi(depo, gecmisDonem) : null;
+    if (!seciliDonemler.length) {
+      var buDonem = (buAd && typeof buAd === 'string' && analiz.donemBul(buAd)) ||
+        YU.donem.aktif() || donemler[donemler.length - 1];
+      var gecmisDonem = null;
+      if (gecmisAd && gecmisAd !== buDonem.ad) gecmisDonem = analiz.donemBul(gecmisAd);
+      if (!gecmisDonem) {
+        var sira = donemler.indexOf(buDonem);
+        gecmisDonem = donemler[sira - 1] || donemler[sira + 1] || null;
+      }
+      seciliDonemler = [buDonem];
+      if (gecmisDonem) seciliDonemler.push(gecmisDonem);
+    }
+
+    var veriler = [];
+    for (i = 0; i < seciliDonemler.length; i++) veriler.push(analiz.kampanyaVerisi(depo, seciliDonemler[i]));
+
+    var bu = veriler[0];
+    var gecmis = veriler[1] || null;
     var bugun = analiz.bugunkuGun(bu);
 
     /* ANALİZ PENCERESİ varsayılan olarak kampanyanın TAMAMIDIR
@@ -215,8 +237,15 @@
     var ortakBit = gecmis ? Math.min(bitGun, gecmis.sonGun) : bitGun;
     if (ortakBit < basGun) ortakBit = basGun;
 
+    var seciliAdlar = [];
+    for (i = 0; i < veriler.length; i++) seciliAdlar.push(veriler[i].donem.ad);
+
     return {
       donemler: donemler,
+      /* veriler — seçili kampanyaların TAMAMI, yeniden eskiye.
+         bu = veriler[0], gecmis = veriler[1]; eski kod bu ikisiyle çalışır. */
+      veriler: veriler,
+      seciliAdlar: seciliAdlar,
       bu: bu,
       gecmis: gecmis,
       bugun: bugun,
@@ -398,6 +427,19 @@
   analiz.malzemeIle = function (depo, id) {
     for (var i = 0; i < depo.malzemeler.length; i++) if (depo.malzemeler[i].Id === id) return depo.malzemeler[i];
     return null;
+  };
+
+  /* Kampanya çizgi renkleri — sıra sabittir: en yeni kampanya MAVİ, bir
+     önceki KIRMIZI (ekranın kurulu dili), sonrakiler kategorik paletten.
+     Aynı kampanya her seferinde aynı rengi alır. */
+  var KAMPANYA_RENKLERI = [
+    'var(--vurgu)', 'var(--olumsuz)', 'var(--kat-3)',
+    'var(--kat-2)', 'var(--kat-4)', 'var(--kat-6)', 'var(--kat-5)'
+  ];
+
+  analiz.kampanyaRengi = function (sira) {
+    var i = Math.max(0, Math.round(Number(sira) || 0));
+    return KAMPANYA_RENKLERI[i % KAMPANYA_RENKLERI.length];
   };
 
   analiz.silolar = function (depo) {

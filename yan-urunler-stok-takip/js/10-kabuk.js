@@ -2691,36 +2691,134 @@
        noktalar: [{etiket:'12', baslik:'12. Gün', deger1, deger2, alt1, alt2}]
        seri1/seri2: {ad, renk}      seri2 yoksa tek çizgi çizilir
        bicim(n) -> ipucu metni      eksenBicim(n) -> sol eksen etiketi */
+  /* Efsane — grafiğin üstündeki seri listesi.
+     `onTikla` verilirse her öge düğme olur: işaretli seriler çizilir,
+     işaret kalkınca çizgi grafikten çıkar. Böylece efsane aynı zamanda
+     SERİ SEÇİCİDİR (kullanıcı isteği, 23.08.2026) — kampanyaları tek tek
+     açılır kutudan seçmek yerine hepsi burada listelenir. */
+  function efsaneSecimi(seriler, onTikla) {
+    var kap = YU.h('div', {
+      stil: {
+        display: 'flex', gap: '6px', justifyContent: 'flex-end',
+        flexWrap: 'wrap', alignItems: 'center'
+      }
+    });
+    for (var i = 0; i < seriler.length; i++) {
+      (function (sr, ix) {
+        var secili = sr.secili !== false;
+        var kare = YU.h('span', {
+          stil: {
+            width: '10px', height: '10px', borderRadius: '3px', flex: 'none',
+            background: secili ? sr.renk : 'transparent',
+            border: '1.5px solid ' + sr.renk,
+            opacity: secili ? '1' : '.5'
+          }
+        });
+        var icerik = [kare, YU.h('span', { metin: sr.ad })];
+        var sinif = 'yu-efsane-oge' + (secili ? ' secili' : '');
+        var oge;
+        if (onTikla) {
+          oge = YU.h('button', {
+            tip: 'button', sinif: sinif,
+            'aria-pressed': secili ? 'true' : 'false',
+            title: (secili ? 'Grafikten çıkar: ' : 'Grafiğe ekle: ') + sr.ad,
+            onClick: function () { onTikla(ix, sr, !secili); }
+          }, icerik[0], icerik[1]);
+        } else {
+          oge = YU.h('span', { sinif: sinif }, icerik[0], icerik[1]);
+        }
+        kap.appendChild(oge);
+      })(seriler[i], i);
+    }
+    return kap;
+  }
+
+  /* Kampanya karşılaştırma grafiği — N SERİ.
+
+     İki kullanım vardır:
+       eski  {noktalar:[{deger1, deger2}], seri1:{ad,renk}, seri2:{ad,renk}}
+       yeni  {noktalar:[{etiket, baslik}], seriler:[{ad, renk, secili,
+              degerler:[...], altlar:[...]}], onSeriTikla(indeks, seri, yeniDurum)}
+
+     `secili:false` olan seri ÇİZİLMEZ ama efsanede durur; tıklanınca geri
+     gelir. Eksen tavanı yalnız çizilen serilere göre hesaplanır.
+     Fark satırı yalnız TAM İKİ seri seçiliyken gösterilir — üç seride
+     "fark" belirsizdir. */
   YU.ui.karsilastirmaGrafik = function (s) {
     s = s || {};
     var noktalar = s.noktalar || [];
-    var seri1 = s.seri1 || {}, seri2 = s.seri2 || null;
-    var renk1 = seri1.renk || 'var(--vurgu)';
-    var renk2 = (seri2 && seri2.renk) || 'var(--olumsuz)';
-    var ad1 = seri1.ad || 'Seri 1', ad2 = (seri2 && seri2.ad) || 'Seri 2';
     var bicim = typeof s.bicim === 'function' ? s.bicim : YU.fmt.kgU;
     /* eksenBicim(deger, tavan) — tavan da verilir ki biçimleyici birimi
        (kg / ton) grafiğin bütünü için TEK SEFERDE seçebilsin; yoksa aynı
        eksende "0 kg" ile "1 ton" yan yana düşüyordu. */
     var eksenBicim = typeof s.eksenBicim === 'function' ? s.eksenBicim : function (v) { return YU.fmt.sayi(v); };
     var H = s.yukseklik || 220;
-    var W = 600, i, n = noktalar.length;
+    var W = 600, i, j, n = noktalar.length;
     var ustBosluk = 8, altBosluk = 6;
-
-    if (!n) {
-      return YU.h('div', {
-        metin: 'Grafik için kayıtlı gün yok.',
-        stil: { font: '400 14px/1.5 var(--font)', color: 'var(--metin-4)', padding: '24px 0', textAlign: 'center' }
-      });
-    }
 
     function sayi(v) { return (v === null || v === undefined || isNaN(Number(v))) ? null : Number(v); }
 
+    /* --- seri listesi: yeni ve eski kullanım tek biçime indirilir --- */
+    var seriler = [];
+    if (dizi(s.seriler) && s.seriler.length) {
+      for (i = 0; i < s.seriler.length; i++) {
+        var sr = s.seriler[i] || {};
+        seriler.push({
+          ad: sr.ad || ('Seri ' + (i + 1)),
+          renk: sr.renk || 'var(--vurgu)',
+          secili: sr.secili !== false,
+          degerler: sr.degerler || [],
+          altlar: sr.altlar || null
+        });
+      }
+    } else {
+      var eski = [{ kaynak: s.seri1, alan: 'deger1', alt: 'alt1', renk: 'var(--vurgu)' },
+                  { kaynak: s.seri2, alan: 'deger2', alt: 'alt2', renk: 'var(--olumsuz)' }];
+      for (i = 0; i < eski.length; i++) {
+        if (i === 1 && !s.seri2) continue;
+        var kaynak = eski[i].kaynak || {};
+        var degerler = [], altlar = [];
+        for (j = 0; j < n; j++) {
+          degerler.push(sayi(noktalar[j][eski[i].alan]));
+          altlar.push(noktalar[j][eski[i].alt] || null);
+        }
+        seriler.push({
+          ad: kaynak.ad || ('Seri ' + (i + 1)),
+          renk: kaynak.renk || eski[i].renk,
+          secili: true, degerler: degerler, altlar: altlar
+        });
+      }
+    }
+
+    var cizilen = [];
+    for (i = 0; i < seriler.length; i++) if (seriler[i].secili) cizilen.push(seriler[i]);
+
+    var efsane = s.onSeriTikla ? efsaneSecimi(seriler, s.onSeriTikla) : efsaneSecimi(seriler, null);
+
+    function sar(icerik) {
+      return YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '12px' } }, efsane, icerik);
+    }
+
+    if (!n) {
+      return sar(YU.h('div', {
+        metin: 'Grafik için kayıtlı gün yok.',
+        stil: { font: '400 14px/1.5 var(--font)', color: 'var(--metin-4)', padding: '24px 0', textAlign: 'center' }
+      }));
+    }
+    if (!cizilen.length) {
+      return sar(YU.h('div', {
+        metin: 'Hiçbir kampanya seçili değil — yukarıdaki listeden en az bir kampanya işaretleyin.',
+        stil: { font: '400 14px/1.5 var(--font)', color: 'var(--metin-4)', padding: '24px 0', textAlign: 'center' }
+      }));
+    }
+
+    /* --- eksen tavanı: yalnız ÇİZİLEN seriler --- */
     var enB = 0;
-    for (i = 0; i < n; i++) {
-      var a = sayi(noktalar[i].deger1), b = seri2 ? sayi(noktalar[i].deger2) : null;
-      if (a !== null && a > enB) enB = a;
-      if (b !== null && b > enB) enB = b;
+    for (i = 0; i < cizilen.length; i++) {
+      for (j = 0; j < n; j++) {
+        var v = sayi(cizilen[i].degerler[j]);
+        if (v !== null && v > enB) enB = v;
+      }
     }
     /* Tavan "güzel" bir sayıya yuvarlanır: kılavuz çizgileri yuvarlak
        değerlere oturur. Merdiven sık tutuldu; seyrek merdivende veri
@@ -2754,41 +2852,41 @@
       }));
     }
 
-    /* Bir seriyi parça parça çizer: null görülünce parça biter, yeni parça açılır.
-       Tek noktalık parça çizgi olmaz; nokta işaretiyle görünür kalır. */
-    function seriCiz(alan, renk) {
-      var parca = [], j;
+    /* Bir seriyi parça parça çizer: null görülünce parça biter, yeni parça
+       açılır. Tek noktalık parça çizgi olmaz; nokta işaretiyle görünür kalır. */
+    function seriCiz(seri) {
+      var parca = [], p;
       function bitir() {
         if (parca.length >= 2) {
           svg.appendChild(svgOge('polyline', {
-            points: parca.join(' '), fill: 'none', stroke: renk, 'stroke-width': 2.2,
+            points: parca.join(' '), fill: 'none', stroke: seri.renk, 'stroke-width': 2.2,
             'stroke-linejoin': 'round', 'stroke-linecap': 'round',
             'vector-effect': 'non-scaling-stroke', 'pointer-events': 'none'
           }));
         }
         parca = [];
       }
-      for (j = 0; j < n; j++) {
-        var v = sayi(noktalar[j][alan]);
-        if (v === null) { bitir(); continue; }
-        parca.push(xKoord(j) + ',' + yKoord(Math.max(0, v)));
+      for (p = 0; p < n; p++) {
+        var d = sayi(seri.degerler[p]);
+        if (d === null) { bitir(); continue; }
+        parca.push(xKoord(p) + ',' + yKoord(Math.max(0, d)));
       }
       bitir();
       if (n > 60) return;
-      for (j = 0; j < n; j++) {
-        var v2 = sayi(noktalar[j][alan]);
-        if (v2 === null) continue;
-        var px = xKoord(j), py = yKoord(Math.max(0, v2));
+      for (p = 0; p < n; p++) {
+        var d2 = sayi(seri.degerler[p]);
+        if (d2 === null) continue;
+        var px = xKoord(p), py = yKoord(Math.max(0, d2));
         svg.appendChild(svgOge('path', {
-          d: 'M' + px + ' ' + py + ' l0.01 0', stroke: renk, 'stroke-width': 5.5,
+          d: 'M' + px + ' ' + py + ' l0.01 0', stroke: seri.renk, 'stroke-width': 5.5,
           'stroke-linecap': 'round', 'vector-effect': 'non-scaling-stroke', 'pointer-events': 'none'
         }));
       }
     }
-    if (seri2) seriCiz('deger2', renk2);
-    seriCiz('deger1', renk1);
+    /* Sondan başa çizilir: ilk seri (bu kampanya) en üstte kalsın. */
+    for (i = cizilen.length - 1; i >= 0; i--) seriCiz(cizilen[i]);
 
-    /* Gün şeritleri: fare/klavye ile o günün iki değeri ve farkı görünür. */
+    /* Gün şeritleri: fare/klavye ile o günün bütün serileri görünür. */
     var yakalaKat = svgOge('g', {});
     svg.appendChild(yakalaKat);
     for (i = 0; i < n; i++) {
@@ -2803,21 +2901,29 @@
       var yakala = svgOge('rect', { x: sol, y: 0, width: gen, height: H, fill: 'transparent', tabindex: '0', role: 'img' });
       yakalaKat.appendChild(yakala);
 
-      var d1 = sayi(o.deger1), d2 = seri2 ? sayi(o.deger2) : null;
       var baslik = o.baslik || ipucuBasligi(o);
-      var satirlar = [{ renk: renk1, ad: ad1 + (o.alt1 ? ' · ' + o.alt1 : ''), deger: d1 === null ? 'kayıt yok' : bicim(d1) }];
-      if (seri2) satirlar.push({ renk: renk2, ad: ad2 + (o.alt2 ? ' · ' + o.alt2 : ''), deger: d2 === null ? 'kayıt yok' : bicim(d2) });
-      var ek = null;
-      if (seri2 && d1 !== null && d2 !== null) {
-        var fark = YU.yuvarla(d1 - d2);
-        ek = {
-          metin: 'Fark ' + (fark > 0 ? '+' : (fark < 0 ? '-' : '')) + bicim(Math.abs(fark)),
-          renk: fark > 0 ? 'var(--olumlu)' : (fark < 0 ? 'var(--olumsuz)' : 'var(--metin-4)')
-        };
+      var satirlar = [], ariaParcalari = [];
+      for (j = 0; j < cizilen.length; j++) {
+        var sj = cizilen[j];
+        var dj = sayi(sj.degerler[i]);
+        var altj = sj.altlar && sj.altlar[i] ? ' · ' + sj.altlar[i] : '';
+        var metinj = dj === null ? 'kayıt yok' : bicim(dj);
+        satirlar.push({ renk: sj.renk, ad: sj.ad + altj, deger: metinj });
+        ariaParcalari.push(sj.ad + ' ' + metinj);
       }
-      var aria = baslik + ' · ' + satirlar[0].ad + ' ' + satirlar[0].deger +
-        (seri2 ? ' · ' + satirlar[1].ad + ' ' + satirlar[1].deger : '');
-      ipucuBagla(yakala, bantVurgu(bant), baslik, satirlar, ek, aria);
+      /* Fark yalnız TAM İKİ seri seçiliyken anlamlıdır. */
+      var ek = null;
+      if (cizilen.length === 2) {
+        var a1 = sayi(cizilen[0].degerler[i]), a2 = sayi(cizilen[1].degerler[i]);
+        if (a1 !== null && a2 !== null) {
+          var fark = YU.yuvarla(a1 - a2);
+          ek = {
+            metin: 'Fark ' + (fark > 0 ? '+' : (fark < 0 ? '-' : '')) + bicim(Math.abs(fark)),
+            renk: fark > 0 ? 'var(--olumlu)' : (fark < 0 ? 'var(--olumsuz)' : 'var(--metin-4)')
+          };
+        }
+      }
+      ipucuBagla(yakala, bantVurgu(bant), baslik, satirlar, ek, baslik + ' · ' + ariaParcalari.join(' · '));
     }
 
     /* Sol eksen: metin SVG dışında (preserveAspectRatio="none" yazıyı yamultur).
@@ -2858,11 +2964,7 @@
     if (n > 1 && sonEtiket !== n - 1 && (n - 1 - sonEtiket) * 2 >= xAdim) altEtiket(n - 1);
 
     var cizim = YU.h('div', { stil: { flex: '1', minWidth: '0' } }, svg, altEksen);
-    var govde = YU.h('div', { stil: { display: 'flex', gap: '10px', alignItems: 'flex-start' } }, eksen, cizim);
-
-    var efsane = [{ etiket: ad1, renk: renk1 }];
-    if (seri2) efsane.push({ etiket: ad2, renk: renk2 });
-    return YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '12px' } }, efsaneSatiri(efsane), govde);
+    return sar(YU.h('div', { stil: { display: 'flex', gap: '10px', alignItems: 'flex-start' } }, eksen, cizim));
   };
 
   YU.ui.halkaGrafik = function (s) {

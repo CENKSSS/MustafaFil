@@ -756,6 +756,27 @@ html[data-tema="acik"] input[type="date"]::-webkit-calendar-picker-indicator { f
   font-weight: 500;
 }
 
+/* Efsane ögesi — grafiğin üstündeki seri listesi. Düğme hâlindeyken aynı
+   zamanda SERİ SEÇİCİDİR: işaret kalkınca çizgi grafikten çıkar.
+   İşaretsiz öge silinmez, soluklaşır — geri açılabileceği belli olsun. */
+.yu-efsane-oge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  font: 400 13.5px/1 var(--font);
+  color: var(--metin-4);
+  white-space: nowrap;
+  transition: background-color .12s, border-color .12s, color .12s;
+}
+button.yu-efsane-oge { cursor: pointer; }
+button.yu-efsane-oge:hover { background: var(--yuzey-3); border-color: var(--kenar-2); }
+.yu-efsane-oge.secili { color: var(--metin-2); font-weight: 500; }
+
+
 
 /* Ünlem (Uyarılar) ve zil (Son Hareketler) düğmeleri bu sınıfı paylaşır.
    Üzerine gelince zemin belirir ki tıklanabilir oldukları duyurulsun
