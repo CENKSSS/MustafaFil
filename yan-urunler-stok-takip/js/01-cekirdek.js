@@ -308,7 +308,9 @@
   var DEPO_ANAHTAR = "yu.veri.v1";
   // Tohum verisi değişince (kampanya aralığı, miktarlar, denetim izi) eski
   // localStorage kaydı geçersizleşir; sürüm artırılır ve depo yeniden kurulur.
-  var SEMA_SURUM = 3;
+  // 4 (23.08.2026): geçmiş kampanya 5 günlük parçadan tam sezona (122 gün)
+  //   çıkarıldı; sürüm yükseltilmezse tarayıcıdaki eski veri ekranda kalır.
+  var SEMA_SURUM = 4;
   var PAROLA_NOTU = "(prototip — gerçek uygulamada BCrypt)";
   // Başlangıç kayıtlarının tarihi sabit: değişse localStorage içeriği her
   // açılışta farklılaşır ve "deterministik veri" kuralı bozulur.

@@ -166,9 +166,19 @@
     return l[i - 1] || null;
   };
 
+  /* Kampanyanın n. gününü takvim tarihinden bulur (1 tabanlı, aralık dışı
+     tarih uçlara kırpılır). Ekrandaki tarih seçici bunu kullanır. */
+  analiz.tarihGunu = function (veri, iso) {
+    var g = YU.tarih.fark(veri.donem.bas, iso) + 1;
+    if (!isFinite(g)) return null;
+    return Math.max(1, g);
+  };
+
   /* Ekranın ve cevap motorunun ortak durum nesnesi.
-       buAd / gecmisAd — null ise varsayılan seçilir. */
-  analiz.ozet = function (depo, buAd, gecmisAd) {
+       buAd / gecmisAd — null ise varsayılan seçilir.
+       aralik         — {basGun, bitGun} kampanya günü aralığı; verilmezse
+                        kampanyanın TAMAMI (1. gün … bugün) kullanılır. */
+  analiz.ozet = function (depo, buAd, gecmisAd, aralik) {
     var donemler = YU.donem.liste();
     if (!donemler.length) return null;
 
@@ -184,13 +194,44 @@
     var gecmis = gecmisDonem ? analiz.kampanyaVerisi(depo, gecmisDonem) : null;
     var bugun = analiz.bugunkuGun(bu);
 
+    /* ANALİZ PENCERESİ varsayılan olarak kampanyanın TAMAMIDIR
+       (1. gün … bugün). Kullanıcı üstteki tarih aralığından daraltabilir.
+       Geçmiş kampanyanın kaydı erken bitiyorsa bu, pencereyi kısaltmaz —
+       yalnızca FARKIN hesaplanabildiği son günü (ortakBit) kısıtlar.
+       (Kullanıcı düzeltmesi, 23.08.2026: önceki sürüm bütün ekranı ortak
+       gün sayısına sıkıştırıyordu; kampanyanın hiçbir günü diğerinden
+       önemli değildir.) */
+    var sonGun = bugun.gun;
+    var basGun = 1, bitGun = sonGun;
+    if (aralik) {
+      if (isFinite(aralik.basGun) && aralik.basGun > 0) {
+        basGun = Math.min(Math.max(1, Math.round(aralik.basGun)), sonGun);
+      }
+      if (isFinite(aralik.bitGun) && aralik.bitGun > 0) {
+        bitGun = Math.min(Math.max(basGun, Math.round(aralik.bitGun)), sonGun);
+      }
+      if (bitGun < basGun) bitGun = basGun;
+    }
+    var ortakBit = gecmis ? Math.min(bitGun, gecmis.sonGun) : bitGun;
+    if (ortakBit < basGun) ortakBit = basGun;
+
     return {
       donemler: donemler,
       bu: bu,
       gecmis: gecmis,
       bugun: bugun,
-      /* İki tarafta da veri olan ilk K gün: geçmiş kampanya kısaysa orada biter. */
-      karsilastirmaGunu: gecmis ? Math.max(1, Math.min(bugun.gun, gecmis.sonGun)) : bugun.gun,
+      sonGun: sonGun,
+      basGun: basGun,
+      bitGun: bitGun,
+      gunSayisi: bitGun - basGun + 1,
+      tamAralikMi: basGun === 1 && bitGun === sonGun,
+      ortakBit: ortakBit,
+      ortakGun: ortakBit - basGun + 1,
+      /* Geçmiş kampanyanın seçilen aralıkta hiç kaydı yoksa karşılaştırma
+         yapılamaz; kısıt bundan farklıdır (kısıt = kısmen karşılaştırılabilir). */
+      gecmisKapsiyorMu: !gecmis || gecmis.sonGun >= basGun,
+      kisitliMi: !!gecmis && ortakBit < bitGun,
+      analizGunu: bitGun,
       gostergeler: analiz.gostergeler(depo)
     };
   };
@@ -205,31 +246,57 @@
     return ((bu - gecmis) / Math.abs(gecmis)) * 100;
   };
 
-  /* Tek göstergenin ilk K gün karşılaştırması. */
-  analiz.karsilastir = function (ozet, gosterge, K) {
-    K = Math.max(1, Math.round(K || ozet.karsilastirmaGunu));
-    var buSeri = analiz.seri(ozet.bu, gosterge, K);
-    var gecmisSeri = ozet.gecmis ? analiz.seri(ozet.gecmis, gosterge, K) : null;
-    var fark = gecmisSeri ? YU.yuvarla(buSeri.toplam - gecmisSeri.toplam) : null;
+  /* Tek göstergenin karşılaştırması.
+
+     İKİ AYRI PENCERE vardır ve karıştırılmamalıdır:
+       analiz penceresi (1 … gun)  — her iki kampanyanın KENDİ toplamı.
+                                     Bu kampanyanın bütün günleri buradadır.
+       ortak pencere    (1 … ortak) — farkın hesaplanabildiği günler.
+     Fark ve yüzde ORTAK pencere üzerinden hesaplanır: 30 günlük toplamı
+     5 günlük toplamla karşılaştırmak anlamsız olurdu. Ortak pencere,
+     seçilmiş bir ayar değil, geçmiş kampanyanın kaydının nerede bittiğidir. */
+  analiz.karsilastir = function (ozet, gosterge, aralik) {
+    var bas = Math.max(1, Math.round((aralik && aralik.basGun) || ozet.basGun || 1));
+    var bit = Math.max(bas, Math.round((aralik && aralik.bitGun) || ozet.bitGun || bas));
+    var ortakBit = ozet.gecmis ? Math.max(bas, Math.min(bit, ozet.gecmis.sonGun)) : bit;
+
+    var buP = analiz.pencere(ozet.bu, gosterge, bas, bit);
+    var gecmisP = ozet.gecmis ? analiz.pencere(ozet.gecmis, gosterge, bas, bit) : null;
+
+    var buOrtakP = ortakBit === bit ? buP : analiz.pencere(ozet.bu, gosterge, bas, ortakBit);
+    var gecmisOrtakP = !ozet.gecmis ? null
+      : (ortakBit === bit ? gecmisP : analiz.pencere(ozet.gecmis, gosterge, bas, ortakBit));
+
+    var gecmisOrtak = gecmisOrtakP ? (gecmisOrtakP.kayitliGun ? gecmisOrtakP.toplam : null) : null;
+    var fark = gecmisOrtak === null ? null : YU.yuvarla(buOrtakP.toplam - gecmisOrtak);
+
     return {
       gosterge: gosterge,
-      gun: K,
-      bu: buSeri.toplam,
-      gecmis: gecmisSeri ? gecmisSeri.toplam : null,
-      buGun: buSeri.gunluk[K - 1],
-      gecmisGun: gecmisSeri ? gecmisSeri.gunluk[K - 1] : null,
-      buSeri: buSeri,
-      gecmisSeri: gecmisSeri,
+      basGun: bas,
+      gun: bit,                                  /* pencerenin son günü */
+      gunSayisi: bit - bas + 1,
+      bu: buP.toplam,
+      gecmis: gecmisP ? (gecmisP.kayitliGun ? gecmisP.toplam : null) : null,
+      buGun: buP.gunler.length ? buP.gunler[buP.gunler.length - 1].deger : null,
+      gecmisGun: gecmisP && gecmisP.gunler.length ? gecmisP.gunler[gecmisP.gunler.length - 1].deger : null,
+      buPencere: buP,
+      gecmisPencere: gecmisP,
+      /* ortak pencere — farkın hesaplanabildiği son güne kadar */
+      ortakBit: ortakBit,
+      ortakGun: ortakBit - bas + 1,
+      kisitliMi: ortakBit < bit,
+      buOrtak: buOrtakP.toplam,
+      gecmisOrtak: gecmisOrtak,
       fark: fark,
-      yuzde: gecmisSeri ? analiz.yuzdeFark(buSeri.toplam, gecmisSeri.toplam) : null
+      yuzde: gecmisOrtak === null ? null : analiz.yuzdeFark(buOrtakP.toplam, gecmisOrtak)
     };
   };
 
   /* Bütün göstergeler için karşılaştırma; sıralama için hazır. */
-  analiz.tumKarsilastirma = function (ozet, K) {
+  analiz.tumKarsilastirma = function (ozet, aralik) {
     var sonuc = [], i;
     for (i = 0; i < ozet.gostergeler.length; i++) {
-      sonuc.push(analiz.karsilastir(ozet, ozet.gostergeler[i], K));
+      sonuc.push(analiz.karsilastir(ozet, ozet.gostergeler[i], aralik));
     }
     return sonuc;
   };

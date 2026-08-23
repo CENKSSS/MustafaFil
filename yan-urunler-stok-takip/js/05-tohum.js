@@ -45,16 +45,25 @@
   var HEDEF_ANA = [
     [0.00, 0.118], [0.30, 0.126], [0.55, 0.137], [0.80, 0.144], [1.00, 0.150]
   ];
-  var HEDEF_ONCEKI = [[0.00, 0.072], [1.00, 0.078]];
+  /* Geçmiş kampanya TAM bir sezondur (eylül–ocak). Doluluk eğrisi anadan
+     biraz farklı tutuldu ki iki kampanya birbirinin kopyası olmasın. */
+  var HEDEF_ONCEKI = [
+    [0.00, 0.105], [0.25, 0.115], [0.50, 0.126], [0.75, 0.133], [1.00, 0.139]
+  ];
 
   var GUNLUK_SEVKIYAT_TAVANI = 45000; // kg — bir günde silolardan çıkabilecek makul üst sınır
 
   var KAMPANYALAR = [
     {
+      /* Geçen sezon TAMAMLANMIŞ bir kampanyadır: eylül ortasında açılır,
+         ocak ortasında kapanır (Şartname §2 — kampanya eylülde başlar,
+         aylarca sürer). Kısa tutulursa Analizler ekranı karşılaştırmayı
+         geçmişin bittiği güne sıkıştırmak zorunda kalıyor ve ekran birkaç
+         günlük bir pencereye hapsoluyordu (kullanıcı düzeltmesi, 23.08.2026). */
       ad: "2025/2026",
-      devirTarihi: "2026-06-10",
-      gunSayisi: 5,
-      siloDevir: [260000, 210000, 180000],
+      devirTarihi: "2025-09-15",
+      gunSayisi: 122,
+      siloDevir: [340000, 320000, 285000],
       malzemeDevir: {
         "Yaş Küspe (Tonluk)": 12000,
         "Yaş Küspe (25'lik)": 1800,
@@ -64,8 +73,10 @@
         "Toprak": 5200
       },
       hedefEgrisi: HEDEF_ONCEKI,
-      durumBGunleri: [],
-      satisSifirGunleri: [],
+      /* Kurutma arızası günleri (Durum B) ve sevkiyatsız günler — geçen
+         sezonun da kendi aksaklıkları olsun. */
+      durumBGunleri: [26, 63, 91, 114],
+      satisSifirGunleri: [11, 44, 78, 105],
       eksikSonGun: []
     },
     {

@@ -18,7 +18,7 @@
 | Script tipi | **Klasik `<script src>`** — `type="module"` **YASAK** (`file://` üzerinde CORS'a takılır). |
 | Bağımlılık | **Sıfır.** CDN yok, harici font yok, grafik kütüphanesi yok. Grafikler inline SVG. |
 | Global ad alanı | Her şey **`window.YU`** altında. Başka global değişken tanımlanmaz. |
-| Kalıcılık | `localStorage`, anahtar `yu.veri.v1`. Tema anahtarı `yu.tema`. |
+| Kalıcılık | `localStorage`, anahtar `yu.veri.v1`. Tema anahtarı `yu.tema`. Tohum verisi değişince `SEMA_SURUM` yükseltilir; eski kayıt geçersizleşir ve depo yeniden tohumlanır — yoksa tarayıcıdaki eski örnek veri ekranda kalır. |
 | Dil | Arayüzün tamamı Türkçe. Kod içindeki değişken/fonksiyon adları da Türkçe. |
 | Sayı biçimi | Binlik nokta, ondalık virgül: `240.000`, `1.234,56`, `%23,8` |
 | Tarih biçimi | Ekranda `GG.AA.YYYY`. Veride **ISO string** `"2026-07-03"` (saat bileşeni YOK — Şartname §6). |
@@ -395,7 +395,7 @@ Grafiklerin tamamı **inline SVG**; kütüphane yok (tasarım referansı kuralı
 | `malzeme-yonetimi` | Malzeme Yönetimi | Yönetim | Yonetici | `28-malzeme-yonetimi.js` |
 | `kullanici-yonetimi` | Kullanıcı Yönetimi | Yönetim | Yonetici | `29-kullanici-yonetimi.js` |
 | `degisiklik-gecmisi` | Değişiklik Geçmişi | Yönetim | Yonetici | `30-degisiklik-gecmisi.js` |
-| `analizler` | Analizler | Yönetim | Yonetici | `31-analizler.js` — kampanyaları GÜN SIRASINA göre karşılaştırır (devir günü = 1. gün; bugün N. günse geçmiş kampanyanın N. günü karşısına konur); mavi = bu kampanya, kırmızı = geçmiş. URL: `?bu=&karsi=&gosterge=&mod=gunluk|birikimli` |
+| `analizler` | Analizler | Yönetim | Yonetici | `31-analizler.js` — kampanyaları GÜN SIRASINA göre karşılaştırır (devir günü = 1. gün; bugün N. günse geçmiş kampanyanın N. günü karşısına konur); mavi = bu kampanya, kırmızı = geçmiş. Analiz penceresi VARSAYILAN OLARAK KAMPANYANIN TAMAMIDIR, üstteki tarih aralığıyla daraltılabilir. URL: `?bu=&karsi=&gosterge=&mod=gunluk|birikimli&basGun=&bitGun=` |
 | `soru-testleri` | Soru Testleri | Yönetim | Yonetici | `41-soru-testleri.js` — soru motorunun ölçüm külliyatı; niyet, malzeme, ölçüt, gün ve kapsam ayrı ayrı denetlenir. Tuzak soruları CEVAPLANMAMALIDIR. |
 | `kabul-testleri` | Kabul Testleri | Yönetim | Yonetici | `40-kabul-testleri.js` |
 
@@ -595,8 +595,13 @@ YU.analiz.gunTarihi(veri, gun)           // kampanyanın n. gününün ISO tarih
 YU.analiz.gunDegeri(veri, gosterge, tarih)
 YU.analiz.seri(veri, gosterge, n)        // {gunluk[], birikimli[], toplam, kayitliGun}
 YU.analiz.bugunkuGun(veri)               // {ham, gun}
-YU.analiz.ozet(depo, buAd, gecmisAd)     // {donemler, bu, gecmis, bugun, karsilastirmaGunu, gostergeler}
-YU.analiz.karsilastir(ozet, gosterge, K) / tumKarsilastirma(ozet, K) / siralaFark(l, yon)
+YU.analiz.tarihGunu(veri, iso)           // takvim tarihi -> kampanya günü
+YU.analiz.ozet(depo, buAd, gecmisAd, aralik)
+   // aralik: {basGun, bitGun} — verilmezse KAMPANYANIN TAMAMI (1 … bugün)
+   // -> {donemler, bu, gecmis, bugun, sonGun, basGun, bitGun, gunSayisi,
+   //     tamAralikMi, ortakBit, ortakGun, kisitliMi, gostergeler}
+YU.analiz.karsilastir(ozet, gosterge, aralik) / tumKarsilastirma(ozet, aralik) / siralaFark(l, yon)
+   // karsilastir -> {bu, gecmis, buOrtak, gecmisOrtak, fark, yuzde, ortakBit, kisitliMi, ...}
 YU.analiz.pencere(veri, gosterge, basGun, bitGun) / zirve / dip / ucNokta
 YU.analiz.yuzdeFark(bu, gecmis)          // geçmiş 0 ise null — sıfırdan artış yüzdesi tanımsızdır
 YU.analiz.malzemeStok / tumStok / tumSilo / siloToplami
@@ -606,8 +611,16 @@ YU.analiz.malzemeler / malzemeIle / silolar / donemBul / oncekiDonem
 **Kampanya günü kuralı (DEMİRBAŞ):** devir günü 1. gündür. Karşılaştırma
 takvim tarihine göre DEĞİL gün sırasına göre yapılır. Bugün N. günse
 geçmiş kampanyanın N. günü karşısına konur. Bugün son kayıtlı günü aşarsa
-N son kayıtlı güne çekilir; `karsilastirmaGunu` iki tarafta da veri olan
-son gündür.
+N son kayıtlı güne çekilir.
+
+**Analiz penceresi kuralı (kullanıcı düzeltmesi, 23.08.2026):** pencere
+VARSAYILAN OLARAK KAMPANYANIN TAMAMIDIR (1. gün … bugün); kullanıcı üstteki
+tarih aralığıyla daraltabilir. Kampanyanın hiçbir günü diğerinden önemli
+değildir — ekran hiçbir zaman kendiliğinden birkaç günlük bir pencereye
+sıkışmaz. Geçmiş kampanyanın kaydı erken bitiyorsa pencere KISALMAZ;
+yalnızca farkın hesaplanabildiği son gün (`ortakBit`) kısıtlanır ve bu
+durum sütun başlığına parametre gibi yazılmaz, tablonun altında düz
+Türkçeyle söylenir.
 
 ### 10.3 `YU.soru` — çözümleme ve cevap (`34-analiz-soru.js`)
 

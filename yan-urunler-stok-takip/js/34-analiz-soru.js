@@ -739,6 +739,21 @@
     return { etiket: etiket, deger: deger, tur: tur || null };
   }
 
+  /* Karşılaştırmanın hangi günleri kapsadığını söyleyen cümle parçası.
+     Kısıt yoksa kampanyanın tamamıdır; varsa bunun bir AYAR değil, geçmiş
+     kampanyanın kaydının bittiği yer olduğu açıkça söylenir. */
+  function pencereNotu(k) {
+    if (!k.kisitliMi) return '1–' + gunMetni(k.gun) + ' toplamı.';
+    return 'Fark, iki kampanyada da kaydı olan ' + YU.fmt.sayi(k.ortakGun) +
+      ' gün üzerinden — geçmiş kampanyanın kaydı ' + gunMetni(k.ortakGun) + ' bitiyor.';
+  }
+
+  function pencereBasligi(k) {
+    return k.kisitliMi
+      ? 'ortak ' + YU.fmt.sayi(k.ortakGun) + ' gün'
+      : '1–' + gunMetni(k.gun);
+  }
+
   function analizBagi(param) { return { kod: 'analizler', param: param || {} }; }
 
   /* --- karşılaştırma grafiği tanımı --- */
@@ -814,7 +829,10 @@
      ------------------------------------------------------------------ */
 
   function cevapKarsilastirma(depo, c, ozet, genelMi) {
-    var K = ozet.karsilastirmaGunu;
+    /* Analiz penceresi kampanyanın TAMAMIDIR (1. gün … bugün). Geçmiş
+       kampanyanın kaydı erken bitiyorsa yalnız FARK ortak günler üzerinden
+       hesaplanır; bu bir ayar değil, verinin bittiği yerdir. */
+    var N = ozet.analizGunu;
     var gostergeler = gostergeleriSec(depo, c, ozet);
     var satirlar = [], grafik = null, baslik;
 
@@ -833,14 +851,22 @@
     /* Tek gösterge sorulduysa doğrudan onun cümlesi kurulur. */
     if (!genelMi && gostergeler.length === 1) {
       g = gostergeler[0];
-      k = YU.analiz.karsilastir(ozet, g, K);
-      baslik = 'Bu kampanyanın ' + gunMetni(ozet.bugun.gun) + 'ündeyiz. ' + cumleBaslik(g, k, ozet, K);
-      satirlar.push(satir('Kampanya ' + ozet.bu.donem.ad, miktar(k.bu, g.birim), 'vurgu'));
-      satirlar.push(satir('Kampanya ' + ozet.gecmis.donem.ad, miktar(k.gecmis, g.birim), 'olumsuz'));
+      k = YU.analiz.karsilastir(ozet, g);
+      baslik = 'Bu kampanyanın ' + gunMetni(N) + 'ündeyiz. ' + cumleBaslik(g, k, ozet);
+      /* Fark ortak günler üzerinden hesaplandığı için yanındaki iki sayı da
+         ortak günlerin sayısıdır; yoksa satırlar birbirini tutmaz. */
+      var ortakEk = k.kisitliMi ? ' (1–' + gunMetni(k.ortakGun) + ')' : '';
+      if (k.kisitliMi) {
+        satirlar.push(satir('Kampanya ' + ozet.bu.donem.ad + ' · tümü (1–' + gunMetni(k.gun) + ')',
+          miktar(k.bu, g.birim), 'vurgu'));
+      }
+      satirlar.push(satir('Kampanya ' + ozet.bu.donem.ad + ortakEk, miktar(k.buOrtak, g.birim), 'vurgu'));
+      satirlar.push(satir('Kampanya ' + ozet.gecmis.donem.ad + ortakEk, miktar(k.gecmisOrtak, g.birim), 'olumsuz'));
       satirlar.push(satir('Fark', isaretli(k.fark, g.birim) +
         (yuzdeMetni(k.yuzde) ? ' · ' + yuzdeMetni(k.yuzde) : ''), farkTuru(k.fark)));
-      satirlar.push(satir(gunMetni(K) + ' tek gün',
+      satirlar.push(satir(gunMetni(N) + ' tek gün',
         miktar(k.buGun, g.birim) + ' — geçen kampanya ' + miktar(k.gecmisGun, g.birim)));
+      if (k.kisitliMi) satirlar.push(satir('Not', pencereNotu(k)));
       return {
         baslik: baslik, satirlar: satirlar,
         grafik: karsilastirmaGrafigi(ozet, g, ozet.bugun.gun, birikimliMi, null),
@@ -854,18 +880,31 @@
     /* Belirli birkaç kalem soruldu ("toprak nasıl" -> üretim + satış):
        özet sayısı yerine kalemlerin kendisi tek tek yazılır. */
     if (!genelMi && gostergeler.length >= 2 && gostergeler.length <= 4) {
-      var cumleler = [];
+      /* Birincil cümle kampanyanın TAMAMINI anlatır; karşılaştırma ayrı bir
+         cümledir ve kendi penceresini söyler. İki pencere aynı cümlede
+         karıştırılmaz (kullanıcı düzeltmesi, 23.08.2026). */
+      var tamCumleler = [], karsiCumleler = [], ilkK = null;
       for (i = 0; i < gostergeler.length; i++) {
         g = gostergeler[i];
-        k = YU.analiz.karsilastir(ozet, g, K);
+        k = YU.analiz.karsilastir(ozet, g);
+        if (!ilkK) ilkK = k;
         var konum = konumMetni(k.fark, k.yuzde);
-        cumleler.push(g.kisaAd + ' ' + miktar(k.bu, g.birim) +
-          (k.gecmis !== null ? ' (geçen kampanya ' + miktar(k.gecmis, g.birim) + (konum ? ', ' + konum : '') + ')' : ''));
-        satirlar.push(satir(g.ad, miktar(k.bu, g.birim) + ' ↔ ' + miktar(k.gecmis, g.birim) +
+        tamCumleler.push(g.kisaAd + ' ' + miktar(k.bu, g.birim));
+        if (konum) karsiCumleler.push(g.kisaAd + ' ' + konum);
+        satirlar.push(satir(g.ad + ' · 1–' + gunMetni(k.gun), miktar(k.bu, g.birim), 'vurgu'));
+        satirlar.push(satir(g.ad + ' · karşılaştırma',
+          miktar(k.buOrtak, g.birim) + ' ↔ ' + miktar(k.gecmisOrtak, g.birim) +
           (konum ? ' · ' + konum : ''), farkTuru(k.fark)));
       }
-      baslik = 'Bu kampanyanın ' + gunMetni(ozet.bugun.gun) + 'ündeyiz. İlk ' + YU.fmt.sayi(K) +
-        ' günde ' + cumleler.join('; ') + '.';
+      baslik = 'Bu kampanyanın ' + gunMetni(N) + 'ündeyiz. 1–' + gunMetni(N) + ' arasında ' +
+        tamCumleler.join(', ') + '.';
+      if (karsiCumleler.length) {
+        baslik += ilkK.kisitliMi
+          ? ' Geçmiş kampanyayla karşılaştırılabilen ' + YU.fmt.sayi(ilkK.ortakGun) + ' günde ' +
+            karsiCumleler.join(', ') + '.'
+          : ' Kampanya ' + ozet.gecmis.donem.ad + ' ile aynı günlerde ' + karsiCumleler.join(', ') + '.';
+      }
+      if (ozet.kisitliMi) satirlar.push(satir('Not', pencereNotu(ilkK)));
       return {
         baslik: baslik, satirlar: satirlar,
         grafik: karsilastirmaGrafigi(ozet, gostergeler[0], ozet.bugun.gun, birikimliMi, null),
@@ -881,9 +920,9 @@
     /* Genel soru: bütün kalemlerin özeti + öne çıkanlar. */
     var hepsi = [];
     if (gostergeler.length) {
-      for (i = 0; i < gostergeler.length; i++) hepsi.push(YU.analiz.karsilastir(ozet, gostergeler[i], K));
+      for (i = 0; i < gostergeler.length; i++) hepsi.push(YU.analiz.karsilastir(ozet, gostergeler[i]));
     } else {
-      hepsi = YU.analiz.tumKarsilastirma(ozet, K);
+      hepsi = YU.analiz.tumKarsilastirma(ozet);
     }
     var onde = 0, geride = 0, esit = 0;
     for (i = 0; i < hepsi.length; i++) {
@@ -893,24 +932,27 @@
     var artan = YU.analiz.siralaFark(hepsi, 'artan');
     var azalan = YU.analiz.siralaFark(hepsi, 'azalan');
 
-    baslik = 'Bu kampanyanın ' + gunMetni(ozet.bugun.gun) + 'ündeyiz. Kampanya ' +
-      ozet.gecmis.donem.ad + ' ile ilk ' + YU.fmt.sayi(K) + ' gün karşılaştırıldığında ' +
-      YU.fmt.sayi(onde) + ' kalemde öndeyiz, ' + YU.fmt.sayi(geride) + ' kalemde gerideyiz' +
+    baslik = 'Bu kampanyanın ' + gunMetni(N) + 'ündeyiz. Kampanya ' + ozet.gecmis.donem.ad +
+      ' ile karşılaştırıldığında ' + YU.fmt.sayi(onde) + ' kalemde öndeyiz, ' +
+      YU.fmt.sayi(geride) + ' kalemde gerideyiz' +
       (esit ? ', ' + YU.fmt.sayi(esit) + ' kalemde başa başız' : '') + '.';
 
     if (artan.length && artan[0].yuzde !== null && artan[0].fark > 0) {
       satirlar.push(satir('En çok artan', artan[0].gosterge.ad + ' · ' + yuzdeMetni(artan[0].yuzde) +
-        ' (' + miktar(artan[0].gecmis, artan[0].gosterge.birim) + ' → ' + miktar(artan[0].bu, artan[0].gosterge.birim) + ')', 'olumlu'));
+        ' (' + miktar(artan[0].gecmisOrtak, artan[0].gosterge.birim) + ' → ' +
+        miktar(artan[0].buOrtak, artan[0].gosterge.birim) + ')', 'olumlu'));
     }
     if (azalan.length && azalan[0].yuzde !== null && azalan[0].fark < 0) {
       satirlar.push(satir('En çok düşen', azalan[0].gosterge.ad + ' · ' + yuzdeMetni(azalan[0].yuzde) +
-        ' (' + miktar(azalan[0].gecmis, azalan[0].gosterge.birim) + ' → ' + miktar(azalan[0].bu, azalan[0].gosterge.birim) + ')', 'olumsuz'));
+        ' (' + miktar(azalan[0].gecmisOrtak, azalan[0].gosterge.birim) + ' → ' +
+        miktar(azalan[0].buOrtak, azalan[0].gosterge.birim) + ')', 'olumsuz'));
     }
-    satirlar.push(satir('Karşılaştırma günü', gunMetni(K) + ' · ' +
-      YU.fmt.tarih(YU.analiz.gunTarihi(ozet.bu, K)) + ' ↔ ' + YU.fmt.tarih(YU.analiz.gunTarihi(ozet.gecmis, K))));
-    if (K < ozet.bugun.gun) {
-      satirlar.push(satir('Not', 'Geçmiş kampanyada ' + YU.fmt.sayi(ozet.gecmis.sonGun) +
-        ' gün kayıt var; karşılaştırma ilk ' + YU.fmt.sayi(K) + ' gün üzerinden yapıldı.'));
+    satirlar.push(satir('Analiz aralığı', '1–' + gunMetni(N) + ' · ' +
+      YU.fmt.tarih(ozet.bu.donem.bas) + ' – ' + YU.fmt.tarih(YU.analiz.gunTarihi(ozet.bu, N))));
+    if (ozet.kisitliMi) {
+      satirlar.push(satir('Not', 'Geçmiş kampanyanın kaydı ' + gunMetni(ozet.ortakGun) +
+        ' bittiği için fark, iki kampanyada da kaydı olan ' + YU.fmt.sayi(ozet.ortakGun) +
+        ' gün üzerinden hesaplandı — seçilmiş bir aralık değil, verinin bittiği yer.'));
     }
 
     /* Grafiğe konan kalem: soru bir kalemi işaret ediyorsa o, yoksa
@@ -928,7 +970,8 @@
 
     return {
       baslik: baslik, satirlar: satirlar,
-      grafik: siraGrafigi(mutlak, 'İlk ' + YU.fmt.sayi(K) + ' günde en çok değişen kalemler', 8),
+      grafik: siraGrafigi(mutlak, 'En çok değişen kalemler · ' +
+        (ozet.kisitliMi ? 'ortak ' + YU.fmt.sayi(ozet.ortakGun) + ' gün' : '1–' + gunMetni(N)), 8),
       ikinciGrafik: odak ? karsilastirmaGrafigi(ozet, odak, ozet.bugun.gun, false, 'Günlük · ' + odak.ad) : null,
       bag: analizBagi({ bu: ozet.bu.donem.ad, karsi: ozet.gecmis.donem.ad, gosterge: odak ? odak.kod : null })
     };
@@ -936,13 +979,23 @@
 
   /* "Dökme küspe üretiminde 131.610 kg'dayız; geçen kampanya aynı günlerde
       140.810 kg'daydı — %6,5 geride." */
-  function cumleBaslik(g, k, ozet, K) {
+  function cumleBaslik(g, k, ozet) {
     if (k.gecmis === null) {
-      return g.ad + ' ilk ' + YU.fmt.sayi(K) + ' günde ' + miktar(k.bu, g.birim) + '.';
+      return g.ad + ' 1–' + gunMetni(k.gun) + ' toplamı ' + miktar(k.bu, g.birim) + '.';
     }
     var konum = konumMetni(k.fark, k.yuzde);
-    return g.ad + ' ilk ' + YU.fmt.sayi(K) + ' günde ' + miktar(k.bu, g.birim) +
-      '; Kampanya ' + ozet.gecmis.donem.ad + ' aynı gün sırasında ' + miktar(k.gecmis, g.birim) +
+    /* Kısıt yoksa iki kampanya da aynı gün aralığındadır ve tek cümle yeter.
+       Kısıt varsa bu kampanyanın TAM toplamı verilir, karşılaştırma ise
+       ortak günler üzerinden ayrıca söylenir — iki farklı pencere tek
+       cümlede karıştırılmaz. */
+    if (!k.kisitliMi) {
+      return g.ad + ' 1–' + gunMetni(k.gun) + ' toplamı ' + miktar(k.bu, g.birim) +
+        '; Kampanya ' + ozet.gecmis.donem.ad + ' aynı gün aralığında ' + miktar(k.gecmis, g.birim) +
+        (konum ? ' — ' + konum + '.' : '.');
+    }
+    return g.ad + ' 1–' + gunMetni(k.gun) + ' toplamı ' + miktar(k.bu, g.birim) + '. ' +
+      'Geçmiş kampanyanın kaydı ' + gunMetni(k.ortakGun) + ' bittiği için karşılaştırma o güne kadar: ' +
+      miktar(k.buOrtak, g.birim) + ' karşısında ' + miktar(k.gecmisOrtak, g.birim) +
       (konum ? ' — ' + konum + '.' : '.');
   }
 
@@ -954,8 +1007,7 @@
     if (!ozet.gecmis) {
       return { baslik: 'Sıralama için iki kampanya gerekir; şu an tek kampanya var.', satirlar: [], grafik: null };
     }
-    var K = ozet.karsilastirmaGunu;
-    var hepsi = YU.analiz.tumKarsilastirma(ozet, K);
+    var hepsi = YU.analiz.tumKarsilastirma(ozet);
     var azalanMi = c.siralama === 'azalan' || c.yon === 'azalis';
     var sirali = YU.analiz.siralaFark(hepsi, azalanMi ? 'azalan' : 'artan');
     var gecerli = [], i;
@@ -967,8 +1019,8 @@
 
     var bas = gecerli[0];
     var baslik = (azalanMi ? 'En çok düşen: ' : 'En çok artan: ') + bas.gosterge.ad + ' · ' +
-      yuzdeMetni(bas.yuzde) + ' (' + miktar(bas.gecmis, bas.gosterge.birim) + ' → ' +
-      miktar(bas.bu, bas.gosterge.birim) + '). İlk ' + YU.fmt.sayi(K) + ' günün toplamı.';
+      yuzdeMetni(bas.yuzde) + ' (' + miktar(bas.gecmisOrtak, bas.gosterge.birim) + ' → ' +
+      miktar(bas.buOrtak, bas.gosterge.birim) + '). ' + pencereNotu(bas);
 
     var satirlar = [];
     for (i = 1; i < Math.min(gecerli.length, 5); i++) {
@@ -979,7 +1031,7 @@
     return {
       baslik: baslik,
       satirlar: satirlar,
-      grafik: siraGrafigi(gecerli, (azalanMi ? 'En çok düşen' : 'En çok artan') + ' kalemler · ilk ' + YU.fmt.sayi(K) + ' gün', 8),
+      grafik: siraGrafigi(gecerli, (azalanMi ? 'En çok düşen' : 'En çok artan') + ' kalemler · ' + pencereBasligi(bas), 8),
       ikinciGrafik: karsilastirmaGrafigi(ozet, bas.gosterge, ozet.bugun.gun, true, 'Birikimli · ' + bas.gosterge.ad),
       bag: analizBagi({ bu: ozet.bu.donem.ad, karsi: ozet.gecmis.donem.ad, gosterge: bas.gosterge.kod, mod: 'birikimli' })
     };
@@ -1142,13 +1194,16 @@
 
     var satirlar = [];
     if (ozet.gecmis && veri === ozet.bu) {
-      var K = ozet.karsilastirmaGunu;
-      var buK = YU.analiz.pencere(ozet.bu, g, 1, K);
-      var gecmisK = YU.analiz.pencere(ozet.gecmis, g, 1, K);
+      /* Ortalama karşılaştırması yalnız iki kampanyada da kaydı olan günler
+         üzerinden yapılabilir; bu bir ayar değil, verinin bittiği yerdir. */
+      var ortak = ozet.ortakGun;
+      var buK = YU.analiz.pencere(ozet.bu, g, 1, ortak);
+      var gecmisK = YU.analiz.pencere(ozet.gecmis, g, 1, ortak);
       var fark = (buK.ortalama !== null && gecmisK.ortalama !== null) ? YU.yuvarla(buK.ortalama - gecmisK.ortalama) : null;
       var yuzde = YU.analiz.yuzdeFark(buK.ortalama, gecmisK.ortalama);
+      var pencereEki = ozet.kisitliMi ? ' (1–' + gunMetni(ortak) + ', geçmiş kampanyanın kaydı orada bitiyor)' : '';
       satirlar.push(satir('Kampanya ' + ozet.gecmis.donem.ad + ' ortalaması',
-        ortalamaMetni(gecmisK.ortalama, g.birim) + ' (ilk ' + YU.fmt.sayi(K) + ' gün)', 'olumsuz'));
+        ortalamaMetni(gecmisK.ortalama, g.birim) + pencereEki, 'olumsuz'));
       satirlar.push(satir('Aynı günlerde bizim ortalama', ortalamaMetni(buK.ortalama, g.birim), 'vurgu'));
       if (fark !== null) satirlar.push(satir('Fark', isaretli(fark, g.birim) + (yuzdeMetni(yuzde) ? ' · ' + yuzdeMetni(yuzde) : ''), farkTuru(fark)));
     }
@@ -1190,10 +1245,12 @@
       satirlar.push(satir(g2.ad, miktar(p2.toplam, g2.birim)));
     }
     if (ozet.gecmis && veri === ozet.bu) {
-      var K = ozet.karsilastirmaGunu;
-      var k = YU.analiz.karsilastir(ozet, g, K);
-      satirlar.push(satir('Kampanya ' + ozet.gecmis.donem.ad + ' (ilk ' + YU.fmt.sayi(K) + ' gün)',
-        miktar(k.gecmis, g.birim) + (konumMetni(k.fark, k.yuzde) ? ' · ' + konumMetni(k.fark, k.yuzde) : ''), farkTuru(k.fark)));
+      var k = YU.analiz.karsilastir(ozet, g);
+      var pencereEki = ' (1–' + gunMetni(k.kisitliMi ? k.ortakGun : k.gun) + ')';
+      satirlar.push(satir('Kampanya ' + ozet.gecmis.donem.ad + pencereEki,
+        miktar(k.gecmisOrtak, g.birim) + ' — aynı günlerde bizim ' + miktar(k.buOrtak, g.birim) +
+        (konumMetni(k.fark, k.yuzde) ? ' · ' + konumMetni(k.fark, k.yuzde) : ''), farkTuru(k.fark)));
+      if (k.kisitliMi) satirlar.push(satir('Not', pencereNotu(k)));
     }
 
     return {

@@ -137,9 +137,13 @@ dokunmaz. Beklenen rakamlar şartnamedekilerle birebir aynıdır.
 
 İlk açılışta iki kampanyalık **deterministik** örnek veri üretilir:
 
-* **Kampanya 2024/2025** — devir 16.09.2024, ilk 10 gün. Amacı: §5'teki
-  "en son devir" kuralının iki devir satırıyla gerçekten sınanması.
-* **Kampanya 2025/2026** — devir 15.09.2025, 15.09.2025 – 20.01.2026 arası tam veri.
+* **Kampanya 2025/2026** — devir 15.09.2025, 122 gün (15.09.2025 – 14.01.2026).
+  TAMAMLANMIŞ bir sezondur: Analizler ekranı bu sayede gerçek bir
+  yıl-yıla karşılaştırma yapabiliyor.
+* **Kampanya 2026/2027** — devir 22.07.2026, 30 gün; son günü bugüne denk gelir.
+
+Tohum verisinin şekli değişince `js/01-cekirdek.js` içindeki `SEMA_SURUM`
+yükseltilir; tarayıcıdaki eski kayıt geçersizleşir ve veri yeniden üretilir.
 
 Veri her yenilemede aynıdır (`Math.random()` kullanılmaz). Sıfırlamak için
 tarayıcı konsolunda:
