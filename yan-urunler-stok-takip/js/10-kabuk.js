@@ -783,13 +783,15 @@
   var RAPOR_MERKEZI = [
     { kod: 'stok-durumu', ad: 'Stok Durumu Raporu', ikon: '#ic-chart' },
     { kod: 'silo-durumu', ad: 'Silo Durumu Raporu', ikon: '#ic-building' },
-    { kod: 'gunluk-rapor', ad: 'Günlük Rapor', ikon: '#ic-doc' }
+    { kod: 'gunluk-rapor', ad: 'Günlük Rapor', ikon: '#ic-doc' },
+    { kod: 'kampanya-ozeti', ad: 'Kampanya Özeti', ikon: '#ic-calendar-dots' }   /* kullanıcı isteği, 23.08.2026 */
   ];
 
   function raporMerkeziAc() {
     var m;
     var izgara = YU.h('div', {
-      stil: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }
+      /* Dört kart: 2x2 ızgara (dördüncü kart Kampanya Özeti, 23.08.2026). */
+      stil: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }
     });
 
     for (var i = 0; i < RAPOR_MERKEZI.length; i++) {
@@ -800,7 +802,7 @@
           role: 'button', tabindex: '0', title: r.ad,
           stil: {
             display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', gap: '28px', padding: '51px 18px 44px',
+            justifyContent: 'center', gap: '22px', padding: '34px 18px 30px',
             border: '1px solid var(--kenar-2)', borderRadius: 'var(--r-l)',
             background: 'var(--yuzey)', cursor: 'pointer', textAlign: 'center',
             transition: 'background-color .12s, border-color .12s'
