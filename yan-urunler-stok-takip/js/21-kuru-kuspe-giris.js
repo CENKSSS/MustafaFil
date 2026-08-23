@@ -186,10 +186,16 @@
 
   function ayrac() { return YU.h("div", { sinif: "yu-ayrac yu-yatay" }); }
 
-  /* Ham girdi alanları operatörün tek işi: büyük yazı, rahat kutu. */
-  function buyukAlan(alan) {
+  /* Ham girdi alanları operatörün tek işi: büyük yazı, rahat kutu.
+     Sağ dolgu tek tek yazılır: "padding" kısayolu, son ek ("kg") için CSS'in
+     ayırdığı sağ boşluğu siliyor ve sayı ekin altına giriyordu (23.08.2026).
+     Uzun ek (çuval) için sağ boşluk ayrıca verilir. */
+  function buyukAlan(alan, sagBosluk) {
     alan.girdi.style.font = "500 18px/1.3 var(--sayi)";
-    alan.girdi.style.padding = "10px 12px";
+    alan.girdi.style.paddingTop = "10px";
+    alan.girdi.style.paddingBottom = "10px";
+    alan.girdi.style.paddingLeft = "12px";
+    if (sagBosluk) alan.girdi.style.paddingRight = sagBosluk;
     alan.girdi.style.fontVariantNumeric = "tabular-nums";
     return alan;
   }
@@ -338,7 +344,7 @@
       deger: kayit ? Number(kayit.CuvalAdet) : null,
       yardim: CUVAL_YARDIM,
       onInput: guncelle
-    }));
+    }), "64px");
     var cuvalYardim = cuvalAlan.kok.querySelector(".yu-yardim");
 
     var satilanAlan = buyukAlan(YU.ui.alan({
@@ -385,7 +391,7 @@
         (function (silo) {
           var a = YU.ui.alan({ tip: "sayi", sag: "kg", onInput: guncelle });
           a.girdi.setAttribute("aria-label", d.ariaAd + " · " + silo.Ad);
-          a.kok.style.flex = "1 1 120px";
+          a.kok.style.flex = "1 1 auto";
           a.kok.style.minWidth = "0";
           alanlar.push(a);
           /* Satırın sağında "Hepsini Ekle": gereken miktarın TAMAMI bu siloya
@@ -402,7 +408,8 @@
               YU.h("span", { metin: silo.Ad, stil: { font: "600 14.5px/1.2 var(--font)", color: "var(--metin)" } }),
               YU.h("span", { sinif: "yu-yardim", metin: "gün başı " + YU.fmt.kgU(gunBasi[silo.Id]), stil: { whiteSpace: "nowrap" } })
             ),
-            YU.h("div", { stil: { display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" } }, a.kok, hepsi)
+            /* Düğme kutuyla aynı satırda kalır, alta sarmaz (kullanıcı isteği). */
+            YU.h("div", { stil: { display: "flex", alignItems: "center", gap: "8px", flexWrap: "nowrap" } }, a.kok, hepsi)
           ));
         })(silolar[r]);
       }

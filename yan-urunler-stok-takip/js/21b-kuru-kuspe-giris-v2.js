@@ -434,9 +434,9 @@
             (function (d) {
               var a = YU.ui.alan({ tip: "sayi", sag: "kg", onInput: guncelle });
               a.girdi.setAttribute("aria-label", d.ariaAd + " · " + silo.Ad);
-              /* Sağına "Hepsini Ekle" düğmesi geliyor (kolonKur ekler); dar
-                 kartta düğme alt satıra sarsın diye kutu esnek, satır sarılır. */
-              a.kok.style.flex = "1 1 110px";
+              /* Sağına "Hepsini Ekle" düğmesi geliyor (kolonKur ekler); düğme
+                 kutuyla aynı satırda kalır, kutu gerekirse daralır. */
+              a.kok.style.flex = "1 1 auto";
               a.kok.style.minWidth = "0";
               alanlar[d.kod] = a;
               var etiket = YU.h("span", { sinif: "yu-silo-etiket", stil: { flex: "none" } },
@@ -446,7 +446,7 @@
                 }),
                 document.createTextNode(d.ad)
               );
-              var satirEl = YU.h("div", { sinif: "yu-silo-satir yu-silo-alan", stil: { flexWrap: "wrap" } }, etiket, a.kok);
+              var satirEl = YU.h("div", { sinif: "yu-silo-satir yu-silo-alan", stil: { flexWrap: "nowrap" } }, etiket, a.kok);
               kolonSatirlari[d.kod] = satirEl;
               girisKap.appendChild(satirEl);
             })(DAGITIM[k]);
