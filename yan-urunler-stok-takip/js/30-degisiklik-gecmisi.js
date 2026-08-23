@@ -360,15 +360,27 @@
     );
     bolumler.push(YU.h('div', {}, bolumBasligi('Künye'), kunye));
 
-    /* 2. Bu işlemde ne değişti */
-    var degisimSatirlari = [], g, gs;
+    /* 2. Bu işlemde ne değişti — okunurluk (kullanıcı isteği, 23.08.2026):
+       eski değer soluk ve üstü çizili (artık geçerli değil), yeni değer
+       kalın; alan adı belirgin. Ekle/Sil satırları ne olduğunu açık yazar. */
+    var degisimSatirlari = [], g, gs, eskiH, yeniH;
+    var degisenAlanlar = {};
     for (g = 0; g < grup.length; g++) {
       gs = grup[g];
+      if (gs.Alan) degisenAlanlar[gs.Alan] = gs;
+      eskiH = degerHucresi(gs.EskiDeger, gs.Alan);
+      if (gs.Islem === 'Guncelle' && gs.Alan) {
+        eskiH = YU.h('span', { stil: { textDecoration: 'line-through', textDecorationColor: 'var(--metin-4)', color: 'var(--metin-4)' } }, eskiH);
+      }
+      yeniH = YU.h('span', { stil: { fontWeight: '600' } }, yeniDegerHucresi(gs));
       degisimSatirlari.push([
-        YU.h('span', { metin: gs.Alan || (gs.Islem === 'Ekle' ? 'Kayıt açıldı' : (gs.Islem === 'Sil' ? 'Kayıt silindi' : '—')),
-          sinif: gs.Alan ? '' : 'yu-zayif' }),
-        degerHucresi(gs.EskiDeger, gs.Alan),
-        yeniDegerHucresi(gs)
+        YU.h('span', {
+          metin: gs.Alan || (gs.Islem === 'Ekle' ? 'Kayıt açıldı — ilk değerler' : (gs.Islem === 'Sil' ? 'Kayıt silindi — son değerler' : '—')),
+          stil: gs.Alan ? { fontWeight: '600' } : null,
+          sinif: gs.Alan ? '' : 'yu-zayif'
+        }),
+        eskiH,
+        yeniH
       ]);
     }
     bolumler.push(YU.h('div', {},
@@ -398,9 +410,17 @@
       for (a = 0; a < alanTanimlari.length; a++) {
         tanim = alanTanimlari[a];
         deger = coz.satir[tanim[0]];
+        var degerH = YU.h('span', { sinif: /kg|adet|sayi|tarih|kayit/.test(tanim[2]) ? 'yu-mono' : '', metin: alanBicimle(tanim[2], deger) });
+        /* Bu işlemde değişen alan işaretlenir; işaretsizler aynı kalmıştır
+           (kullanıcı isteği, 23.08.2026). */
+        /* Logdaki Alan, ALAN_ADI etiketidir; ham anahtar oradan çevrilerek aranır. */
+        if (degisenAlanlar[YU.log.alanAdi(tanim[0])] || degisenAlanlar[tanim[0]]) {
+          degerH = YU.h('span', { stil: { display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end', minWidth: '0' } },
+            YU.ui.rozet('Bu İşlemde Değişti', 'bekleyen'), degerH);
+        }
         mevcutSatirlar.push([
           YU.h('span', { metin: tanim[1], stil: { color: 'var(--metin-4)' } }),
-          YU.h('span', { sinif: /kg|adet|sayi|tarih|kayit/.test(tanim[2]) ? 'yu-mono' : '', metin: alanBicimle(tanim[2], deger) })
+          degerH
         ]);
       }
       mevcutSatirlar.push([
@@ -421,9 +441,15 @@
         satirlar: mevcutSatirlar, kompakt: true
       });
     }
+    var aciklamaMetni = null;
+    if (coz.bulundu) {
+      if (s.Islem === 'Guncelle') aciklamaMetni = 'Rozetli alanlar bu işlemde değişti; rozetsiz alanlar bu işlemde AYNI KALDI.';
+      else if (s.Islem === 'Ekle') aciklamaMetni = 'Kayıt bu işlemde açıldı; tüm değerler o an yazıldı.';
+    }
     bolumler.push(YU.h('div', {},
       bolumBasligi('Kaydın şu anki hâli', coz.bulundu ? null : 'kayıt yok'),
-      mevcutIcerik
+      mevcutIcerik,
+      aciklamaMetni ? YU.h('div', { sinif: 'yu-yardim', metin: aciklamaMetni, stil: { marginTop: '7px' } }) : null
     ));
 
     /* 4. Bu kaydın tüm geçmişi */

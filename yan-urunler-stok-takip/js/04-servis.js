@@ -573,6 +573,17 @@
     var mevcut = gunlukHareketBul(depo, tarih, malzemeId);
     var an = simdi(), eski;
 
+    /* Satır YOKKEN sıfır yazmak kayıt ve log çöpü üretir (kullanıcı isteği,
+       23.08.2026): etkilenmeyen malzeme iz bırakmaz. Şartname §5 toplamları
+       sıfır satırdan etkilenmez, D8 tekillik boş satırı zorunlu kılmaz.
+       Mevcut satır varsa sıfıra çekilmesi GERÇEK değişikliktir ve aşağıdaki
+       güncelleme yolunda normal loglanır. */
+    if (!mevcut &&
+        YU.yuvarla(degerler.Uretim === undefined ? 0 : degerler.Uretim) === 0 &&
+        YU.yuvarla(degerler.Satis === undefined ? 0 : degerler.Satis) === 0) {
+      return null;
+    }
+
     if (mevcut) {
       eski = { Uretim: say(mevcut.Uretim), Satis: say(mevcut.Satis) };
       if (degerler.Uretim !== undefined) mevcut.Uretim = YU.yuvarla(degerler.Uretim);
@@ -1313,6 +1324,7 @@
 
   YU.log = {
     TABLOLAR: LOGLANAN_TABLOLAR,
+    alanAdi: alanAdi,   /* ham alan anahtarı -> logdaki etiket (30-degisiklik-gecmisi rozeti kullanır) */
     yaz: logYaz,
     kayitBul: logKayitBul,
     kayitEtiketi: logKayitEtiketi,
