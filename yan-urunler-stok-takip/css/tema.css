@@ -95,9 +95,9 @@
      saydamdır ve kayan satırlar başlığın altından görünür. */
   --tablo-bas-zemin: #d2dfee;   /* mavi panel üstünde bir ton koyu şerit (23.08.2026) */
   /* Gri zemin + beyaz panel düzeni (.yu-zemin-gri) */
-  --gri-zemin:      #eef0f4;
+  --gri-zemin:      #e8ebf0;   /* #eef0f4 -> bir tık koyu (kullanıcı isteği, 23.08.2026) */
   --gri-panel:      #ffffff;
-  --gri-kenar:      #d8dde5;
+  --gri-kenar:      #d2d8e1;
   --gri-tablo-bas:  #f3f5f8;
 
   /* Tarayıcıya sayfanın temayı kendisinin yönettiğini bildirir: tarayıcının
