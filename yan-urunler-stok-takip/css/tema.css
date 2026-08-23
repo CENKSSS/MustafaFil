@@ -1771,14 +1771,24 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
 
 
 /* ==========================================================================
-   GRİ ZEMİN + BEYAZ PANEL — .yu-zemin-gri (sayfa tanımında zemin: 'gri')
-   Mavi panel denemesine alternatif (kullanıcı isteği, 23.08.2026): içerik
-   alanı açık gri, paneller ve kartlar beyaz, ince ama belirgin kenar. Koyu
-   temada panel zemin üstüne katman tonudur (gölge yok). Şimdilik Ana Sayfa.
+   ZEMİN DÜZENLERİ — .yu-zemin-gri (varsayılan) / .yu-zemin-mavi / .yu-zemin-duz
+   Kabuk, sayfa tanımındaki zemin değerini .yu-icerik sınıfına çevirir.
+   gri  : içerik alanı açık gri, paneller ve kartlar beyaz (tüm sayfalar).
+   mavi : aynı düzen, zemin kuru küspe panellerinin mavisi (Ana Sayfa denemesi,
+          kullanıcı isteği, 23.08.2026).
+   duz  : kuralsız; ortak mavi panel düzeni (Kuru Küspe Günlük Giriş).
+   Koyu temada panel zemin üstüne katman tonudur (gölge yok).
    ========================================================================== */
-.yu-icerik.yu-zemin-gri { background: var(--gri-zemin); }
+.yu-icerik.yu-zemin-gri  { background: var(--gri-zemin); }
+.yu-icerik.yu-zemin-mavi { background: color-mix(in srgb, var(--vurgu) 15%, var(--yuzey)); }
 .yu-icerik.yu-zemin-gri .yu-panel,
-.yu-icerik.yu-zemin-gri .yu-kpi { background: var(--gri-panel); border-color: var(--gri-kenar); }
-.yu-icerik.yu-zemin-gri .yu-kpi:hover { border-color: color-mix(in srgb, var(--metin-5) 45%, var(--gri-kenar)); }
-.yu-icerik.yu-zemin-gri .yu-tablo thead th { background: var(--gri-tablo-bas); }
-@media print { .yu-icerik.yu-zemin-gri { background: #fff; } }
+.yu-icerik.yu-zemin-gri .yu-kpi,
+.yu-icerik.yu-zemin-mavi .yu-panel,
+.yu-icerik.yu-zemin-mavi .yu-kpi { background: var(--gri-panel); border-color: var(--gri-kenar); }
+.yu-icerik.yu-zemin-mavi .yu-panel,
+.yu-icerik.yu-zemin-mavi .yu-kpi { border-color: color-mix(in srgb, var(--vurgu) 30%, var(--kenar)); }
+.yu-icerik.yu-zemin-gri .yu-kpi:hover,
+.yu-icerik.yu-zemin-mavi .yu-kpi:hover { border-color: color-mix(in srgb, var(--metin-5) 45%, var(--gri-kenar)); }
+.yu-icerik.yu-zemin-gri .yu-tablo thead th,
+.yu-icerik.yu-zemin-mavi .yu-tablo thead th { background: var(--gri-tablo-bas); }
+@media print { .yu-icerik.yu-zemin-gri, .yu-icerik.yu-zemin-mavi { background: #fff; } }
