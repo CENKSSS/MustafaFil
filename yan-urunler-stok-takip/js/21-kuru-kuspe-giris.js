@@ -592,7 +592,7 @@
        içindeki kutular beyaz kalır, panel sınırı böyle okunur. Hover yok. */
     function adimPaneli(govdeListesi, ekSinif) {
       var p = YU.ui.panel({ govde: govdeListesi });
-      p.className += " yu-mavi" + (ekSinif ? " " + ekSinif : "");
+      p.className += " yu-mavi yu-koyu" + (ekSinif ? " " + ekSinif : "");   /* yu-koyu: sert ton */
       return p;
     }
 
@@ -705,7 +705,7 @@
     /* ---------- 8. Bu günün kayıtlı hareketleri (yalnız varsa) ---------- */
 
     var kayitliPanel = panelGunHareketleri();
-    if (kayitliPanel) { kayitliPanel.className += " yu-mavi"; govde.appendChild(kayitliPanel); }
+    if (kayitliPanel) { kayitliPanel.className += " yu-mavi yu-koyu"; govde.appendChild(kayitliPanel); }
 
     /* ---------- Canlı hesap ---------- */
 

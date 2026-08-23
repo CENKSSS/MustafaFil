@@ -9,7 +9,6 @@
 
   var YU = window.YU;
   var KOD = 'stok-durumu';
-  var EN_COK_DILIM = 6;
 
   /* ==================================================================
      1. Küçük yardımcılar
@@ -506,82 +505,7 @@
     if (d.kirilimOk) d.kirilimOk.style.transform = acik ? 'rotate(90deg)' : '';
   }
 
-  /* ==================================================================
-     6. Sağ panel — stok dağılımı halkası
-     ================================================================== */
-
-  function dagilimPaneli(d) {
-    var ham = [], i, r, toplam = 0;
-    for (i = 0; i < d.satirlar.length; i++) {
-      r = d.satirlar[i];
-      if (r.mevcut <= 0) continue;
-      ham.push({ etiket: r.malzeme.Ad, deger: r.mevcut });
-      toplam += r.mevcut;
-    }
-    ham.sort(function (a, b) { return b.deger - a.deger; });
-
-    /* Renk seti altı seri taşıyor; fazlası tek dilimde toplanır ki iki malzeme
-       aynı rengi almasın. */
-    var dilimler = ham;
-    if (ham.length > EN_COK_DILIM) {
-      dilimler = ham.slice(0, EN_COK_DILIM - 1);
-      var kalan = 0;
-      for (i = EN_COK_DILIM - 1; i < ham.length; i++) kalan += ham[i].deger;
-      dilimler.push({ etiket: 'Diğer (' + YU.fmt.sayi(ham.length - (EN_COK_DILIM - 1)) + ' malzeme)', deger: kalan });
-    }
-    for (i = 0; i < dilimler.length; i++) dilimler[i].renk = YU.ui.seriRenk(i);
-
-    var govde = [];
-
-    if (!dilimler.length) {
-      govde.push(YU.h('div', {
-        sinif: 'yu-bos-metin',
-        stil: { padding: '28px 0', textAlign: 'center' },
-        metin: YU.fmt.tarih(d.tarih) + ' itibarıyla stokta malzeme görünmüyor.'
-      }));
-    } else {
-      var halkaKap = YU.h('div', { stil: { display: 'flex', justifyContent: 'center', padding: '4px 0 6px' } });
-      halkaKap.appendChild(YU.ui.halkaGrafik({ dilimler: dilimler, boyut: 148 }));
-      govde.push(halkaKap);
-
-      var liste = sutunKap(10);
-      for (i = 0; i < dilimler.length; i++) {
-        var satir = satirKap('center', 9);
-        satir.appendChild(YU.h('span', {
-          stil: {
-            width: '8px', height: '8px', borderRadius: '2px', flex: 'none',
-            background: dilimler[i].renk
-          }
-        }));
-        satir.appendChild(YU.h('span', {
-          metin: dilimler[i].etiket,
-          stil: {
-            flex: '1', minWidth: '0', font: '400 14px/1.35 var(--font)', color: 'var(--metin-3)',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-          }
-        }));
-        satir.appendChild(mono(YU.fmt.kg(dilimler[i].deger)));
-        satir.appendChild(YU.h('span', {
-          metin: YU.fmt.yuzde(toplam > 0 ? (dilimler[i].deger / toplam) * 100 : 0),
-          stil: { font: '400 13px/1 var(--font)', color: 'var(--metin-4)', width: '48px', textAlign: 'right', flex: 'none' }
-        }));
-        liste.appendChild(satir);
-      }
-      govde.push(liste);
-      govde.push(YU.h('div', { sinif: 'yu-ayrac yu-yatay' }));
-      govde.push(YU.h('div', {
-        sinif: 'yu-yardim',
-        metin: 'Toplam ' + YU.fmt.kgU(YU.yuvarla(toplam)) + ' · yalnızca mevcudu sıfırdan büyük malzemeler.'
-      }));
-    }
-
-    return YU.ui.panel({
-      baslik: 'Stok Dağılımı',
-      ikon: '#ic-percent',
-      sag: YU.h('span', { metin: YU.fmt.tarih(d.tarih) }),
-      govde: govde
-    });
-  }
+  /* 6. Sağ panel (Stok Dağılımı halkası) kaldırıldı — kullanıcı isteği, 23.08.2026. */
 
   /* ==================================================================
      7. Alt panel — çift sayım kontrolü (Şartname Test 6)
@@ -736,10 +660,8 @@
 
     kap.appendChild(kpiSatiri(d));
 
-    var izgara = YU.h('div', { sinif: 'yu-izgara yu-iz-yan' });
-    izgara.appendChild(tabloPaneli(d));
-    izgara.appendChild(dagilimPaneli(d));
-    kap.appendChild(izgara);
+    /* Stok Dağılımı paneli kalktı; tablo tam genişlikte (kullanıcı isteği, 23.08.2026). */
+    kap.appendChild(tabloPaneli(d));
 
     var kontrol = ciftSayimPaneli(d);
     if (kontrol) kap.appendChild(kontrol);

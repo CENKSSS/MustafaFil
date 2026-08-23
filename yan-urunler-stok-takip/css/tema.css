@@ -1759,6 +1759,16 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
   background: color-mix(in srgb, oklch(0.72 0.17 55) 9%, var(--yuzey));
   border-color: color-mix(in srgb, oklch(0.72 0.17 55) 30%, var(--kenar));
 }
+/* Sert çeşitleme (.yu-koyu): Kuru Küspe Günlük Giriş adım panelleri — soluk
+   ton silik kaldı, karışım oranı iki kat (kullanıcı isteği, 23.08.2026). */
+.yu-panel.yu-mavi.yu-koyu {
+  background: color-mix(in srgb, var(--vurgu) 15%, var(--yuzey));
+  border-color: color-mix(in srgb, var(--vurgu) 45%, var(--kenar));
+}
+.yu-panel.yu-turuncu.yu-koyu {
+  background: color-mix(in srgb, oklch(0.72 0.17 55) 19%, var(--yuzey));
+  border-color: color-mix(in srgb, oklch(0.72 0.17 55) 55%, var(--kenar));
+}
 @media print {
   .yu-panel.yu-mavi, .yu-kpi.yu-mavi, .yu-panel.yu-turuncu, .yu-kpi.yu-turuncu { background: #fff; border-color: #bbb; }
 }
