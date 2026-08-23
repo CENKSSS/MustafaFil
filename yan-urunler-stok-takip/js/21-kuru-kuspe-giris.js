@@ -318,7 +318,7 @@
     /* İki sütun (kullanıcı isteği, 23.08.2026): solda adım 1-2, sağda adım 3
        "Gün Sonu ve Kayıt" dikey dizilir ve kaydırırken yerinde kalır; Kaydet
        hep göz önünde. sagKolon adım 3 kurulunca doldurulur. */
-    var sagKolon = YU.h("div", { stil: { display: "flex", flexDirection: "column", minWidth: "0" } });
+    var sagKolon = YU.h("div", { stil: { minWidth: "0" } });   /* grid stretch: sol sütun boyunda */
     kap.appendChild(YU.h("div", {
       /* stretch: sağ panel sol sütunla aynı tavan/taban hizasında (kullanıcı isteği, 23.08.2026). */
       stil: { display: "grid", gridTemplateColumns: "minmax(0, 1120px) minmax(300px, 340px)", gap: "18px", alignItems: "stretch" }
@@ -721,8 +721,20 @@
     /* Panel sütun boyunca uzar; durum + Kaydet dibe yaslanır. */
     adim3.style.display = "flex";
     adim3.style.flexDirection = "column";
-    adim3.style.flex = "1";
-    adim3.querySelector(".yu-panel-govde").style.flex = "1";
+    /* Yapışkan (kullanıcı isteği, 23.08.2026): boy = kolon boyu, ama ekrandan
+       uzunsa ekrana sığar ve kaydırırken tepede durur; içi gerekirse kayar. */
+    adim3.style.position = "sticky";
+    adim3.style.top = "78px";
+    adim3.style.boxSizing = "border-box";
+    adim3.style.height = "min(100%, calc(100vh - 98px))";
+    var adim3Govde = adim3.querySelector(".yu-panel-govde");
+    adim3Govde.style.flex = "1";
+    adim3Govde.style.minHeight = "0";
+    /* Yer darsa yalnız silo kartları kayar; durum ve Kaydet hep görünür. */
+    siloIzgara.style.flex = "1 1 auto";
+    siloIzgara.style.minHeight = "0";
+    siloIzgara.style.overflowY = "auto";
+    siloIzgara.style.alignContent = "start";
     sagKolon.appendChild(adim3);
 
     /* ---------- 8. Bu günün kayıtlı hareketleri (yalnız varsa) ---------- */
