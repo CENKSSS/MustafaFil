@@ -633,6 +633,8 @@
     /* ---------- 6. Adım 3: Gün sonu silo durumu + kayıt (tek panel) ---------- */
 
     var netEtki = YU.h("span", { metin: "—", stil: { font: "600 20px/1 var(--sayi)", letterSpacing: "-.02em", fontVariantNumeric: "tabular-nums", color: "var(--metin)" } });
+    /* Silo bazında bugünün farkları: "Silo 1: +21 kg" (kullanıcı isteği, 23.08.2026). */
+    var netAyrinti = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "3px", font: "500 13.5px/1.45 var(--sayi)", fontVariantNumeric: "tabular-nums" } });
     var siloOzetleri = [];
     var siloIzgara = YU.h("div", { stil: { display: "grid", gridTemplateColumns: "1fr", gap: "10px" } });   /* sağ sütunda dikey */
 
@@ -640,7 +642,9 @@
       (function (silo) {
         var kapasite = Number(silo.Kapasite) || 0;
         var yuzde = YU.h("span", { sinif: "yu-yardim", metin: "—", stil: { whiteSpace: "nowrap" } });
-        var sonu = YU.h("span", { metin: "—", stil: { font: "600 20px/1 var(--sayi)", letterSpacing: "-.02em", fontVariantNumeric: "tabular-nums" } });
+        var sonu = YU.h("span", { metin: "—", stil: { font: "600 22px/1 var(--sayi)", letterSpacing: "-.02em", fontVariantNumeric: "tabular-nums" } });
+        /* Bugünün farkı: +X yeşil / −X kırmızı; 0 iken gizli (kullanıcı isteği, 23.08.2026). */
+        var fark = YU.h("span", { metin: "", stil: { display: "none", font: "600 14px/1 var(--sayi)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } });
         var cubukKap = YU.h("div");
         var kart = YU.h("div", {
           stil: {
@@ -653,15 +657,15 @@
             yuzde
           ),
           YU.h("div", { stil: { display: "flex", alignItems: "baseline", gap: "8px", flexWrap: "wrap" } },
-            YU.h("span", { sinif: "yu-mono", metin: YU.fmt.kgU(gunBasi[silo.Id]), stil: { fontSize: "14px", color: "var(--metin-3)" } }),
+            YU.h("span", { sinif: "yu-mono", metin: YU.fmt.kgU(gunBasi[silo.Id]), stil: { fontSize: "16px", color: "var(--metin-3)" } }),
             YU.h("span", { metin: "→", stil: { color: "var(--metin-5)" } }),
-            sonu
+            sonu, fark
           ),
           cubukKap,
           YU.h("div", { sinif: "yu-yardim", metin: kapasite > 0 ? "gün başı → gün sonu · kapasite " + YU.fmt.ton(kapasite) : "gün başı → gün sonu · kapasite tanımsız" })
         );
         siloIzgara.appendChild(kart);
-        siloOzetleri.push({ silo: silo, kapasite: kapasite, sonu: sonu, yuzde: yuzde, cubukKap: cubukKap });
+        siloOzetleri.push({ silo: silo, kapasite: kapasite, sonu: sonu, fark: fark, yuzde: yuzde, cubukKap: cubukKap });
       })(silolar[i]);
     }
 
@@ -675,7 +679,7 @@
     },
       YU.h("span", { metin: "Bugün silolara net etki", stil: { font: "600 13.5px/1.2 var(--font)", color: "var(--metin-2)" } }),
       netEtki,
-      YU.h("div", { sinif: "yu-yardim", metin: "giren − çıkan" })
+      netAyrinti
     ));
 
     /* ---------- 7. Durum satırı + eylemler (Adım 3'ün altı) ---------- */
@@ -859,6 +863,38 @@
         YU.bos(so.cubukKap).appendChild(dolulukCubugu(gunBasi[id], sonu, so.kapasite, sorun));
         so.yuzde.textContent = so.kapasite > 0 ? YU.fmt.yuzde(oran * 100) + " dolu" : "kapasite yok";
         so.yuzde.style.color = sorun ? "var(--olumsuz)" : "";
+
+        var f = YU.yuvarla(sonu - gunBasi[id]);
+        if (Math.abs(f) > tol) {
+          so.fark.textContent = (f > 0 ? "+" : "\u2212") + YU.fmt.kgU(Math.abs(f));
+          so.fark.style.color = f > 0 ? "var(--olumlu)" : "var(--olumsuz)";
+          so.fark.style.display = "inline";
+        } else {
+          so.fark.style.display = "none";
+        }
+      }
+
+      /* Net etki kartındaki silo satırları + toplam giren/çıkan. */
+      YU.bos(netAyrinti);
+      var toplamGiren = 0, toplamCikan = 0, degisenVar = false;
+      for (r = 0; r < siloOzetleri.length; r++) {
+        id = siloOzetleri[r].silo.Id;
+        toplamGiren += yer[id] || 0;
+        toplamCikan += (cek[id] || 0) + (sat[id] || 0);
+        var sf = YU.yuvarla((yer[id] || 0) - (cek[id] || 0) - (sat[id] || 0));
+        if (Math.abs(sf) <= tol) continue;
+        degisenVar = true;
+        netAyrinti.appendChild(YU.h("div", { stil: { display: "flex", justifyContent: "space-between", gap: "8px" } },
+          YU.h("span", { metin: siloOzetleri[r].silo.Ad + ":", stil: { color: "var(--metin-3)" } }),
+          YU.h("span", { metin: (sf > 0 ? "+" : "\u2212") + YU.fmt.kgU(Math.abs(sf)), stil: { color: sf > 0 ? "var(--olumlu)" : "var(--olumsuz)" } })));
+      }
+      if (degisenVar) {
+        netAyrinti.appendChild(YU.h("div", {
+          metin: "toplam +" + YU.fmt.kg(YU.yuvarla(toplamGiren)) + " giren \u00b7 \u2212" + YU.fmt.kg(YU.yuvarla(toplamCikan)) + " \u00e7\u0131kan",
+          stil: { font: "400 12.5px/1.4 var(--font)", color: "var(--metin-4)", marginTop: "2px" }
+        }));
+      } else {
+        netAyrinti.appendChild(YU.h("div", { metin: "bug\u00fcn de\u011fi\u015fiklik yok", sinif: "yu-yardim" }));
       }
 
       var d = h.siloNetDegisim;
