@@ -162,12 +162,28 @@
       onChange: function () { git(d, { tarih: tarihAlan.girdi.value }); }
     });
 
-    var hizli = satirKap('center', 6);
-    hizli.appendChild(YU.ui.dugme({
+    /* Gün gün gezinme — giriş ekranlarındaki üçlünün aynısı (kullanıcı
+       isteği, 23.08.2026). Sonraki Gün bugünde (ve Kampanya Sonu ile
+       gidilen ileri tarihte) pasiftir. */
+    var gezinme = satirKap('center', 6);
+    gezinme.appendChild(YU.ui.dugme({
+      metin: 'Önceki Gün', kucuk: true, tur: 'ikincil',
+      onClick: function () { git(d, { tarih: YU.tarih.ekle(d.tarih, -1) }); }
+    }));
+    gezinme.appendChild(YU.ui.dugme({
+      /* Bugün HEP tıklanabilir — bugündeyken de (kullanıcı isteği, 23.08.2026). */
       metin: 'Bugün', ikon: '#ic-calendar', kucuk: true, tur: 'ikincil',
-      pasif: d.tarih === bugun,
       onClick: function () { git(d, { tarih: bugun }); }
     }));
+    gezinme.appendChild(YU.ui.dugme({
+      metin: 'Sonraki Gün', kucuk: true, tur: 'ikincil',
+      pasif: d.tarih >= bugun,
+      baslik: d.tarih >= bugun ? 'Bugünden ileri gidilemez' : '',
+      onClick: function () { git(d, { tarih: YU.tarih.ekle(d.tarih, 1) }); }
+    }));
+
+    /* Ekrana özgü hızlı atlamalar ayrı öbekte: üçlüyle karışmasın. */
+    var hizli = satirKap('center', 6);
     hizli.appendChild(YU.ui.dugme({
       metin: 'Son Kayıtlı Gün', kucuk: true, tur: 'ikincil',
       baslik: son ? YU.fmt.tarih(son) : 'Kayıtlı gün yok',
@@ -194,6 +210,7 @@
     },
       YU.h('span', { metin: 'Tarih', stil: { font: '600 13.5px/1 var(--font)', color: 'var(--metin-2)' } }),
       tarihAlan.kok,
+      gezinme,
       hizli,
       YU.h('span', { stil: { flex: '1' } }),
       YU.ui.dugme({
