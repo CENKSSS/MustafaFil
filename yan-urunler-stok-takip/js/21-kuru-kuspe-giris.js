@@ -1043,24 +1043,53 @@
       var gunEtiketi = YU.fmt.tarih(tarih) + " " + YU.fmt.gunAdi(tarih) +
         (gecmis ? (f === 1 ? " (dün)" : " (" + YU.fmt.sayi(f) + " gün önce)") : " (bugün)");
 
-      function ozetMetni(uretilen, adet, satilan) {
-        return "üretilen dökme " + YU.fmt.kgU(uretilen) +
-          " · çuvallanan " + YU.fmt.sayi(adet) + " çuval (" + YU.fmt.kgU(YU.yuvarla(adet * YU.hesap.CUVAL_KG)) + ")" +
-          " · satılan dökme " + YU.fmt.kgU(satilan);
+      /* Özet maddeli listedir (kullanıcı isteği, 23.08.2026): üretimler
+         + YEŞİL, satış − KIRMIZI, sıfırlar nötr. Silo bilgisi verilmez. */
+      function ozetSatiri(etiket, degerMetni, isaret) {
+        var renk = isaret === "arti" ? "var(--olumlu)" : (isaret === "eksi" ? "var(--olumsuz)" : "var(--metin-3)");
+        return YU.h("div", { stil: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px" } },
+          YU.h("span", { metin: etiket, stil: { font: "400 14px/1.5 var(--font)", color: "var(--metin-2)" } }),
+          YU.h("span", { metin: degerMetni, stil: { font: "600 14.5px/1.5 var(--sayi)", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", color: renk } })
+        );
       }
 
-      /* Yeni gün: kısa onay yeterli. */
+      function ozetListesi(uretilen, adet, satilan) {
+        var u = isFinite(uretilen) ? uretilen : 0;
+        var a2 = isFinite(adet) ? adet : 0;
+        var sa = isFinite(satilan) ? satilan : 0;
+        var cuvalKg = YU.yuvarla(a2 * YU.hesap.CUVAL_KG);
+        return YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "6px" } },
+          ozetSatiri("Üretilen dökme", (u > 0 ? "+" : "") + YU.fmt.kgU(u), u > 0 ? "arti" : null),
+          ozetSatiri("Çuvallanan", (a2 > 0 ? "+" : "") + YU.fmt.sayi(a2) + " çuval (" + YU.fmt.kgU(cuvalKg) + ")", a2 > 0 ? "arti" : null),
+          ozetSatiri("Satılan dökme", (sa > 0 ? "\u2212" : "") + YU.fmt.kgU(sa), sa > 0 ? "eksi" : null)
+        );
+      }
+
+      /* Yeni gün: maddeli özet + emin misin (kullanıcı isteği, 23.08.2026). */
       if (!kayit) {
-        YU.ui.onay({
+        var mYeni;
+        mYeni = YU.ui.modal({
           baslik: gecmis ? "Geçmiş Bir Güne Kayıt Ekliyorsun" : "Kaydı Onayla",
-          tehlike: gecmis,
-          onayMetni: gecmis ? "Evet, Geçmişe Kaydet" : "Evet, Kaydet",
-          metin: gunEtiketi + " gününe kayıt yapıyorsun." +
-            (gecmis ? " DİKKAT: bu tarih bugün değil, GEÇMİŞ ÜZERİNDE işlem yapıyorsun. " : " ") +
-            ozetMetni(g.uretilenDokme, g.cuvalAdet, g.satilanDokme) + " kaydedilecek. Yeni kayıt eklenecek." +
-            (gecmis ? " Sonraki günlerin silo bakiyeleri buna göre yeniden hesaplanır." : "") +
-            " Emin misin?"
-        }).then(function (evet) { if (evet) kaydetUygula(); });
+          genislik: 440,
+          govde: [YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "10px" } },
+            YU.h("div", { metin: gunEtiketi + " gününe kayıt yapıyorsun.", stil: { font: "600 14.5px/1.5 var(--font)", color: "var(--metin)" } }),
+            gecmis ? YU.h("div", {
+              metin: "DİKKAT: bu tarih bugün değil, GEÇMİŞ ÜZERİNDE işlem yapıyorsun. Sonraki günlerin silo bakiyeleri yeniden hesaplanır.",
+              stil: { font: "600 13.5px/1.5 var(--font)", color: "var(--olumsuz)" }
+            }) : null,
+            YU.h("div", { stil: { padding: "10px 12px", border: "1px solid var(--kenar)", borderRadius: "var(--r)", background: "var(--yuzey-2)" } },
+              ozetListesi(g.uretilenDokme, g.cuvalAdet, g.satilanDokme)),
+            YU.h("div", { metin: "Yeni kayıt eklenecek. Emin misin?", stil: { font: "400 14px/1.55 var(--font)", color: "var(--metin-2)" } })
+          )],
+          dugmeler: [
+            { metin: "Vazgeç" },
+            {
+              metin: gecmis ? "Evet, Geçmişe Kaydet" : "Evet, Kaydet",
+              tur: gecmis ? "tehlike" : "birincil",
+              onClick: function () { mYeni.kapat(); kaydetUygula(); }
+            }
+          ]
+        });
         return;
       }
 
@@ -1073,8 +1102,8 @@
         return YU.h("div", {
           stil: { padding: "10px 12px", border: "1px solid var(--kenar)", borderRadius: "var(--r)", background: "var(--yuzey-2)" }
         },
-          YU.h("div", { metin: baslikMetni, stil: { font: "600 13px/1.4 var(--font)", color: renk || "var(--metin-3)", marginBottom: "3px" } }),
-          YU.h("div", { metin: icerik, stil: { font: "500 14px/1.5 var(--sayi)", color: "var(--metin)", fontVariantNumeric: "tabular-nums" } })
+          YU.h("div", { metin: baslikMetni, stil: { font: "600 13px/1.4 var(--font)", color: renk || "var(--metin-3)", marginBottom: "6px" } }),
+          icerik
         );
       }
 
@@ -1102,8 +1131,8 @@
           metin: "DİKKAT: bu tarih bugün değil, GEÇMİŞ ÜZERİNDE işlem yapıyorsun. Sonraki günlerin silo bakiyeleri yeniden hesaplanır.",
           stil: { font: "600 13.5px/1.5 var(--font)", color: "var(--olumsuz)" }
         }) : null,
-        veriBlogu("Kayıtlı veriler — SİLİNECEK", ozetMetni(Number(kayit.UretilenDokme) || 0, Number(kayit.CuvalAdet) || 0, Number(kayit.SatilanDokme) || 0), "var(--olumsuz)"),
-        veriBlogu("Senin girdiklerin — YERİNE YAZILACAK", ozetMetni(g.uretilenDokme, g.cuvalAdet, g.satilanDokme), "var(--olumlu)"),
+        veriBlogu("Kayıtlı veriler — SİLİNECEK", ozetListesi(Number(kayit.UretilenDokme) || 0, Number(kayit.CuvalAdet) || 0, Number(kayit.SatilanDokme) || 0), "var(--olumsuz)"),
+        veriBlogu("Senin girdiklerin — YERİNE YAZILACAK", ozetListesi(g.uretilenDokme, g.cuvalAdet, g.satilanDokme), "var(--olumlu)"),
         YU.h("div", {
           metin: "O güne ait eski silo hareketleri de silinip yenileri yazılacak. Kabul ediyor musun, emin misin?",
           stil: { font: "400 14px/1.55 var(--font)", color: "var(--metin-2)" }
