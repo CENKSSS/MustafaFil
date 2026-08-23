@@ -180,7 +180,7 @@
 
   function adimBasligi(no, yon, baslik, sag) {
     var r = ADIM_RENK[yon] || ADIM_RENK.notr;
-    return YU.h("div", { stil: { display: "flex", alignItems: "center", gap: "12px", paddingBottom: "12px", borderBottom: "1px solid var(--ayrac)" } },
+    return YU.h("div", { stil: { display: "flex", alignItems: "center", gap: "12px", paddingBottom: "9px", borderBottom: "1px solid var(--ayrac)" } },
       YU.h("span", {
         metin: String(no),
         stil: {
@@ -201,11 +201,11 @@
 
   /* Adım gövdesi: sol sütun rakamlar (1 pay), sağ sütun dağıtım (2 pay, gri kutu). */
   function ikiSutun(solBaslik, sol, sagBaslik, sag) {
-    var solKol = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "14px", minWidth: "0", paddingRight: "22px" } }, altEtiket(solBaslik), sol);
+    var solKol = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "10px", minWidth: "0", paddingRight: "22px" } }, altEtiket(solBaslik), sol);
     var sagKol = YU.h("div", {
       stil: {
-        display: "flex", flexDirection: "column", gap: "12px", minWidth: "0",
-        padding: "14px 18px 16px", background: "var(--yuzey)",
+        display: "flex", flexDirection: "column", gap: "9px", minWidth: "0",
+        padding: "11px 16px 12px", background: "var(--yuzey)",
         border: "1px solid var(--kenar)", borderRadius: "var(--r)"
       }
     }, altEtiket(sagBaslik), sag);
@@ -243,8 +243,8 @@
      Uzun ek (çuval) için sağ boşluk ayrıca verilir. */
   function buyukAlan(alan, sagBosluk) {
     alan.girdi.style.font = "500 19px/1.3 var(--sayi)";
-    alan.girdi.style.paddingTop = "11px";
-    alan.girdi.style.paddingBottom = "11px";
+    alan.girdi.style.paddingTop = "9px";
+    alan.girdi.style.paddingBottom = "9px";
     alan.girdi.style.paddingLeft = "12px";
     if (sagBosluk) alan.girdi.style.paddingRight = sagBosluk;
     alan.girdi.style.fontVariantNumeric = "tabular-nums";
@@ -535,7 +535,7 @@
 
       /* display değerleri açıkça yazılır ("" değil): inline display kuruluyor,
          "" yazmak onu siler ve blok düz akışa düşer. */
-      var kok = YU.h("div", { stil: { display: d.hepGoster ? "flex" : "none", flexDirection: "column", gap: "12px" } },
+      var kok = YU.h("div", { stil: { display: d.hepGoster ? "flex" : "none", flexDirection: "column", gap: "9px" } },
         basSatir, aciklama, kutuIzgara, dugmeSatiri);
 
       function tazele(yeniGereken, bosMetin, aciklamaMetni) {
@@ -607,12 +607,15 @@
        içindeki kutular beyaz kalır, panel sınırı böyle okunur. Hover yok. */
     function adimPaneli(govdeListesi, ekSinif) {
       var p = YU.ui.panel({ govde: govdeListesi });
+      /* Dikey sıkılaştırma (kullanıcı isteği, 23.08.2026): yazı boyutları aynı,
+         yalnız boşluklar kısaldı. */
+      p.querySelector(".yu-panel-govde").style.gap = "10px";
       if (ekSinif) p.className += " " + ekSinif;
       return p;
     }
 
     function rakamYigini() {
-      var kap = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "14px" } });
+      var kap = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "10px" } });
       for (var a = 0; a < arguments.length; a++) kap.appendChild(arguments[a].kok);
       return kap;
     }
