@@ -1163,6 +1163,12 @@ button.yu-efsane-oge:hover { background: var(--yuzey-3); border-color: var(--ken
   .yu-tablo-sar.yu-yapiskan thead th { top: 58px; }   /* daralan üst şerit */
 }
 
+/* Yapışkan tablonun İÇİNE gömülü tablo yapışmaz (Stok Durumu silo kırılımı):
+   üstteki torun seçici iç tablonun başlığını da yakalayıp kendi satırlarının
+   üstüne bindiriyordu (kullanıcı bildirimi, 23.08.2026). Daha özgül seçici
+   sıradan bağımsız kazanır. */
+.yu-tablo-sar.yu-yapiskan .yu-tablo-sar thead th { position: static; top: auto; }
+
 /* Dar ekranda geniş tablolar yatay kaymak zorunda; kaydırma kabı sticky'yi
    bozduğu için yapışkanlıktan vazgeçilir, kayan tabloya geri dönülür.
    !important: 10-kabuk'un inline overflowX: visible değerini ezmek için. */

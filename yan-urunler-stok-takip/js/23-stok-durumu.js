@@ -148,23 +148,19 @@
   }
 
   /* ==================================================================
-     3. Üst blok — tarih seçici ve hızlı seçimler
+     3. Tarih şeridi — Kuru Küspe / Malzeme Girişi ekranlarıyla aynı dil
+     (kullanıcı isteği, 23.08.2026: giriş ve takip ekranları aynı aileden)
      ================================================================== */
 
-  function ustPanel(d) {
+  function tarihSeridi(d) {
     var bugun = YU.tarih.bugun();
-
-    var tarihAlan = YU.ui.alan({
-      etiket: 'Stok Tarihi',
-      tip: 'tarih',
-      deger: d.tarih,
-      genislik: 178,
-      yardim: YU.fmt.gunAdi(d.tarih) + ' · Tarih ≤ seçilen gün',
-      onChange: function () { git(d, { tarih: tarihAlan.girdi.value }); }
-    });
-
     var son = sonKayitliGun();
     var kampanya = kampanyaSonu();
+
+    var tarihAlan = YU.ui.alan({
+      tip: 'tarih', deger: d.tarih, genislik: '158px',
+      onChange: function () { git(d, { tarih: tarihAlan.girdi.value }); }
+    });
 
     var hizli = satirKap('center', 6);
     hizli.appendChild(YU.ui.dugme({
@@ -173,184 +169,47 @@
       onClick: function () { git(d, { tarih: bugun }); }
     }));
     hizli.appendChild(YU.ui.dugme({
-      metin: 'Son Kayıtlı Gün', kucuk: true, tur: 'sade',
+      metin: 'Son Kayıtlı Gün', kucuk: true, tur: 'ikincil',
       baslik: son ? YU.fmt.tarih(son) : 'Kayıtlı gün yok',
       pasif: !son || d.tarih === son,
       onClick: function () { git(d, { tarih: son }); }
     }));
     hizli.appendChild(YU.ui.dugme({
-      metin: 'Kampanya Sonu', kucuk: true, tur: 'sade',
+      metin: 'Kampanya Sonu', kucuk: true, tur: 'ikincil',
       baslik: kampanya ? YU.fmt.tarih(kampanya) : 'Kampanya Tanımlı Değil',
       pasif: !kampanya || d.tarih === kampanya,
       onClick: function () { git(d, { tarih: kampanya }); }
     }));
 
-    var sol = satirKap('flex-end', 14);
-    sol.appendChild(tarihAlan.kok);
-    sol.appendChild(YU.h('div', { stil: { paddingBottom: '4px' } }, hizli));
+    /* Şartname §5 kuralı rozetin ipucunda: Tarih <= seçilen gün. */
+    var rozet = YU.ui.rozet(YU.fmt.tarih(d.tarih) + ' itibarıyla', 'notr');
+    rozet.title = 'Seçilen güne kadarki tüm hareketler ve en son devir stok hesaba katılır (Şartname §5).';
 
-    var sag = sutunKap(5);
-    sag.appendChild(YU.h('div', {
-      stil: { font: '500 15.5px/1.3 var(--font)', color: 'var(--metin)' },
-      metin: YU.fmt.tarihUzun(d.tarih) + ' tarihi itibarıyla'
-    }));
-    sag.appendChild(YU.h('div', {
-      sinif: 'yu-yardim',
-      metin: 'Seçilen güne kadarki tüm hareketler ve en son devir stok hesaba katılır (Şartname §5).'
-    }));
-
-    var satir = satirKap('flex-end', 18);
-    satir.style.justifyContent = 'space-between';
-    satir.appendChild(sol);
-    satir.appendChild(sag);
-
-    return YU.ui.panel({ govde: satir });
-  }
-
-  /* ==================================================================
-     4. KPI satırı
-     ================================================================== */
-
-  /* ------------------------------------------------------------------
-     Ana Sayfa'daki stok kartlarının aynısı (kullanıcı isteği, 21.08.2026):
-     kart üreticileri 20-anasayfa'dan kopyalandı; tek fark rakamların bugüne
-     değil, bu ekranın SEÇİLİ TARİHİNE göre hesaplanması — yoksa "Stok
-     Tarihi" seçici kartlara işlemezdi.
-     ------------------------------------------------------------------ */
-
-  var TREND_GUN = 7;
-  var POSET_DESEN = /25/;
-  var TONLUK_NOTU = 'Tonluk büyük torbanın kaç kg olduğu şartnamede belirtilmemiş; ' +
-    'bu yüzden tonluk için adet gösterilmiyor.';
-
-  function kisaAd(ad) {
-    var m = /\(([^)]+)\)/.exec(String(ad || ''));
-    return m ? m[1] : String(ad || '');
-  }
-
-  function degisim(yeni, eski) {
-    if (!isFinite(yeni) || !isFinite(eski) || eski === 0) return null;
-    var oran = ((yeni - eski) / Math.abs(eski)) * 100;
-    if (Math.abs(oran) < 0.05) return 'değişim yok';
-    return (oran > 0 ? '+' : '−') + YU.fmt.yuzde(Math.abs(oran), 1);
-  }
-
-  function birimEki(metin) {
-    return YU.h('span', {
-      metin: metin,
-      stil: { font: '400 13px/1 var(--font)', letterSpacing: 'normal', color: 'var(--metin-4)' }
-    });
-  }
-
-  function degerSatiri(cocuklar) {
     return YU.h('div', {
-      sinif: 'yu-kpi-deger',
-      stil: { display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: '6px', rowGap: '3px' }
-    }, cocuklar);
-  }
-
-  function detaySayi(metin) {
-    return YU.h('span', {
-      metin: metin,
-      stil: { fontFamily: 'var(--sayi)', fontWeight: '600', fontVariantNumeric: 'tabular-nums', color: 'var(--metin-2)' }
-    });
-  }
-
-  function kpiKarti(sx) {
-    return YU.h('div', { sinif: 'yu-kpi', title: sx.ipucu || null },
-      YU.h('div', { sinif: 'yu-kpi-bas' },
-        YU.h('div', { sinif: 'yu-kpi-ikon' }, sx.ikon ? YU.svg(sx.ikon, 15) : null),
-        YU.h('div', { sinif: 'yu-kpi-etiket', metin: sx.etiket || '' })
-      ),
-      sx.deger,
-      sx.alt || null
-    );
-  }
-
-  function yasDetayi(yasSatirlar) {
-    if (!yasSatirlar.length) {
-      return YU.h('div', { sinif: 'yu-kpi-alt', metin: 'Tanımlı yaş küspe malzemesi yok.' });
-    }
-    var parcalar = [], i, ad, kg;
-    for (i = 0; i < yasSatirlar.length; i++) {
-      ad = kisaAd(yasSatirlar[i].malzeme.Ad);
-      kg = Number(yasSatirlar[i].mevcut) || 0;
-      if (i) parcalar.push(' · ');
-      parcalar.push(ad + ' ', detaySayi(YU.fmt.kg(kg)), ' kg');
-      if (POSET_DESEN.test(ad)) {
-        parcalar.push(' / ', detaySayi(YU.fmt.sayi(Math.round(kg / YU.hesap.POSET_KG))), ' adet poşet');
+      stil: {
+        display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap',
+        padding: '8px 14px', background: 'var(--yuzey-2)',
+        border: '1px solid var(--kenar)', borderRadius: 'var(--r)'
       }
-    }
-    return YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '4px' } },
-      YU.h('div', { stil: { font: '400 12.5px/1.5 var(--font)', color: 'var(--metin-4)' } }, parcalar),
-      YU.h('div', { sinif: 'yu-kpi-alt', metin: '1 poşet ' + YU.fmt.sayi(YU.hesap.POSET_KG) + ' kg küspe' })
+    },
+      YU.h('span', { metin: 'Tarih', stil: { font: '600 13.5px/1 var(--font)', color: 'var(--metin-2)' } }),
+      tarihAlan.kok,
+      hizli,
+      YU.h('span', { stil: { flex: '1' } }),
+      YU.ui.dugme({
+        metin: 'Silo Durumu', ikon: '#ic-building', tur: 'ikincil', kucuk: true,
+        onClick: function () { YU.git('silo-durumu', { tarih: d.tarih }); }
+      }),
+      YU.ui.dugme({
+        metin: 'Günlük Rapor', ikon: '#ic-doc', tur: 'ikincil', kucuk: true,
+        onClick: function () { YU.git('gunluk-rapor', { tarih: d.tarih }); }
+      }),
+      rozet
     );
   }
 
-  function kpiSatiri(d) {
-    var toplam = 0, sayilan = 0, yasSatirlar = [], yasKuspe = 0, dokme = null, cuval = null, i, r;
-
-    for (i = 0; i < d.tumSatirlar.length; i++) {
-      r = d.tumSatirlar[i];
-      /* Pasif malzeme yeni hareket almaz ama stoğu duruyorsa toplamdan
-         düşmez — aksi hâlde ekrandaki toplam gerçeği eksik gösterir. */
-      if (r.malzeme.Aktif !== false || r.mevcut !== 0) { toplam += r.mevcut; sayilan++; }
-      if (r.malzeme.OzelTip === 'DokmeKuruKuspe') dokme = r;
-      if (r.malzeme.OzelTip === 'CuvalKuruKuspe') cuval = r;
-      if (yasKuspeMi(r.malzeme)) { yasSatirlar.push(r); yasKuspe += r.mevcut; }
-    }
-
-    var siloDolu = 0, siloKapasite = 0;
-    for (i = 0; i < d.silolar.length; i++) {
-      siloDolu += d.silolar[i].mevcut;
-      siloKapasite += d.silolar[i].kapasite;
-    }
-    var doluluk = siloKapasite > 0 ? siloDolu / siloKapasite : 0;
-
-    var dokmeToplam = dokme ? Number(dokme.mevcut) || 0 : 0;
-    var oncekiDokme = YU.stok.dokmeToplam(YU.db, YU.tarih.ekle(d.tarih, -TREND_GUN));
-    var trend = degisim(dokmeToplam, oncekiDokme);
-
-    var cuvalMevcut = cuval ? Number(cuval.mevcut) || 0 : 0;
-    var cuvalAdet = Math.round(cuvalMevcut / YU.hesap.CUVAL_KG);
-
-    var izgara = YU.h('div', { sinif: 'yu-izgara yu-iz-4' });
-
-    izgara.appendChild(YU.ui.kpi({
-      etiket: 'Toplam Stok', ikon: '#ic-chart',
-      deger: YU.fmt.kgU(YU.yuvarla(toplam)),
-      alt: YU.fmt.sayi(sayilan) + ' malzeme · ' + YU.fmt.tarih(d.tarih) + ' itibarıyla'
-    }));
-
-    izgara.appendChild(YU.ui.kpi({
-      etiket: 'Toplam Dökme Kuru Küspe', ikon: '#ic-building',
-      deger: YU.fmt.kgU(dokmeToplam),
-      alt: YU.fmt.sayi(d.silolar.length) + ' silo · ' + YU.fmt.yuzde(doluluk * 100, 1) + ' dolu' +
-        (trend ? ' · ' + TREND_GUN + ' günde ' + trend : '')
-    }));
-
-    izgara.appendChild(kpiKarti({
-      etiket: 'Çuvallı Kuru Küspe', ikon: '#ic-wallet',
-      deger: degerSatiri([
-        YU.h('span', { metin: YU.fmt.kg(cuvalMevcut) }), birimEki('kg'),
-        birimEki('/'),
-        YU.h('span', { metin: YU.fmt.sayi(cuvalAdet) }), birimEki('adet çuval')
-      ]),
-      alt: YU.h('div', {
-        sinif: 'yu-kpi-alt',
-        metin: '1 çuval ' + YU.fmt.sayi(YU.hesap.CUVAL_KG) + ' kg küspe'
-      })
-    }));
-
-    izgara.appendChild(kpiKarti({
-      etiket: 'Yaş Küspe Stoğu', ikon: '#ic-chart',
-      ipucu: TONLUK_NOTU,
-      deger: degerSatiri([YU.h('span', { metin: YU.fmt.kg(YU.yuvarla(yasKuspe)) }), birimEki('kg')]),
-      alt: yasDetayi(yasSatirlar)
-    }));
-
-    return izgara;
-  }
+  /* 4. KPI kartları kaldırıldı — kullanıcı isteği, 23.08.2026 ("kartları
+     kaldır"). Aynı rakamlar Ana Sayfa kartlarında ve alttaki tabloda var. */
 
   /* ==================================================================
      5. Ana tablo — malzeme bazında devir / üretim / satış / mevcut
@@ -631,21 +490,21 @@
     };
     var i, r;
 
-    YU.ui.sayfaEylemleri(
-      YU.ui.dugme({
-        metin: 'Silo Durumu', ikon: '#ic-building', tur: 'ikincil',
-        onClick: function () { YU.git('silo-durumu', { tarih: d.tarih }); }
-      }),
-      YU.ui.dugme({
-        metin: 'Günlük Rapor', ikon: '#ic-doc', tur: 'sade',
-        onClick: function () { YU.git('gunluk-rapor', { tarih: d.tarih }); }
-      })
-    );
+    /* Silo Durumu / Günlük Rapor sayfa başlığından tarih şeridine taşındı —
+       Kuru Küspe ve Malzeme Girişi'ndeki düzenin aynısı. */
+    YU.ui.sayfaEylemleri();
 
-    kap.appendChild(ustPanel(d));
+    /* Geniş ekranda panel gereksiz büyümesin: giriş ekranlarıyla aynı
+       genişlik sınırı (1478px), sol hizalı. */
+    var govde = YU.h('div', {
+      stil: { display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '1478px', minWidth: '0' }
+    });
+    kap.appendChild(govde);
+
+    govde.appendChild(tarihSeridi(d));
 
     if (!veriVarMi()) {
-      kap.appendChild(bosDurumPaneli(d));
+      govde.appendChild(bosDurumPaneli(d));
       return;
     }
 
@@ -658,17 +517,16 @@
       d.satirlar.push(r);
     }
 
-    kap.appendChild(kpiSatiri(d));
-
-    /* Stok Dağılımı paneli kalktı; tablo tam genişlikte (kullanıcı isteği, 23.08.2026). */
-    kap.appendChild(tabloPaneli(d));
+    /* KPI kartları kalktı (kullanıcı isteği, 23.08.2026); tablo en üstte. */
+    govde.appendChild(tabloPaneli(d));
 
     var kontrol = ciftSayimPaneli(d);
-    if (kontrol) kap.appendChild(kontrol);
+    if (kontrol) govde.appendChild(kontrol);
   }
 
   YU.sayfaTanimla({
     kod: KOD,
+    zemin: 'gri-duz',   /* giriş ekranlarıyla aynı: gri zemin, mavi panel */
     baslik: 'Stok Durumu',
     altBaslik: function (param) {
       var t = gecerliTarih(param && param.tarih) ? param.tarih : YU.tarih.bugun();
