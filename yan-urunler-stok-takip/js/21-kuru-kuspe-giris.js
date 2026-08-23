@@ -312,7 +312,9 @@
     /* Sayfa içeriği kabuğun kalıcı kabına değil, her çizimde yeniden kurulan
        bu sarmalayıcıya konur: Ctrl+Enter dinleyicisi de onunla birlikte ölür,
        ekranlar arasında gezinirken birikmez. */
-    var govde = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "18px" } });
+    /* Geniş ekranda paneller gereksiz büyüyordu; sayfa genişliği sınırlanır
+       (kullanıcı isteği, 23.08.2026). Sol hizalı: başlıkla aynı akış. */
+    var govde = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "18px", maxWidth: "1120px" } });
     kap.appendChild(govde);
 
     /* ---------- 1. Üzerine yazma uyarısı (Şartname §7, v2) ---------- */
