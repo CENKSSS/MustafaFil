@@ -1068,18 +1068,27 @@
     return cip;
   }
 
+  /* Düğme ikonu o anki temayı anlatır: açıkta güneş (#ic-gear), koyuda hilal
+     (#ic-moon) — kullanıcı isteği, 23.08.2026. Sistem seçiliyken etkin tema esas. */
+  function temaIkonu() {
+    return YU.svg(YU.tema.etkin() === 'koyu' ? '#ic-moon' : '#ic-gear', 14);
+  }
+
   function temaDugmesi() {
     var etiket = YU.h('span', { metin: temaAdi() });
+    var ikonKap = YU.h('span', { stil: { display: 'flex' } }, temaIkonu());
     dom.temaEtiket = etiket;
+    dom.temaIkon = ikonKap;
     var d = YU.h('button', {
       tip: 'button', sinif: 'yu-tema-dugme', title: 'Temayı değiştir (açık / koyu)',
       onClick: function () { YU.tema.cevir(); }
-    }, YU.svg('#ic-gear', 14), etiket);
+    }, ikonKap, etiket);
     return d;
   }
 
   function temaDugmesiTazele() {
     if (dom.temaEtiket) dom.temaEtiket.textContent = temaAdi();
+    if (dom.temaIkon) YU.bos(dom.temaIkon).appendChild(temaIkonu());
   }
 
   /* --- üst şerit uyarı (ünlem) ve son hareket (zil) düğmeleri ---
