@@ -854,9 +854,12 @@
     var tablo = YU.ui.tablo({
       sutunlar: [
         { baslik: 'Malzeme' },
+        /* Üretim ve satış, kampanya başı devirden bugüne BİRİKİMLİ toplamdır
+           (YU.stok.tumMalzemeler, Şartname §5); başlık bunu açıkça söyler
+           (kullanıcı isteği, 23.08.2026). */
         { baslik: 'Devir (Kg)', hiza: 'sag', mono: true, genislik: 132 },
-        { baslik: 'Üretim (Kg)', hiza: 'sag', mono: true, genislik: 132 },
-        { baslik: 'Satış (Kg)', hiza: 'sag', mono: true, genislik: 132 },
+        { baslik: 'Toplam Üretim (Kg)', hiza: 'sag', mono: true, genislik: 160 },
+        { baslik: 'Toplam Satış (Kg)', hiza: 'sag', mono: true, genislik: 150 },
         { baslik: 'Mevcut (Kg)', hiza: 'sag', mono: true, genislik: 142 }
       ],
       satirlar: satirlar,
