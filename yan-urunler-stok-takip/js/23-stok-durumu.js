@@ -77,10 +77,8 @@
     return l.length ? l[0].tarih : null;      /* liste yeniden eskiye sıralı */
   }
 
-  function kampanyaSonu() {
-    var don = YU.donem.aktif();
-    return don ? don.bit : null;
-  }
+  /* "Kampanya Sonu" kısayolu kaldırıldı (kullanıcı isteği, 23.08.2026):
+     şartnamede böyle bir düğme talebi yok, §5 yalnız tarih seçimini ister. */
 
   function veriVarMi() {
     var db = YU.db;
@@ -155,7 +153,6 @@
   function tarihSeridi(d) {
     var bugun = YU.tarih.bugun();
     var son = sonKayitliGun();
-    var kampanya = kampanyaSonu();
 
     var tarihAlan = YU.ui.alan({
       tip: 'tarih', deger: d.tarih, genislik: '158px',
@@ -163,8 +160,7 @@
     });
 
     /* Gün gün gezinme — giriş ekranlarındaki üçlünün aynısı (kullanıcı
-       isteği, 23.08.2026). Sonraki Gün bugünde (ve Kampanya Sonu ile
-       gidilen ileri tarihte) pasiftir. */
+       isteği, 23.08.2026). Sonraki Gün bugünde pasiftir. */
     var gezinme = satirKap('center', 6);
     gezinme.appendChild(YU.ui.dugme({
       metin: 'Önceki Gün', kucuk: true, tur: 'ikincil',
@@ -182,19 +178,13 @@
       onClick: function () { git(d, { tarih: YU.tarih.ekle(d.tarih, 1) }); }
     }));
 
-    /* Ekrana özgü hızlı atlamalar ayrı öbekte: üçlüyle karışmasın. */
+    /* Ekrana özgü hızlı atlama ayrı öbekte: üçlüyle karışmasın. */
     var hizli = satirKap('center', 6);
     hizli.appendChild(YU.ui.dugme({
       metin: 'Son Kayıtlı Gün', kucuk: true, tur: 'ikincil',
       baslik: son ? YU.fmt.tarih(son) : 'Kayıtlı gün yok',
       pasif: !son || d.tarih === son,
       onClick: function () { git(d, { tarih: son }); }
-    }));
-    hizli.appendChild(YU.ui.dugme({
-      metin: 'Kampanya Sonu', kucuk: true, tur: 'ikincil',
-      baslik: kampanya ? YU.fmt.tarih(kampanya) : 'Kampanya Tanımlı Değil',
-      pasif: !kampanya || d.tarih === kampanya,
-      onClick: function () { git(d, { tarih: kampanya }); }
     }));
 
     /* Şartname §5 kuralı rozetin ipucunda: Tarih <= seçilen gün. */
