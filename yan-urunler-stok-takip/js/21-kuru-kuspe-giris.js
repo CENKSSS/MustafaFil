@@ -481,7 +481,7 @@
           kutuIzgara.appendChild(YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "6px", minWidth: "0" } },
             YU.h("div", { stil: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" } },
               YU.h("span", { metin: silo.Ad, stil: { font: "600 13.5px/1.2 var(--font)", color: "var(--metin-2)" } }),
-              YU.h("span", { sinif: "yu-yardim", metin: "gün başı " + YU.fmt.kgU(gunBasi[silo.Id]), stil: { whiteSpace: "nowrap" } })
+              YU.h("span", { metin: "gün başı " + YU.fmt.kgU(gunBasi[silo.Id]), stil: { whiteSpace: "nowrap", font: "400 14px/1.4 var(--font)", color: "var(--metin-3)" } })   /* yu-yardim 13px idi; büyütüldü (kullanıcı isteği, 23.08.2026) */
             ),
             a.kok
           ));
