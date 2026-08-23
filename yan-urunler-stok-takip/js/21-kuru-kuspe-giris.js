@@ -315,7 +315,13 @@
     /* Geniş ekranda paneller gereksiz büyüyordu; sayfa genişliği sınırlanır
        (kullanıcı isteği, 23.08.2026). Sol hizalı: başlıkla aynı akış. */
     var govde = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "18px", maxWidth: "1120px" } });
-    kap.appendChild(govde);
+    /* İki sütun: solda adımlar, sağda kaydırırken yerinde duran Gün Fişi
+       (kullanıcı isteği, 23.08.2026). Dar ekranda fiş alta iner. */
+    var fis = fisKur();
+    var fisKolon = YU.h("div", { stil: { position: "sticky", top: "78px", minWidth: "0" } }, fis.kok);
+    kap.appendChild(YU.h("div", {
+      stil: { display: "grid", gridTemplateColumns: "minmax(0, 1120px) minmax(272px, 320px)", gap: "18px", alignItems: "start" }
+    }, govde, fisKolon));
 
     /* ---------- 1. Üzerine yazma uyarısı (Şartname §7, v2) ---------- */
 
@@ -830,6 +836,96 @@
       durumListe.style.display = maddeler && maddeler.length ? "block" : "none";
     }
 
+    /* ---------- Gün Fişi — yazarken güncellenen makbuz ----------
+       Hesap YU.hesap'tan gelir; burada yalnız yazılır. Satırlar: ham girdi,
+       net dökme üretim ve silo kırılımı, çekişler, net etki, gün sonu. */
+
+    function fisKur() {
+      var satirStil = { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "10px", font: "400 13.5px/1.5 var(--font)", color: "var(--metin-2)" };
+      var degerStil = { font: "500 13.5px/1.5 var(--sayi)", fontVariantNumeric: "tabular-nums", color: "var(--metin)", whiteSpace: "nowrap" };
+      var altStil = { font: "400 12.5px/1.4 var(--font)", color: "var(--metin-4)", paddingLeft: "14px" };
+
+      function cizgi() { return YU.h("div", { stil: { borderTop: "1px dashed var(--kenar-3)", margin: "4px 0" } }); }
+      function satir(etiket, kalin) {
+        var deger = YU.h("span", { metin: "—", stil: degerStil });
+        var kok = YU.h("div", { stil: satirStil }, YU.h("span", { metin: etiket }), deger);
+        if (kalin) { kok.style.color = "var(--metin)"; kok.style.fontWeight = "600"; deger.style.fontWeight = "700"; }
+        return { kok: kok, deger: deger };
+      }
+
+      var ham = satir("Üretilen dökme (ham)");
+      var cuval = satir("Çuvallanan");
+      var net = satir("Siloya giren (net)", true);
+      var netKirilim = YU.h("div", { stil: altStil });
+      var cekis = satir("Çuvallama için çekilen");
+      var cekisKirilim = YU.h("div", { stil: altStil });
+      var satis = satir("Dökme satış");
+      var satisKirilim = YU.h("div", { stil: altStil });
+      var etki = satir("Silolara net etki", true);
+      var gunSonu = satir("Silolarda gün sonu");
+      var cuvalli = satir("Çuvallı kuru küspe üretimi");
+      var durum = YU.h("div", { stil: { font: "600 13.5px/1.4 var(--font)", marginTop: "2px" } });
+
+      var govde = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "3px" } },
+        ham.kok, cuval.kok, cizgi(),
+        net.kok, netKirilim, cekis.kok, cekisKirilim, satis.kok, satisKirilim, cizgi(),
+        etki.kok, gunSonu.kok, cizgi(),
+        cuvalli.kok, durum
+      );
+
+      var kok = YU.ui.panel({
+        baslik: "Gün Fişi", ikon: "#ic-doc",
+        sag: YU.h("span", { metin: YU.fmt.tarih(tarih) }),
+        govde: [govde]
+      });
+
+      function kirilimYaz(el, satirlar, ok) {
+        YU.bos(el);
+        var var_ = false, k, m, ad;
+        for (k = 0; k < satirlar.length; k++) {
+          m = YU.yuvarla(satirlar[k].miktar);
+          if (!isFinite(m) || m <= 0) continue;
+          ad = null;
+          for (var j = 0; j < silolar.length; j++) if (silolar[j].Id === satirlar[k].siloId) ad = silolar[j].Ad;
+          el.appendChild(YU.h("div", { stil: { display: "flex", justifyContent: "space-between", gap: "8px" } },
+            YU.h("span", { metin: ok + " " + (ad || "Silo") }),
+            YU.h("span", { metin: YU.fmt.kgU(m), stil: { fontFamily: "var(--sayi)", fontVariantNumeric: "tabular-nums" } })));
+          var_ = true;
+        }
+        el.style.display = var_ ? "" : "none";
+      }
+
+      function tazele(h, girdi) {
+        var u = girdi.uretilenDokme, a = girdi.cuvalAdet;
+        ham.deger.textContent = isFinite(u) ? YU.fmt.kgU(u) : "—";
+        cuval.deger.textContent = isFinite(a) ? YU.fmt.sayi(a) + " çuval · " + YU.fmt.kgU(h.cuvalKg) : "—";
+        net.deger.textContent = YU.fmt.kgU(h.netDokmeUretim);
+        kirilimYaz(netKirilim, girdi.yerlestirmeler, "→");
+        cekis.kok.style.display = h.silodanCekilecek > tol ? "flex" : "none";
+        cekis.deger.textContent = YU.fmt.kgU(h.silodanCekilecek);
+        kirilimYaz(cekisKirilim, h.silodanCekilecek > tol ? girdi.cekisler : [], "←");
+        satis.deger.textContent = YU.fmt.kgU(h.satilanDokme);
+        kirilimYaz(satisKirilim, girdi.satisCekisleri, "←");
+        var d = h.siloNetDegisim;
+        etki.deger.textContent = (isFinite(d) && d > 0 ? "+" : "") + YU.fmt.kgU(isFinite(d) ? d : 0);
+        etki.deger.style.color = !isFinite(d) || d === 0 ? "var(--metin)" : (d > 0 ? "var(--olumlu)" : "var(--olumsuz)");
+        /* Gün sonu toplamı gunSonuTazele ile aynı formül: gün başı + giren − çekiş − satış. */
+        var yer = siloBazinda(girdi.yerlestirmeler), cek = siloBazinda(girdi.cekisler), sat = siloBazinda(girdi.satisCekisleri);
+        var toplamSonu = 0, r, id;
+        for (r = 0; r < silolar.length; r++) { id = silolar[r].Id; toplamSonu += gunBasi[id] + (yer[id] || 0) - (cek[id] || 0) - (sat[id] || 0); }
+        gunSonu.deger.textContent = YU.fmt.kgU(YU.yuvarla(toplamSonu));
+        cuvalli.deger.textContent = YU.fmt.kgU(h.cuvalKg);
+      }
+
+      function durumYaz(hataSayisi, uyariSayisi) {
+        if (hataSayisi) { durum.textContent = "✗ " + (hataSayisi === 1 ? "1 nokta düzeltilecek" : hataSayisi + " nokta düzeltilecek"); durum.style.color = "var(--olumsuz)"; }
+        else if (uyariSayisi) { durum.textContent = "! Kaydedilebilir, uyarı var"; durum.style.color = "var(--bekleyen)"; }
+        else { durum.textContent = "✓ Kayda hazır"; durum.style.color = "var(--olumlu)"; }
+      }
+
+      return { kok: kok, tazele: tazele, durumYaz: durumYaz };
+    }
+
     function ozetTazele(girdi) {
       var d = canliDenetim(girdi);
       var h = d.hatalar.length, u = d.uyarilar.length;
@@ -839,6 +935,7 @@
       dugmeKaydet.disabled = h > 0;
       dugmeKaydet.title = h > 0 ? "Önce yukarıdaki noktaları düzelt." : "Ctrl + Enter";
 
+      fis.durumYaz(h, u);
       if (h) {
         durumYaz("#ic-alert", "var(--olumsuz)",
           "Kaydetmeden önce düzeltilmesi gereken " + (h === 1 ? "bir nokta" : h + " nokta") + " var:", d.hatalar);
@@ -882,6 +979,7 @@
       /* Kalemler gereksiz alanları boşaltmış olabilir; özet güncel değerle kurulur. */
       var girdi = girdiTopla();
       gunSonuTazele(girdi, h);
+      fis.tazele(h, girdi);
       ozetTazele(girdi);
     }
 
