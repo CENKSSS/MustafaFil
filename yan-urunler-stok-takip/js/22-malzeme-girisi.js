@@ -280,105 +280,102 @@
   }
 
   /* ==================================================================
-     6. Üst blok — tarih seçici ve günün kayıt durumu
+     6. Tarih şeridi — Kuru Küspe Günlük Giriş ekranıyla aynı dil
+     (kullanıcı isteği, 23.08.2026: iki giriş ekranı aynı aileden görünsün)
      ================================================================== */
 
   function gunDurumuTazele(d) {
-    var kap = YU.bos(d.durumKap);
     var g = gunKaydi(d.tarih);
 
-    var rozetler = satirKap('center', 8);
+    /* Şeridin ucundaki rozet — Kuru Küspe ekranındakiyle birebir aynı. */
+    YU.bos(d.seritRozet).appendChild(
+      YU.ui.rozet(g ? 'Kayıtlı Gün' : 'Kayıt Yok', g ? 'bekleyen' : 'notr'));
+
+    /* Panel başlığının sağı — Şartname §7 arayüz iyileştirmesi: üzerine
+       yazmadan önce o günü kimin ne zaman girdiği görünmeli. */
+    var kap = YU.bos(d.durumKap);
     if (!g) {
-      rozetler.appendChild(YU.ui.rozet('Kayıt Yok', 'notr'));
-    } else {
-      rozetler.appendChild(YU.ui.rozet(YU.fmt.sayi(g.malzemeSayisi) + ' Malzeme Satırı', 'olumlu'));
-      rozetler.appendChild(YU.ui.rozet(
-        g.kuruKuspeVar ? 'Kuru Küspe Girildi' : 'Kuru Küspe Girilmedi',
-        g.kuruKuspeVar ? 'vurgu' : 'bekleyen'
-      ));
+      kap.appendChild(YU.h('span', {
+        metin: YU.fmt.sayi(d.satirlar.length) + ' malzeme · bu güne henüz giriş yapılmamış'
+      }));
+      return;
     }
-
-    var alt = YU.h('div', {
-      sinif: 'yu-yardim',
-      metin: g && g.sonGuncelleme
-        /* Şartname §7 arayüz iyileştirmesi: üzerine yazmadan önce o günü kimin
-           ne zaman girdiği görünmeli. */
-        ? 'Son giriş ' + YU.fmt.tarihSaat(g.sonGuncelleme) + (g.kullanici ? ' · ' + g.kullanici : '')
-        : 'Bu gün için henüz malzeme girişi yapılmamış.'
-    });
-
-    var kutu = sutunKap(7);
-    kutu.appendChild(rozetler);
-    kutu.appendChild(alt);
-    kap.appendChild(kutu);
+    kap.appendChild(YU.ui.rozet(
+      g.kuruKuspeVar ? 'Kuru Küspe Girildi' : 'Kuru Küspe Girilmedi',
+      g.kuruKuspeVar ? 'vurgu' : 'bekleyen'
+    ));
+    kap.appendChild(YU.h('span', {
+      metin: YU.fmt.sayi(g.malzemeSayisi) + ' satır kayıtlı' +
+        (g.sonGuncelleme
+          ? ' · son giriş ' + YU.fmt.tarihSaat(g.sonGuncelleme) + (g.kullanici ? ' · ' + g.kullanici : '')
+          : '')
+    }));
   }
 
-  /* Tarih seçici ve gün durumu ayrı bir panel değil, Günlük Üretim ve Satış
-     panelinin üst bloğudur — iki ayrı panel kafa karıştırıyordu. */
-  function ustBlok(d) {
+  /* Tarih küçük bir kontrol: koca panel bloğu değil, tek satırlık ince şerit —
+     Kuru Küspe Günlük Giriş'teki şeridin aynısı. Sayfa eylemleri (Kuru Küspe
+     Girişi, Günlük Rapor) de oradaki düzenle bu şeride taşındı. */
+  function tarihSeridi(d) {
     var bugun = YU.tarih.bugun();
 
     d.tarihAlan = YU.ui.alan({
-      etiket: 'Giriş Tarihi',
-      tip: 'tarih',
-      deger: d.tarih,
-      genislik: 178,
-      yardim: YU.fmt.tarihUzun(d.tarih) + ' · ' + YU.fmt.gunAdi(d.tarih),
+      tip: 'tarih', deger: d.tarih, genislik: '158px',
       onChange: function () { tarihIste(d, d.tarihAlan.girdi.value); }
     });
 
-    var hizli = satirKap('center', 6);
-    hizli.appendChild(YU.ui.dugme({
-      metin: 'Önceki Gün', kucuk: true, tur: 'sade',
+    var gezinme = satirKap('center', 6);
+    gezinme.appendChild(YU.ui.dugme({
+      metin: 'Önceki Gün', kucuk: true, tur: 'ikincil',
       onClick: function () { tarihIste(d, YU.tarih.ekle(d.tarih, -1)); }
     }));
-    hizli.appendChild(YU.ui.dugme({
-      metin: 'Sonraki Gün', kucuk: true, tur: 'sade',
+    gezinme.appendChild(YU.ui.dugme({
+      metin: 'Bugün', ikon: '#ic-calendar', kucuk: true, tur: 'ikincil',
+      pasif: d.tarih === bugun,
+      onClick: function () { tarihIste(d, bugun); }
+    }));
+    gezinme.appendChild(YU.ui.dugme({
+      metin: 'Sonraki Gün', kucuk: true, tur: 'ikincil',
       /* İleri yürüme geçmiş günleri düzeltmek içindir; bugünden öteye
          geçilemez — gelecek güne kayıt D17 ile zaten reddedilir. */
       pasif: d.tarih >= bugun,
       baslik: d.tarih >= bugun ? 'Bugünden sonrasına kayıt girilemez' : '',
       onClick: function () { tarihIste(d, YU.tarih.ekle(d.tarih, 1)); }
     }));
-    hizli.appendChild(YU.ui.dugme({
-      metin: 'Bugün', ikon: '#ic-calendar', kucuk: true, tur: 'ikincil',
-      pasif: d.tarih === bugun,
-      onClick: function () { tarihIste(d, bugun); }
-    }));
 
-    d.durumKap = YU.h('div');
-    gunDurumuTazele(d);
-
-    var solBlok = YU.h('div', {
-      stil: { display: 'flex', flexDirection: 'column', gap: '10px', minWidth: '0', alignItems: 'flex-start' }
-    });
-    solBlok.appendChild(d.tarihAlan.kok);
-    solBlok.appendChild(hizli);
-
-    var satir = satirKap('flex-start', 18);
-    satir.style.justifyContent = 'space-between';
-    satir.appendChild(solBlok);
-    satir.appendChild(d.durumKap);
+    d.seritRozet = YU.h('span', { stil: { display: 'inline-flex' } });
 
     return YU.h('div', {
-      stil: { padding: '16px 18px', borderBottom: '1px solid var(--ayrac)' }
-    }, satir);
+      stil: {
+        display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap',
+        padding: '8px 14px', background: 'var(--yuzey-2)',
+        border: '1px solid var(--kenar)', borderRadius: 'var(--r)'
+      }
+    },
+      YU.h('span', { metin: 'Tarih', stil: { font: '600 13.5px/1 var(--font)', color: 'var(--metin-2)' } }),
+      d.tarihAlan.kok,
+      gezinme,
+      YU.h('span', { stil: { flex: '1' } }),
+      YU.ui.dugme({
+        metin: 'Kuru Küspe Girişi', ikon: '#ic-plus', tur: 'ikincil', kucuk: true,
+        onClick: function () { sayfayaGit(d, 'kuru-kuspe', { tarih: d.tarih }); }
+      }),
+      YU.ui.dugme({
+        metin: 'Günlük Rapor', ikon: '#ic-doc', tur: 'ikincil', kucuk: true,
+        onClick: function () { sayfayaGit(d, 'gunluk-rapor', { tarih: d.tarih }); }
+      }),
+      d.seritRozet
+    );
   }
 
-  /* Panel gövdesi: üstte tarih bloğu, altında tablo ya da boş durum. */
+  /* Panel gövdesi yalnız tablo (ya da boş durum): tarih artık panelin içinde
+     değil, üstteki şeritte. */
   function girisPaneli(d, icerik) {
-    var govde = YU.h('div', {
-      stil: { display: 'flex', flexDirection: 'column', minWidth: '0' }
-    });
-    govde.appendChild(ustBlok(d));
-    govde.appendChild(icerik);
-
     return YU.ui.panel({
       baslik: 'Günlük Üretim ve Satış',
       ikon: '#ic-pencil',
       dolgusuz: true,
-      sag: YU.h('span', { metin: YU.fmt.sayi(d.satirlar.length) + ' malzeme · ' + YU.fmt.tarih(d.tarih) }),
-      govde: govde
+      sag: d.durumKap,
+      govde: icerik
     });
   }
 
@@ -503,6 +500,9 @@
       metin: 'Kaydet', ikon: '#ic-plus', tur: 'birincil',
       onClick: function () { kaydet(d); }
     });
+    /* Kuru Küspe ekranındaki Kaydet ile aynı boy. */
+    d.kaydetDugmesi.style.padding = '10px 20px';
+    d.kaydetDugmesi.style.fontSize = '15px';
     d.geriDugmesi = YU.ui.dugme({
       metin: 'Değişiklikleri Geri Al', ikon: '#ic-dots', tur: 'ikincil',
       onClick: function () { geriAl(d); }
@@ -583,19 +583,23 @@
 
     satirlariKur(d);
 
-    YU.ui.sayfaEylemleri(
-      YU.ui.dugme({
-        metin: 'Kuru Küspe Girişi', ikon: '#ic-plus', tur: 'ikincil',
-        onClick: function () { sayfayaGit(d, 'kuru-kuspe', { tarih: d.tarih }); }
-      }),
-      YU.ui.dugme({
-        metin: 'Günlük Rapor', ikon: '#ic-doc', tur: 'sade',
-        onClick: function () { sayfayaGit(d, 'gunluk-rapor', { tarih: d.tarih }); }
-      })
-    );
+    /* Kuru Küspe Girişi / Günlük Rapor sayfa başlığından tarih şeridine
+       taşındı — Kuru Küspe Günlük Giriş'teki düzenin aynısı. */
+    YU.ui.sayfaEylemleri();
+
+    /* Geniş ekranda panel gereksiz büyümesin: Kuru Küspe ekranıyla aynı
+       genişlik sınırı (1478px), sol hizalı. */
+    var govde = YU.h('div', {
+      stil: { display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '1478px', minWidth: '0' }
+    });
+    kap.appendChild(govde);
+
+    d.durumKap = YU.h('div', { stil: { display: 'contents' } });
+    govde.appendChild(tarihSeridi(d));
 
     if (!d.satirlar.length) {
-      kap.appendChild(girisPaneli(d, YU.ui.bosDurum({
+      gunDurumuTazele(d);
+      govde.appendChild(girisPaneli(d, YU.ui.bosDurum({
         ikon: '#ic-pencil',
         baslik: 'Aktif Malzeme Yok',
         metin: 'Giriş yapılabilmesi için en az bir aktif malzeme gerekiyor. Malzemeler Malzeme Yönetimi ekranından açılır.',
@@ -609,17 +613,19 @@
       return;
     }
 
-    kap.appendChild(tabloPaneli(d));
-    kap.appendChild(d.uyariKap);
-    kap.appendChild(d.hataKap);
-    kap.appendChild(altBar(d));
+    govde.appendChild(tabloPaneli(d));
+    govde.appendChild(d.uyariKap);
+    govde.appendChild(d.hataKap);
+    govde.appendChild(altBar(d));
 
+    gunDurumuTazele(d);
     for (i = 0; i < d.satirlar.length; i++) satirTazele(d.satirlar[i]);
     ozetTazele(d);
   }
 
   YU.sayfaTanimla({
     kod: KOD,
+    zemin: 'gri-duz',   /* Kuru Küspe Günlük Giriş ile aynı: gri zemin, mavi panel */
     baslik: 'Malzeme Girişi',
     altBaslik: function (param) {
       var t = gecerliTarih(param && param.tarih) ? param.tarih : YU.tarih.bugun();
