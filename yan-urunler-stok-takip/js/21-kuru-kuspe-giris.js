@@ -328,7 +328,7 @@
         tur: "uyari",
         baslik: "Bu Gün Daha Önce Kaydedilmiş",
         metin: kim + ", " + YU.fmt.tarih(tarih) + " " + YU.fmt.saat(damga) +
-          "'da girmiş. Kaydedersen eski değerler bu yenileriyle değişir; o güne ait eski silo hareketleri de yenilenir.",
+          "'da girmiş. Kaydet'e basınca eski veriler gösterilir ve onayını ister; onaylarsan eskiler silinip yerine girdiklerin yazılır.",
         eylem: {
           metin: "Günlük Rapor", ikon: "#ic-doc",
           onClick: function () { YU.git("gunluk-rapor", { tarih: tarih }); }
@@ -1002,8 +1002,12 @@
     /* ---------- Kaydetme ve silme ---------- */
 
     /* Kaydet HER ZAMAN onay penceresi açar (kullanıcı isteği, 23.08.2026):
-       ne kaydedileceğinin özeti + "emin misin". Tarih bugün değilse ayrıca
-       geçmişin değiştirildiği açıkça söylenir ve düğme tehlike renginde olur. */
+       ne kaydedileceğinin özeti + "emin misin". Gün KAYITLIYSA pencere, o
+       günün mevcut verilerini gösterir ve Şartname §4 gereği bunların
+       silinip yerine girilenlerin yazılacağını açıkça söyler (KURAL 6:
+       §4 yeniden kaydetme Demirbaş — davranış değiştirilemez, yalnız
+       anlatılır). Tarih bugünden eskiyse ek geçmiş uyarısı ve tehlike
+       renkli düğme. Günü görüntüleme bağlantıları pencerede durur. */
     function kaydet() {
       /* Ctrl+Enter da buradan geçer: düğme pasifken (hata ya da boş gün) kayıt yok. */
       if (dugmeKaydet.disabled) return;
@@ -1015,24 +1019,86 @@
       var f = YU.tarih.fark(tarih, bugun);
       var gunEtiketi = YU.fmt.tarih(tarih) + " " + YU.fmt.gunAdi(tarih) +
         (gecmis ? (f === 1 ? " (dün)" : " (" + YU.fmt.sayi(f) + " gün önce)") : " (bugün)");
-      var ozet = "Üretilen dökme " + YU.fmt.kgU(g.uretilenDokme) +
-        " · çuvallanan " + YU.fmt.sayi(g.cuvalAdet) + " çuval (" + YU.fmt.kgU(hesap.cuvalKg) + ")" +
-        " · satılan dökme " + YU.fmt.kgU(g.satilanDokme) + " kaydedilecek.";
-      var kayitCumlesi = kayit
-        ? "O günün mevcut kaydının ÜZERİNE yazılacak: eski silo hareketleri silinip yenileri yazılacak."
-        : "Yeni kayıt eklenecek.";
 
-      YU.ui.onay({
-        baslik: gecmis ? "Geçmiş Bir Günü Değiştiriyorsun" : "Kaydı Onayla",
-        tehlike: gecmis,
-        onayMetni: gecmis ? "Evet, Geçmişi Değiştir" : "Evet, Kaydet",
-        metin: gunEtiketi + " gününe kayıt yapıyorsun." +
-          (gecmis ? " DİKKAT: bu tarih bugün değil, GEÇMİŞ ÜZERİNDE işlem yapıyorsun. " : " ") +
-          ozet + " " + kayitCumlesi +
-          (gecmis ? " Sonraki günlerin silo bakiyeleri buna göre yeniden hesaplanır." : "") +
-          " Emin misin?"
-      }).then(function (evet) {
-        if (evet) kaydetUygula();
+      function ozetMetni(uretilen, adet, satilan) {
+        return "üretilen dökme " + YU.fmt.kgU(uretilen) +
+          " · çuvallanan " + YU.fmt.sayi(adet) + " çuval (" + YU.fmt.kgU(YU.yuvarla(adet * YU.hesap.CUVAL_KG)) + ")" +
+          " · satılan dökme " + YU.fmt.kgU(satilan);
+      }
+
+      /* Yeni gün: kısa onay yeterli. */
+      if (!kayit) {
+        YU.ui.onay({
+          baslik: gecmis ? "Geçmiş Bir Güne Kayıt Ekliyorsun" : "Kaydı Onayla",
+          tehlike: gecmis,
+          onayMetni: gecmis ? "Evet, Geçmişe Kaydet" : "Evet, Kaydet",
+          metin: gunEtiketi + " gününe kayıt yapıyorsun." +
+            (gecmis ? " DİKKAT: bu tarih bugün değil, GEÇMİŞ ÜZERİNDE işlem yapıyorsun. " : " ") +
+            ozetMetni(g.uretilenDokme, g.cuvalAdet, g.satilanDokme) + " kaydedilecek. Yeni kayıt eklenecek." +
+            (gecmis ? " Sonraki günlerin silo bakiyeleri buna göre yeniden hesaplanır." : "") +
+            " Emin misin?"
+        }).then(function (evet) { if (evet) kaydetUygula(); });
+        return;
+      }
+
+      /* Kayıtlı gün: mevcut veriler gösterilir, silinip yerine yazılacağı söylenir. */
+      var damga = kayit.GuncellemeTarihi || kayit.OlusturmaTarihi;
+      var kimId = kayit.GuncellemeTarihi ? kayit.GuncelleyenKullaniciId : kayit.OlusturanKullaniciId;
+      var kim = kullaniciAdi(db, kimId) || "bilinmeyen kullanıcı";
+
+      function veriBlogu(baslikMetni, icerik, renk) {
+        return YU.h("div", {
+          stil: { padding: "10px 12px", border: "1px solid var(--kenar)", borderRadius: "var(--r)", background: "var(--yuzey-2)" }
+        },
+          YU.h("div", { metin: baslikMetni, stil: { font: "600 13px/1.4 var(--font)", color: renk || "var(--metin-3)", marginBottom: "3px" } }),
+          YU.h("div", { metin: icerik, stil: { font: "500 14px/1.5 var(--sayi)", color: "var(--metin)", fontVariantNumeric: "tabular-nums" } })
+        );
+      }
+
+      function baglanti(metin, kod, param) {
+        return YU.h("a", {
+          href: "#", metin: metin,
+          stil: { color: "var(--vurgu)", textDecoration: "underline", font: "500 13.5px/1.4 var(--font)" },
+          onClick: function (e) { e.preventDefault(); m.kapat(); YU.git(kod, param); }
+        });
+      }
+
+      var m;
+      var baglantilar = YU.h("div", { stil: { display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" } },
+        YU.h("span", { sinif: "yu-yardim", metin: "Bu günü görüntüle:" }),
+        baglanti("Günlük Rapor", "gunluk-rapor", { tarih: tarih }));
+      /* Son değişiklikler ekranı yönetici yetkisindedir; operatöre gösterilmez. */
+      if (YU.yonetici()) baglantilar.appendChild(baglanti("Değişiklik Geçmişi", "degisiklik-gecmisi"));
+
+      var gvd = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "10px" } },
+        YU.h("div", {
+          metin: gunEtiketi + " gününe ait KAYIT ZATEN VAR (" + kim + " · " + YU.fmt.saat(damga) + ").",
+          stil: { font: "600 14.5px/1.5 var(--font)", color: "var(--metin)" }
+        }),
+        gecmis ? YU.h("div", {
+          metin: "DİKKAT: bu tarih bugün değil, GEÇMİŞ ÜZERİNDE işlem yapıyorsun. Sonraki günlerin silo bakiyeleri yeniden hesaplanır.",
+          stil: { font: "600 13.5px/1.5 var(--font)", color: "var(--olumsuz)" }
+        }) : null,
+        veriBlogu("Kayıtlı veriler — SİLİNECEK", ozetMetni(Number(kayit.UretilenDokme) || 0, Number(kayit.CuvalAdet) || 0, Number(kayit.SatilanDokme) || 0), "var(--olumsuz)"),
+        veriBlogu("Senin girdiklerin — YERİNE YAZILACAK", ozetMetni(g.uretilenDokme, g.cuvalAdet, g.satilanDokme), "var(--olumlu)"),
+        YU.h("div", {
+          metin: "O güne ait eski silo hareketleri de silinip yenileri yazılacak. Kabul ediyor musun, emin misin?",
+          stil: { font: "400 14px/1.55 var(--font)", color: "var(--metin-2)" }
+        }),
+        baglantilar
+      );
+
+      m = YU.ui.modal({
+        baslik: gecmis ? "Geçmiş Bir Günün Kaydını Değiştiriyorsun" : "Bu Günün Kaydını Değiştiriyorsun",
+        genislik: 560,
+        govde: [gvd],
+        dugmeler: [
+          { metin: "Vazgeç" },
+          {
+            metin: "Evet, Kabul Ediyorum", tur: "tehlike",
+            onClick: function () { m.kapat(); kaydetUygula(); }
+          }
+        ]
       });
     }
 

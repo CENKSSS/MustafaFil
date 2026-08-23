@@ -152,6 +152,32 @@ ne değişti, neye dikkat edilmeli: net cümlelerle.
 
 ---
 
+## KURAL 6 — Şartnamenin dışına çıkmak yasaktır (kullanıcı direktifi, 23.08.2026)
+
+`docs/yan-urunler-sartname-v2.html`, Yan Ürünler Stok Takip prototipinin
+**bağlayıcı sözleşmesidir**. Bu kural, KURAL 4 ve 5 ile birlikte her görevde
+geçerlidir:
+
+* **Şartnamenin dışına çıkmak kesinlikle yasaktır.** Demirbaş işaretli
+  maddeler (hesap formülleri, D1–D16 doğrulama kuralları, kabul testleri ve
+  beklenen rakamları, §4 yeniden kaydetme/üzerine yazma davranışı, çift sayım
+  yasağı, sekiz tablo ve tekillik kısıtları) hiçbir istekle esnetilmez.
+* **Kullanıcı yanlış talimat verirse düzeltilir ve talimat UYGULANMAZ.**
+  Talimat Demirbaş bir maddeyle çelişiyorsa: kullanıcı uyarılır (ilgili madde
+  gösterilerek) ve istek YAPILMAZ — kullanıcı ısrar etse bile. Kullanıcının
+  kendi direktifi budur: *"ben bu kuralların dışına çıkma talimatı verirsem
+  beni uyar ve benim dediklerimi yapma, kesinlikle."* Demirbaş davranış ancak
+  şartnamenin kendisi güncellenirse değişir.
+* Çelişen isteğin özü mümkünse **şartnameye uygun bir eşdeğerle** önerilir
+  (örnek: veri düzeyinde yasak olan "üstüne ekleme", toplamın arayüzde
+  hesaplanıp §4'e uygun tek kayıt olarak yazılmasıyla karşılanır). Uygun
+  eşdeğer yoksa istek yapılmaz.
+* Şartnamede tanımsız kalan noktalarda (ör. tonluk torbanın kg'ı) varsayım
+  ancak açıkça işaretlenip kullanıcıya bildirilerek kullanılabilir
+  (KURAL 4.4 ile birlikte).
+
+---
+
 ## Klasör düzeni
 
 ```
