@@ -620,7 +620,11 @@
          altındaki kap her tazelemede yeniden çizilir. */
       var listeKap = YU.h('div');
       dom.liste = listeKap;
-      kap.appendChild(YU.ui.panel({ dolgusuz: true, govde: [filtreBlogu(), listeKap] }));
+      var panel = YU.ui.panel({ dolgusuz: true, govde: [filtreBlogu(), listeKap] });
+      /* Gövde boşluğu sıfırlanır: filtrenin ayraç çizgisiyle "Kayıtlı Günler"
+         başlığı arasında, başlığın kendi kenar boşluğundan başka aralık kalmasın. */
+      panel.querySelector('.yu-panel-govde').style.gap = '0';
+      kap.appendChild(panel);
       listeyiCiz(listeKap);
     }
   });
