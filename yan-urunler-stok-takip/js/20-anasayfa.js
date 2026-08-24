@@ -795,10 +795,17 @@
   function malzemeAdi(malzeme) {
     if (malzeme.OzelTip !== 'DokmeKuruKuspe') return malzeme.Ad;
     /* Şartname §5 KRİTİK: bu satırın mevcudu formülle değil silo toplamıyla
-       hesaplanır — rozet bunu ekranda görünür kılar. */
+       hesaplanır — rozet bunu ekranda görünür kılar. Sayı aktif silo
+       sayısından gelir ("3 Silonun Toplamı"); silo eklenirse kendiliğinden
+       güncellenir (kullanıcı isteği, 24.08.2026). */
+    var siloSayisi = 0;
+    for (var si = 0; si < YU.db.silolar.length; si++) {
+      if (YU.db.silolar[si].Aktif !== false) siloSayisi++;
+    }
     return YU.h('span', {
       stil: { display: 'inline-flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }
-    }, YU.h('span', { metin: malzeme.Ad }), YU.ui.rozet('Silo Toplamı', 'vurgu'));
+    }, YU.h('span', { metin: malzeme.Ad }),
+      YU.ui.rozet(YU.fmt.sayi(siloSayisi) + ' Silonun Toplamı', 'vurgu'));
   }
 
   function malzemePaneli(o) {
