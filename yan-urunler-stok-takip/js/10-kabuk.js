@@ -1275,7 +1275,9 @@
     var k = YU.oturum.kullanici;
     kutu.appendChild(popupBaslik(k ? k.KullaniciAdi + ' · ' + rolMetni(k.Rol) : 'Oturum'));
     kutu.appendChild(popupSatir('#ic-users', 'Rol Değiştir', 'Giriş perdesine dön, başka rolle devam et.', function () { YU.oturumKapat(); }));
-    kutu.appendChild(popupSatir('#ic-percent', 'Oturumu Kapat', 'Kayıtlı oturum silinir.', function () { YU.oturumKapat(); }, 'olumsuz'));
+    /* "Oturumu Kapat · Kayıtlı oturum silinir" veri siliniyor sanılıyordu;
+       sadece "Çıkış Yap" yazar (kullanıcı isteği, 24.08.2026). */
+    kutu.appendChild(popupSatir('#ic-percent', 'Çıkış Yap', null, function () { YU.oturumKapat(); }, 'olumsuz'));
 
     /* Tema seçimi üst şeritteki düğmede duruyor; kullanıcı menüsünde
        ikinci kez gösterilmiyor (kullanıcı isteği). */
