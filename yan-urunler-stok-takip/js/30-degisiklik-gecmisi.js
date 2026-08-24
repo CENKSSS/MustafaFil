@@ -719,7 +719,11 @@
         return;
       }
 
-      var durum = { tablo: '', kullanici: '', islem: '', silo: '', bas: '', bit: '', arama: '', sayfa: 0 };
+      /* Ekran BUGÜNLE filtreli açılır (kullanıcı isteği, 24.08.2026):
+         başlangıç ve bitiş bugüne kurulur, gün düğmeleriyle gezilir.
+         Bütün geçmiş "Filtreleri Temizle" ile görünür. */
+      var buGun = YU.tarih.bugun();
+      var durum = { tablo: '', kullanici: '', islem: '', silo: '', bas: buGun, bit: buGun, arama: '', sayfa: 0 };
       /* Bağlantıyla gelen tarih (kullanıcı isteği, 23.08.2026): sayfa o günle
          filtreli açılır — kuru küspe onay penceresindeki bağlantı bunu kullanır. */
       var pt = param && param.tarih;
