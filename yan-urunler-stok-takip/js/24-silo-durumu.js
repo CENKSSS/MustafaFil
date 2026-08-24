@@ -176,25 +176,7 @@
     return YU.h('div', { sinif: 'yu-panel' }, bas, govde);
   }
 
-  /* Toplamın NEYİ KAPSADIĞI ekranda yazar (kullanıcı isteği, 24.08.2026).
-     Şartname §5: dökme kuru küspe fiziksel olarak silolarda durur ve stoğu
-     siloların toplamıdır. Çuvallanan küspe siloya girmez, çuvallı stoğa
-     yazılır (§4) — bu yüzden 50 kg'lık çuvallı stok bu toplama DAHİL DEĞİL.
-     Miktarı da yazılır ki kullanıcı "nerede peki" diye aramasın. */
-  function cuvalliNotu(tarih) {
-    var m = YU.db.malzemeler, i, cuval = null;
-    for (i = 0; i < m.length; i++) if (m[i].OzelTip === 'CuvalKuruKuspe') { cuval = m[i]; break; }
-    if (!cuval) return 'Silolarda yalnız dökme kuru küspe durur.';
-    var st = YU.stok.malzemeStok(YU.db, cuval.Id, tarih);
-    var kg = Number(st.mevcut) || 0;
-    return 'Bu toplam yalnız DÖKME kuru küspedir — silolarda yalnız o durur. ' +
-      cuval.Ad + ' bu toplama dahil DEĞİLDİR' +
-      (kg > 0
-        ? ' (ayrıca ' + YU.fmt.kgU(kg) + ' var; Stok Durumu ekranında görünür).'
-        : ' (şu an stokta yok).');
-  }
-
-  function toplamSeridi(satirlar, tarih) {
+  function toplamSeridi(satirlar) {
     var mevcut = 0, kapasite = 0, i;
     for (i = 0; i < satirlar.length; i++) {
       mevcut += satirlar[i].mevcut;
@@ -213,12 +195,7 @@
           hesapOge('Toplam kapasite', YU.fmt.kgU(kapasite)),
           hesapOge('Doluluk', YU.fmt.yuzde(oran * 100), kapasite > 0 ? dolulukTur(oran) : null),
           hesapOge('Ton karşılığı', YU.fmt.ton(mevcut))
-        ),
-        YU.h('div', {
-          sinif: 'yu-yardim',
-          stil: { padding: '0 16px 12px', margin: '0' },
-          metin: cuvalliNotu(tarih)
-        })
+        )
       )
     );
   }
@@ -644,7 +621,7 @@
     var kartlar = YU.h('div', { sinif: 'yu-izgara yu-iz-3' });
     for (i = 0; i < satirlar.length; i++) kartlar.appendChild(siloKarti(depo, satirlar[i], tarih));
     kap.appendChild(kartlar);
-    kap.appendChild(toplamSeridi(satirlar, tarih));
+    kap.appendChild(toplamSeridi(satirlar));
 
     /* Dökme üretim–satış grafiği ana sayfadan taşındı: hareket dökümünün
        hemen üstünde durur (kullanıcı isteği, 21.08.2026). */
