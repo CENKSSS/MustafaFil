@@ -13,6 +13,7 @@
      'grup' anahtarları (SOZLESME §6) değişmedi; yalnız görünen ad farklı. */
   var GRUP_BASLIK = { 'Giriş': 'Veri Girişi', 'Takip': 'Raporlar', 'Yönetim': 'Yönetim Paneli' };
   var MENU_USTU = 'anasayfa';           /* §7: ana sayfa gruplardan önce tek başına durur */
+  var UYGULAMA_ADI = 'Yan Ürünler Stok Takip';   /* sekme başlığının yedeği (giriş ekranı) */
   var TEMA_ANAHTAR = 'yu.tema';
   var OTURUM_ANAHTAR = 'yu.oturum';
   var DONEM_ANAHTAR = 'yu.donem';
@@ -929,137 +930,6 @@
     if (dom.cipMetin) dom.cipMetin.textContent = d ? (YU.fmt.tarih(d.bas) + ' – ' + YU.fmt.tarih(d.bit)) : YU.fmt.tarih(YU.tarih.bugun());
   }
 
-  /* --- arama --- */
-
-  function aramaKutusu() {
-    var girdi = YU.h('input', {
-      tip: 'text', placeholder: 'Malzeme, silo veya tarih ara…', autocomplete: 'off',
-      stil: { flex: '1', minWidth: '0', border: 'none', outline: 'none', background: 'transparent', color: 'var(--metin)', font: '400 14.5px/1 var(--font)' },
-      onInput: function () { aramaPaneliAc(kutu, girdi.value); },
-      onFocus: function () { if (girdi.value) aramaPaneliAc(kutu, girdi.value); },
-      onKeyDown: function (e) {
-        if (e.key === 'Escape') { girdi.value = ''; popupKapat(); girdi.blur(); }
-        else if (e.key === 'Enter') {
-          var s = aramaSonuclari(girdi.value);
-          if (s.length) { popupKapat(); girdi.value = ''; s[0].git(); }
-        }
-      }
-    });
-    var kutu = YU.h('div', { sinif: 'yu-ara' }, YU.svg('#ic-search', 15), girdi);
-    dom.aramaGirdi = girdi;
-    return kutu;
-  }
-
-  function tarihCoz(q) {
-    var m = /^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/.exec(q);
-    if (m) {
-      var g = ('0' + m[1]).slice(-2), a = ('0' + m[2]).slice(-2);
-      if (+m[2] >= 1 && +m[2] <= 12 && +m[1] >= 1 && +m[1] <= 31) return m[3] + '-' + a + '-' + g;
-      return null;
-    }
-    if (/^\d{4}-\d{2}-\d{2}$/.test(q)) return q;
-    return null;
-  }
-
-  function aramaSonuclari(ham) {
-    var q = String(ham || '').trim();
-    if (q.length < 2) return [];
-    var db = YU.db;
-    if (!db) return [];
-    var kucuk = q.toLocaleLowerCase('tr');
-    var sonuc = [], i;
-
-    /* Tam tarih yazıldıysa doğrudan o günün raporu önerilir. */
-    var iso = tarihCoz(q);
-    if (iso) {
-      sonuc.push({
-        ikon: '#ic-doc', baslik: YU.fmt.tarih(iso) + ' · Günlük Rapor',
-        alt: YU.fmt.tarihUzun(iso) + ' · ' + YU.fmt.gunAdi(iso),
-        git: function () { YU.git('gunluk-rapor', { tarih: iso }); }
-      });
-      sonuc.push({
-        ikon: '#ic-plus', baslik: YU.fmt.tarih(iso) + ' · Kuru Küspe Günlük Giriş',
-        alt: 'Bu günün girişini aç', git: function () { YU.git('kuru-kuspe', { tarih: iso }); }
-      });
-    } else if (/\d/.test(q)) {
-      var kayitlar = kayitTarihleri(), bulunan = 0;
-      for (i = 0; i < kayitlar.length && bulunan < 4; i++) {
-        var t = kayitlar[i];
-        if (YU.fmt.tarih(t).indexOf(q) === 0 || t.indexOf(q) === 0) {
-          bulunan++;
-          (function (tar) {
-            sonuc.push({
-              ikon: '#ic-calendar', baslik: YU.fmt.tarih(tar), alt: 'Kayıtlı gün · Günlük Rapor',
-              git: function () { YU.git('gunluk-rapor', { tarih: tar }); }
-            });
-          })(t);
-        }
-      }
-    }
-
-    var malzemeler = db.malzemeler || [];
-    for (i = 0; i < malzemeler.length; i++) {
-      var m = malzemeler[i];
-      if (!m || String(m.Ad).toLocaleLowerCase('tr').indexOf(kucuk) < 0) continue;
-      (function (mz) {
-        sonuc.push({
-          ikon: '#ic-chart', baslik: mz.Ad,
-          alt: 'Malzeme · Stok Durumu' + (mz.Aktif === false ? ' (pasif)' : ''),
-          git: function () { YU.git('stok-durumu', { malzeme: mz.Id }); }
-        });
-      })(m);
-    }
-
-    var silolar = db.silolar || [];
-    for (i = 0; i < silolar.length; i++) {
-      var s = silolar[i];
-      if (!s || String(s.Ad).toLocaleLowerCase('tr').indexOf(kucuk) < 0) continue;
-      (function (si) {
-        sonuc.push({
-          ikon: '#ic-building', baslik: si.Ad,
-          alt: 'Silo · Silo Durumu · kapasite ' + YU.fmt.ton(si.Kapasite),
-          git: function () { YU.git('silo-durumu', { silo: si.Id }); }
-        });
-      })(s);
-    }
-
-    var sayfalar = sayfaListesi();
-    for (i = 0; i < sayfalar.length; i++) {
-      var p = sayfalar[i];
-      if (!p || !gorunur(p)) continue;
-      if (String(p.baslik).toLocaleLowerCase('tr').indexOf(kucuk) < 0) continue;
-      (function (sy) {
-        sonuc.push({
-          ikon: sy.ikon || '#ic-doc', baslik: sy.baslik, alt: 'Ekran' + (sy.grup ? ' · ' + sy.grup : ''),
-          git: function () { YU.git(sy.kod); }
-        });
-      })(p);
-    }
-
-    return sonuc.slice(0, 8);
-  }
-
-  function aramaPaneliAc(tetik, ham) {
-    var q = String(ham || '').trim();
-    if (q.length < 2) { popupKapat(); return; }
-    var sonuc = aramaSonuclari(q);
-    var kutu = popupKutu(360);
-    if (!sonuc.length) {
-      kutu.appendChild(popupBos('“' + q + '” için sonuç yok. Malzeme adı, silo adı veya GG.AA.YYYY tarihi yazın.'));
-    } else {
-      kutu.appendChild(popupBaslik(sonuc.length + ' sonuç'));
-      for (var i = 0; i < sonuc.length; i++) {
-        (function (r) {
-          kutu.appendChild(popupSatir(r.ikon, r.baslik, r.alt, function () {
-            if (dom.aramaGirdi) dom.aramaGirdi.value = '';
-            r.git();
-          }));
-        })(sonuc[i]);
-      }
-    }
-    popupAc(tetik, kutu);
-  }
-
   /* --- dönem çipi, tema düğmesi, zil, kullanıcı kartı --- */
 
   function cipKutusu() {
@@ -1145,11 +1015,17 @@
     try { return Number(window.localStorage.getItem(GORULEN_LOG_ANAHTAR)) || 0; } catch (e) { return 0; }
   }
 
+  /* Sayaç panelle aynı kümeyi sayar: yalnız BUGÜNÜN okunmamış hareketleri
+     (kullanıcı isteği, 24.08.2026). Aksi hâlde "17" yazan zile basınca boş
+     panel açılırdı. */
   function yeniHareketSayisi() {
-    var db = YU.db, g = gorulenLogId(), s = 0, i;
+    var db = YU.db, g = gorulenLogId(), bugun = YU.tarih.bugun(), s = 0, i, l;
     if (!db) return 0;
     for (i = 0; i < db.degisiklikLog.length; i++) {
-      if ((Number(db.degisiklikLog[i].Id) || 0) > g) s++;
+      l = db.degisiklikLog[i];
+      if ((Number(l.Id) || 0) <= g) continue;
+      if (String(l.Tarih || '').slice(0, 10) !== bugun) continue;
+      s++;
     }
     return s;
   }
@@ -1209,16 +1085,19 @@
     try { window.localStorage.setItem(GORULEN_LOG_ANAHTAR, String(sonLogId())); } catch (e) {}
     sayacGoster(dom.zilSayac, 0);
 
+    /* Panel YALNIZ BUGÜNÜ gösterir (kullanıcı isteği, 24.08.2026): zil
+       "bugün ne oldu" sorusunun cevabıdır, geçmişin tamamı Değişiklik
+       Geçmişi ekranında durur. */
     var ogeler = typeof YU.sonHareketListesi === 'function'
-      ? YU.sonHareketListesi(6, 6, temizlenenLogId())
+      ? YU.sonHareketListesi(6, 6, temizlenenLogId(), YU.tarih.bugun())
       : [];
     var kutu = popupKutu(340, 'sag');
     /* Kutu, zilin çocuğu: satır tıklaması zile köpürürse panel kapanıp
        hemen yeniden açılıyor. Köpürme kutuda kesilir. */
     kutu.addEventListener('click', function (e) { e.stopPropagation(); });
-    kutu.appendChild(popupBaslik('Son Hareketler'));
+    kutu.appendChild(popupBaslik('Bugünkü Hareketler'));
     if (!ogeler.length) {
-      kutu.appendChild(popupBos('Yeni hareket yok.'));
+      kutu.appendChild(popupBos('Bugün hareket yok.'));
     } else {
       for (var i = 0; i < ogeler.length; i++) {
         var o = ogeler[i];
@@ -1231,20 +1110,20 @@
           }) : null,
           YU.h('div', { metin: o.metin, stil: { font: '400 14.5px/1.35 var(--font)', color: 'var(--metin-2)' } })
         );
+        /* Son Hareketler sayfası kaldırıldı (kullanıcı isteği, 24.08.2026);
+           kendi hedefi olmayan satır tıklanınca yalnız panel kapanır. */
         kutu.appendChild(popupSatir(o.ikon, icerik, o.zaman,
-          o.onClick || function () { YU.git('son-hareketler'); }, null,
+          o.onClick || null, null,
           !!(o.logId && o.logId > eskiGorulen)));
       }
     }
-    kutu.appendChild(YU.h('div', { stil: { borderTop: '1px solid var(--ayrac)', margin: '4px 0' } }));
     if (ogeler.length) {
+      kutu.appendChild(YU.h('div', { stil: { borderTop: '1px solid var(--ayrac)', margin: '4px 0' } }));
       kutu.appendChild(popupSatir('#ic-trash', 'Tümünü Temizle', null, function () {
         try { window.localStorage.setItem(TEMIZLENEN_LOG_ANAHTAR, String(sonLogId())); } catch (e) {}
         sayacGoster(dom.zilSayac, 0);
       }));
     }
-    kutu.appendChild(popupSatir('#ic-bell', 'Tümünü Gör', null,
-      function () { YU.git('son-hareketler'); }, 'vurgu'));
     popupAc(tetik, kutu);
   }
 
@@ -1339,10 +1218,9 @@
 
     var yan = YU.h('div', { sinif: 'yu-yan' }, markaBlogu(true, true), seciciKutusu(), menuKur());
 
-    /* Arama kutusu kendi otomatik kenar boşluklarıyla ortalanıyor; araya
-       esneyen bir boşluk konursa tüm boşluğu o yutar ve kutu sola yapışır. */
+    /* Arama kutusu kaldırıldı (kullanıcı isteği, 24.08.2026); denetimler
+       sağa yaslanır (.yu-ust justify-content). */
     var ust = YU.h('div', { sinif: 'yu-ust' },
-      aramaKutusu(),
       testDugmeleri(),
       cipKutusu(),
       temaDugmesi(),
@@ -1469,6 +1347,13 @@
     dom.baslik.textContent = baslik || '';
     dom.alt.textContent = alt || '';
     dom.alt.style.display = alt ? '' : 'none';
+    sekmeBasligi(baslik);
+  }
+
+  /* Tarayıcı sekmesi açık ekranın adını gösterir (kullanıcı isteği, 24.08.2026):
+     birden çok pencere açıkken hepsi aynı başlıkla görünmesin. */
+  function sekmeBasligi(baslik) {
+    document.title = baslik ? String(baslik) : UYGULAMA_ADI;
   }
 
   /* ==================================================================
@@ -1502,6 +1387,7 @@
     dom = {};
     kabukKurulu = false;
     donemOnbellek = null;
+    sekmeBasligi('');
 
     var d = donemAktif();
     var yoneticiSatir = rolIle('Yonetici');

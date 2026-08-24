@@ -613,7 +613,10 @@
   /* minLogId verilirse bildirim modu: yalnız o kayıttan SONRAKİ denetim
      satırları listelenir, kayıtlı gün tamamlaması yapılmaz. Zilin "Tümünü
      Temizle" davranışı buna dayanır (kullanıcı isteği, 21.08.2026). */
-  function hareketListesi(depo, o, logSinir, toplamSinir, minLogId) {
+  /* gun (isteğe bağlı, 'YYYY-AA-GG'): verilirse yalnız O GÜNE ait denetim izi
+     satırları listelenir — zil paneli bunu bugünle çağırır (kullanıcı isteği,
+     24.08.2026). Verilmezse eski davranış: gün ayrımı yapılmaz. */
+  function hareketListesi(depo, o, logSinir, toplamSinir, minLogId, gun) {
     var logUst = logSinir || LOG_SATIR;
     var toplamUst = toplamSinir || HAREKET_SATIR;
     var liste = [], i, l, ad;
@@ -629,6 +632,8 @@
     for (i = 0; i < log.length && liste.length < logUst; i++) {
       l = log[i];
       if (minLogId && (Number(l.Id) || 0) <= minLogId) continue;
+      /* Damga "2026-08-24T10:06:00" biçiminde; ilk on hane gün demek. */
+      if (gun && String(l.Tarih || '').slice(0, 10) !== gun) continue;
       ad = kullaniciAdi(depo, l.KullaniciId);
       var lm = logMetni(depo, l);
       liste.push({
@@ -645,6 +650,9 @@
        tamamlanmaz: temizlenen liste yeniden dolmasın. */
     if (minLogId) return liste;
     for (i = 0; i < o.tumGunler.length && liste.length < toplamUst; i++) {
+      /* Gün süzgeci tamamlama satırlarını da bağlar: "Bugünkü Hareketler"
+         başlığı altında eski günler görünmemeli (24.08.2026). */
+      if (gun && o.tumGunler[i].tarih !== gun) continue;
       (function (g) {
         liste.push({
           ikon: g.kuruKuspeVar ? '#ic-plus' : '#ic-pencil',
@@ -658,62 +666,6 @@
     }
 
     return liste;
-  }
-
-  function hareketSatiri(oge) {
-    var ikonKap = YU.h('div', {
-      stil: {
-        width: '24px', height: '24px', borderRadius: '12px', flex: 'none',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'var(--yuzey-4)', color: 'var(--metin-3)'
-      }
-    }, YU.svg(oge.ikon, 13));
-
-    var govde = YU.h('div', { stil: { flex: '1', minWidth: '0' } },
-      /* Tarih cümlenin içinde değil, ögenin başlığı (kullanıcı isteği, 21.08.2026). */
-      oge.tarih ? YU.h('div', {
-        metin: oge.tarih,
-        stil: { font: '600 12.5px/1 var(--sayi)', fontVariantNumeric: 'tabular-nums',
-                color: 'var(--metin-3)', marginBottom: '3px' }
-      }) : null,
-      YU.h('div', { metin: oge.metin, stil: { font: '400 14px/1.4 var(--font)', color: 'var(--metin-2)' } }),
-      YU.h('div', { metin: oge.zaman, stil: { font: '400 13px/1.4 var(--font)', color: 'var(--metin-4)', marginTop: '2px' } })
-    );
-
-    var satir = YU.h('div', {
-      stil: { display: 'flex', gap: '11px', alignItems: 'flex-start', padding: '6px 8px', borderRadius: 'var(--r)' }
-    }, ikonKap, govde);
-
-    if (oge.onClick) {
-      satir.setAttribute('role', 'button');
-      satir.setAttribute('tabindex', '0');
-      satir.style.cursor = 'pointer';
-      satir.addEventListener('click', oge.onClick);
-      satir.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); oge.onClick(); }
-      });
-      satir.addEventListener('mouseenter', function () { satir.style.background = 'var(--yuzey-2)'; });
-      satir.addEventListener('mouseleave', function () { satir.style.background = 'transparent'; });
-    }
-    return satir;
-  }
-
-  function hareketPaneli(depo, o, logSinir, toplamSinir) {
-    var ogeler = hareketListesi(depo, o, logSinir, toplamSinir), i;
-    var govde;
-
-    if (!ogeler.length) {
-      govde = YU.h('div', { sinif: 'yu-bos-metin', metin: 'Henüz hareket yok.' });
-    } else {
-      /* Satırların dolgusu panel kenarına taşsın ki hover alanı geniş olsun,
-         metin hizası artboard 2a'daki liste ile aynı kalsın. */
-      govde = YU.h('div', {
-        stil: { display: 'flex', flexDirection: 'column', gap: '4px', margin: '-6px -8px' }
-      });
-      for (i = 0; i < ogeler.length; i++) govde.appendChild(hareketSatiri(ogeler[i]));
-    }
-
-    return YU.ui.panel({ baslik: 'Son Hareketler', ikon: '#ic-dots', govde: govde });
   }
 
   /* ==================================================================
@@ -1054,29 +1006,12 @@
 
   /* Kabuktaki zil açılır paneli aynı listeyi kullanır (10-kabuk zilPaneliAc).
      Kabuk bu dosyadan önce yüklendiği için fonksiyon YU üzerinden verilir. */
-  YU.sonHareketListesi = function (logSinir, toplamSinir, minLogId) {
+  YU.sonHareketListesi = function (logSinir, toplamSinir, minLogId, gun) {
     var depo = YU.db;
     if (!depo) return [];
-    return hareketListesi(depo, ozet(depo), logSinir, toplamSinir, minLogId);
+    return hareketListesi(depo, ozet(depo), logSinir, toplamSinir, minLogId, gun);
   };
 
-  /* Son Hareketler ayrı sayfa: ana sayfadan kaldırıldı, üst şeritteki zil
-     düğmesi buraya açılır (kullanıcı isteği, 21.08.2026). Aynı liste
-     üreticileri kullanılır; yalnız satır sınırları geniş tutulur. */
-  YU.sayfaTanimla({
-    kod: 'son-hareketler',
-    baslik: 'Son Hareketler',
-    altBaslik: function () {
-      var d = YU.db;
-      return d ? YU.fmt.sayi(d.degisiklikLog.length) + ' denetim kaydından son hareketler' : '';
-    },
-    ikon: '#ic-bell',
-    grup: 'Yönetim',
-    rol: 'Hepsi',
-    ciz: function (kap) {
-      var depo = YU.db;
-      if (!depo) return;
-      kap.appendChild(hareketPaneli(depo, ozet(depo), 30, 40));
-    }
-  });
+  /* Son Hareketler sayfası kaldırıldı (kullanıcı isteği, 24.08.2026):
+     liste yalnız üst şeritteki zil panelinde yaşar (YU.sonHareketListesi). */
 })();
