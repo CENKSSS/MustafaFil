@@ -34,6 +34,32 @@
     return '#/gunluk-rapor?tarih=' + encodeURIComponent(tarih);
   }
 
+  var SAYFA_PENCERE = 7;   /* çubukta doğrudan basılan en fazla numara */
+
+  /* Uzun listede tüm numaralar basılmaz: baş, son ve aktif sayfanın çevresi;
+     arada kalan boşluk null ile işaretlenir ve "…" olarak çizilir.
+     (Geçmiş Girişler ekranındaki sayfalama diliyle birebir aynı.) */
+  function sayfaNumaralari(aktif, toplam) {
+    var i, j;
+    if (toplam <= SAYFA_PENCERE) {
+      var hepsi = [];
+      for (i = 1; i <= toplam; i++) hepsi.push(i);
+      return hepsi;
+    }
+    var kume = { 1: 1 };
+    kume[toplam] = 1;
+    for (j = aktif - 1; j <= aktif + 1; j++) if (j >= 1 && j <= toplam) kume[j] = 1;
+    var liste = [], k;
+    for (k in kume) if (Object.prototype.hasOwnProperty.call(kume, k)) liste.push(Number(k));
+    liste.sort(function (a, b) { return a - b; });
+    var cikti = [];
+    for (j = 0; j < liste.length; j++) {
+      if (j > 0 && liste[j] - liste[j - 1] > 1) cikti.push(null);
+      cikti.push(liste[j]);
+    }
+    return cikti;
+  }
+
   /* Tarih sütunu yakın günleri sözle yazar (kullanıcı isteği, 24.08.2026):
      bugün "Bugün", dün "Dün", öncesi normal tarih. İki günden eskisi için
      sözel ifade ("3 gün önce") kullanılmaz — orada gerçek tarih daha okunur. */
@@ -151,7 +177,25 @@
     return YU.h('div', { sinif: 'yu-panel' }, bas, govde);
   }
 
-  function toplamSeridi(satirlar) {
+  /* Toplamın NEYİ KAPSADIĞI ekranda yazar (kullanıcı isteği, 24.08.2026).
+     Şartname §5: dökme kuru küspe fiziksel olarak silolarda durur ve stoğu
+     siloların toplamıdır. Çuvallanan küspe siloya girmez, çuvallı stoğa
+     yazılır (§4) — bu yüzden 50 kg'lık çuvallı stok bu toplama DAHİL DEĞİL.
+     Miktarı da yazılır ki kullanıcı "nerede peki" diye aramasın. */
+  function cuvalliNotu(tarih) {
+    var m = YU.db.malzemeler, i, cuval = null;
+    for (i = 0; i < m.length; i++) if (m[i].OzelTip === 'CuvalKuruKuspe') { cuval = m[i]; break; }
+    if (!cuval) return 'Silolarda yalnız dökme kuru küspe durur.';
+    var st = YU.stok.malzemeStok(YU.db, cuval.Id, tarih);
+    var kg = Number(st.mevcut) || 0;
+    return 'Bu toplam yalnız DÖKME kuru küspedir — silolarda yalnız o durur. ' +
+      cuval.Ad + ' bu toplama dahil DEĞİLDİR' +
+      (kg > 0
+        ? ' (ayrıca ' + YU.fmt.kgU(kg) + ' var; Stok Durumu ekranında görünür).'
+        : ' (şu an stokta yok).');
+  }
+
+  function toplamSeridi(satirlar, tarih) {
     var mevcut = 0, kapasite = 0, i;
     for (i = 0; i < satirlar.length; i++) {
       mevcut += satirlar[i].mevcut;
@@ -166,11 +210,16 @@
     return YU.h('div', null,
       YU.h('div', { sinif: 'yu-hesap' },
         YU.h('div', { sinif: 'yu-hesap-satir', stil: { justifyContent: 'space-between' } },
-          hesapOge('Toplam mevcut', YU.fmt.kgU(mevcut)),
+          hesapOge('Toplam mevcut · dökme', YU.fmt.kgU(mevcut)),
           hesapOge('Toplam kapasite', YU.fmt.kgU(kapasite)),
           hesapOge('Doluluk', YU.fmt.yuzde(oran * 100), kapasite > 0 ? dolulukTur(oran) : null),
           hesapOge('Ton karşılığı', YU.fmt.ton(mevcut))
-        )
+        ),
+        YU.h('div', {
+          sinif: 'yu-yardim',
+          stil: { padding: '0 16px 12px', margin: '0' },
+          metin: cuvalliNotu(tarih)
+        })
       )
     );
   }
@@ -384,27 +433,70 @@
         yapiskan: true
       }));
 
-      /* Sayfalama — Değişiklik Geçmişi'ndekiyle aynı dil. */
-      if (toplamSayfa > 1) {
+      /* Sayfalama — Geçmiş Girişler'deki numaralı dilin aynısı; şerit ORTADA
+         durur (kullanıcı isteği, 24.08.2026). Numaralar 1'den başlar, uzun
+         listede baş ve son sabit kalıp aradaki boşluk "…" ile atlanır. */
+      /* Sayfalama şeridi HER ZAMAN çizilir (kullanıcı isteği, 24.08.2026):
+         tek sayfa varken de görünür, düğmeleri pasif durur. */
+      {
+        var numaraKap = YU.h('div', {
+          stil: { display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', justifyContent: 'center' }
+        });
+
+        numaraKap.appendChild(YU.ui.dugme({
+          metin: 'Önceki', tur: 'ikincil', kucuk: true, pasif: sayfa === 0,
+          onClick: function () { sayfa--; tabloyuCiz(); }
+        }));
+
+        var numaralar = sayfaNumaralari(sayfa + 1, toplamSayfa), n;
+        for (n = 0; n < numaralar.length; n++) {
+          if (numaralar[n] === null) {
+            numaraKap.appendChild(YU.h('span', {
+              metin: '…', sinif: 'yu-yardim', stil: { padding: '4px 2px' }
+            }));
+            continue;
+          }
+          (function (no) {
+            var aktifMi = no === sayfa + 1;
+            var stil = {
+              padding: '5px 10px', borderRadius: '5px', cursor: 'pointer',
+              font: '400 13px/1.4 var(--font)', color: 'var(--metin-5)',
+              border: '1px solid transparent'
+            };
+            if (aktifMi) {
+              stil.border = '1px solid var(--kenar-2)';
+              stil.color = 'var(--metin)';
+            }
+            numaraKap.appendChild(YU.h('span', {
+              metin: YU.fmt.sayi(no), stil: stil, role: 'button', tabindex: '0',
+              title: YU.fmt.sayi(no) + '. sayfa',
+              onClick: function () { sayfa = no - 1; tabloyuCiz(); },
+              onKeyDown: function (e) {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sayfa = no - 1; tabloyuCiz(); }
+              }
+            }));
+          })(numaralar[n]);
+        }
+
+        numaraKap.appendChild(YU.ui.dugme({
+          metin: 'Sonraki', tur: 'ikincil', kucuk: true, pasif: sayfa >= toplamSayfa - 1,
+          onClick: function () { sayfa++; tabloyuCiz(); }
+        }));
+
+        /* Bilgi solda, numaralar tam ortada: iki yanına eşit esneyen boşluk. */
         tabloKabi.appendChild(YU.h('div', {
           stil: {
-            display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'flex-end',
+            display: 'flex', alignItems: 'center', gap: '10px',
             padding: '12px 18px', borderTop: '1px solid var(--ayrac)'
           }
         },
           YU.h('span', {
             sinif: 'yu-yardim',
-            metin: 'Sayfa ' + YU.fmt.sayi(sayfa + 1) + ' / ' + YU.fmt.sayi(toplamSayfa) +
-              ' · sayfa başına ' + YU.fmt.sayi(SAYFA_GUN) + ' gün'
+            stil: { flex: '1', minWidth: '0' },
+            metin: 'Sayfa başına ' + YU.fmt.sayi(SAYFA_GUN) + ' gün'
           }),
-          YU.ui.dugme({
-            metin: 'Önceki', tur: 'ikincil', kucuk: true, pasif: sayfa === 0,
-            onClick: function () { sayfa--; tabloyuCiz(); }
-          }),
-          YU.ui.dugme({
-            metin: 'Sonraki', tur: 'ikincil', kucuk: true, pasif: sayfa >= toplamSayfa - 1,
-            onClick: function () { sayfa++; tabloyuCiz(); }
-          })
+          numaraKap,
+          YU.h('span', { stil: { flex: '1', minWidth: '0' } })
         ));
       }
     }
@@ -474,15 +566,8 @@
       )
     );
 
-    var temizle = YU.ui.dugme({
-      metin: 'Süzgeci Temizle', ikon: '#ic-filter', tur: 'sade', kucuk: true,
-      onClick: function () {
-        basAlani.ayarla('');
-        bitAlani.ayarla('');
-        gunDugmeleriTazele();
-        suzgecDegisti();
-      }
-    });
+    /* 'Süzgeci Temizle' kaldırıldı (kullanıcı isteği, 24.08.2026):
+       tarih aralığı takvimlerden ve gün düğmelerinden yönetilir. */
 
     tabloyuCiz();
 
@@ -490,7 +575,7 @@
       panel: YU.ui.panel({
         baslik: 'Silo Hareketleri',
         ikon: '#ic-filter',
-        sag: [sayacMetni, temizle],
+        sag: sayacMetni,
         govde: [suzgecler, tabloKabi]
       })
     };
@@ -556,7 +641,7 @@
     var kartlar = YU.h('div', { sinif: 'yu-izgara yu-iz-3' });
     for (i = 0; i < satirlar.length; i++) kartlar.appendChild(siloKarti(depo, satirlar[i], tarih));
     kap.appendChild(kartlar);
-    kap.appendChild(toplamSeridi(satirlar));
+    kap.appendChild(toplamSeridi(satirlar, tarih));
 
     /* Dökme üretim–satış grafiği ana sayfadan taşındı: hareket dökümünün
        hemen üstünde durur (kullanıcı isteği, 21.08.2026). */
