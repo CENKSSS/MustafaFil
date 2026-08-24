@@ -333,16 +333,21 @@
     // başlamasın diye veri şimdiden birikir (kullanıcı isteği, 21.08.2026).
     ["OlayGunlugu", "olayGunlugu"],
     ["SilinenKayitlar", "silinenKayitlar"],
-    ["StokFotograflari", "stokFotograflari"]
+    ["StokFotograflari", "stokFotograflari"],
+    // Kampanya kilitleri (kullanıcı isteği, 24.08.2026): satır varlığı =
+    // kampanya kilitli; kilitliyken o kampanyaya veri yazılamaz. SOZLESME
+    // §1 dışıdır — sekiz tablo sözleşmesine dokunmaz.
+    ["KampanyaKilitleri", "kampanyaKilitleri"]
   ];
 
   // Sonradan eklenen arşiv tabloları: eski localStorage kaydında bulunmazlar.
   // oku() bunları eksikse boş dizi sayar ki mevcut veri sıfırlanmasın.
-  var ARSIV_TABLOLARI = ["olayGunlugu", "silinenKayitlar", "stokFotograflari"];
+  var ARSIV_TABLOLARI = ["olayGunlugu", "silinenKayitlar", "stokFotograflari", "kampanyaKilitleri"];
 
   var HAREKET_TABLOLARI = ["devirStok", "siloDevirStok", "gunlukHareket",
                            "kuruKuspeGunluk", "siloHareket", "degisiklikLog",
-                           "olayGunlugu", "silinenKayitlar", "stokFotograflari"];
+                           "olayGunlugu", "silinenKayitlar", "stokFotograflari",
+                           "kampanyaKilitleri"];
 
   var MALZEME_TANIMI = [
     ["Yaş Küspe (Tonluk)", null],

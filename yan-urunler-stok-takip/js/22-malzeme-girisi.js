@@ -58,7 +58,8 @@
      ================================================================== */
 
   /* taban = seçilen güne kadarki stok, O GÜNÜN satırı hariç. Gün sonu stok
-     yazdıkça taban + üretim − satış olarak anında hesaplanır. */
+     yazdıkça taban + üretim + iade − satış olarak anında hesaplanır (iade
+     stokta üretim gibi davranır — kullanıcı direktifi, 24.08.2026). */
   function satirVerisiKur(satir, stok) {
     var kayit = hareketBul(satir.tarih, satir.malzeme.Id);
     satir.kayit = kayit;
@@ -67,17 +68,20 @@
     satir.rowVersion = kayit ? Number(kayit.RowVersion) : null;
     satir.kayitUretim = kayit ? sayi(kayit.Uretim) : 0;
     satir.kayitSatis = kayit ? sayi(kayit.Satis) : 0;
+    satir.kayitIade = kayit ? sayi(kayit.Iade) : 0;
     satir.baslangicUretim = satir.kayitUretim;
     satir.baslangicSatis = satir.kayitSatis;
+    satir.baslangicIade = satir.kayitIade;
     satir.taban = satir.sabitTaban
       ? stok.mevcut
-      : YU.yuvarla(stok.mevcut - satir.kayitUretim + satir.kayitSatis);
+      : YU.yuvarla(stok.mevcut - satir.kayitUretim - satir.kayitIade + satir.kayitSatis);
   }
 
   function satirVerisiTazele(satir) {
     satirVerisiKur(satir, YU.stok.malzemeStok(YU.db, satir.malzeme.Id, satir.tarih));
     if (satir.uretimAlan) satir.uretimAlan.ayarla(satir.kayit ? satir.baslangicUretim : null).hataGoster('');
     if (satir.satisAlan) satir.satisAlan.ayarla(satir.kayit ? satir.baslangicSatis : null).hataGoster('');
+    if (satir.iadeAlan) satir.iadeAlan.ayarla(satir.kayit && satir.baslangicIade ? satir.baslangicIade : null).hataGoster('');
   }
 
   function alanSayisi(alan) { return alan.deger(); }
@@ -99,6 +103,10 @@
       v = alanSayisi(satir.satisAlan);
       if (!isFinite(v) || YU.yuvarla(v) !== satir.baslangicSatis) return true;
     }
+    if (!satir.kilitliIade) {
+      v = alanSayisi(satir.iadeAlan);
+      if (!isFinite(v) || YU.yuvarla(v) !== satir.baslangicIade) return true;
+    }
     return false;
   }
 
@@ -117,8 +125,9 @@
   function satirTazele(satir) {
     var u = satir.kilitliUretim ? satir.kayitUretim : alanSayisi(satir.uretimAlan);
     var s = satir.kilitliSatis ? satir.kayitSatis : alanSayisi(satir.satisAlan);
-    var gecerli = isFinite(u) && isFinite(s);
-    var sonuc = satir.sabitTaban ? satir.taban : YU.yuvarla(satir.taban + u - s);
+    var iade = satir.kilitliIade ? satir.kayitIade : alanSayisi(satir.iadeAlan);
+    var gecerli = isFinite(u) && isFinite(s) && isFinite(iade);
+    var sonuc = satir.sabitTaban ? satir.taban : YU.yuvarla(satir.taban + u + iade - s);
 
     satir.gecerli = gecerli;
     satir.sonuc = gecerli ? sonuc : NaN;
@@ -279,6 +288,9 @@
       if (!satir.kilitliSatis && (!isFinite(alanSayisi(satir.satisAlan)) || YU.yuvarla(alanSayisi(satir.satisAlan)) !== satir.baslangicSatis)) {
         kalemler.appendChild(alanSatiri('Satış', satir.baslangicSatis, !!satir.kayit, satir.satisAlan));
       }
+      if (!satir.kilitliIade && (!isFinite(alanSayisi(satir.iadeAlan)) || YU.yuvarla(alanSayisi(satir.iadeAlan)) !== satir.baslangicIade)) {
+        kalemler.appendChild(alanSatiri('İade', satir.baslangicIade, !!satir.kayit, satir.iadeAlan));
+      }
       liste.appendChild(kalemler);
     }
 
@@ -327,6 +339,7 @@
          hata olarak döndürür (03-dogrulama, Şartname §7). */
       if (!satir.kilitliUretim) girdi.uretim = gonderilecek(satir.uretimAlan);
       if (!satir.kilitliSatis) girdi.satis = gonderilecek(satir.satisAlan);
+      if (!satir.kilitliIade) girdi.iade = gonderilecek(satir.iadeAlan);
 
       s = YU.servis.malzemeHareketKaydet(YU.db, girdi, YU.oturum.kullanici);
       if (s.uyarilar && s.uyarilar.length) uyarilar = uyarilar.concat(s.uyarilar);
@@ -335,6 +348,9 @@
         basarili++;
         satirVerisiTazele(satir);
       } else {
+        /* Kilitli kampanya: tüm satırlar aynı tarihe yazdığı için tek
+           pencere yeter; hiçbir satır kaydedilmemiştir. */
+        if (YU.ui.kilitYakala(s)) return;
         hatalar = hatalar.concat(s.hatalar);
         if (s.hatalar.length) {
           (satir.kilitliUretim ? satir.satisAlan : satir.uretimAlan).hataGoster(s.hatalar[0].mesaj);
@@ -366,6 +382,7 @@
       satir = d.satirlar[i];
       if (satir.uretimAlan) satir.uretimAlan.ayarla(satir.kayit ? satir.baslangicUretim : null).hataGoster('');
       if (satir.satisAlan) satir.satisAlan.ayarla(satir.kayit ? satir.baslangicSatis : null).hataGoster('');
+      if (satir.iadeAlan) satir.iadeAlan.ayarla(satir.kayit && satir.baslangicIade ? satir.baslangicIade : null).hataGoster('');
       satirTazele(satir);
     }
     YU.bos(d.hataKap);
@@ -545,6 +562,7 @@
       onInput: function () {
         if (satir.uretimAlan) satir.uretimAlan.hataGoster('');
         if (satir.satisAlan) satir.satisAlan.hataGoster('');
+        if (satir.iadeAlan) satir.iadeAlan.hataGoster('');
         satirTazele(satir);
         ozetTazele(d);
       }
@@ -553,11 +571,27 @@
     return alan.kok;
   }
 
+  /* İade girilen satırda alan boş başlar (0 yerine) — kolon dolu görünmesin.
+     Kilitli satırda değer de yok: soluk "—" ve gerekçe title'da. */
+  function iadeHucresi(d, satir) {
+    if (satir.kilitliIade) {
+      return YU.h('span', {
+        sinif: 'yu-zayif', metin: '—',
+        title: satir.ozel ? 'Kuru küspe akışındaki malzemeye iade bu ekrandan girilmez.' : ''
+      });
+    }
+    var kok = girdiHucresi(d, satir, 'iadeAlan', satir.baslangicIade || null);
+    if (satir.kayit && !satir.baslangicIade) satir.iadeAlan.ayarla(null);
+    return kok;
+  }
+
   function tabloPaneli(d) {
+    /* Kolon sırası kullanıcı isteği (24.08.2026): İade en solda. */
     var sutunlar = [
       { baslik: 'Malzeme' },
-      { baslik: 'Üretim (Kg)', genislik: 190, hiza: 'sag' },
-      { baslik: 'Satış (Kg)', genislik: 190, hiza: 'sag' },
+      { baslik: 'İade (Kg)', genislik: 150, hiza: 'sag' },
+      { baslik: 'Üretim (Kg)', genislik: 175, hiza: 'sag' },
+      { baslik: 'Satış (Kg)', genislik: 175, hiza: 'sag' },
       { baslik: 'Gün Sonu Stok', genislik: 150, hiza: 'sag', mono: true },
       { baslik: 'Durum', genislik: 168 }
     ];
@@ -579,6 +613,7 @@
 
       satirlar.push([
         malzemeHucresi(d, satir),
+        iadeHucresi(d, satir),
         uretimHucre,
         satisHucre,
         satir.sonucHucre,
@@ -598,7 +633,7 @@
        yerine dar ekranda kendi kabında yatay kaysın (tema.css ≤900px'te
        yapışkan varyantı kaydırmaya geri düşürür). */
     var tablo = sar.querySelector('table');
-    if (tablo) tablo.style.minWidth = '860px';
+    if (tablo) tablo.style.minWidth = '980px';   /* İade kolonu eklendi (24.08.2026) */
 
     var trler = sar.querySelectorAll('tbody tr');
     for (i = 0; i < d.satirlar.length && i < trler.length; i++) d.satirlar[i].tr = trler[i];
@@ -667,6 +702,9 @@
         sabitTaban: ozel === 'DokmeKuruKuspe',
         kilitliUretim: m.Aktif === false || ozel === 'DokmeKuruKuspe' || ozel === 'CuvalKuruKuspe',
         kilitliSatis: m.Aktif === false || ozel === 'DokmeKuruKuspe',
+        /* İade yalnız basit malzemede girilir (03-dogrulama ile aynı kural):
+           küspe akışı malzemelerinde stok kilitli kolonlardan yürür. */
+        kilitliIade: m.Aktif === false || !!ozel,
         yardim: null
       };
 

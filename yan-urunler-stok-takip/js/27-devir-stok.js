@@ -669,16 +669,18 @@
   }
 
   function degisiklikleriYaz(tarih, degisiklikler) {
-    var hatalar = [], uyarilar = [], basarili = 0, i, d, s;
+    var hatalar = [], uyarilar = [], basarili = 0, i, d, s, kilitGoruldu = false;
     for (i = 0; i < degisiklikler.length; i++) {
       d = degisiklikler[i];
       s = siloMu()
         ? YU.servis.siloDevirKaydet(YU.db, { siloId: d.sahip.Id, devirTarihi: tarih, miktar: d.yeni }, YU.oturum.kullanici)
         : YU.servis.devirKaydet(YU.db, { malzemeId: d.sahip.Id, devirTarihi: tarih, miktar: d.yeni }, YU.oturum.kullanici);
       if (s.ok) basarili++;
+      else if (YU.ui.kilitYakala(s)) { kilitGoruldu = true; break; }
       else hatalar = hatalar.concat(etiketle(d.sahip.Ad, s.hatalar));
       uyarilar = uyarilar.concat(etiketle(d.sahip.Ad, s.uyarilar));
     }
+    if (kilitGoruldu) { YU.yenile(); return; }
 
     if (basarili) {
       YU.ui.bildir(YU.fmt.sayi(basarili) + ' devir satırı kaydedildi (' + YU.fmt.tarih(tarih) + ').', 'basari');
@@ -787,6 +789,7 @@
   function devriSil(sahip, kayit) {
     var s = YU.servis.devirSil(YU.db, kayit.Id, tip(), YU.oturum.kullanici);
     if (!s.ok) {
+      if (YU.ui.kilitYakala(s)) return;
       var mh = YU.ui.modal({
         baslik: 'Devir Silinemedi',
         genislik: 560,
@@ -844,6 +847,153 @@
     });
   }
 
+  /* ==================================================================
+     Kampanya Yönetimi (kullanıcı isteği, 24.08.2026)
+     - kampanya listesi + kilitle / kilidi aç (yalnız yönetici bu sayfaya
+       girebildiği için ayrıca rol kontrolü gerekmez)
+     - yeni kampanya oluşturma: devir kopyalama + önceki kampanyayı kilitleme
+     ================================================================== */
+
+  function kilitKullanicisi(kilit) {
+    if (!kilit) return null;
+    var l = YU.db.kullanicilar, i;
+    for (i = 0; i < l.length; i++) if (l[i].Id === kilit.KullaniciId) return l[i].AdSoyad;
+    return kilit.KullaniciId === null || kilit.KullaniciId === undefined ? 'Sistem' : 'Kullanıcı #' + kilit.KullaniciId;
+  }
+
+  function kilitleIste(donem) {
+    YU.ui.onay({
+      baslik: '"' + donem.ad + '" Kampanyasını Kilitle',
+      metin: 'Kilitliyken bu kampanyaya düşen hiçbir gün için giriş, düzeltme, silme ve devir değişikliği yapılamaz. ' +
+        'Kilidi yine bu ekrandan açabilirsin.',
+      onayMetni: 'Kilitle'
+    }).then(function (evet) {
+      if (!evet) return;
+      var s = YU.servis.kampanyaKilitle(YU.db, { kampanya: donem.ad }, YU.oturum.kullanici);
+      if (s.ok) YU.ui.bildir('"' + donem.ad + '" kampanyası kilitlendi.', 'basari');
+      else YU.ui.bildir(s.hatalar[0] ? s.hatalar[0].mesaj : 'Kilitleme başarısız.', 'hata');
+      YU.yenile();
+    });
+  }
+
+  function kilidiAcIste(donem) {
+    YU.ui.onay({
+      baslik: '"' + donem.ad + '" Kampanyasının Kilidini Aç',
+      metin: 'Kilit açılınca bu kampanyanın günleri yeniden düzenlenebilir ve silinebilir. ' +
+        'Geçmiş kampanyada yapılacak değişiklik sonraki günlerin stoklarını yeniden hesaplatır. Emin misin?',
+      onayMetni: 'Kilidi Aç', tehlike: true
+    }).then(function (evet) {
+      if (!evet) return;
+      var s = YU.servis.kampanyaKilidiAc(YU.db, { kampanya: donem.ad }, YU.oturum.kullanici);
+      if (s.ok) YU.ui.bildir('"' + donem.ad + '" kampanyasının kilidi açıldı.', 'basari');
+      else YU.ui.bildir(s.hatalar[0] ? s.hatalar[0].mesaj : 'Kilit açılamadı.', 'hata');
+      YU.yenile();
+    });
+  }
+
+  function onayKutusu(metin, isaretli) {
+    var g = YU.h('input');
+    g.type = 'checkbox';
+    g.checked = !!isaretli;
+    g.style.accentColor = 'var(--vurgu)';
+    g.style.width = '15px';
+    g.style.height = '15px';
+    g.style.flex = 'none';
+    var kok = YU.h('label', {
+      stil: { display: 'flex', alignItems: 'center', gap: '9px', cursor: 'pointer',
+              font: '400 13.5px/1.4 var(--font)', color: 'var(--metin-2)' }
+    }, g, YU.h('span', { metin: metin }));
+    return { kok: kok, girdi: g };
+  }
+
+  function yeniKampanyaModali() {
+    var liste = YU.donem.liste();
+    var onceki = liste.length ? liste[liste.length - 1] : null;
+    var tarihAlan = YU.ui.alan({
+      etiket: 'Kampanya Başlangıç Tarihi', tip: 'tarih',
+      deger: YU.tarih.bugun(), genislik: 200
+    });
+    var devretKutu = onayKutusu('Önceki kampanyanın kapanış stoklarını devir olarak yaz', true);
+    var kilitleKutu = onayKutusu('Önceki kampanyayı (' + (onceki ? onceki.ad : '—') + ') kilitle', true);
+    var m = YU.ui.modal({
+      baslik: 'Yeni Kampanya Oluştur',
+      genislik: 500,
+      govde: [YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '12px' } },
+        YU.h('div', {
+          metin: 'Seçilen tarihte tüm malzeme ve silolara devir satırları açılır; kampanya o günden başlar. Gelecek tarihe kampanya açılamaz.',
+          stil: { font: '400 13.5px/1.55 var(--font)', color: 'var(--metin-2)' }
+        }),
+        tarihAlan.kok,
+        onceki ? devretKutu.kok : null,
+        onceki ? kilitleKutu.kok : null
+      )],
+      dugmeler: [
+        { metin: 'Vazgeç' },
+        {
+          metin: 'Oluştur', ikon: '#ic-plus', tur: 'birincil',
+          onClick: function () {
+            var s = YU.servis.yeniKampanyaOlustur(YU.db, {
+              tarih: tarihAlan.deger(),
+              devret: devretKutu.girdi.checked,
+              oncekiKilitle: !!(onceki && kilitleKutu.girdi.checked)
+            }, YU.oturum.kullanici);
+            if (!s.ok) {
+              YU.ui.bildir(s.hatalar[0] ? s.hatalar[0].mesaj : 'Kampanya oluşturulamadı.', 'hata');
+              return;   /* pencere açık kalır, tarih düzeltilebilir */
+            }
+            m.kapat();
+            YU.donem.tazele();
+            YU.ui.bildir('"' + s.kayit.ad + '" kampanyası oluşturuldu (' + YU.fmt.sayi(s.kayit.yazilan) + ' devir satırı).', 'basari');
+            YU.yenile();
+          }
+        }
+      ]
+    });
+  }
+
+  function kampanyaPaneli() {
+    var liste = YU.donem.liste();
+    var aktifAd = liste.length ? liste[liste.length - 1].ad : null;
+    var satirlar = [], i;
+    for (i = liste.length - 1; i >= 0; i--) {
+      (function (dn) {
+        var kilit = YU.servis.kampanyaKilitDurumu(YU.db, dn.ad);
+        var simdiki = dn.ad === aktifAd;
+        satirlar.push([
+          YU.h('span', { sinif: 'yu-guclu', metin: dn.ad }),
+          YU.h('span', { sinif: 'yu-mono', metin: YU.fmt.tarih(dn.bas) + ' – ' + YU.fmt.tarih(dn.bit) }),
+          YU.fmt.sayi(dn.kayitliGun) + ' gün',
+          YU.h('div', { stil: { display: 'flex', gap: '6px', alignItems: 'center' } },
+            simdiki ? YU.ui.rozet('Şu Anki', 'vurgu') : YU.ui.rozet('Geçmiş', 'notr'),
+            kilit ? YU.ui.rozet('Kilitli', 'olumsuz') : YU.ui.rozet('Açık', 'olumlu')),
+          kilit ? YU.h('span', { sinif: 'yu-zayif', metin: (kilitKullanicisi(kilit) || '—') + ' · ' + YU.fmt.tarihSaat(kilit.Tarih) })
+                : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
+          kilit
+            ? YU.ui.dugme({ metin: 'Kilidi Aç', ikon: '#ic-gear', tur: 'tehlike', kucuk: true, onClick: function () { kilidiAcIste(dn); } })
+            : YU.ui.dugme({ metin: 'Kilitle', ikon: '#ic-alert', tur: 'ikincil', kucuk: true, onClick: function () { kilitleIste(dn); } })
+        ]);
+      })(liste[i]);
+    }
+    return YU.ui.panel({
+      baslik: 'Kampanya Yönetimi',
+      ikon: '#ic-calendar-dots',
+      dolgusuz: true,
+      sag: YU.ui.dugme({ metin: 'Yeni Kampanya Oluştur', ikon: '#ic-plus', tur: 'birincil', kucuk: true, onClick: yeniKampanyaModali }),
+      govde: YU.ui.tablo({
+        sutunlar: [
+          { baslik: 'Kampanya', genislik: 120 },
+          { baslik: 'Aralık', genislik: 210 },
+          { baslik: 'Kayıtlı Gün', genislik: 110, hiza: 'sag', mono: true },
+          { baslik: 'Durum', genislik: 170 },
+          { baslik: 'Kilitleyen', genislik: 210 },
+          { baslik: '', hiza: 'sag', genislik: 130 }
+        ],
+        satirlar: satirlar,
+        bos: 'Henüz kampanya yok — ilk devir girildiğinde burada listelenir.'
+      })
+    });
+  }
+
   /* Malzeme ve silo devirleri AYNI SAYFADA alt alta durur (kullanıcı isteği,
      24.08.2026); sekme yoktur. Ekranın bütün mantığı durum.sekme üzerinden
      dallandığı için her bölüm çizilirken sekme geçici olarak o bölüme
@@ -872,7 +1022,7 @@
 
   YU.sayfaTanimla({
     kod: 'devir-stok',
-    baslik: 'Devir Stok',
+    baslik: 'Devir Stok & Kampanya Yönetimi',
     ikon: '#ic-wallet',
     grup: 'Yönetim',
     rol: 'Yonetici',
@@ -896,6 +1046,8 @@
       /* ?sekme= artık görünüm değiştirmiyor; yalnız ?tarih= ile birlikte
          hangi bölümün tarihi kurulacağını söyler. */
       if (p.tarih) durum.tarih[(p.sekme === 'silo' ? 'silo' : 'malzeme')] = p.tarih;
+
+      kap.appendChild(kampanyaPaneli());
 
       var malzemeKap = sekmeyiKilitle(YU.h('div', { stil: { minWidth: '0' } }), 'malzeme');
       var siloKap = sekmeyiKilitle(YU.h('div', { stil: { minWidth: '0' } }), 'silo');

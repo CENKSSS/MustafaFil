@@ -1181,6 +1181,7 @@
       var s = YU.servis.kuruKuspeKaydet(db, girdi, YU.oturum.kullanici);
 
       if (!s.ok) {
+        if (YU.ui.kilitYakala(s)) return;   /* kilitli kampanya: pencere + bağlantı */
         sonucGoster();
         sonucKap.appendChild(YU.ui.hataListesi(s.hatalar, "hata"));
         if (s.uyarilar.length) sonucKap.appendChild(YU.ui.hataListesi(s.uyarilar, "uyari"));
@@ -1240,6 +1241,7 @@
         if (!evet) return;
         var s = YU.servis.gunSil(db, tarih, YU.oturum.kullanici);
         if (!s.ok) {
+          if (YU.ui.kilitYakala(s)) return;
           YU.bos(sonucKap);
           sonucGoster();
           sonucKap.appendChild(YU.ui.hataListesi(s.hatalar, "hata"));

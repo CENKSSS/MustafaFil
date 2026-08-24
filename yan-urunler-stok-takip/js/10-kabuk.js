@@ -473,6 +473,22 @@
       });
     }
 
+    /* Çift sayım kontrolü (kullanıcı isteği, 24.08.2026): fark varsa üst
+       şerit uyarısı da düşer. Hesap 23-stok-durumu'nun YU.ciftSayimKontrol
+       köprüsünden gelir; o dosya yüklenmemişse sessizce atlanır. */
+    var cift = typeof YU.ciftSayimKontrol === 'function'
+      ? guvenli(function () { return YU.ciftSayimKontrol(bugun); }, null)
+      : null;
+    if (cift && !cift.tutuyor) {
+      u.push({
+        tur: 'olumsuz', ikon: '#ic-percent',
+        baslik: 'Çift Sayım Tutmuyor',
+        metin: 'Kuru küspe toplamı beklenenden ' + YU.fmt.kgU(Math.abs(cift.fark)) +
+          (cift.fark > 0 ? ' fazla' : ' eksik') + '. Stok Durumu\'ndaki kontrol paneline bakın.',
+        git: function () { YU.git('stok-durumu'); }
+      });
+    }
+
     var negatifler = guvenli(function () { return YU.stok.negatifGunler(db); }, []);
     for (i = 0; i < negatifler.length && i < 8; i++) {
       var n = negatifler[i];
@@ -1501,6 +1517,35 @@
       if (bas) { bas.style.padding = '15px 18px'; bas.style.marginBottom = '0'; bas.style.borderBottom = '1px solid var(--ayrac)'; }
     }
     return panel;
+  };
+
+  /* Kampanya kilidi uyarısı (kullanıcı isteği, 24.08.2026): kilitli
+     kampanyada değişiklik denenince küçük pencere açılır ve kilit
+     yönetimine bağlantı verir. s.hatalar içinde KILIT kodu varsa pencere
+     açılır ve true döner — çağıran ekran normal hata akışını atlar. */
+  YU.ui.kilitYakala = function (s) {
+    var h = s && s.hatalar, i, bulunan = null;
+    if (h) for (i = 0; i < h.length; i++) if (h[i] && h[i].kod === 'KILIT') { bulunan = h[i]; break; }
+    if (!bulunan) return false;
+    var m = YU.ui.modal({
+      baslik: 'Kampanya Kilitli',
+      genislik: 480,
+      govde: [YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '10px' } },
+        YU.h('div', { metin: bulunan.mesaj, stil: { font: '400 14px/1.6 var(--font)', color: 'var(--metin)' } }),
+        YU.h('div', {
+          metin: 'Kilidi yalnız yönetici, Devir Stok & Kampanya Yönetimi ekranından açabilir.',
+          stil: { font: '400 13px/1.55 var(--font)', color: 'var(--metin-3)' }
+        })
+      )],
+      dugmeler: [
+        { metin: 'Vazgeç' },
+        {
+          metin: 'Kampanya Yönetimine Git', ikon: '#ic-wallet', tur: 'birincil',
+          onClick: function () { m.kapat(); YU.git('devir-stok'); }
+        }
+      ]
+    });
+    return true;
   };
 
   YU.ui.rozet = function (metin, tur) {

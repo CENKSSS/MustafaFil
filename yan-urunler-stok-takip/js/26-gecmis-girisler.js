@@ -174,6 +174,7 @@
         YU.yenile();
         return;
       }
+      if (YU.ui.kilitYakala(s)) return;   /* kilitli kampanya: pencere + bağlantı */
       silmeReddiModali(tarih, s.hatalar);
     });
   }
