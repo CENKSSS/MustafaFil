@@ -787,12 +787,53 @@
     durum.islemEsitle = function (v) { islemAlan.ayarla(v); };
     var basAlan = YU.ui.alan({
       etiket: 'Başlangıç', tip: 'tarih', deger: durum.bas || '',
-      onChange: function () { durum.bas = basAlan.deger(); degisti(); }
+      onChange: function () { durum.bas = basAlan.deger(); gunDugmeleriTazele(); degisti(); }
     });
     var bitAlan = YU.ui.alan({
       etiket: 'Bitiş', tip: 'tarih', deger: durum.bit || '',
-      onChange: function () { durum.bit = bitAlan.deger(); degisti(); }
+      onChange: function () { durum.bit = bitAlan.deger(); gunDugmeleriTazele(); degisti(); }
     });
+
+    /* Gün gezinme düğmeleri (kullanıcı isteği, 24.08.2026) — takvimlerin
+       hemen altında. Burada filtre bir ARALIK olduğu için düğmeler aralığı
+       TEK GÜNE indirger: seçilen gün hem başlangıç hem bitiştir. Böylece
+       "önceki gün / sonraki gün" tek tek gün gezmek demek olur. */
+    function refGun() { return durum.bas || durum.bit || YU.tarih.bugun(); }
+
+    function tekGune(iso) {
+      durum.bas = iso;
+      durum.bit = iso;
+      basAlan.ayarla(iso);
+      bitAlan.ayarla(iso);
+      gunDugmeleriTazele();
+      degisti();
+    }
+
+    var oncekiDugme = YU.ui.dugme({
+      metin: 'Önceki Gün', kucuk: true, tur: 'ikincil',
+      onClick: function () { tekGune(YU.tarih.ekle(refGun(), -1)); }
+    });
+    var bugunDugme = YU.ui.dugme({
+      /* Bugün hep tıklanabilir: aralık bugünü kapsıyor olsa bile tek güne
+         indirmek anlamlı bir iş (Stok Durumu ile aynı davranış). */
+      metin: 'Bugün', ikon: '#ic-calendar', kucuk: true, tur: 'ikincil',
+      onClick: function () { tekGune(YU.tarih.bugun()); }
+    });
+    var sonrakiDugme = YU.ui.dugme({
+      metin: 'Sonraki Gün', kucuk: true, tur: 'ikincil',
+      onClick: function () { tekGune(YU.tarih.ekle(refGun(), 1)); }
+    });
+
+    function gunDugmeleriTazele() {
+      var ileri = refGun() >= YU.tarih.bugun();
+      sonrakiDugme.disabled = ileri;
+      sonrakiDugme.title = ileri ? 'Bugünden sonrası için kayıt olmaz' : '';
+    }
+    gunDugmeleriTazele();
+
+    var gunDugmeleri = YU.h('div', {
+      stil: { display: 'flex', gap: '6px', flexWrap: 'wrap' }
+    }, oncekiDugme, bugunDugme, sonrakiDugme);
     var aramaAlan = YU.ui.alan({
       etiket: 'Ara', tip: 'metin', deger: '',
       yerTutucu: 'Değer, kayıt, künye, kullanıcı, tablo, işlem… (1.700 = 1700)',
@@ -812,6 +853,7 @@
         durum.bas = ''; durum.bit = ''; durum.arama = '';
         tabloAlan.ayarla(''); kullaniciAlan.ayarla(''); islemAlan.ayarla(''); siloAlan.ayarla('');
         basAlan.ayarla(''); bitAlan.ayarla(''); aramaAlan.ayarla('');
+        gunDugmeleriTazele();
         degisti();
       }
     });
@@ -823,11 +865,15 @@
       govde: [
         YU.h('div', { sinif: 'yu-izgara yu-iz-4' }, tabloAlan.kok, kullaniciAlan.kok, islemAlan.kok, siloAlan.kok),
         /* Tarih çifti yan yana tek gözde durur — arada boşluk kalmaz;
-           Ara alanı kalan iki gözü kaplar (kullanıcı isteği, 21.08.2026). */
-        YU.h('div', { sinif: 'yu-izgara yu-iz-3' },
-          YU.h('div', { stil: { display: 'flex', gap: '10px', minWidth: '0' } },
-            (basAlan.kok.style.flex = '1', basAlan.kok),
-            (bitAlan.kok.style.flex = '1', bitAlan.kok)
+           Ara alanı kalan iki gözü kaplar (kullanıcı isteği, 21.08.2026).
+           Gün düğmeleri takvimlerin altında, aynı gözde (24.08.2026). */
+        YU.h('div', { sinif: 'yu-izgara yu-iz-3', stil: { alignItems: 'start' } },
+          YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '0' } },
+            YU.h('div', { stil: { display: 'flex', gap: '10px', minWidth: '0' } },
+              (basAlan.kok.style.flex = '1', basAlan.kok),
+              (bitAlan.kok.style.flex = '1', bitAlan.kok)
+            ),
+            gunDugmeleri
           ),
           (aramaAlan.kok.style.gridColumn = 'span 2', aramaAlan.kok)
         )
