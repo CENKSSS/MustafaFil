@@ -873,7 +873,9 @@
       k.setAttribute('aria-pressed', aktif ? 'true' : 'false');
       k.title = aktif ? 'Süzgeci Kaldır' : 'Yalnız ' + ayar.etiket + ' Kayıtlarını Göster';
       k.style.cursor = 'pointer';
-      if (aktif) k.style.boxShadow = 'inset 0 0 0 1.5px var(--vurgu)';
+      /* Seçili kartın çerçevesi 1,5px'te zor görünüyordu; kalınlaştırıldı
+         (kullanıcı isteği, 24.08.2026). */
+      if (aktif) k.style.boxShadow = 'inset 0 0 0 3.5px var(--vurgu)';
       function uygula() {
         durum.islem = aktif ? '' : ayar.islem;
         durum.sayfa = 0;
