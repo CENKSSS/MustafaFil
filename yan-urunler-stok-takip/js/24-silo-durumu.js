@@ -367,8 +367,10 @@
             siloAdi(depo, h.SiloId),
             /* Ekstra bilgi: satırın dayandığı devir — tekrar ettiği için soluk. */
             YU.h('span', { sinif: 'yu-zayif', metin: YU.fmt.kg(gosterilen[j].devirMiktari) }),
-            h.GirenKg > 0 ? YU.fmt.kg(h.GirenKg) : '—',
-            h.CikanKg > 0 ? YU.fmt.kg(h.CikanKg) : '—',
+            /* Yön işareti (kullanıcı isteği, 24.08.2026): siloya giren +,
+               silodan çıkan −. Sıfır satırlarda işaret yazılmaz. */
+            h.GirenKg > 0 ? '+' + YU.fmt.kg(h.GirenKg) : '—',
+            h.CikanKg > 0 ? '−' + YU.fmt.kg(h.CikanKg) : '—',
             k < 0 ? YU.ui.rozet(YU.fmt.kg(k), 'olumsuz') : YU.fmt.kg(k),
             h.KaynakKayitId === null || h.KaynakKayitId === undefined
               ? YU.h('span', { sinif: 'yu-zayif', metin: 'Elle girilmiş' })
