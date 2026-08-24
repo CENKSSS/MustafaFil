@@ -412,7 +412,11 @@
        Geçmişi'ndeki davranışın aynısı: süzgeç bir ARALIK olduğu için
        düğmeler aralığı TEK GÜNE indirir (başlangıç = bitiş), böylece
        gün gün gezilebilir. */
-    function refGun() { return basAlani.deger() || bitAlani.deger() || YU.tarih.bugun(); }
+    /* Gezinmenin referansı BİTİŞ tarihidir (kullanıcı hata bildirimi,
+       24.08.2026): referans başlangıçtan okununca 09.08–24.08 aralığında
+       "Sonraki Gün" aktif kalıyor ve 10.08'e atlıyordu. Aralığın ileri
+       ucundan yürünür; bitiş boşsa başlangıç, o da boşsa bugün. */
+    function refGun() { return bitAlani.deger() || basAlani.deger() || YU.tarih.bugun(); }
 
     function tekGune(iso) {
       basAlani.ayarla(iso);
