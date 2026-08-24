@@ -199,20 +199,27 @@
          kolonunun başlangıcı görünür olur. Şartname §5 gereği devir bakiyeyi
          sıfırlayıp yerine geçer; satırı da bunu söyler. */
       function devirSatiri(devir) {
+        var m = YU.yuvarla(Number(devir.Miktar) || 0);
         sonuc.push({
           devir: devir, tarih: devir.DevirTarihi, siloId: Number(anahtar),
-          sira: -1, bakiye: YU.yuvarla(Number(devir.Miktar) || 0)
+          sira: -1, bakiye: m, devirMiktari: m
         });
       }
-      var bakiye = 0, k = 0;
+      /* aktifDevir: o satır işlenirken geçerli olan "en son devir" (§5) —
+         Devir kolonu bunu gösterir (kullanıcı isteği, 24.08.2026). */
+      var bakiye = 0, k = 0, aktifDevir = 0;
       for (i = 0; i < liste.length; i++) {
         while (k < dv.length && dv[k].DevirTarihi <= liste[i].Tarih) {
-          bakiye = YU.yuvarla(Number(dv[k].Miktar) || 0);
+          aktifDevir = YU.yuvarla(Number(dv[k].Miktar) || 0);
+          bakiye = aktifDevir;
           devirSatiri(dv[k]);
           k++;
         }
         bakiye = YU.yuvarla(bakiye + (Number(liste[i].GirenKg) || 0) - (Number(liste[i].CikanKg) || 0));
-        sonuc.push({ hareket: liste[i], tarih: liste[i].Tarih, siloId: liste[i].SiloId, sira: liste[i].Id || 0, bakiye: bakiye });
+        sonuc.push({
+          hareket: liste[i], tarih: liste[i].Tarih, siloId: liste[i].SiloId,
+          sira: liste[i].Id || 0, bakiye: bakiye, devirMiktari: aktifDevir
+        });
       }
       while (k < dv.length) { devirSatiri(dv[k]); k++; }   /* son hareketten sonraki devirler */
     }
@@ -300,6 +307,7 @@
             hucreler: [
               YU.fmt.tarih(gosterilen[j].devir.DevirTarihi),
               siloAdi(depo, gosterilen[j].siloId),
+              YU.fmt.kg(gosterilen[j].devirMiktari),
               YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
               YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
               YU.fmt.kg(gosterilen[j].bakiye),
@@ -318,6 +326,8 @@
           hucreler: [
             YU.fmt.tarih(h.Tarih),
             siloAdi(depo, h.SiloId),
+            /* Ekstra bilgi: satırın dayandığı devir — tekrar ettiği için soluk. */
+            YU.h('span', { sinif: 'yu-zayif', metin: YU.fmt.kg(gosterilen[j].devirMiktari) }),
             h.GirenKg > 0 ? YU.fmt.kg(h.GirenKg) : '—',
             h.CikanKg > 0 ? YU.fmt.kg(h.CikanKg) : '—',
             k < 0 ? YU.ui.rozet(YU.fmt.kg(k), 'olumsuz') : YU.fmt.kg(k),
@@ -349,12 +359,13 @@
         /* Genişlikler toplamı dar ekranda da Kaynak sütununa yer bırakmalı;
            yoksa "Kuru küspe #138" satır satır sarar ve tablo şişer. */
         sutunlar: [
-          { baslik: 'Tarih', genislik: 100 },
-          { baslik: 'Silo', genislik: 96 },
-          { baslik: 'Giren', hiza: 'sag', mono: true, genislik: 118 },
-          { baslik: 'Çıkan', hiza: 'sag', mono: true, genislik: 118 },
-          { baslik: 'Bakiye', hiza: 'sag', mono: true, genislik: 128 },
-          { baslik: 'Kaynak', genislik: 160 },
+          { baslik: 'Tarih', genislik: 96 },
+          { baslik: 'Silo', genislik: 88 },
+          { baslik: 'Devir', hiza: 'sag', mono: true, genislik: 112 },
+          { baslik: 'Giren', hiza: 'sag', mono: true, genislik: 112 },
+          { baslik: 'Çıkan', hiza: 'sag', mono: true, genislik: 112 },
+          { baslik: 'Bakiye', hiza: 'sag', mono: true, genislik: 124 },
+          { baslik: 'Kaynak', genislik: 150 },
           { baslik: '', hiza: 'sag', genislik: 96 }
         ],
         satirlar: satirlar,
