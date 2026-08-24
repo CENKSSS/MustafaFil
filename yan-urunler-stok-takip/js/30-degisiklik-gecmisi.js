@@ -182,93 +182,32 @@
     return sonuc;
   }
 
-  /* Tek kaydetme işlemi birden çok deftere yazar: KuruKuspeGunluk (ham kayıt) +
-     SiloHareket (silo karşılığı) + GunlukHareket (malzeme stoğu) — Şartname §4
-     ve §6. Liste bunları dört ayrı satır olarak gösterdiği için aynı rakam
-     tekrar ediyor gibi duruyordu. Aynı kullanıcının aynı saniyedeki kayıtları
-     TEK İŞLEM sayılır ve tek satırda toplanır (kullanıcı isteği, 24.08.2026).
-
-     İşlemin içinde kayıt bazında alt gruplar durur: detay penceresi hep TEK
-     kaydın geçmişini gösterdiği için alt satırlar bu gruplarla çalışır.
-     Ana satır olarak Günlük Hareket kaydı seçilir (kullanıcı tercihi). */
-  var ANA_TABLO_SIRASI = { GunlukHareket: 1, KuruKuspeGunluk: 2, SiloHareket: 3 };
-
-  function anahtarListesi(nesne) {
-    var l = [], k;
-    for (k in nesne) if (Object.prototype.hasOwnProperty.call(nesne, k)) l.push(k);
-    return l;
-  }
-
-  function islemHazirla(islem) {
-    var i, j, k, ana = null, enSira = 999, sira;
-    var turSayisi = {}, tablolar = {};
-
-    for (i = 0; i < islem.kayitlar.length; i++) {
-      k = islem.kayitlar[i];
-      k.satirlar.sort(function (a, b) { return (a.Id || 0) - (b.Id || 0); });
-      sira = ANA_TABLO_SIRASI[k.tablo] || 50;
-      /* Aynı tablodan iki kayıt varsa (dökme + çuvallı Günlük Hareket gibi)
-         işlemin ağırlığı hangisindeyse o ana olur: çok satırlı olan, eşitse
-         küçük Id'li (asıl kayıt). */
-      if (sira < enSira || (sira === enSira && ana &&
-          (k.satirlar.length > ana.satirlar.length ||
-           (k.satirlar.length === ana.satirlar.length && (k.kayitId || 0) < (ana.kayitId || 0))))) {
-        enSira = sira;
-        ana = k;
-      }
-      tablolar[k.tablo] = (tablolar[k.tablo] || 0) + 1;
-      for (j = 0; j < k.satirlar.length; j++) {
-        turSayisi[k.satirlar[j].Islem] = (turSayisi[k.satirlar[j].Islem] || 0) + 1;
-      }
-    }
-
-    islem.ana = ana || islem.kayitlar[0];
-    islem.turSayisi = turSayisi;
-    islem.islemTurleri = anahtarListesi(turSayisi);
-    islem.tablolar = anahtarListesi(tablolar);
-
-    /* Açılan döküm: ana kayıt önce, sonra öbür kayıtlar — her log satırı
-       kendi kaydının grubuyla birlikte taşınır (detay penceresi için). */
-    islem.dokum = [];
-    function ekle(kayit) {
-      for (var x = 0; x < kayit.satirlar.length; x++) {
-        islem.dokum.push({ satir: kayit.satirlar[x], grup: kayit.satirlar });
-      }
-    }
-    ekle(islem.ana);
-    for (i = 0; i < islem.kayitlar.length; i++) {
-      if (islem.kayitlar[i] !== islem.ana) ekle(islem.kayitlar[i]);
-    }
-  }
-
-  function islemleriGrupla(liste) {
-    var islemler = [], harita = {}, i, s, anahtar, islem, kAnahtar, kayit;
+  /* Aynı kayıt + aynı saniye = tek işlem. Bitişik satırlar tek gruba toplanır,
+     grup kendi içinde yazılma sırasına (Id artan) döndürülür. */
+  function gruplandir(liste) {
+    var duz = [], grup = null, i, j, s, anahtar;
+    var gruplar = [];
 
     for (i = 0; i < liste.length; i++) {
       s = liste[i];
-      anahtar = (s.KullaniciId === null || s.KullaniciId === undefined ? '-' : s.KullaniciId) + '|' + s.Tarih;
-      islem = harita[anahtar];
-      if (!islem) {
-        islem = {
-          anahtar: anahtar, tarih: s.Tarih, kullaniciId: s.KullaniciId,
-          kayitlar: [], kayitHarita: {}, satirSayisi: 0
-        };
-        harita[anahtar] = islem;
-        islemler.push(islem);
-      }
-      kAnahtar = s.Tablo + '|' + s.KayitId;
-      kayit = islem.kayitHarita[kAnahtar];
-      if (!kayit) {
-        kayit = { tablo: s.Tablo, kayitId: s.KayitId, satirlar: [] };
-        islem.kayitHarita[kAnahtar] = kayit;
-        islem.kayitlar.push(kayit);
-      }
-      kayit.satirlar.push(s);
-      islem.satirSayisi++;
+      anahtar = s.Tablo + '|' + s.KayitId + '|' + s.Tarih;
+      if (grup && grup.anahtar === anahtar) grup.satirlar.push(s);
+      else { grup = { anahtar: anahtar, satirlar: [s] }; gruplar.push(grup); }
     }
 
-    for (i = 0; i < islemler.length; i++) islemHazirla(islemler[i]);
-    return islemler;
+    for (i = 0; i < gruplar.length; i++) {
+      gruplar[i].satirlar.sort(function (a, b) { return (a.Id || 0) - (b.Id || 0); });
+      for (j = 0; j < gruplar[i].satirlar.length; j++) {
+        duz.push({
+          satir: gruplar[i].satirlar[j],
+          ilk: j === 0,
+          boyut: gruplar[i].satirlar.length,
+          /* Detay penceresi işlemin tamamını gösterir, tek satırı değil. */
+          grup: gruplar[i].satirlar
+        });
+      }
+    }
+    return duz;
   }
 
   /* ==================================================================
@@ -592,12 +531,33 @@
     }, icerik);
   }
 
-  /* Kayıt künyesi: "#968" tek başına hangi malzemenin hangi günü olduğunu
-     söylemiyordu. */
-  function kunyeHucresi(s, ek) {
+  function tabloSatiri(oge) {
+    var s = oge.satir;
+    var ld = listeDegerleri(s);
+    var eskiHucre = tekSatir(degerHucresi(ld.EskiDeger, s.Alan),
+      bosDeger(s.EskiDeger) ? null : String(s.EskiDeger));
+    var yeniHucre = tekSatir(yeniDegerHucresi(ld),
+      bosDeger(s.YeniDeger) ? null : String(s.YeniDeger));
+
+    if (!oge.ilk) {
+      /* Devam satırı: tekrar eden künye boş bırakılır, bağ ↳ ile kurulur. */
+      return {
+        onClick: function () { detayAc(oge); },
+        hucreler: [
+          YU.h('span', { sinif: 'yu-zayif', metin: '↳', title: 'Aynı işlemin devamı' }),
+          '', '', '', '',
+          alanHucresi(s),
+          eskiHucre,
+          yeniHucre
+        ]
+      };
+    }
+
+    /* Künye kayıttan çözülüyor: "#968" tek başına hangi malzemenin hangi
+       günü olduğunu söylemiyordu. */
     var cozum = kayitCoz(s.Tablo, s.KayitId);
     var kunye = kayitEtiketi(s.Tablo, cozum.satir);
-    return YU.h('div', {
+    var kayitHucresi = YU.h('div', {
       stil: { display: 'flex', alignItems: 'baseline', gap: '7px', minWidth: '0' },
       title: kunye || null
     },
@@ -611,131 +571,25 @@
         stil: { flex: '1', minWidth: '0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
         metin: tarihsiz(kunye)
       }) : null,
-      ek || null
+      oge.boyut > 1
+        ? YU.h('span', { sinif: 'yu-yardim', stil: { flex: 'none' }, metin: YU.fmt.sayi(oge.boyut) + ' alan' })
+        : null
     );
-  }
 
-  function turDokumu(islem) {
-    var l = [], i, t;
-    for (i = 0; i < islem.islemTurleri.length; i++) {
-      t = islem.islemTurleri[i];
-      l.push(YU.fmt.sayi(islem.turSayisi[t]) + ' ' + islemAdi(t));
-    }
-    return l.join(' · ');
-  }
-
-  function tabloDokumu(islem) {
-    var l = [], i;
-    for (i = 0; i < islem.tablolar.length; i++) l.push(tabloAdi(islem.tablolar[i]));
-    return l.join(' · ');
-  }
-
-  /* İşlem satırı — bir kaydetmenin özeti. Ok, işlemin tüm kayıt dökümünü
-     açar; satırın kalanına tıklamak ana kaydın detay penceresini açar. */
-  function islemSatiri(islem, durum, tazele) {
-    var ana = islem.ana;
-    var s = ana.satirlar[0];
-    var ld = listeDegerleri(s);
-    var acik = !!durum.acik[islem.anahtar];
-    var cokKayit = islem.satirSayisi > 1;
-
-    var zaman = YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '7px', minWidth: '0' } });
-    if (cokKayit) {
-      var ok = YU.h('span', {
-        metin: acik ? '▾' : '▸',
-        stil: {
-          display: 'inline-block', width: '13px', flex: 'none', cursor: 'pointer',
-          color: acik ? 'var(--vurgu)' : 'var(--metin-4)', font: '400 11px/1 var(--font)'
-        }
-      });
-      ok.setAttribute('role', 'button');
-      ok.setAttribute('tabindex', '0');
-      ok.setAttribute('aria-expanded', acik ? 'true' : 'false');
-      ok.title = acik ? 'İşlemin Kayıtlarını Kapat' : 'İşlemin Kayıtlarını Aç';
-      var cevir = function (e) {
-        if (e && e.stopPropagation) e.stopPropagation();
-        durum.acik[islem.anahtar] = !acik;
-        tazele();
-      };
-      ok.addEventListener('click', cevir);
-      ok.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cevir(e); }
-      });
-      zaman.appendChild(ok);
-    } else {
-      zaman.appendChild(YU.h('span', { stil: { display: 'inline-block', width: '13px', flex: 'none' } }));
-    }
-    zaman.appendChild(YU.h('span', { sinif: 'yu-mono', metin: YU.fmt.tarihSaat(islem.tarih), stil: { whiteSpace: 'nowrap' } }));
-
-    var islemHucresi;
-    if (islem.islemTurleri.length < 2) {
-      islemHucresi = YU.ui.rozet(islemAdi(s.Islem), ISLEM_RENGI[s.Islem] || 'notr');
-    } else {
-      islemHucresi = YU.h('div', {
-        stil: { display: 'flex', alignItems: 'center', gap: '5px', justifyContent: 'center' },
-        title: turDokumu(islem)
-      },
-        YU.ui.rozet(islemAdi(s.Islem), ISLEM_RENGI[s.Islem] || 'notr'),
-        YU.h('span', { sinif: 'yu-yardim', metin: '+' + YU.fmt.sayi(islem.islemTurleri.length - 1) })
-      );
-    }
-
-    var tabloHucresi = islem.tablolar.length < 2
-      ? YU.h('span', { metin: tabloAdi(ana.tablo), stil: { whiteSpace: 'nowrap' } })
-      : YU.h('div', {
-          stil: { display: 'flex', alignItems: 'baseline', gap: '6px', minWidth: '0' },
-          title: tabloDokumu(islem)
-        },
-          YU.h('span', { metin: tabloAdi(ana.tablo), stil: { whiteSpace: 'nowrap' } }),
-          YU.h('span', { sinif: 'yu-yardim', stil: { flex: 'none' }, metin: '+' + YU.fmt.sayi(islem.tablolar.length - 1) })
-        );
-
-    var sayimRozeti = cokKayit
-      ? YU.h('span', {
-          sinif: 'yu-yardim', stil: { flex: 'none' },
-          metin: YU.fmt.sayi(islem.satirSayisi) + ' kayıt',
-          title: 'Bu işlem ' + YU.fmt.sayi(islem.satirSayisi) + ' kayda dokundu — dökümü açmak için soldaki oku tıklayın.'
-        })
-      : null;
-
-    var neDegisti = ana.satirlar.length > 1
-      ? YU.h('span', { sinif: 'yu-yardim', metin: YU.fmt.sayi(ana.satirlar.length) + ' alan' })
-      : alanHucresi(s);
-
-    return {
-      onClick: function () { detayAc({ satir: s, grup: ana.satirlar }); },
-      hucreler: [
-        zaman,
-        YU.h('span', {
-          metin: kullaniciAdi(islem.kullaniciId), title: kullaniciAdi(islem.kullaniciId),
-          stil: { display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
-        }),
-        islemHucresi,
-        tabloHucresi,
-        kunyeHucresi(s, sayimRozeti),
-        neDegisti,
-        tekSatir(degerHucresi(ld.EskiDeger, s.Alan), bosDeger(s.EskiDeger) ? null : String(s.EskiDeger)),
-        tekSatir(yeniDegerHucresi(ld), bosDeger(s.YeniDeger) ? null : String(s.YeniDeger))
-      ]
-    };
-  }
-
-  /* Dökümdeki satır: işlemin tek bir kaydı. Girintili ve soluk durur, kendi
-     detay penceresini açar. */
-  function dokumSatiri(oge) {
-    var s = oge.satir;
-    var ld = listeDegerleri(s);
     return {
       onClick: function () { detayAc(oge); },
       hucreler: [
-        YU.h('span', { sinif: 'yu-zayif', metin: '↳', title: 'Aynı işlemin kaydı', stil: { paddingLeft: '13px' } }),
-        '',
+        YU.h('span', { sinif: 'yu-mono', metin: YU.fmt.tarihSaat(s.Tarih), stil: { whiteSpace: 'nowrap' } }),
+        YU.h('span', {
+          metin: kullaniciAdi(s.KullaniciId), title: kullaniciAdi(s.KullaniciId),
+          stil: { display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+        }),
         YU.ui.rozet(islemAdi(s.Islem), ISLEM_RENGI[s.Islem] || 'notr'),
-        YU.h('span', { sinif: 'yu-zayif', metin: tabloAdi(s.Tablo), stil: { whiteSpace: 'nowrap' } }),
-        kunyeHucresi(s, null),
+        YU.h('span', { metin: tabloAdi(s.Tablo), stil: { whiteSpace: 'nowrap' } }),
+        kayitHucresi,
         alanHucresi(s),
-        tekSatir(degerHucresi(ld.EskiDeger, s.Alan), bosDeger(s.EskiDeger) ? null : String(s.EskiDeger)),
-        tekSatir(yeniDegerHucresi(ld), bosDeger(s.YeniDeger) ? null : String(s.YeniDeger))
+        eskiHucre,
+        yeniHucre
       ]
     };
   }
@@ -785,9 +639,7 @@
         return;
       }
 
-      /* acik: dökümü açılmış işlemler (anahtar -> true). Süzgeç değişse de
-         kullanıcının açtığı işlem açık kalır. */
-      var durum = { tablo: '', kullanici: '', islem: '', silo: '', bas: '', bit: '', arama: '', sayfa: 0, acik: {} };
+      var durum = { tablo: '', kullanici: '', islem: '', silo: '', bas: '', bit: '', arama: '', sayfa: 0 };
       /* Bağlantıyla gelen tarih (kullanıcı isteği, 23.08.2026): sayfa o günle
          filtreli açılır — kuru küspe onay penceresindeki bağlantı bunu kullanır. */
       var pt = param && param.tarih;
@@ -983,39 +835,32 @@
       islemKarti({ etiket: 'Sil', ikon: '#ic-trash', islem: 'Sil', renk: 'olumsuz', alt: 'Kayıt veya hareket silme.' })
     ));
 
-    /* Sayfalama artık İŞLEM sayar: bir kaydetme kaç deftere yazarsa yazsın
-       listede tek satırdır (kullanıcı isteği, 24.08.2026). */
-    var islemler = islemleriGrupla(liste);
-    var toplamSayfa = Math.max(1, Math.ceil(islemler.length / SAYFA_BOYU));
+    var duz = gruplandir(liste);
+    var toplamSayfa = Math.max(1, Math.ceil(duz.length / SAYFA_BOYU));
     if (durum.sayfa > toplamSayfa - 1) durum.sayfa = toplamSayfa - 1;
     if (durum.sayfa < 0) durum.sayfa = 0;
 
     var bas = durum.sayfa * SAYFA_BOYU;
-    var dilim = islemler.slice(bas, bas + SAYFA_BOYU);
-    var tazele = function () { sonuclariCiz(kap, durum); };
+    var dilim = duz.slice(bas, bas + SAYFA_BOYU);
+    /* Sayfa bir grubun ortasından başlıyorsa künye yeniden yazılır. */
+    if (dilim.length) dilim[0] = { satir: dilim[0].satir, ilk: true, boyut: dilim[0].boyut };
 
-    var satirlar = [], j;
-    for (i = 0; i < dilim.length; i++) {
-      satirlar.push(islemSatiri(dilim[i], durum, tazele));
-      if (durum.acik[dilim[i].anahtar]) {
-        for (j = 0; j < dilim[i].dokum.length; j++) satirlar.push(dokumSatiri(dilim[i].dokum[j]));
-      }
-    }
+    var satirlar = [];
+    for (i = 0; i < dilim.length; i++) satirlar.push(tabloSatiri(dilim[i]));
 
     kap.appendChild(YU.ui.panel({
       baslik: 'Değişiklikler',
       ikon: '#ic-doc',
       dolgusuz: true,
       sag: YU.h('span', {
-        metin: islemler.length
-          ? YU.fmt.sayi(bas + 1) + '–' + YU.fmt.sayi(bas + dilim.length) + ' / ' + YU.fmt.sayi(islemler.length) +
-            ' işlem · ' + YU.fmt.sayi(liste.length) + ' kayıt'
+        metin: duz.length
+          ? YU.fmt.sayi(bas + 1) + '–' + YU.fmt.sayi(bas + dilim.length) + ' / ' + YU.fmt.sayi(duz.length) + ' satır'
           : 'sonuç yok'
       }),
       govde: [
         YU.ui.tablo({
           sutunlar: [
-            { baslik: 'Tarih · Saat', genislik: 165 },
+            { baslik: 'Tarih · Saat', genislik: 152 },
             { baslik: 'Kullanıcı', genislik: 130 },
             { baslik: 'İşlem', genislik: 96, hiza: 'orta' },
             { baslik: 'Tablo', genislik: 140 },
@@ -1029,7 +874,7 @@
           kompakt: true,
           yapiskan: true
         }),
-        toplamSayfa > 1 ? sayfalama(durum, toplamSayfa, tazele) : null
+        toplamSayfa > 1 ? sayfalama(durum, toplamSayfa, function () { sonuclariCiz(kap, durum); }) : null
       ]
     }));
   }
@@ -1044,7 +889,7 @@
       YU.h('span', {
         sinif: 'yu-yardim',
         metin: 'Sayfa ' + YU.fmt.sayi(durum.sayfa + 1) + ' / ' + YU.fmt.sayi(toplamSayfa) +
-          ' · sayfa başına ' + YU.fmt.sayi(SAYFA_BOYU) + ' işlem'
+          ' · sayfa başına ' + YU.fmt.sayi(SAYFA_BOYU) + ' satır'
       }),
       YU.ui.dugme({
         metin: 'Önceki', tur: 'ikincil', kucuk: true, pasif: durum.sayfa === 0,
