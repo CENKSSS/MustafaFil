@@ -249,6 +249,15 @@
       onChange: function () {
         var v = tarihAlani.girdi.value;
         if (!v) { tarihAlani.ayarla(seciliTarih() || ''); return; }
+        /* Gelecek gün seçilemez (kullanıcı direktifi, 24.08.2026): önceden
+           gelecek kampanya devri erken girilebiliyordu; artık devir tarihi de
+           bugünle sınırlı. Şartname Demirbaş kuralları erken girişi zorunlu
+           kılmaz; yeni kampanya devri, günü geldiğinde girilir. */
+        if (v > YU.tarih.bugun()) {
+          YU.ui.bildir('Gelecek tarihe devir girilemez: ' + YU.fmt.tarih(v) + ' bugünden sonra.', 'hata');
+          tarihAlani.ayarla(seciliTarih() || '');
+          return;
+        }
         durum.tarih[durum.sekme] = v;
         govdeyiCiz();
       }

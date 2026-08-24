@@ -37,8 +37,12 @@
     return typeof iso === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(iso);
   }
 
+  /* Gelecek gün seçilemez (kullanıcı direktifi, 24.08.2026): adresle gelen
+     ileri tarih bugüne çekilir. */
   function tarihSec(param) {
-    return param && gecerliTarih(param.tarih) ? param.tarih : YU.tarih.bugun();
+    var t = param && gecerliTarih(param.tarih) ? param.tarih : YU.tarih.bugun();
+    var bugun = YU.tarih.bugun();
+    return t > bugun ? bugun : t;
   }
 
   function kullaniciAdi(depo, id) {
@@ -124,6 +128,14 @@
         stil: { color: 'var(--metin-2)', padding: '4px' },
         onClick: function () { YU.git('gunluk-rapor', { tarih: hedef }); }
       }, sv);
+      /* Bugünden ileri gidilemez (gelecek gün seçilemez). */
+      if (!geri && hedef > YU.tarih.bugun()) {
+        d.disabled = true;
+        d.title = 'Bugünden sonrası için rapor olmaz';
+        d.setAttribute('aria-label', 'Bugünden sonrası için rapor olmaz');
+        d.style.opacity = '.35';
+        d.style.cursor = 'default';
+      }
       d.addEventListener('mouseenter', function () { d.style.color = 'var(--vurgu)'; });
       d.addEventListener('mouseleave', function () { d.style.color = 'var(--metin-2)'; });
       return d;
@@ -660,9 +672,12 @@
 
   function okDugmesi(geri, tarih) {
     var hedef = YU.tarih.ekle(tarih, geri ? -1 : 1);
+    /* Bugünden ileri gidilemez (gelecek gün seçilemez). */
+    var ileri = !geri && hedef > YU.tarih.bugun();
     var d = YU.ui.dugme({
-      ikon: '#ic-chevron', tur: 'ikincil',
-      baslik: (geri ? 'Önceki Gün' : 'Sonraki Gün') + ' · ' + YU.fmt.tarih(hedef),
+      ikon: '#ic-chevron', tur: 'ikincil', pasif: ileri,
+      baslik: ileri ? 'Bugünden sonrası için rapor olmaz'
+        : (geri ? 'Önceki Gün' : 'Sonraki Gün') + ' · ' + YU.fmt.tarih(hedef),
       onClick: function () { YU.git('gunluk-rapor', { tarih: hedef }); }
     });
     if (geri) {

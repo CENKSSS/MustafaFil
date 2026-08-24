@@ -268,6 +268,7 @@
     rol: "Hepsi",
     altBaslik: function (param) {
       var tarih = gecerliTarih(param && param.tarih) ? param.tarih : YU.tarih.bugun();
+      if (tarih > YU.tarih.bugun()) tarih = YU.tarih.bugun();   /* gelecek gün seçilemez */
       var kayit = YU.db ? kuruKuspeBul(YU.db, tarih) : null;
       return YU.fmt.tarihUzun(tarih) + " · " + YU.fmt.gunAdi(tarih) + " · " +
         (kayit ? "kayıtlı gün — düzeltiyorsun" : "yeni kayıt");
@@ -279,6 +280,9 @@
     var db = YU.db;
     var tol = YU.hesap.TOLERANS;
     var tarih = gecerliTarih(param && param.tarih) ? param.tarih : YU.tarih.bugun();
+    /* Adresle gelen ileri tarih bugüne çekilir (gelecek gün seçilemez,
+       kullanıcı direktifi 24.08.2026) — D17 hata sayfası yerine bugün açılır. */
+    if (tarih > YU.tarih.bugun()) tarih = YU.tarih.bugun();
     var kayit = kuruKuspeBul(db, tarih);
     var okunanRowVersion = kayit ? Number(kayit.RowVersion) : null;
     var silinebilir = !!kayit || malzemeSatiriVarMi(db, tarih);
@@ -385,8 +389,15 @@
       tip: "tarih", deger: tarih, genislik: "158px",
       onChange: function () {
         var v = tarihAlan.girdi.value;
-        if (gecerliTarih(v)) YU.git(KOD, { tarih: v });
-        else tarihAlan.ayarla(tarih);
+        if (!gecerliTarih(v)) { tarihAlan.ayarla(tarih); return; }
+        /* Gelecek gün seçilemez (kullanıcı direktifi, 24.08.2026): elle
+           yazılan ileri tarih reddedilir, alan eski güne döner. */
+        if (v > YU.tarih.bugun()) {
+          YU.ui.bildir("Gelecek tarihe kayıt girilemez: " + YU.fmt.tarih(v) + " bugünden sonra (D17).", "hata");
+          tarihAlan.ayarla(tarih);
+          return;
+        }
+        YU.git(KOD, { tarih: v });
       }
     });
 

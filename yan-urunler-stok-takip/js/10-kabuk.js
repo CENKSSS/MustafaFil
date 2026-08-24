@@ -1868,6 +1868,11 @@
       }
     } else if (tip === 'tarih') {
       girdi = YU.h('input', { sinif: 'yu-girdi', tip: 'date' });
+      /* Gelecek bir gün SEÇİLEMEZ (kullanıcı direktifi, 24.08.2026): tüm
+         tarih alanları bugünle sınırlıdır — takvimden ileri gün işaretlenemez.
+         Şartname geleceğe kayıt tanımlamaz; D17 servis katmanında zaten
+         engeller, bu satır seçimi baştan kapatır. */
+      girdi.max = YU.tarih.bugun();
     } else if (tip === 'parola') {
       girdi = YU.h('input', { sinif: 'yu-girdi', tip: 'password' });
     } else if (tip === 'sayi') {
