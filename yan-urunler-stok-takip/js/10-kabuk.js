@@ -1289,11 +1289,9 @@
        Kampanya çipi ADIYLA geri geldi (kullanıcı isteği, 24.08.2026):
        "2025/2026 Kampanyası · aralık" yazar, kampanya kilitliyse kırmızı
        asma kilitle belirtir. */
-    /* Üç bölge: sol boşluk — ORTADA kampanya çipi — sağda denetimler
-       (kullanıcı isteği, 24.08.2026). İki kenar da flex:1 olduğu için çip
-       şeridin gerçek ortasında durur. */
+    /* İri kampanya çipi SOL kenarda (kullanıcı isteği, 24.08.2026); kalan
+       denetimler sağa yaslanır. */
     var ust = YU.h('div', { sinif: 'yu-ust' },
-      YU.h('div', { stil: { flex: '1 1 0', minWidth: '0' } }),
       cipKutusu(),
       YU.h('div', {
         stil: { flex: '1 1 0', minWidth: '0', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px' }
