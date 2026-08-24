@@ -1405,6 +1405,24 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
 .yu-serit.basari .yu-serit-ikon,
 .yu-serit.basari .yu-serit-baslik { color: var(--olumlu); }
 
+/* SERT UYARI — .yu-cetin (Malzeme Girişi, negatif stok; kullanıcı isteği
+   24.08.2026: "uyarıyı sertleştir, engel olmasın"). Şerit büyür, başlık
+   iri ve kalın olur, sol kenarına kalın vurgu çizgisi gelir.
+   inset çizgi bilinçli: derinlik gölgesi DEĞİL, tasarım referansındaki
+   vurgu çizgisi dili — koyu temada da geçerli (CLAUDE.md KURAL 1).
+   Yalnız bu sınıfı taşıyan şeride etki eder; diğer şeritler değişmez. */
+.yu-serit.yu-cetin {
+  padding: 16px 18px;
+  border-color: var(--olumsuz);
+  box-shadow: inset 4px 0 0 var(--olumsuz);
+}
+.yu-serit.yu-cetin .yu-serit-baslik {
+  font: 700 20px/1.25 var(--font);
+  letter-spacing: -.012em;
+  margin-bottom: 6px;
+}
+.yu-serit.yu-cetin .yu-serit-ikon { align-items: flex-start; margin-top: 2px; }
+
 .yu-bos {
   padding: 56px 32px;
   display: flex;

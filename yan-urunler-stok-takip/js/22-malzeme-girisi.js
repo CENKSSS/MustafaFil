@@ -164,21 +164,44 @@
     YU.bos(d.uyariKap);
     if (!negatif.length) return;
 
-    /* Şartname §13 Soru 3: basit malzeme stoğu negatife düşerse uyarı verilir,
-       kayıt engellenmez. */
-    var liste = YU.h('ul');
-    for (i = 0; i < negatif.length; i++) {
-      liste.appendChild(YU.h('li', {
-        metin: negatif[i].malzeme.Ad + ' · gün sonu ' + YU.fmt.kgU(negatif[i].sonuc)
-      }));
-    }
-    var serit = YU.ui.serit({
-      tur: 'uyari',
-      baslik: negatif.length === 1
-        ? 'Bir malzemenin stoğu negatife düşüyor'
-        : YU.fmt.sayi(negatif.length) + ' malzemenin stoğu negatife düşüyor',
-      metin: 'Kayıt engellenmez (Şartname §13 Soru 3). Giriş sırasını ve devir stoğu kontrol edin.'
+    /* Şartname §13 Soru 3 AÇIK SORUDUR; şartnamenin önerisi "uyarı", gerekçesi
+       "sert engel, veri giriş sırası bozuk olduğunda operatörü kilitler".
+       Öneri korunuyor: kayıt HÂLÂ ENGELLENMİYOR. Yalnız uyarının şiddeti
+       arttı (kullanıcı isteği, 24.08.2026): kırmızı zemin, iri başlık,
+       eksi bakiye büyük rakamla. Engel eklemek şartnameyi aşmak olurdu. */
+    var liste = YU.h('div', {
+      stil: { display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px' }
     });
+    for (i = 0; i < negatif.length; i++) {
+      liste.appendChild(YU.h('div', {
+        stil: { display: 'flex', alignItems: 'baseline', gap: '10px', flexWrap: 'wrap' }
+      },
+        YU.h('span', {
+          metin: negatif[i].malzeme.Ad,
+          stil: { font: '500 15px/1.3 var(--font)', color: 'var(--metin)' }
+        }),
+        YU.h('span', { metin: 'gün sonu', sinif: 'yu-yardim' }),
+        YU.h('span', {
+          metin: YU.fmt.kgU(negatif[i].sonuc),
+          stil: {
+            font: '650 22px/1.1 var(--sayi)', letterSpacing: '-.02em',
+            fontVariantNumeric: 'tabular-nums', color: 'var(--olumsuz)'
+          }
+        })
+      ));
+    }
+
+    var serit = YU.ui.serit({
+      tur: 'hata',
+      ikon: '#ic-alert',
+      baslik: negatif.length === 1
+        ? 'DİKKAT — Stok Eksiye Düşüyor'
+        : 'DİKKAT — ' + YU.fmt.sayi(negatif.length) + ' Malzemenin Stoğu Eksiye Düşüyor',
+      metin: 'Elde olandan fazla satış girilmiş görünüyor; bu büyük ihtimalle bir veri hatasıdır. ' +
+        'Kaydı engellemiyoruz — kaydedebilirsiniz. Ama kaydetmeden önce giriş sırasını, ' +
+        'devir stoğu ve önceki günlerin rakamlarını kontrol edin.'
+    });
+    serit.className += ' yu-cetin';
     serit.querySelector('.yu-serit-govde').appendChild(liste);
     d.uyariKap.appendChild(serit);
   }
@@ -187,7 +210,94 @@
      4. Kaydetme ve geri alma
      ================================================================== */
 
+  /* Kaydet HER ZAMAN onay penceresi açar (kullanıcı isteği, 24.08.2026):
+     değişen satırların eski → yeni değer özeti + "emin misin". Kuru Küspe
+     Günlük Giriş ekranındaki onay penceresiyle aynı dil: geçmiş tarihte
+     kırmızı uyarı ve tehlike renkli düğme. Onaylanınca kaydetUygula çalışır. */
   function kaydet(d) {
+    var degisen = degisenSatirlar(d);
+    if (!degisen.length) {
+      YU.ui.bildir('Kaydedilecek değişiklik yok.', 'bilgi');
+      return;
+    }
+
+    var bugun = YU.tarih.bugun();
+    var gecmis = d.tarih < bugun;
+    var f = YU.tarih.fark(d.tarih, bugun);
+    var gunEtiketi = YU.fmt.tarih(d.tarih) + ' ' + YU.fmt.gunAdi(d.tarih) +
+      (gecmis ? (f === 1 ? ' (dün)' : ' (' + YU.fmt.sayi(f) + ' gün önce)') : ' (bugün)');
+
+    /* Sayı olmayan girdi olduğu gibi gösterilir: doğrulama katmanı kaydı
+       zaten reddedecek, pencere yalnız ne yazıldığını aktarır. */
+    function degerMetni(v, alan) {
+      return isFinite(v) ? YU.fmt.kgU(YU.yuvarla(v)) : '"' + alan.girdi.value + '"';
+    }
+
+    function alanSatiri(etiket, eski, kayitVar, alan) {
+      var yeni = alanSayisi(alan);
+      var deger = YU.h('span', { stil: { font: '400 13.5px/1.5 var(--sayi)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' } });
+      /* Silinen değer kırmızı, yerine yazılacak değer yeşil (kullanıcı isteği,
+         24.08.2026). İlk kayıtta eski değer olmadığından ok da gösterilmez,
+         yalnız yeni değer yazılır — "— → 5 kg" kafa karıştırıyordu. */
+      if (kayitVar) {
+        deger.appendChild(YU.h('span', { metin: YU.fmt.kgU(eski), stil: { color: 'var(--olumsuz)' } }));
+        deger.appendChild(YU.h('span', { metin: ' → ', stil: { color: 'var(--metin-5)' } }));
+      }
+      deger.appendChild(YU.h('span', { metin: degerMetni(yeni, alan), stil: { font: '600 14px/1.5 var(--sayi)', color: 'var(--olumlu)' } }));
+      if (!kayitVar) deger.appendChild(YU.h('span', { metin: ' (ilk kayıt)', stil: { color: 'var(--metin-5)', font: '400 12.5px/1.5 var(--font)' } }));
+      return YU.h('div', { stil: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px' } },
+        YU.h('span', { metin: etiket, stil: { font: '400 13.5px/1.5 var(--font)', color: 'var(--metin-3)' } }),
+        deger
+      );
+    }
+
+    var liste = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '10px' } });
+    var kayitliVar = false, i, satir, kalemler;
+    for (i = 0; i < degisen.length; i++) {
+      satir = degisen[i];
+      if (satir.kayit) kayitliVar = true;
+      kalemler = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '4px' } },
+        YU.h('div', { metin: satir.malzeme.Ad, stil: { font: '600 13.5px/1.4 var(--font)', color: 'var(--metin)' } }));
+      if (!satir.kilitliUretim && (!isFinite(alanSayisi(satir.uretimAlan)) || YU.yuvarla(alanSayisi(satir.uretimAlan)) !== satir.baslangicUretim)) {
+        kalemler.appendChild(alanSatiri('Üretim', satir.baslangicUretim, !!satir.kayit, satir.uretimAlan));
+      }
+      if (!satir.kilitliSatis && (!isFinite(alanSayisi(satir.satisAlan)) || YU.yuvarla(alanSayisi(satir.satisAlan)) !== satir.baslangicSatis)) {
+        kalemler.appendChild(alanSatiri('Satış', satir.baslangicSatis, !!satir.kayit, satir.satisAlan));
+      }
+      liste.appendChild(kalemler);
+    }
+
+    var m = YU.ui.modal({
+      baslik: gecmis ? 'Geçmiş Bir Güne Kayıt Yapıyorsun' : 'Kaydı Onayla',
+      genislik: 460,
+      govde: [YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '10px' } },
+        YU.h('div', {
+          metin: gunEtiketi + ' gününe ' + YU.fmt.sayi(degisen.length) + ' satır kaydediyorsun.',
+          stil: { font: '600 14.5px/1.5 var(--font)', color: 'var(--metin)' }
+        }),
+        gecmis ? YU.h('div', {
+          metin: 'DİKKAT: bu tarih bugün değil, GEÇMİŞ ÜZERİNDE işlem yapıyorsun. Sonraki günlerin stokları yeniden hesaplanır.',
+          stil: { font: '600 13.5px/1.5 var(--font)', color: 'var(--olumsuz)' }
+        }) : null,
+        YU.h('div', { stil: { padding: '10px 12px', border: '1px solid var(--kenar)', borderRadius: 'var(--r)', background: 'var(--yuzey-2)' } }, liste),
+        kayitliVar ? YU.h('div', {
+          metin: 'Kayıtlı satırlarda eski değer silinir, yerine yenisi yazılır.',
+          stil: { font: '400 13.5px/1.55 var(--font)', color: 'var(--metin-2)' }
+        }) : null,
+        YU.h('div', { metin: 'Emin misin?', stil: { font: '400 14px/1.55 var(--font)', color: 'var(--metin-2)' } })
+      )],
+      dugmeler: [
+        { metin: 'Vazgeç' },
+        {
+          metin: gecmis ? 'Evet, Geçmişe Kaydet' : 'Evet, Kaydet',
+          tur: gecmis ? 'tehlike' : 'birincil',
+          onClick: function () { m.kapat(); kaydetUygula(d); }
+        }
+      ]
+    });
+  }
+
+  function kaydetUygula(d) {
     var degisen = degisenSatirlar(d), hatalar = [], uyarilar = [], basarili = 0, i, satir, girdi, s;
     YU.bos(d.hataKap);
     if (!degisen.length) {
@@ -313,8 +423,8 @@
   }
 
   /* Tarih küçük bir kontrol: koca panel bloğu değil, tek satırlık ince şerit —
-     Kuru Küspe Günlük Giriş'teki şeridin aynısı. Sayfa eylemleri (Kuru Küspe
-     Girişi, Günlük Rapor) de oradaki düzenle bu şeride taşındı. */
+     Kuru Küspe Günlük Giriş'teki şeridin aynısı. Kuru Küspe Girişi ve Günlük
+     Rapor düğmeleri kaldırıldı (kullanıcı isteği, 24.08.2026). */
   function tarihSeridi(d) {
     var bugun = YU.tarih.bugun();
 
@@ -355,14 +465,6 @@
       d.tarihAlan.kok,
       gezinme,
       YU.h('span', { stil: { flex: '1' } }),
-      YU.ui.dugme({
-        metin: 'Kuru Küspe Girişi', ikon: '#ic-plus', tur: 'ikincil', kucuk: true,
-        onClick: function () { sayfayaGit(d, 'kuru-kuspe', { tarih: d.tarih }); }
-      }),
-      YU.ui.dugme({
-        metin: 'Günlük Rapor', ikon: '#ic-doc', tur: 'ikincil', kucuk: true,
-        onClick: function () { sayfayaGit(d, 'gunluk-rapor', { tarih: d.tarih }); }
-      }),
       d.seritRozet
     );
   }
@@ -583,8 +685,7 @@
 
     satirlariKur(d);
 
-    /* Kuru Küspe Girişi / Günlük Rapor sayfa başlığından tarih şeridine
-       taşındı — Kuru Küspe Günlük Giriş'teki düzenin aynısı. */
+    /* Sayfa başlığında eylem düğmesi yok. */
     YU.ui.sayfaEylemleri();
 
     /* Geniş ekranda panel gereksiz büyümesin: Kuru Küspe ekranıyla aynı
