@@ -508,6 +508,24 @@
     return YU.h('span', { sinif: 'yu-zayif', metin: '—' });
   }
 
+  /* İşlem, raporun gününden BAŞKA bir günde yapılmış olabilir: geçmişe dönük
+     düzeltmeler böyledir. Liste işlem zamanına göre sıralandığı için önceki
+     akşam yapılmış bir kayıt en üstte durur; yalnız saat yazınca "22:57 neden
+     08:28'in üstünde" görünüyordu (kullanıcı geri bildirimi, 24.08.2026).
+     Farklı gündeyse saatin altına tarih de yazılır. */
+  function zamanHucresi(damga, tarih) {
+    var gun = String(damga || '').slice(0, 10);
+    var saatH = YU.h('div', { sinif: 'yu-mono', metin: YU.fmt.saat(damga), stil: { whiteSpace: 'nowrap' } });
+    if (!gun || gun === tarih) return saatH;
+    return YU.h('div', {
+      stil: { minWidth: '0' },
+      title: 'Bu işlem ' + YU.fmt.tarih(gun) + ' günü yapıldı; etkilediği gün ' + YU.fmt.tarih(tarih) + '.'
+    },
+      saatH,
+      YU.h('div', { sinif: 'yu-yardim', metin: YU.fmt.tarih(gun), stil: { whiteSpace: 'nowrap' } })
+    );
+  }
+
   /* Kayıt künyesi: boş kalırsa kaydın geldiği ekranın adı yazılır — kuru
      küspe günlük kaydının künyesi yalnız tarihten oluştuğu için rapor
      içinde boşalıyordu. */
@@ -591,7 +609,7 @@
       if (gecersiz[i] && !bosDeger(l.YeniDeger)) yeniH = cizili(yeniH);
 
       satirlar.push([
-        YU.h('span', { sinif: 'yu-mono', metin: YU.fmt.saat(l.Tarih), stil: { whiteSpace: 'nowrap' } }),
+        zamanHucresi(l.Tarih, tarih),
         YU.h('span', { metin: kullaniciAdi(depo, l.KullaniciId) || '—' }),
         YU.ui.rozet(ISLEM_ADI[l.Islem] || l.Islem, ISLEM_RENGI[l.Islem] || 'notr'),
         kayitHucresi(depo, l, tarih, gecersiz[i]),
@@ -611,7 +629,7 @@
       sag: YU.h('span', { metin: satirlar.length ? YU.fmt.sayi(satirlar.length) + ' işlem' : null }),
       govde: YU.ui.tablo({
         sutunlar: [
-          { baslik: 'Saat', genislik: 76 },
+          { baslik: 'Saat', genislik: 96 },
           { baslik: 'Kullanıcı', genislik: 160 },
           { baslik: 'İşlem', genislik: 92, hiza: 'orta' },
           { baslik: 'Kayıt', genislik: 260 },
