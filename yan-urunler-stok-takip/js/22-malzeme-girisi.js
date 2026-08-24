@@ -322,7 +322,14 @@
         kalemler.appendChild(alanSatiri('Satış', satir.baslangicSatis, !!satir.kayit, satir.satisAlan));
       }
       if (!satir.kilitliIade && (!isFinite(alanSayisi(satir.iadeAlan)) || YU.yuvarla(alanSayisi(satir.iadeAlan)) !== satir.baslangicIade)) {
-        kalemler.appendChild(alanSatiri('İade', satir.baslangicIade, !!satir.kayit, satir.iadeAlan));
+        /* Dökme iadesinde seçilen silo etikete yazılır (kullanıcı isteği,
+           24.08.2026): onay penceresi iadenin hangi siloya gireceğini de
+           söylesin. */
+        var iadeEtiketi = 'İade';
+        if (satir.ozel === 'DokmeKuruKuspe' && satir.iadeSiloId !== null) {
+          iadeEtiketi = 'İade → ' + siloAdiBul(satir.iadeSiloId);
+        }
+        kalemler.appendChild(alanSatiri(iadeEtiketi, satir.baslangicIade, !!satir.kayit, satir.iadeAlan));
       }
       liste.appendChild(kalemler);
     }
