@@ -531,12 +531,29 @@
     }, icerik);
   }
 
+  /* Silinen değer artık geçerli değildir: listede de üstü çizili ve soluk
+     gösterilir (kullanıcı isteği, 24.08.2026) — detay penceresindeki eski
+     değer diliyle aynı. */
+  function cizili(icerik) {
+    return YU.h('span', {
+      stil: {
+        textDecoration: 'line-through',
+        textDecorationColor: 'var(--metin-4)',
+        color: 'var(--metin-4)'
+      }
+    }, icerik);
+  }
+
   function tabloSatiri(oge) {
     var s = oge.satir;
     var ld = listeDegerleri(s);
-    var eskiHucre = tekSatir(degerHucresi(ld.EskiDeger, s.Alan),
+    var eskiIcerik = degerHucresi(ld.EskiDeger, s.Alan);
+    if (s.Islem === 'Sil' && !bosDeger(s.EskiDeger)) eskiIcerik = cizili(eskiIcerik);
+    var eskiHucre = tekSatir(eskiIcerik,
       bosDeger(s.EskiDeger) ? null : String(s.EskiDeger));
-    var yeniHucre = tekSatir(yeniDegerHucresi(ld),
+    var yeniIcerik = yeniDegerHucresi(ld);
+    if (s.Islem === 'Sil' && !bosDeger(s.YeniDeger)) yeniIcerik = cizili(yeniIcerik);
+    var yeniHucre = tekSatir(yeniIcerik,
       bosDeger(s.YeniDeger) ? null : String(s.YeniDeger));
 
     if (!oge.ilk) {
