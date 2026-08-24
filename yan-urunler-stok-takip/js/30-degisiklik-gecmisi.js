@@ -369,10 +369,11 @@
       gs = grup[g];
       if (gs.Alan) degisenAlanlar[gs.Alan] = gs;
       eskiH = degerHucresi(gs.EskiDeger, gs.Alan);
-      if (gs.Islem === 'Guncelle' && gs.Alan) {
-        eskiH = YU.h('span', { stil: { textDecoration: 'line-through', textDecorationColor: 'var(--metin-4)', color: 'var(--metin-4)' } }, eskiH);
-      }
+      /* Listedeki kuralın aynısı: geçerliliğini yitirmiş değer çizilir. */
+      if (!bosDeger(gs.EskiDeger)) eskiH = cizili(eskiH);
       yeniH = YU.h('span', { stil: { fontWeight: '600' } }, yeniDegerHucresi(gs));
+      /* Sonradan aşılmış değer bugün geçerli değil — listede olduğu gibi çizilir. */
+      if (!bosDeger(gs.YeniDeger) && asilmisMi(gs)) yeniH = cizili(yeniH);
       degisimSatirlari.push([
         YU.h('span', {
           metin: gs.Alan || (gs.Islem === 'Ekle' ? 'Kayıt açıldı — ilk değerler' : (gs.Islem === 'Sil' ? 'Kayıt silindi — son değerler' : '—')),
@@ -531,9 +532,50 @@
     }, icerik);
   }
 
-  /* Silinen değer artık geçerli değildir: listede de üstü çizili ve soluk
-     gösterilir (kullanıcı isteği, 24.08.2026) — detay penceresindeki eski
-     değer diliyle aynı. */
+  /* ARTIK GÜNCEL OLMAYAN her değer üstü çizili ve soluk gösterilir (kullanıcı
+     isteği, 24.08.2026). İki hâli var:
+
+       1. "Eski Değer" kolonu — tanımı gereği geçmiş değer, hep çizili.
+       2. "Yeni Değer" kolonu — o satır SONRADAN AŞILDIYSA çizili: aynı kaydın
+          aynı alanı daha sonra tekrar değişmişse ya da kayıt silinip yeniden
+          yazılmışsa (Şartname §4 düzeltme akışı) o gün yazılan değer bugün
+          geçerli değildir. Ekle satırları da bu yüzden çizilebilir.
+
+     Aşılma GERÇEĞİ süzgeçten bağımsızdır, bu yüzden indeks daima TÜM log
+     üzerinden kurulur — "Ekle" süzgeci açıkken de doğru sonuç verir. */
+  var asilmaIndeksi = null;
+
+  function damga(s) { return String(s.Tarih || "") + "|" + ("00000000" + (s.Id || 0)).slice(-9); }
+
+  function asilmaIndeksiKur(liste) {
+    var ix = { herhangi: {}, alansiz: {}, alan: {} }, i, s, k, d;
+    for (i = 0; i < liste.length; i++) {
+      s = liste[i];
+      k = s.Tablo + '|' + s.KayitId;
+      d = damga(s);
+      if (!ix.herhangi[k] || ix.herhangi[k] < d) ix.herhangi[k] = d;
+      if (s.Alan) {
+        var ka = k + '|' + s.Alan;
+        if (!ix.alan[ka] || ix.alan[ka] < d) ix.alan[ka] = d;
+      } else {
+        if (!ix.alansiz[k] || ix.alansiz[k] < d) ix.alansiz[k] = d;
+      }
+    }
+    return ix;
+  }
+
+  function asilmisMi(s) {
+    if (!asilmaIndeksi) asilmaIndeksi = asilmaIndeksiKur(db().degisiklikLog);
+    var k = s.Tablo + '|' + s.KayitId;
+    var d = damga(s);
+    /* Alansız satır tüm kaydı temsil eder: kayıtta kendisinden yeni HERHANGİ
+       bir satır varsa aşılmıştır. */
+    if (!s.Alan) return (asilmaIndeksi.herhangi[k] || "") > d;
+    /* Alanlı satır: aynı alan yeniden değiştiyse ya da kayıt topluca
+       eklendi/silindiyse aşılmıştır. */
+    if ((asilmaIndeksi.alan[k + '|' + s.Alan] || '') > d) return true;
+    return (asilmaIndeksi.alansiz[k] || '') > d;
+  }
   function cizili(icerik) {
     return YU.h('span', {
       stil: {
@@ -548,13 +590,17 @@
     var s = oge.satir;
     var ld = listeDegerleri(s);
     var eskiIcerik = degerHucresi(ld.EskiDeger, s.Alan);
-    if (s.Islem === 'Sil' && !bosDeger(s.EskiDeger)) eskiIcerik = cizili(eskiIcerik);
+    if (!bosDeger(s.EskiDeger)) eskiIcerik = cizili(eskiIcerik);
     var eskiHucre = tekSatir(eskiIcerik,
       bosDeger(s.EskiDeger) ? null : String(s.EskiDeger));
+
     var yeniIcerik = yeniDegerHucresi(ld);
-    if (s.Islem === 'Sil' && !bosDeger(s.YeniDeger)) yeniIcerik = cizili(yeniIcerik);
+    var asildi = !bosDeger(s.YeniDeger) && asilmisMi(s);
+    if (asildi) yeniIcerik = cizili(yeniIcerik);
     var yeniHucre = tekSatir(yeniIcerik,
-      bosDeger(s.YeniDeger) ? null : String(s.YeniDeger));
+      bosDeger(s.YeniDeger)
+        ? null
+        : String(s.YeniDeger) + (asildi ? '  ·  bu değer daha sonra değişti' : ''));
 
     if (!oge.ilk) {
       /* Devam satırı: tekrar eden künye boş bırakılır, bağ ↳ ile kurulur. */
@@ -778,6 +824,10 @@
 
   function sonuclariCiz(kap, durum) {
     YU.bos(kap);
+
+    /* Ekran her çizildiğinde aşılma indeksi tazelenir: bu arada yeni kayıt
+       yazılmış olabilir. */
+    asilmaIndeksi = asilmaIndeksiKur(db().degisiklikLog);
 
     var liste = suzulmus(durum);
 
