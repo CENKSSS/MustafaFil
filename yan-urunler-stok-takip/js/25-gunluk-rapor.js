@@ -285,14 +285,34 @@
     return YU.h('span', { sinif: 'yu-zayif', metin: (ad || '—') + (saat !== '—' ? ' · ' + saat : '') });
   }
 
-  function malzemePaneli(depo, ozet) {
+  /* Malzeme satırları da günlük değişim diliyle okunur (kullanıcı isteği,
+     24.08.2026): gün başı stok, +üretim, −satış, gün sonu stok.
+     Gün sonu = güne KADAR mevcut (Tarih <= gün, Şartname §5); gün başı ondan
+     o günün üretim/satışı geri alınarak bulunur. Dökme kuru küspe İSTİSNA:
+     mevcudu silo toplamı olduğu için başı/sonu silo özetinden gelir —
+     Durum B'de çuvallama çekişi basit formülü yanıltırdı. */
+  function malzemePaneli(depo, ozet, tarih, siloOzet) {
     var satirlar = [], i, s;
     for (i = 0; i < ozet.malzemeSatirlari.length; i++) {
       s = ozet.malzemeSatirlari[i];
+
+      var basi = null, sonu = null;
+      if (s.malzeme && s.malzeme.OzelTip === 'DokmeKuruKuspe') {
+        basi = siloOzet.toplam.basi;
+        sonu = siloOzet.toplam.sonu;
+      } else if (s.malzeme) {
+        sonu = Number(YU.stok.malzemeStok(depo, s.malzeme.Id, tarih).mevcut) || 0;
+        basi = YU.yuvarla(sonu - (Number(s.uretim) || 0) + (Number(s.satis) || 0));
+      }
+
       satirlar.push([
         YU.h('span', { sinif: 'yu-guclu', metin: s.malzeme ? s.malzeme.Ad : ('Malzeme #' + s.hareket.MalzemeId) }),
-        s.uretim > 0 ? YU.fmt.kg(s.uretim) : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
-        s.satis > 0 ? YU.fmt.kg(s.satis) : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
+        basi === null ? YU.h('span', { sinif: 'yu-zayif', metin: '—' }) : YU.fmt.kg(basi),
+        s.uretim > 0 ? '+' + YU.fmt.kg(s.uretim) : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
+        s.satis > 0 ? '−' + YU.fmt.kg(s.satis) : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
+        sonu === null
+          ? YU.h('span', { sinif: 'yu-zayif', metin: '—' })
+          : YU.h('span', { sinif: 'yu-guclu', metin: YU.fmt.kg(sonu) }),
         malzemeKaynagi(s.malzeme),
         kaydedenMetni(depo, s.hareket)
       ]);
@@ -301,10 +321,12 @@
     var tablo = YU.ui.tablo({
       sutunlar: [
         { baslik: 'Malzeme' },
-        { baslik: 'Üretim', hiza: 'sag', mono: true, genislik: 150 },
-        { baslik: 'Satış', hiza: 'sag', mono: true, genislik: 150 },
-        { baslik: 'Kaynak', genislik: 220 },
-        { baslik: 'Kaydeden', genislik: 190 }
+        { baslik: 'Gün Başı', hiza: 'sag', mono: true, genislik: 130 },
+        { baslik: 'Üretim', hiza: 'sag', mono: true, genislik: 120 },
+        { baslik: 'Satış', hiza: 'sag', mono: true, genislik: 120 },
+        { baslik: 'Gün Sonu', hiza: 'sag', mono: true, genislik: 130 },
+        { baslik: 'Kaynak', genislik: 190 },
+        { baslik: 'Kaydeden', genislik: 170 }
       ],
       satirlar: satirlar,
       bos: 'Bu gün için malzeme hareketi yazılmamış.',
@@ -315,7 +337,7 @@
     tablo.className += ' yu-yazdirmada-kaydedensiz';
 
     return YU.ui.panel({
-      baslik: 'Malzeme Hareketleri',
+      baslik: 'Malzeme Günlük Değişimi',
       ikon: '#ic-pencil',
       sag: YU.h('span', { metin: YU.fmt.sayi(ozet.malzemeSatirlari.length) + ' satır' }),
       govde: tablo
@@ -323,8 +345,103 @@
   }
 
   /* ------------------------------------------------------------------
-     Silo hareketleri
+     Silo günlük değişimi + hareket dökümü
+
+     Rapor "günlük değişim" diliyle kurulur (kullanıcı isteği, 24.08.2026):
+     her silo için gün başı kaçtı, o gün kaç eklendi, kaç çıktı, gün sonu
+     kaç oldu — tek bakışta. Hareket dökümü ALTINDA durmaya devam eder;
+     Şartname §7 "tüm silo hareketleri" DEMİRBAŞ, kaldırılamaz.
      ------------------------------------------------------------------ */
+
+  /* Silo başına günün toplamı. TÜM aktif silolar listelenir: hareketi
+     olmayan silo da "değişmedi" bilgisiyle görünür — stok raporu, yalnız
+     hareket listesi değil. Pasif silo ancak o gün hareketi varsa girer. */
+  function siloGunlukOzet(depo, ozet, tarih) {
+    var toplamlar = {}, i, h, o;
+    for (i = 0; i < ozet.siloHareketleri.length; i++) {
+      h = ozet.siloHareketleri[i].hareket;
+      o = toplamlar[h.SiloId] || (toplamlar[h.SiloId] = { giren: 0, cikan: 0 });
+      o.giren = YU.yuvarla(o.giren + say(h.GirenKg));
+      o.cikan = YU.yuvarla(o.cikan + say(h.CikanKg));
+    }
+
+    var silolar = (depo.silolar || []).slice();
+    silolar.sort(function (a, b) {
+      var x = Number(a.Sira) || 0, y = Number(b.Sira) || 0;
+      return x !== y ? x - y : (a.Id || 0) - (b.Id || 0);
+    });
+
+    var liste = [], toplam = { basi: 0, giren: 0, cikan: 0, sonu: 0 };
+    for (i = 0; i < silolar.length; i++) {
+      var s = silolar[i];
+      o = toplamlar[s.Id] || { giren: 0, cikan: 0 };
+      if (s.Aktif === false && !o.giren && !o.cikan) continue;
+      var basi = YU.stok.siloGunBasi(depo, s.Id, tarih);
+      var sonu = YU.yuvarla(basi + o.giren - o.cikan);
+      liste.push({ silo: s, basi: basi, giren: o.giren, cikan: o.cikan, sonu: sonu });
+      toplam.basi = YU.yuvarla(toplam.basi + basi);
+      toplam.giren = YU.yuvarla(toplam.giren + o.giren);
+      toplam.cikan = YU.yuvarla(toplam.cikan + o.cikan);
+      toplam.sonu = YU.yuvarla(toplam.sonu + sonu);
+    }
+    return { liste: liste, toplam: toplam };
+  }
+
+  /* Net değişim hücresi: +X yeşil, −X kırmızı, 0 soluk "değişmedi". */
+  function netHucre(net) {
+    if (net > 0) return YU.h('span', { stil: { color: 'var(--olumlu)' }, metin: '+' + YU.fmt.kg(net) });
+    if (net < 0) return YU.h('span', { stil: { color: 'var(--olumsuz)' }, metin: '−' + YU.fmt.kg(Math.abs(net)) });
+    return YU.h('span', { sinif: 'yu-zayif', metin: 'değişmedi' });
+  }
+
+  function siloDegisimPaneli(siloOzet) {
+    var satirlar = [], i, s;
+    for (i = 0; i < siloOzet.liste.length; i++) {
+      s = siloOzet.liste[i];
+      satirlar.push({
+        vurgu: s.sonu < 0 ? 'olumsuz' : null,
+        hucreler: [
+          YU.h('span', { sinif: 'yu-guclu', metin: s.silo.Ad }),
+          YU.fmt.kg(s.basi),
+          s.giren > 0 ? '+' + YU.fmt.kg(s.giren) : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
+          s.cikan > 0 ? '−' + YU.fmt.kg(s.cikan) : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
+          netHucre(YU.yuvarla(s.giren - s.cikan)),
+          s.sonu < 0
+            ? YU.ui.rozet(YU.fmt.kg(s.sonu), 'olumsuz')
+            : YU.h('span', { sinif: 'yu-guclu', metin: YU.fmt.kg(s.sonu) })
+        ]
+      });
+    }
+    if (satirlar.length > 1) {
+      var t = siloOzet.toplam;
+      satirlar.push([
+        YU.h('span', { sinif: 'yu-guclu', metin: 'Toplam' }),
+        YU.h('span', { sinif: 'yu-guclu', metin: YU.fmt.kg(t.basi) }),
+        t.giren > 0 ? YU.h('span', { sinif: 'yu-guclu', metin: '+' + YU.fmt.kg(t.giren) }) : '—',
+        t.cikan > 0 ? YU.h('span', { sinif: 'yu-guclu', metin: '−' + YU.fmt.kg(t.cikan) }) : '—',
+        netHucre(YU.yuvarla(t.giren - t.cikan)),
+        YU.h('span', { sinif: 'yu-guclu', metin: YU.fmt.kg(t.sonu) })
+      ]);
+    }
+
+    return YU.ui.panel({
+      baslik: 'Silo Günlük Değişimi',
+      ikon: '#ic-building',
+      sag: YU.h('span', { metin: YU.fmt.sayi(siloOzet.liste.length) + ' silo' }),
+      govde: YU.ui.tablo({
+        sutunlar: [
+          { baslik: 'Silo', genislik: 140 },
+          { baslik: 'Gün Başı', hiza: 'sag', mono: true, genislik: 150 },
+          { baslik: 'Eklenen', hiza: 'sag', mono: true, genislik: 140 },
+          { baslik: 'Çıkan', hiza: 'sag', mono: true, genislik: 140 },
+          { baslik: 'Net Değişim', hiza: 'sag', mono: true, genislik: 150 },
+          { baslik: 'Gün Sonu', hiza: 'sag', mono: true, genislik: 150 }
+        ],
+        satirlar: satirlar,
+        bos: 'Tanımlı silo yok.'
+      })
+    });
+  }
 
   function siloPaneli(depo, ozet, tarih) {
     var gunBasi = {}, gunSonu = {}, i, h, id;
@@ -754,7 +871,10 @@
       }));
     }
 
-    kap.appendChild(malzemePaneli(depo, ozet));
+    /* Günlük değişim özeti üstte, hareket dökümleri altında (24.08.2026). */
+    var siloOzet = siloGunlukOzet(depo, ozet, tarih);
+    kap.appendChild(siloDegisimPaneli(siloOzet));
+    kap.appendChild(malzemePaneli(depo, ozet, tarih, siloOzet));
     kap.appendChild(siloPaneli(depo, ozet, tarih));
     /* Denetim izi: günün verisine dokunan her adım — güvenlik kaydı.
        Şartname §7 Değişiklik Geçmişi'ni YÖNETİCİYE ayırır; gün düzeyindeki
