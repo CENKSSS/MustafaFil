@@ -22,7 +22,9 @@
   }
 
   function tarihSec(param) {
-    return param && gecerliTarih(param.tarih) ? param.tarih : YU.tarih.bugun();
+    /* Kampanya bakışı (kullanıcı isteği, 24.08.2026): varsayılan tarih
+       seçili kampanyanın görünüm sonudur. */
+    return param && gecerliTarih(param.tarih) ? param.tarih : YU.donem.gorunumSonu();
   }
 
   function kendinin(nesne, anahtar) {
@@ -514,9 +516,10 @@
       onClick: function () { tekGune(YU.tarih.ekle(refGun(), -1)); }
     });
     var bugunDugme = YU.ui.dugme({
-      /* Bugün hep tıklanabilir (diğer ekranlarla aynı). */
-      metin: 'Bugün', ikon: '#ic-calendar', kucuk: true, tur: 'ikincil',
-      onClick: function () { tekGune(YU.tarih.bugun()); }
+      /* Bugün hep tıklanabilir (diğer ekranlarla aynı). Geçmiş kampanyada
+         kampanyanın sonuna götürür ve adı bunu söyler. */
+      metin: YU.donem.gecmisMi() ? 'Kampanya Sonu' : 'Bugün', ikon: '#ic-calendar', kucuk: true, tur: 'ikincil',
+      onClick: function () { tekGune(YU.donem.gorunumSonu()); }
     });
     var sonrakiDugme = YU.ui.dugme({
       metin: 'Sonraki Gün', kucuk: true, tur: 'ikincil',
@@ -524,9 +527,12 @@
     });
 
     function gunDugmeleriTazele() {
-      var ileri = refGun() >= YU.tarih.bugun();
+      /* Kampanya bakışı: ileri gezinme seçili kampanyanın sonunda durur. */
+      var ileri = refGun() >= YU.donem.gorunumSonu();
       sonrakiDugme.disabled = ileri;
-      sonrakiDugme.title = ileri ? 'Bugünden sonrası için hareket olmaz' : '';
+      sonrakiDugme.title = ileri
+        ? (YU.donem.gecmisMi() ? 'Kampanya sonundan ileri gidilemez' : 'Bugünden sonrası için hareket olmaz')
+        : '';
     }
     gunDugmeleriTazele();
 

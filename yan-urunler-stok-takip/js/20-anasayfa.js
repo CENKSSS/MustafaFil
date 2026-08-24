@@ -129,9 +129,13 @@
      ================================================================== */
 
   function ozet(depo) {
-    var bugun = YU.tarih.bugun();
+    /* Kampanya bakışı (kullanıcı isteği, 24.08.2026): geçmiş kampanya
+       seçiliyken kartlar o kampanyanın SONUNU gösterir, kayıtlı günler
+       o kampanyayla sınırlanır. Aktif kampanyada davranış aynıdır
+       (görünüm sonu = bugün). */
+    var bugun = YU.donem.gorunumSonu();
     var donem = YU.donem.aktif();
-    var tumGunler = YU.stok.kayitliGunler(depo);
+    var tumGunler = YU.stok.kayitliGunler(depo, donem ? donem.bas : null, bugun);
     var sonGun = tumGunler.length ? tumGunler[0].tarih : null;
 
     var silolar = YU.stok.tumSilolar(depo, bugun);
@@ -699,9 +703,13 @@
      gün toplamı alınır. Hiç yoksa null. */
   function sonSiloHareketi(depo, siloId, alan) {
     var sonTarih = null, toplam = 0, i, h, m;
+    /* Kampanya bakışı: seçili kampanyanın görünüm sonundan sonraki
+       hareketler sayılmaz. */
+    var bakisSonu = YU.donem.gorunumSonu();
     for (i = 0; i < depo.siloHareket.length; i++) {
       h = depo.siloHareket[i];
       if (h.SiloId !== siloId) continue;
+      if (h.Tarih > bakisSonu) continue;
       m = Number(h[alan]) || 0;
       if (m <= 0) continue;
       if (sonTarih === null || h.Tarih > sonTarih) { sonTarih = h.Tarih; toplam = m; }
@@ -728,7 +736,7 @@
        kapasiteyi yalnız "Kalan kapasite" satırı anlatır. Devir tarihi de
        oradaki gibi en son devirden okunur. */
     var devir = SILO_GORSELI
-      ? YU.stok.enSonDevir(YU.db, 'Silo', s.silo.Id, YU.tarih.bugun()) : null;
+      ? YU.stok.enSonDevir(YU.db, 'Silo', s.silo.Id, YU.donem.gorunumSonu()) : null;
 
     /* Eski düz görünüm (SILO_GORSELI=false): değer + çubuk + kapasite satırı. */
     var govde = SILO_GORSELI

@@ -436,7 +436,26 @@
       YU.yenile();
       return donemAktif();
     },
-    tazele: function () { donemOnbellek = null; donemBaslikTazele(); }
+    tazele: function () { donemOnbellek = null; donemBaslikTazele(); },
+
+    /* Seçili kampanyanın "görünüm sonu" (kullanıcı isteği, 24.08.2026):
+       aktif (en yeni) kampanyada bugün, geçmiş kampanyada kampanyanın son
+       kayıtlı günü. Rapor ekranlarının varsayılan tarihi ve ileri gezinme
+       kelepçesi buradan okunur — kampanya seçilince veriler o kampanyanın
+       bakışıyla gelir. */
+    gorunumSonu: function () {
+      var l = donemler();
+      var d = donemAktif();
+      if (!d || !l.length) return YU.tarih.bugun();
+      return l[l.length - 1].ad === d.ad ? YU.tarih.bugun() : d.bit;
+    },
+
+    /* Seçili kampanya geçmiş bir kampanya mı (en yeni değil mi)? */
+    gecmisMi: function () {
+      var l = donemler();
+      var d = donemAktif();
+      return !!(d && l.length && l[l.length - 1].ad !== d.ad);
+    }
   };
 
   /* ==================================================================
@@ -943,7 +962,26 @@
   function donemBaslikTazele() {
     var d = donemAktif();
     if (dom.seciciAd) dom.seciciAd.textContent = d ? ('Kampanya ' + d.ad) : 'Kampanya yok';
-    if (dom.cipMetin) dom.cipMetin.textContent = d ? (YU.fmt.tarih(d.bas) + ' – ' + YU.fmt.tarih(d.bit)) : YU.fmt.tarih(YU.tarih.bugun());
+    /* Çip kampanyanın ADINI da söyler (kullanıcı isteği, 24.08.2026):
+       hangi kampanyaya bakıldığı yalnız tarihten anlaşılmıyordu. */
+    if (dom.cipMetin) dom.cipMetin.textContent = d
+      ? (d.ad + ' Kampanyası · ' + YU.fmt.tarih(d.bas) + ' – ' + YU.fmt.tarih(d.bit))
+      : YU.fmt.tarih(YU.tarih.bugun());
+    /* Kilitli kampanya çipte kırmızı asma kilitle belirtilir; görüntüleme
+       serbesttir, yalnız veri değişikliği kapalıdır. */
+    if (dom.cipKilit) {
+      YU.bos(dom.cipKilit);
+      var kilitli = d && guvenli(function () {
+        return YU.servis && YU.servis.kampanyaKilitDurumu ? YU.servis.kampanyaKilitDurumu(YU.db, d.ad) : null;
+      }, null);
+      if (kilitli) {
+        dom.cipKilit.style.display = 'inline-flex';
+        dom.cipKilit.appendChild(YU.svg('#ic-kilit', 13));
+        dom.cipKilit.appendChild(YU.h('span', { metin: 'Kilitli' }));
+      } else {
+        dom.cipKilit.style.display = 'none';
+      }
+    }
   }
 
   /* --- dönem çipi, tema düğmesi, zil, kullanıcı kartı --- */
@@ -951,11 +989,17 @@
   function cipKutusu() {
     var metin = YU.h('span', { stil: { whiteSpace: 'nowrap' } });
     dom.cipMetin = metin;
+    var kilitEl = YU.h('span', {
+      stil: { display: 'none', alignItems: 'center', gap: '5px', color: 'var(--olumsuz)',
+              font: '600 12.5px/1 var(--font)', whiteSpace: 'nowrap' },
+      title: 'Kampanya kilitli — görüntüleme serbest, veri değişikliği kapalı'
+    });
+    dom.cipKilit = kilitEl;
     var cip = YU.h('div', {
       sinif: 'yu-cip', role: 'button', tabindex: '0', title: 'Kampanya dönemi',
       onClick: function () { donemPaneliAc(cip); },
       onKeyDown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); donemPaneliAc(cip); } }
-    }, YU.svg('#ic-calendar', 14), metin);
+    }, YU.svg('#ic-calendar', 14), metin, kilitEl);
     return cip;
   }
 
@@ -1234,10 +1278,13 @@
 
     var yan = YU.h('div', { sinif: 'yu-yan' }, markaBlogu(true, true), seciciKutusu(), menuKur());
 
-    /* Arama kutusu, kampanya tarih çipi ve Son Hareketler zili kaldırıldı
-       (kullanıcı istekleri, 24.08.2026); denetimler sağa yaslanır
-       (.yu-ust justify-content). */
+    /* Arama kutusu ve Son Hareketler zili kaldırıldı (kullanıcı istekleri,
+       24.08.2026); denetimler sağa yaslanır (.yu-ust justify-content).
+       Kampanya çipi ADIYLA geri geldi (kullanıcı isteği, 24.08.2026):
+       "2025/2026 Kampanyası · aralık" yazar, kampanya kilitliyse kırmızı
+       asma kilitle belirtir. */
     var ust = YU.h('div', { sinif: 'yu-ust' },
+      cipKutusu(),
       testDugmeleri(),
       temaDugmesi(),
       unlemDugmesi(),

@@ -40,7 +40,10 @@
   /* Gelecek gün seçilemez (kullanıcı direktifi, 24.08.2026): adresle gelen
      ileri tarih bugüne çekilir. */
   function tarihSec(param) {
-    var t = param && gecerliTarih(param.tarih) ? param.tarih : YU.tarih.bugun();
+    /* Kampanya bakışı (kullanıcı isteği, 24.08.2026): varsayılan tarih
+       seçili kampanyanın görünüm sonu; adresle gelen ileri tarih yine
+       bugüne kelepçelenir (gelecek gün seçilemez). */
+    var t = param && gecerliTarih(param.tarih) ? param.tarih : YU.donem.gorunumSonu();
     var bugun = YU.tarih.bugun();
     return t > bugun ? bugun : t;
   }
@@ -129,7 +132,7 @@
         onClick: function () { YU.git('gunluk-rapor', { tarih: hedef }); }
       }, sv);
       /* Bugünden ileri gidilemez (gelecek gün seçilemez). */
-      if (!geri && hedef > YU.tarih.bugun()) {
+      if (!geri && hedef > YU.donem.gorunumSonu()) {   /* kampanya bakışı */
         d.disabled = true;
         d.title = 'Bugünden sonrası için rapor olmaz';
         d.setAttribute('aria-label', 'Bugünden sonrası için rapor olmaz');
@@ -796,7 +799,7 @@
   function okDugmesi(geri, tarih) {
     var hedef = YU.tarih.ekle(tarih, geri ? -1 : 1);
     /* Bugünden ileri gidilemez (gelecek gün seçilemez). */
-    var ileri = !geri && hedef > YU.tarih.bugun();
+    var ileri = !geri && hedef > YU.donem.gorunumSonu();   /* kampanya bakışı */
     var d = YU.ui.dugme({
       ikon: '#ic-chevron', tur: 'ikincil', pasif: ileri,
       baslik: ileri ? 'Bugünden sonrası için rapor olmaz'
@@ -828,8 +831,8 @@
       tarihAlani.kok,
       okDugmesi(false, tarih),
       YU.ui.dugme({
-        metin: 'Bugün', ikon: '#ic-calendar', tur: 'ikincil',
-        onClick: function () { YU.git('gunluk-rapor', { tarih: YU.tarih.bugun() }); }
+        metin: YU.donem.gecmisMi() ? 'Kampanya Sonu' : 'Bugün', ikon: '#ic-calendar', tur: 'ikincil',
+        onClick: function () { YU.git('gunluk-rapor', { tarih: YU.donem.gorunumSonu() }); }
       }),
       YU.ui.dugme({
         metin: 'Bu Günü Düzenle', ikon: '#ic-pencil', tur: 'ikincil',

@@ -172,7 +172,10 @@
      ================================================================== */
 
   function tarihSeridi(d) {
-    var bugun = YU.tarih.bugun();
+    /* Kampanya bakışı: "bugün" seçili kampanyanın görünüm sonudur —
+       geçmiş kampanyada kampanyanın son kayıtlı günü. */
+    var bugun = YU.donem.gorunumSonu();
+    var gecmisKampanya = YU.donem.gecmisMi();
 
     /* Seçili tarih İRİ yazılır (kullanıcı isteği, 24.08.2026 — "tarih gözle
        seçilmesi zor"). Tarih kutusu ve gün gezinme düğmeleri panel başlığına
@@ -188,7 +191,7 @@
       }),
       YU.h('div', {
         sinif: 'yu-yardim',
-        metin: d.tarih === bugun ? 'Bugün itibarıyla' : 'Bu tarih itibarıyla',
+        metin: d.tarih === bugun ? (gecmisKampanya ? 'Kampanya sonu itibarıyla' : 'Bugün itibarıyla') : 'Bu tarih itibarıyla',
         title: 'Seçilen güne kadarki tüm hareketler ve en son devir stok hesaba katılır (Şartname §5).'
       })
     );
@@ -223,7 +226,10 @@
   /* Tarih kutusu + gün gezinme, tablo panelinin başlığında (kullanıcı isteği,
      24.08.2026 — "tarih kısmını aşağıya koy"). */
   function tarihKontrolleri(d) {
-    var bugun = YU.tarih.bugun();
+    /* Kampanya bakışı: "bugün" seçili kampanyanın görünüm sonudur —
+       geçmiş kampanyada gezinme kampanya sonunda durur. */
+    var bugun = YU.donem.gorunumSonu();
+    var gecmisKampanya = YU.donem.gecmisMi();
 
     var tarihAlan = YU.ui.alan({
       tip: 'tarih', deger: d.tarih, genislik: '148px',
@@ -244,14 +250,15 @@
       onClick: function () { git(d, { tarih: YU.tarih.ekle(d.tarih, -1) }); }
     }));
     kap.appendChild(YU.ui.dugme({
-      /* Bugün HEP tıklanabilir — bugündeyken de (kullanıcı isteği, 23.08.2026). */
-      metin: 'Bugün', ikon: '#ic-calendar', kucuk: true, tur: 'ikincil',
+      /* Bugün HEP tıklanabilir — bugündeyken de (kullanıcı isteği, 23.08.2026).
+         Geçmiş kampanyada düğme kampanyanın sonuna götürür ve adı bunu söyler. */
+      metin: gecmisKampanya ? 'Kampanya Sonu' : 'Bugün', ikon: '#ic-calendar', kucuk: true, tur: 'ikincil',
       onClick: function () { git(d, { tarih: bugun }); }
     }));
     kap.appendChild(YU.ui.dugme({
       metin: 'Sonraki Gün', kucuk: true, tur: 'ikincil',
       pasif: d.tarih >= bugun,
-      baslik: d.tarih >= bugun ? 'Bugünden ileri gidilemez' : '',
+      baslik: d.tarih >= bugun ? (gecmisKampanya ? 'Kampanya sonundan ileri gidilemez' : 'Bugünden ileri gidilemez') : '',
       onClick: function () { git(d, { tarih: YU.tarih.ekle(d.tarih, 1) }); }
     }));
     /* Son Kayıtlı Gün düğmesi kaldırıldı (kullanıcı isteği, 24.08.2026). */
@@ -636,7 +643,7 @@
   function ciz(kap, param) {
     param = param || {};
     var d = {
-      tarih: gecerliTarih(param.tarih) ? param.tarih : YU.tarih.bugun(),
+      tarih: gecerliTarih(param.tarih) ? param.tarih : YU.donem.gorunumSonu(),   /* kampanya bakışı */
       pasifGoster: String(param.pasif || '') === '1',
       vurguId: Number(param.malzeme) || null,
       satirlar: []
