@@ -10,8 +10,7 @@
 
   var YU = window.YU;
 
-  var GRAFIK_GUN = 14;          /* hareket listesinin varsayılan penceresi: son 14 kayıtlı gün (kullanıcı isteği, 21.08.2026) */
-  var SAYFA_GUN = 14;           /* sayfalama gün bazlıdır: her sayfa 14 kayıtlı günün hareketlerini gösterir */
+  var SAYFA_GUN = 7;            /* sayfa başına kayıtlı gün sayısı (kullanıcı isteği, 24.08.2026: en fazla 7) */
 
 
   /* ------------------------------------------------------------------
@@ -228,6 +227,10 @@
      Hareket tablosu — bakiye kümülatif hesaplanır
      ------------------------------------------------------------------ */
 
+  /* Şeridin altındaki çuvallı stok açıklama notu kaldırıldı (kullanıcı
+     isteği, 24.08.2026); "· dökme" eki toplamın neyi saydığını söylemeye
+     devam ediyor. */
+
   /* Bakiye satır satır yürütülür: silo başına kronolojik sırada devir
      bakiyeyi sıfırlar (Şartname §5 "en son devir"), sonra giren/çıkan işlenir. */
   function hareketleriHazirla(depo) {
@@ -302,9 +305,9 @@
 
   function hareketPaneli(depo, silolar, tarih) {
     var tumu = hareketleriHazirla(depo);
-    var gunler = YU.stok.kayitliGunler(depo, null, tarih);
-    var pencere = gunler.slice(0, GRAFIK_GUN);
-    var varsayilanBas = pencere.length ? pencere[pencere.length - 1].tarih : '';
+    /* Tarih süzgeci BOŞ açılır (kullanıcı isteği, 24.08.2026): liste komple
+       gelir, sayfalama baştan bütün günleri kapsar. Daraltma takvimlerden
+       ve gün düğmelerinden yapılır. */
 
     var sayacMetni = YU.h('span');
     var tabloKabi = YU.h('div');
@@ -502,11 +505,11 @@
     }
 
     basAlani = YU.ui.alan({
-      etiket: 'Başlangıç', tip: 'tarih', deger: varsayilanBas,
+      etiket: 'Başlangıç', tip: 'tarih', deger: '',
       onChange: function () { gunDugmeleriTazele(); suzgecDegisti(); }
     });
     bitAlani = YU.ui.alan({
-      etiket: 'Bitiş', tip: 'tarih', deger: tarih,
+      etiket: 'Bitiş', tip: 'tarih', deger: '',
       onChange: function () { gunDugmeleriTazele(); suzgecDegisti(); }
     });
 
