@@ -23,7 +23,8 @@
     elle: { malzeme: false, silo: false },
     onDoldur: null
   };
-  var dom = { govde: null };
+  /* govde: iki bölümün kabı — { malzeme, silo } (24.08.2026, sekme kalktı). */
+  var dom = { govde: { malzeme: null, silo: null } };
 
   function siloMu() { return durum.sekme === 'silo'; }
   function tip() { return siloMu() ? 'Silo' : 'Malzeme'; }
@@ -843,15 +844,30 @@
     });
   }
 
-  function govdeyiCiz() {
-    if (!dom.govde) return;
-    tarihiHazirla();
-    YU.bos(dom.govde);
-    if (!devirTarihleri().length && !durum.elle[durum.sekme]) {
-      dom.govde.appendChild(bosDurumPaneli());
-      return;
+  /* Malzeme ve silo devirleri AYNI SAYFADA alt alta durur (kullanıcı isteği,
+     24.08.2026); sekme yoktur. Ekranın bütün mantığı durum.sekme üzerinden
+     dallandığı için her bölüm çizilirken sekme geçici olarak o bölüme
+     ayarlanır. Bölüm içindeki olaylar sonradan çalıştığından, kabın kendisi
+     YAKALAMA aşamasında sekmeyi geri kilitler — böylece alttaki düğme hangi
+     bölümdeyse doğru tabloya yazar. */
+  function sekmeyiKilitle(kap, sekme) {
+    var olaylar = ['click', 'change', 'input', 'keydown', 'focusin'];
+    for (var i = 0; i < olaylar.length; i++) {
+      kap.addEventListener(olaylar[i], function () { durum.sekme = sekme; }, true);
     }
-    dom.govde.appendChild(duzenlemePaneli());
+    return kap;
+  }
+
+  function govdeyiCiz(hedef) {
+    var sekme = hedef || durum.sekme;
+    var kap = dom.govde[sekme];
+    if (!kap) return;
+    durum.sekme = sekme;
+    tarihiHazirla();
+    YU.bos(kap);
+    kap.appendChild(
+      !devirTarihleri().length && !durum.elle[sekme] ? bosDurumPaneli() : duzenlemePaneli()
+    );
   }
 
   YU.sayfaTanimla({
@@ -877,23 +893,20 @@
       }
 
       var p = param || {};
-      if (p.sekme === 'silo' || p.sekme === 'malzeme') durum.sekme = p.sekme;
-      if (p.tarih) durum.tarih[durum.sekme] = p.tarih;
+      /* ?sekme= artık görünüm değiştirmiyor; yalnız ?tarih= ile birlikte
+         hangi bölümün tarihi kurulacağını söyler. */
+      if (p.tarih) durum.tarih[(p.sekme === 'silo' ? 'silo' : 'malzeme')] = p.tarih;
 
-      kap.appendChild(YU.ui.sekmeler({
-        sekmeler: [
-          { kod: 'malzeme', metin: 'Malzeme Devirleri' },
-          { kod: 'silo', metin: 'Silo Devirleri' }
-        ],
-        aktif: durum.sekme,
-        onDegis: function (kod) { durum.sekme = kod; govdeyiCiz(); }
-      }));
+      var malzemeKap = sekmeyiKilitle(YU.h('div', { stil: { minWidth: '0' } }), 'malzeme');
+      var siloKap = sekmeyiKilitle(YU.h('div', { stil: { minWidth: '0' } }), 'silo');
+      dom.govde = { malzeme: malzemeKap, silo: siloKap };
 
-      var govde = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '20px' } });
-      dom.govde = govde;
-      kap.appendChild(govde);
+      kap.appendChild(YU.h('div', {
+        stil: { display: 'flex', flexDirection: 'column', gap: '20px', minWidth: '0' }
+      }, malzemeKap, siloKap));
 
-      govdeyiCiz();
+      govdeyiCiz('malzeme');
+      govdeyiCiz('silo');
     }
   });
 })();
