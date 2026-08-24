@@ -460,8 +460,32 @@
       hatalar.push(kayit(ALAN, "\"" + malzeme.Ad + "\" iade miktarı sayı olmalı. Girilen: \"" + String(girdi.iade) + "\"."));
     } else if (iade !== null && iade < 0) {
       hatalar.push(kayit(ALAN, "\"" + malzeme.Ad + "\" iade miktarı negatif olamaz. Girilen: " + kg(iade) + "."));
-    } else if (iade !== null && iade !== 0 && malzeme.OzelTip === "DokmeKuruKuspe") {
-      hatalar.push(kayit(ALAN, "\"" + malzeme.Ad + "\" iadesi siloya girmek zorunda (Şartname §5); silo seçimi olmayan bu ekrandan girilemez."));
+    } else if (iade !== null && iade > 0 && malzeme.OzelTip === "DokmeKuruKuspe") {
+      /* Dökme iadesi bir SİLOYA girmek zorunda (Şartname §5: dökme stok
+         silo toplamıdır). Ekran silo seçtirir; seçilmediyse kayıt geçmez. */
+      var iadeSiloId = girdi.iadeSiloId === undefined || girdi.iadeSiloId === null
+        ? null : Number(girdi.iadeSiloId);
+      var iadeSilo = iadeSiloId === null ? null : satirBul(depo.silolar, iadeSiloId);
+      if (!iadeSilo) {
+        hatalar.push(kayit(ALAN, "Dökme iadesi için silo seçilmedi. İade edilen küspe hangi siloya boşaltıldıysa o seçilmeli (Şartname §5)."));
+      } else if (iadeSilo.Aktif === false) {
+        hatalar.push(kayit(ALAN, iadeSilo.Ad + " pasif — iade pasif siloya yazılamaz."));
+      } else {
+        /* D15 dili: gün sonu bakiye kapasiteyi aşarsa UYARI, engel değil. */
+        var kapasite = Number(iadeSilo.Kapasite) || 0;
+        if (kapasite > 0) {
+          var bakiye = YU.stok.siloGunBasi(depo, iadeSiloId, tarih), j, sh;
+          for (j = 0; j < depo.siloHareket.length; j++) {
+            sh = depo.siloHareket[j];
+            if (sh.SiloId !== iadeSiloId || sh.Tarih !== tarih) continue;
+            bakiye = YU.yuvarla(bakiye + (Number(sh.GirenKg) || 0) - (Number(sh.CikanKg) || 0));
+          }
+          if (YU.yuvarla(bakiye + iade) > kapasite) {
+            uyarilar.push(kayit("D15", iadeSilo.Ad + " iadeyle birlikte kapasiteyi aşıyor: " +
+              kg(YU.yuvarla(bakiye + iade)) + " / " + kg(kapasite) + ". Kayıt engellenmez."));
+          }
+        }
+      }
     }
 
     if (hatalar.length) return { hatalar: hatalar, uyarilar: uyarilar };
@@ -469,9 +493,12 @@
     var mevcut = gunlukHareketBul(depo, tarih, malzeme.Id);
 
     /* Kilitli kolonlar (Şartname §4, §7): dökme kuru küspenin iki kolonu da,
-       çuvallı kuru küspenin üretim kolonu da Kuru Küspe Günlük Giriş'ten gelir. */
+       çuvallı kuru küspenin üretim kolonu da Kuru Küspe Günlük Giriş'ten gelir.
+       Kilit ALAN bazlıdır (24.08.2026): dökmeye İADE girilebilir — iade
+       üretim/satış kolonu değildir, silo seçimiyle ayrıca denetlenir. */
     var uretimVerildi = !(girdi.uretim === null || girdi.uretim === undefined || girdi.uretim === "");
-    if (malzeme.OzelTip === "DokmeKuruKuspe") {
+    var satisVerildi = !(girdi.satis === null || girdi.satis === undefined || girdi.satis === "");
+    if (malzeme.OzelTip === "DokmeKuruKuspe" && (uretimVerildi || satisVerildi)) {
       hatalar.push(kayit(ALAN, "\"" + malzeme.Ad + "\" üretim ve satış kolonları kilitlidir; her ikisi de Kuru Küspe Günlük Giriş ekranından gelir."));
     } else if (malzeme.OzelTip === "CuvalKuruKuspe" && uretimVerildi &&
                !esit(uretim, mevcut ? Number(mevcut.Uretim) || 0 : 0)) {

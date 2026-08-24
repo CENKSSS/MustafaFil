@@ -143,12 +143,13 @@
     }
 
     var devirToplam = YU.yuvarla(siloDevir + cuvalSt.devir);
-    /* Çuvallı İADE beklenene eklenir (kullanıcı direktifi, 24.08.2026):
-       iade stoğu artırır ama satışı değiştirmez; formülde sayılmazsa
-       kontrol gerçek bir hata yokken "Fark Var" derdi. Çuvallamanın çift
-       sayım yasağı değişmedi — iade çuvallama değil, dışarıdan dönen mal.
+    /* İADE beklenene eklenir (kullanıcı direktifi, 24.08.2026): iade stoğu
+       artırır ama satışı değiştirmez; formülde sayılmazsa kontrol gerçek
+       bir hata yokken "Fark Var" derdi. Dökme iadesi siloya Manuel "giren"
+       olarak düştüğü için gerçek tarafta silo toplamını artırır — beklenen
+       de aynı miktarı sayar. Çuvallamanın çift sayım yasağı değişmedi.
        İade 0 iken formül Test 6'nın Demirbaş rakamlarıyla birebir aynıdır. */
-    var beklenen = YU.yuvarla(devirToplam + ham - dokmeSatis - cuvalSt.satis + cuvalSt.iade);
+    var beklenen = YU.yuvarla(devirToplam + ham - dokmeSatis - cuvalSt.satis + cuvalSt.iade + dokmeSt.iade);
     var gercek = YU.yuvarla(dokmeSt.mevcut + cuvalSt.mevcut);
 
     return {
@@ -160,6 +161,7 @@
       devirToplam: devirToplam, ham: YU.yuvarla(ham),
       dokmeSatis: YU.yuvarla(dokmeSatis), cuvalSatis: cuvalSt.satis,
       cuvalIade: cuvalSt.iade,
+      dokmeIade: dokmeSt.iade,
       bas: bas, devirAyni: devirAyni
     };
   }
@@ -395,11 +397,9 @@
           olcu(r.devir, r.malzeme),
           r.devirTarihi ? mono(YU.fmt.tarih(r.devirTarihi), true) : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
           olcu(gunBasi(r), r.malzeme),
-          /* Çuvallıya iade girilebilir (kullanıcı direktifi, 24.08.2026);
-             yalnız dökme kilitli — iadesi siloya girmek zorunda. */
-          r.malzeme.OzelTip === 'DokmeKuruKuspe'
-            ? YU.h('span', { sinif: 'yu-zayif', metin: '—', title: 'Dökme iade siloya girer; bu kolonda izlenmez.' })
-            : olcu(r.iade, r.malzeme),
+          /* İade her malzemede izlenir (kullanıcı direktifi, 24.08.2026);
+             dökme iadesi ayrıca seçilen siloya Manuel "giren" olarak düşer. */
+          olcu(r.iade, r.malzeme),
           gunlukHucre(r.malzeme, 'Uretim'),
           gunlukHucre(r.malzeme, 'Satis'),
           olcu(r.uretim, r.malzeme),
@@ -526,6 +526,7 @@
         ' − dökme satış ' + YU.fmt.kgU(c.dokmeSatis) +
         ' − çuvallı satış ' + YU.fmt.kgU(c.cuvalSatis) +
         (c.cuvalIade ? ' + çuvallı iade ' + YU.fmt.kgU(c.cuvalIade) : '') +
+        (c.dokmeIade ? ' + dökme iade ' + YU.fmt.kgU(c.dokmeIade) : '') +
         (c.bas ? ' · ' + YU.fmt.tarih(c.bas) + ' – ' + YU.fmt.tarih(d.tarih) + ' penceresi'
                : ' · tüm kayıtlar'),
       title: 'Şartname Test 6'

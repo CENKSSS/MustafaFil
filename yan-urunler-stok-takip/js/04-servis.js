@@ -930,17 +930,44 @@
       degerler.Uretim = oku(girdi.uretim);
     }
     if (girdi.satis !== undefined && girdi.satis !== null) degerler.Satis = oku(girdi.satis);
-    /* İade çuvallıya da yazılır (kullanıcı direktifi, 24.08.2026); yalnız
-       DÖKME dışarıda — dökme stok silo toplamıdır, iade silo girişi ister
-       (03-dogrulama aynı kuralı hata olarak verir). */
-    if (malzeme.OzelTip !== "DokmeKuruKuspe" && girdi.iade !== undefined && girdi.iade !== null) {
+    /* İade her malzemeye yazılır (kullanıcı direktifi, 24.08.2026).
+       DÖKME iadesi ayrıca SİLOYA GİRER: dökme stok silo toplamıdır
+       (Şartname §5), iade rakamı ancak seçilen siloya Manuel "giren"
+       hareketiyle stoğa işler. Silo seçimi 03-dogrulama'da zorunlu tutulur. */
+    if (girdi.iade !== undefined && girdi.iade !== null) {
       degerler.Iade = oku(girdi.iade);
     }
+    var dokmeIadeli = malzeme.OzelTip === "DokmeKuruKuspe" && degerler.Iade !== undefined;
+    var iadeSiloId = girdi.iadeSiloId === undefined || girdi.iadeSiloId === null
+      ? null : kimlik(girdi.iadeSiloId);
 
-    var yedek = anlikGoruntu(depo, ["gunlukHareket", "degisiklikLog"]);
+    var yedek = anlikGoruntu(depo, ["gunlukHareket", "siloHareket", "degisiklikLog"]);
     var kayit;
     try {
       kayit = gunlukHareketYaz(depo, girdi.tarih, malzemeId, degerler, kullaniciId, true);
+
+      /* Dökme iade silo hareketi — §4 üzerine yazma kalıbı: bu kayda bağlı
+         eski Manuel iade hareketi silinir (değeriyle loglanır), iade > 0 ise
+         yenisi yazılır. Böylece aynı güne ikinci giriş stok şişirmez. */
+      if (dokmeIadeli && kayit) {
+        var eskiH, eskiSilo, k;
+        for (k = depo.siloHareket.length - 1; k >= 0; k--) {
+          eskiH = depo.siloHareket[k];
+          if (eskiH.KaynakKayitId !== kayit.Id || eskiH.HareketTipi !== "Manuel") continue;
+          depo.siloHareket.splice(k, 1);
+          eskiSilo = satirBul(depo.silolar, eskiH.SiloId);
+          logYaz(depo, {
+            tablo: "SiloHareket", kayitId: eskiH.Id, alan: null,
+            eski: "Manuel (iade) · " + (eskiSilo ? eskiSilo.Ad : "Silo #" + eskiH.SiloId) +
+              " · giren " + YU.fmt.kgU(eskiH.GirenKg) + " — düzeltmede yenilendi",
+            yeni: null, kullaniciId: kullaniciId, islem: "Sil"
+          });
+        }
+        if (YU.yuvarla(degerler.Iade) > 0 && iadeSiloId !== null) {
+          siloHareketYaz(depo, girdi.tarih, iadeSiloId, "Manuel",
+            YU.yuvarla(degerler.Iade), 0, kayit.Id, kullaniciId, true);
+        }
+      }
     } catch (e) {
       geriSar(depo, yedek);
       return sonuc(false, [beklenmedikHata(e)], d.uyarilar, null);
