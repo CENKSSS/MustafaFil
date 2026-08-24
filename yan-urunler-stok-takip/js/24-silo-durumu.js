@@ -388,11 +388,68 @@
       etiket: 'Hareket Tipi', tip: 'secim', secenekler: tipSecenek,
       deger: '', onChange: suzgecDegisti
     });
-    basAlani = YU.ui.alan({ etiket: 'Başlangıç', tip: 'tarih', deger: varsayilanBas, onChange: suzgecDegisti });
-    bitAlani = YU.ui.alan({ etiket: 'Bitiş', tip: 'tarih', deger: tarih, onChange: suzgecDegisti });
+    basAlani = YU.ui.alan({
+      etiket: 'Başlangıç', tip: 'tarih', deger: varsayilanBas,
+      onChange: function () { gunDugmeleriTazele(); suzgecDegisti(); }
+    });
+    bitAlani = YU.ui.alan({
+      etiket: 'Bitiş', tip: 'tarih', deger: tarih,
+      onChange: function () { gunDugmeleriTazele(); suzgecDegisti(); }
+    });
 
-    var suzgecler = YU.h('div', { sinif: 'yu-izgara yu-iz-4' },
-      siloAlani.kok, tipAlani.kok, basAlani.kok, bitAlani.kok);
+    /* Gün gezinme düğmeleri (kullanıcı isteği, 24.08.2026) — Değişiklik
+       Geçmişi'ndeki davranışın aynısı: süzgeç bir ARALIK olduğu için
+       düğmeler aralığı TEK GÜNE indirir (başlangıç = bitiş), böylece
+       gün gün gezilebilir. */
+    function refGun() { return basAlani.deger() || bitAlani.deger() || YU.tarih.bugun(); }
+
+    function tekGune(iso) {
+      basAlani.ayarla(iso);
+      bitAlani.ayarla(iso);
+      gunDugmeleriTazele();
+      suzgecDegisti();
+    }
+
+    var oncekiDugme = YU.ui.dugme({
+      metin: 'Önceki Gün', kucuk: true, tur: 'ikincil',
+      onClick: function () { tekGune(YU.tarih.ekle(refGun(), -1)); }
+    });
+    var bugunDugme = YU.ui.dugme({
+      /* Bugün hep tıklanabilir (diğer ekranlarla aynı). */
+      metin: 'Bugün', ikon: '#ic-calendar', kucuk: true, tur: 'ikincil',
+      onClick: function () { tekGune(YU.tarih.bugun()); }
+    });
+    var sonrakiDugme = YU.ui.dugme({
+      metin: 'Sonraki Gün', kucuk: true, tur: 'ikincil',
+      onClick: function () { tekGune(YU.tarih.ekle(refGun(), 1)); }
+    });
+
+    function gunDugmeleriTazele() {
+      var ileri = refGun() >= YU.tarih.bugun();
+      sonrakiDugme.disabled = ileri;
+      sonrakiDugme.title = ileri ? 'Bugünden sonrası için hareket olmaz' : '';
+    }
+    gunDugmeleriTazele();
+
+    var gunDugmeleri = YU.h('div', {
+      stil: { display: 'flex', gap: '6px', flexWrap: 'wrap' }
+    }, oncekiDugme, bugunDugme, sonrakiDugme);
+
+    /* Izgara yerine esnek satır: takvimler sabit genişlikte kalır, gün
+       düğmeleri altlarında durur, seçim kutuları kalan yeri paylaşır. */
+    var suzgecler = YU.h('div', {
+      stil: { display: 'flex', alignItems: 'flex-start', gap: '10px', flexWrap: 'wrap' }
+    },
+      (siloAlani.kok.style.flex = '1 1 190px', siloAlani.kok.style.minWidth = '0', siloAlani.kok),
+      (tipAlani.kok.style.flex = '1 1 190px', tipAlani.kok.style.minWidth = '0', tipAlani.kok),
+      YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '8px', flex: 'none' } },
+        YU.h('div', { stil: { display: 'flex', gap: '10px' } },
+          (basAlani.kok.style.width = '158px', basAlani.kok),
+          (bitAlani.kok.style.width = '158px', bitAlani.kok)
+        ),
+        gunDugmeleri
+      )
+    );
 
     var temizle = YU.ui.dugme({
       metin: 'Süzgeci Temizle', ikon: '#ic-filter', tur: 'sade', kucuk: true,
@@ -401,6 +458,7 @@
         tipAlani.ayarla('');
         basAlani.ayarla('');
         bitAlani.ayarla('');
+        gunDugmeleriTazele();
         suzgecDegisti();
       }
     });
