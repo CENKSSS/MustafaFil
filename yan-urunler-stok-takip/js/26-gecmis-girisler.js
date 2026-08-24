@@ -240,7 +240,8 @@
   }
 
   /* ------------------------------------------------------------------
-     Filtre paneli
+     Filtre bloğu — Kayıtlı Günler panelinin İÇİNDE, başlığın üstünde
+     (kullanıcı isteği, 24.08.2026)
      ------------------------------------------------------------------ */
 
   function hazirDugmeleriIsaretle() {
@@ -251,7 +252,7 @@
     }
   }
 
-  function filtrePaneli() {
+  function filtreBlogu() {
     var basAlan = YU.ui.alan({
       etiket: 'Başlangıç', tip: 'tarih', deger: durum.bas || '', genislik: 168,
       onChange: function () {
@@ -319,7 +320,22 @@
         ') göre hesaplanır. Tarih alanı boş bırakılırsa o uç sınırsızdır.'
     });
 
-    return YU.ui.panel({ baslik: 'Filtre', ikon: '#ic-filter', govde: [satir, yardim] });
+    /* Blok bir kez kurulur ve liste tazelenirken DOKUNULMAZ: arama kutusu
+       her karakterde listeyi tazeliyor, blok yeniden kurulsa odak kaybolurdu. */
+    return YU.h('div', {
+      stil: {
+        display: 'flex', flexDirection: 'column', gap: '9px',
+        padding: '15px 18px 14px', borderBottom: '1px solid var(--ayrac)'
+      }
+    },
+      YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '7px', color: 'var(--metin-5)' } },
+        YU.svg('#ic-filter', 15),
+        YU.h('span', {
+          metin: 'Filtre',
+          stil: { font: '500 12.5px/1 var(--font)', letterSpacing: '.06em', textTransform: 'uppercase' }
+        })
+      ),
+      satir, yardim);
   }
 
   /* ------------------------------------------------------------------
@@ -489,21 +505,26 @@
     return 'tüm kayıtlar';
   }
 
+  /* Panel dolgusuz olduğu için şerit ve uyarılar kendi kenar boşluğunu ister. */
+  function dolguKutu(icerik) {
+    return YU.h('div', { stil: { padding: '16px 18px' } }, icerik);
+  }
+
   function listeyiCiz(kap) {
     YU.bos(kap);
 
     if (durum.bas && durum.bit && durum.bas > durum.bit) {
-      kap.appendChild(YU.ui.serit({
+      kap.appendChild(dolguKutu(YU.ui.serit({
         tur: 'hata', baslik: 'Tarih Aralığı Geçersiz',
         metin: 'Bitiş tarihi (' + YU.fmt.tarih(durum.bit) + ') başlangıç tarihinden (' +
           YU.fmt.tarih(durum.bas) + ') önce olamaz.'
-      }));
+      })));
       return;
     }
 
     var gunler = YU.stok.kayitliGunler(YU.db, durum.bas, durum.bit);
     var eksik = eksikGunler(gunler);
-    if (eksik.length) kap.appendChild(eksikSeridi(eksik));
+    if (eksik.length) kap.appendChild(dolguKutu(eksikSeridi(eksik)));
 
     var liste = satirlariSuz(gunler, kuruKuspeHaritasi());
 
@@ -561,13 +582,19 @@
       yapiskan: true
     });
 
-    kap.appendChild(YU.ui.panel({
-      baslik: 'Kayıtlı Günler',
-      ikon: '#ic-calendar',
-      dolgusuz: true,
-      sag: YU.h('span', { metin: aralikMetni() }),
-      govde: [tablo, sayfalamaSeridi(liste.length, dilim.length, sayfaSayisi)]
-    }));
+    /* Panel çerçevesi ve filtre bloğu sayfa kurulurken bir kez yapılır; burada
+       yalnız başlık şeridi ile gövde tazelenir. Başlık şeridi, dolgusuz panelin
+       kendi başlığıyla aynı sınıf ve boşlukları kullanır. */
+    kap.appendChild(YU.h('div', {
+      sinif: 'yu-panel-bas',
+      stil: { padding: '15px 18px', marginBottom: '0', borderBottom: '1px solid var(--ayrac)' }
+    },
+      YU.h('span', { stil: { display: 'flex', color: 'var(--vurgu)' } }, YU.svg('#ic-calendar', 18)),
+      YU.h('div', { sinif: 'yu-panel-baslik', metin: 'Kayıtlı Günler', stil: { flex: '1' } }),
+      YU.h('div', { sinif: 'yu-panel-sag' }, YU.h('span', { metin: aralikMetni() }))
+    ));
+    kap.appendChild(tablo);
+    kap.appendChild(sayfalamaSeridi(liste.length, dilim.length, sayfaSayisi));
   }
 
   /* ------------------------------------------------------------------
@@ -589,11 +616,11 @@
         onClick: function () { YU.git('kuru-kuspe'); }
       }));
 
-      kap.appendChild(filtrePaneli());
-
-      var listeKap = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '20px' } });
+      /* Filtre ile liste TEK panelde: filtre bloğu en üstte sabit durur,
+         altındaki kap her tazelemede yeniden çizilir. */
+      var listeKap = YU.h('div');
       dom.liste = listeKap;
-      kap.appendChild(listeKap);
+      kap.appendChild(YU.ui.panel({ dolgusuz: true, govde: [filtreBlogu(), listeKap] }));
       listeyiCiz(listeKap);
     }
   });
