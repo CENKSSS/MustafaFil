@@ -17,6 +17,18 @@
     Manuel: { metin: 'Manuel', tur: 'bekleyen' }
   };
 
+  /* Günün İşlem Geçmişi'nde künye boş kalırsa kaydın geldiği ekranın adı
+     yazılır; kullanıcı "bu satır nereden geldi" sorusuna cevap bulsun. */
+  var KAYIT_KAYNAGI = {
+    KuruKuspeGunluk: 'Kuru Küspe Günlük Giriş',
+    GunlukHareket: 'Malzeme Girişi',
+    SiloHareket: 'Silo Hareketi',
+    DevirStok: 'Devir Stok',
+    SiloDevirStok: 'Silo Devir Stok',
+    Kullanicilar: 'Kullanıcı',
+    Malzemeler: 'Malzeme'
+  };
+
   /* ------------------------------------------------------------------
      Yardımcılar
      ------------------------------------------------------------------ */
@@ -483,8 +495,14 @@
 
   function islemAyrintisi(depo, l, tarih) {
     var kunye = YU.log.kayitEtiketi(depo, l.Tablo, l.KayitId);
+    /* Kuru küspe günlük kaydının künyesi yalnız tarihten oluşuyor; rapor tek
+       güne ait olduğu için o tarih temizlenince sol taraf boşalıyor ve ayıraç
+       tiresi tek başına kalıyordu. Boşalan künyenin yerine kaydın geldiği
+       ekranın adı yazılır (kullanıcı isteği, 24.08.2026). */
+    var solMetin = kunye ? gunTarihsiz(kunye, tarih) : '';
+    if (!solMetin) solMetin = KAYIT_KAYNAGI[l.Tablo] || '';
     var parcalar = [];
-    if (kunye) parcalar.push(YU.h('span', { sinif: 'yu-guclu', metin: gunTarihsiz(kunye, tarih) }));
+    if (solMetin) parcalar.push(YU.h('span', { sinif: 'yu-guclu', metin: solMetin }));
     if (l.Alan) {
       if (parcalar.length) parcalar.push(' — ');
       parcalar.push(l.Alan + ': ');
