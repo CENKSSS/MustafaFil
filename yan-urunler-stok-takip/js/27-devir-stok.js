@@ -864,7 +864,7 @@
   function kilitleIste(donem) {
     YU.ui.onay({
       baslik: '"' + donem.ad + '" Kampanyasını Kilitle',
-      metin: 'Kilitliyken bu kampanyaya düşen hiçbir gün için giriş, düzeltme, silme ve devir değişikliği yapılamaz. ' +
+      metin: 'Kilitliyken bu kampanyaya düşen hiçbir gün için veri girişi, düzeltme, silme ve devir değişikliği yapılamaz. ' +
         'Kilidi yine bu ekrandan açabilirsin.',
       onayMetni: 'Kilitle'
     }).then(function (evet) {
@@ -963,14 +963,20 @@
           YU.h('span', { sinif: 'yu-guclu', metin: dn.ad }),
           YU.h('span', { sinif: 'yu-mono', metin: YU.fmt.tarih(dn.bas) + ' – ' + YU.fmt.tarih(dn.bit) }),
           YU.fmt.sayi(dn.kayitliGun) + ' gün',
-          YU.h('div', { stil: { display: 'flex', gap: '6px', alignItems: 'center' } },
+          YU.h('div', { stil: { display: 'flex', gap: '8px', alignItems: 'center' } },
             simdiki ? YU.ui.rozet('Şu Anki', 'vurgu') : YU.ui.rozet('Geçmiş', 'notr'),
+            /* Asma kilit ikonu (kullanıcı isteği, 24.08.2026): kapalı kırmızı,
+               açık yeşil — rozetle birlikte durum bir bakışta okunur. */
+            YU.h('span', {
+              stil: { display: 'flex', color: kilit ? 'var(--olumsuz)' : 'var(--olumlu)', flex: 'none' },
+              title: kilit ? 'Kampanya kilitli' : 'Kampanya açık'
+            }, YU.svg(kilit ? '#ic-kilit' : '#ic-kilit-acik', 15)),
             kilit ? YU.ui.rozet('Kilitli', 'olumsuz') : YU.ui.rozet('Açık', 'olumlu')),
           kilit ? YU.h('span', { sinif: 'yu-zayif', metin: (kilitKullanicisi(kilit) || '—') + ' · ' + YU.fmt.tarihSaat(kilit.Tarih) })
                 : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
           kilit
-            ? YU.ui.dugme({ metin: 'Kilidi Aç', ikon: '#ic-gear', tur: 'tehlike', kucuk: true, onClick: function () { kilidiAcIste(dn); } })
-            : YU.ui.dugme({ metin: 'Kilitle', ikon: '#ic-alert', tur: 'ikincil', kucuk: true, onClick: function () { kilitleIste(dn); } })
+            ? YU.ui.dugme({ metin: 'Kilidi Aç', ikon: '#ic-kilit-acik', tur: 'tehlike', kucuk: true, onClick: function () { kilidiAcIste(dn); } })
+            : YU.ui.dugme({ metin: 'Kilitle', ikon: '#ic-kilit', tur: 'ikincil', kucuk: true, onClick: function () { kilitleIste(dn); } })
         ]);
       })(liste[i]);
     }
