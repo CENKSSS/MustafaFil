@@ -864,18 +864,18 @@
       sag: temizle,
       govde: [
         YU.h('div', { sinif: 'yu-izgara yu-iz-4' }, tabloAlan.kok, kullaniciAlan.kok, islemAlan.kok, siloAlan.kok),
-        /* Tarih çifti yan yana tek gözde durur — arada boşluk kalmaz;
-           Ara alanı kalan iki gözü kaplar (kullanıcı isteği, 21.08.2026).
-           Gün düğmeleri takvimlerin altında, aynı gözde (24.08.2026). */
-        YU.h('div', { sinif: 'yu-izgara yu-iz-3', stil: { alignItems: 'start' } },
-          YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '0' } },
-            YU.h('div', { stil: { display: 'flex', gap: '10px', minWidth: '0' } },
-              (basAlan.kok.style.flex = '1', basAlan.kok),
-              (bitAlan.kok.style.flex = '1', bitAlan.kok)
-            ),
-            gunDugmeleri
-          ),
-          (aramaAlan.kok.style.gridColumn = 'span 2', aramaAlan.kok)
+        /* Tek satır (kullanıcı isteği, 24.08.2026): Başlangıç · Bitiş yan
+           yana, gün düğmeleri hemen SAĞLARINDA, Ara kalan yeri kaplar.
+           Izgara değil esnek satır: takvimler sabit genişlikte kalsın,
+           düğmeler kendi boyunca dursun, artan yer aramaya gitsin.
+           alignItems flex-end — düğmelerin etiketi yok, alt kenarlar hizalanır. */
+        YU.h('div', {
+          stil: { display: 'flex', alignItems: 'flex-end', gap: '10px', flexWrap: 'wrap' }
+        },
+          (basAlan.kok.style.width = '158px', basAlan.kok),
+          (bitAlan.kok.style.width = '158px', bitAlan.kok),
+          gunDugmeleri,
+          (aramaAlan.kok.style.flex = '1 1 260px', aramaAlan.kok.style.minWidth = '0', aramaAlan.kok)
         )
       ]
     });
