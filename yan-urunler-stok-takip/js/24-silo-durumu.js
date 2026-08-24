@@ -22,9 +22,9 @@
   }
 
   function tarihSec(param) {
-    /* Kampanya bakışı (kullanıcı isteği, 24.08.2026): varsayılan tarih
-       seçili kampanyanın görünüm sonudur. */
-    return param && gecerliTarih(param.tarih) ? param.tarih : YU.donem.gorunumSonu();
+    /* Varsayılan tarih HEP BUGÜN (kullanıcı isteği, 24.08.2026 — kampanya
+       bakışı bu ekranda uygulanmaz); adresle gelen ?tarih= korunur. */
+    return param && gecerliTarih(param.tarih) ? param.tarih : YU.tarih.bugun();
   }
 
   function kendinin(nesne, anahtar) {
@@ -111,7 +111,7 @@
         ? 'Bir silo bakiyesi geçmişte negatife düşüyor'
         : negatifler.length + ' silo bakiyesi geçmişte negatife düşüyor',
       metin: 'Geriye dönük bir düzeltme sonraki günleri bozmuş olabilir. ' +
-        'Satıra tıklayınca o günün Günlük Raporu açılır.'
+        'Satıra tıklayınca o günün Program Hareketleri ekranı açılır.'
     });
     var govde = serit.querySelector('.yu-serit-govde');
     var liste = YU.h('ul');
