@@ -296,19 +296,24 @@
     for (i = 0; i < ozet.malzemeSatirlari.length; i++) {
       s = ozet.malzemeSatirlari[i];
 
+      /* İade stoğu üretim gibi artırır ama ayrı sayılır (kullanıcı direktifi,
+         24.08.2026) — gün başı köprüsünde o da geri alınır. */
+      var iade = Number(s.hareket && s.hareket.Iade) || 0;
+
       var basi = null, sonu = null;
       if (s.malzeme && s.malzeme.OzelTip === 'DokmeKuruKuspe') {
         basi = siloOzet.toplam.basi;
         sonu = siloOzet.toplam.sonu;
       } else if (s.malzeme) {
         sonu = Number(YU.stok.malzemeStok(depo, s.malzeme.Id, tarih).mevcut) || 0;
-        basi = YU.yuvarla(sonu - (Number(s.uretim) || 0) + (Number(s.satis) || 0));
+        basi = YU.yuvarla(sonu - (Number(s.uretim) || 0) - iade + (Number(s.satis) || 0));
       }
 
       satirlar.push([
         YU.h('span', { sinif: 'yu-guclu', metin: s.malzeme ? s.malzeme.Ad : ('Malzeme #' + s.hareket.MalzemeId) }),
         basi === null ? YU.h('span', { sinif: 'yu-zayif', metin: '—' }) : YU.fmt.kg(basi),
         s.uretim > 0 ? '+' + YU.fmt.kg(s.uretim) : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
+        iade > 0 ? '+' + YU.fmt.kg(iade) : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
         s.satis > 0 ? '−' + YU.fmt.kg(s.satis) : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
         sonu === null
           ? YU.h('span', { sinif: 'yu-zayif', metin: '—' })
@@ -321,12 +326,13 @@
     var tablo = YU.ui.tablo({
       sutunlar: [
         { baslik: 'Malzeme' },
-        { baslik: 'Gün Başı', hiza: 'sag', mono: true, genislik: 130 },
-        { baslik: 'Üretim', hiza: 'sag', mono: true, genislik: 120 },
-        { baslik: 'Satış', hiza: 'sag', mono: true, genislik: 120 },
-        { baslik: 'Gün Sonu', hiza: 'sag', mono: true, genislik: 130 },
-        { baslik: 'Kaynak', genislik: 190 },
-        { baslik: 'Kaydeden', genislik: 170 }
+        { baslik: 'Gün Başı', hiza: 'sag', mono: true, genislik: 122 },
+        { baslik: 'Üretim', hiza: 'sag', mono: true, genislik: 108 },
+        { baslik: 'İade', hiza: 'sag', mono: true, genislik: 100 },
+        { baslik: 'Satış', hiza: 'sag', mono: true, genislik: 108 },
+        { baslik: 'Gün Sonu', hiza: 'sag', mono: true, genislik: 122 },
+        { baslik: 'Kaynak', genislik: 180 },
+        { baslik: 'Kaydeden', genislik: 165 }
       ],
       satirlar: satirlar,
       bos: 'Bu gün için malzeme hareketi yazılmamış.',

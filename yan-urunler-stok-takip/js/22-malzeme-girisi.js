@@ -577,7 +577,7 @@
     if (satir.kilitliIade) {
       return YU.h('span', {
         sinif: 'yu-zayif', metin: '—',
-        title: satir.ozel ? 'Kuru küspe akışındaki malzemeye iade bu ekrandan girilmez.' : ''
+        title: satir.ozel ? 'Dökme iade siloya girmek zorunda; silo seçimi olmayan bu ekrandan girilmez.' : ''
       });
     }
     var kok = girdiHucresi(d, satir, 'iadeAlan', satir.baslangicIade || null);
@@ -702,9 +702,10 @@
         sabitTaban: ozel === 'DokmeKuruKuspe',
         kilitliUretim: m.Aktif === false || ozel === 'DokmeKuruKuspe' || ozel === 'CuvalKuruKuspe',
         kilitliSatis: m.Aktif === false || ozel === 'DokmeKuruKuspe',
-        /* İade yalnız basit malzemede girilir (03-dogrulama ile aynı kural):
-           küspe akışı malzemelerinde stok kilitli kolonlardan yürür. */
-        kilitliIade: m.Aktif === false || !!ozel,
+        /* İade çuvallıya da girilir (kullanıcı direktifi, 24.08.2026);
+           yalnız DÖKME kilitli — dökme stok silo toplamıdır (Şartname §5),
+           iade silo seçimi ister (03-dogrulama ile aynı kural). */
+        kilitliIade: m.Aktif === false || ozel === 'DokmeKuruKuspe',
         yardim: null
       };
 

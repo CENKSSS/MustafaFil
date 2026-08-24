@@ -448,6 +448,22 @@
       hatalar.push(kayit(ALAN, "\"" + malzeme.Ad + "\" satış miktarı negatif olamaz. Girilen: " + kg(satis) + "."));
     }
 
+    /* İade (kullanıcı direktifi, 24.08.2026): stokta üretim gibi davranır,
+       ayrı alanda saklanır; satış rakamına dokunmaz. Çuvallı kuru küspeye de
+       girilebilir (kullanıcı direktifi, 24.08.2026) — çuvallı stok silo dışı,
+       çift sayım beklenen formülü çuvallı iadeyi ayrıca sayar. Yalnız DÖKME
+       kilitli: dökme stok silo TOPLAMIDIR (Şartname §5 Demirbaş), iade ancak
+       bir siloya "giren" olarak yazılabilir; silo seçimi olmayan bu ekrandan
+       girilen rakam stoğa hiç işlemezdi. */
+    var iade = girdi.iade === null || girdi.iade === undefined ? null : oku(girdi.iade);
+    if (iade !== null && isNaN(iade)) {
+      hatalar.push(kayit(ALAN, "\"" + malzeme.Ad + "\" iade miktarı sayı olmalı. Girilen: \"" + String(girdi.iade) + "\"."));
+    } else if (iade !== null && iade < 0) {
+      hatalar.push(kayit(ALAN, "\"" + malzeme.Ad + "\" iade miktarı negatif olamaz. Girilen: " + kg(iade) + "."));
+    } else if (iade !== null && iade !== 0 && malzeme.OzelTip === "DokmeKuruKuspe") {
+      hatalar.push(kayit(ALAN, "\"" + malzeme.Ad + "\" iadesi siloya girmek zorunda (Şartname §5); silo seçimi olmayan bu ekrandan girilemez."));
+    }
+
     if (hatalar.length) return { hatalar: hatalar, uyarilar: uyarilar };
 
     var mevcut = gunlukHareketBul(depo, tarih, malzeme.Id);

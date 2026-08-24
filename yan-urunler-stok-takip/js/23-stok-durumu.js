@@ -63,7 +63,20 @@
   }
 
   function olcu(kg, malzeme) {
-    return YU.ui.olcu(olculer(kg, malzeme));
+    var parcalar = olculer(kg, malzeme);
+    if (parcalar.length < 2) return YU.ui.olcu(parcalar);
+    /* kg ve adet ALT ALTA (kullanıcı isteği, 24.08.2026): tek satırda
+       "2.500 kg / 100 adet" dar kolonda sıkışıyordu. Adet satırı küçük ve
+       soluk — kg birincil değer olarak kalır. */
+    return YU.h('span', {
+      stil: { display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }
+    },
+      YU.ui.olcu([parcalar[0]]),
+      YU.h('span', {
+        metin: parcalar[1].sayi + ' ' + parcalar[1].birim,
+        stil: { font: '400 .8em/1.2 var(--font)', color: 'var(--metin-4)', whiteSpace: 'nowrap' }
+      })
+    );
   }
 
   function ozelMalzeme(tip) {
@@ -130,7 +143,12 @@
     }
 
     var devirToplam = YU.yuvarla(siloDevir + cuvalSt.devir);
-    var beklenen = YU.yuvarla(devirToplam + ham - dokmeSatis - cuvalSt.satis);
+    /* Çuvallı İADE beklenene eklenir (kullanıcı direktifi, 24.08.2026):
+       iade stoğu artırır ama satışı değiştirmez; formülde sayılmazsa
+       kontrol gerçek bir hata yokken "Fark Var" derdi. Çuvallamanın çift
+       sayım yasağı değişmedi — iade çuvallama değil, dışarıdan dönen mal.
+       İade 0 iken formül Test 6'nın Demirbaş rakamlarıyla birebir aynıdır. */
+    var beklenen = YU.yuvarla(devirToplam + ham - dokmeSatis - cuvalSt.satis + cuvalSt.iade);
     var gercek = YU.yuvarla(dokmeSt.mevcut + cuvalSt.mevcut);
 
     return {
@@ -141,6 +159,7 @@
       tutuyor: YU.hesap.esit(gercek, beklenen),
       devirToplam: devirToplam, ham: YU.yuvarla(ham),
       dokmeSatis: YU.yuvarla(dokmeSatis), cuvalSatis: cuvalSt.satis,
+      cuvalIade: cuvalSt.iade,
       bas: bas, devirAyni: devirAyni
     };
   }
@@ -152,67 +171,89 @@
 
   function tarihSeridi(d) {
     var bugun = YU.tarih.bugun();
-    var son = sonKayitliGun();
+
+    /* Seçili tarih İRİ yazılır (kullanıcı isteği, 24.08.2026 — "tarih gözle
+       seçilmesi zor"). Tarih kutusu ve gün gezinme düğmeleri panel başlığına
+       taşındı (kullanıcı isteği, 24.08.2026): burada yalnız iri tarih ve
+       sayfa eylemleri kalır. */
+    var buyukTarih = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '3px', minWidth: '0' } },
+      YU.h('div', {
+        metin: YU.fmt.tarih(d.tarih) + ' · ' + YU.fmt.gunAdi(d.tarih),
+        stil: {
+          font: '650 20px/1.1 var(--sayi)', letterSpacing: '-.01em',
+          fontVariantNumeric: 'tabular-nums', color: 'var(--metin)', whiteSpace: 'nowrap'
+        }
+      }),
+      YU.h('div', {
+        sinif: 'yu-yardim',
+        metin: d.tarih === bugun ? 'Bugün itibarıyla' : 'Bu tarih itibarıyla',
+        title: 'Seçilen güne kadarki tüm hareketler ve en son devir stok hesaba katılır (Şartname §5).'
+      })
+    );
+
+    return YU.h('div', {
+      /* Şerit yazdırmaya girmez (kullanıcı isteği, 24.08.2026): kâğıtta tarih
+         kutusu ve düğmeler bozuk basılıyordu; tarih zaten sayfa başlığında. */
+      sinif: 'yu-baski-yok',
+      stil: {
+        display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap',
+        padding: '10px 16px', background: 'var(--yuzey-2)',
+        border: '1px solid var(--kenar)', borderRadius: 'var(--r)'
+      }
+    },
+      buyukTarih,
+      YU.h('span', { stil: { flex: '1' } }),
+      /* Silo Durumu ve Günlük Rapor düğmeleri kaldırıldı; yerlerine Malzeme
+         Girişi (aynı tarihe düzenleme) ve Yazdır kondu (kullanıcı istekleri,
+         24.08.2026). */
+      YU.ui.dugme({
+        metin: 'Malzeme Girişi', ikon: '#ic-pencil', tur: 'ikincil', kucuk: true,
+        baslik: YU.fmt.tarih(d.tarih) + ' gününü Malzeme Girişi\'nde düzenle',
+        onClick: function () { YU.git('malzeme-girisi', { tarih: d.tarih }); }
+      }),
+      YU.ui.dugme({
+        metin: 'Yazdır', ikon: '#ic-download', tur: 'birincil', kucuk: true,
+        onClick: function () { window.print(); }
+      })
+    );
+  }
+
+  /* Tarih kutusu + gün gezinme, tablo panelinin başlığında (kullanıcı isteği,
+     24.08.2026 — "tarih kısmını aşağıya koy"). */
+  function tarihKontrolleri(d) {
+    var bugun = YU.tarih.bugun();
 
     var tarihAlan = YU.ui.alan({
-      tip: 'tarih', deger: d.tarih, genislik: '158px',
+      tip: 'tarih', deger: d.tarih, genislik: '148px',
       onChange: function () { git(d, { tarih: tarihAlan.girdi.value }); }
     });
 
-    /* Gün gün gezinme — giriş ekranlarındaki üçlünün aynısı (kullanıcı
-       isteği, 23.08.2026). Sonraki Gün bugünde pasiftir. */
-    var gezinme = satirKap('center', 6);
-    gezinme.appendChild(YU.ui.dugme({
+    var kap = satirKap('center', 6);
+    kap.className = 'yu-baski-yok';   /* kâğıtta kutu ve düğmeler basılmaz */
+    /* Sıra kullanıcı isteğiyle (24.08.2026): önce tarih kutusu, sonra günün
+       adı, sonra gezinme üçlüsü. */
+    kap.appendChild(tarihAlan.kok);
+    kap.appendChild(YU.h('span', {
+      metin: YU.fmt.gunAdi(d.tarih),
+      stil: { font: '600 13.5px/1 var(--font)', color: 'var(--metin-2)', whiteSpace: 'nowrap', margin: '0 2px' }
+    }));
+    kap.appendChild(YU.ui.dugme({
       metin: 'Önceki Gün', kucuk: true, tur: 'ikincil',
       onClick: function () { git(d, { tarih: YU.tarih.ekle(d.tarih, -1) }); }
     }));
-    gezinme.appendChild(YU.ui.dugme({
+    kap.appendChild(YU.ui.dugme({
       /* Bugün HEP tıklanabilir — bugündeyken de (kullanıcı isteği, 23.08.2026). */
       metin: 'Bugün', ikon: '#ic-calendar', kucuk: true, tur: 'ikincil',
       onClick: function () { git(d, { tarih: bugun }); }
     }));
-    gezinme.appendChild(YU.ui.dugme({
+    kap.appendChild(YU.ui.dugme({
       metin: 'Sonraki Gün', kucuk: true, tur: 'ikincil',
       pasif: d.tarih >= bugun,
       baslik: d.tarih >= bugun ? 'Bugünden ileri gidilemez' : '',
       onClick: function () { git(d, { tarih: YU.tarih.ekle(d.tarih, 1) }); }
     }));
-
-    /* Ekrana özgü hızlı atlama ayrı öbekte: üçlüyle karışmasın. */
-    var hizli = satirKap('center', 6);
-    hizli.appendChild(YU.ui.dugme({
-      metin: 'Son Kayıtlı Gün', kucuk: true, tur: 'ikincil',
-      baslik: son ? YU.fmt.tarih(son) : 'Kayıtlı gün yok',
-      pasif: !son || d.tarih === son,
-      onClick: function () { git(d, { tarih: son }); }
-    }));
-
-    /* Şartname §5 kuralı rozetin ipucunda: Tarih <= seçilen gün. */
-    var rozet = YU.ui.rozet(YU.fmt.tarih(d.tarih) + ' itibarıyla', 'notr');
-    rozet.title = 'Seçilen güne kadarki tüm hareketler ve en son devir stok hesaba katılır (Şartname §5).';
-
-    return YU.h('div', {
-      stil: {
-        display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap',
-        padding: '8px 14px', background: 'var(--yuzey-2)',
-        border: '1px solid var(--kenar)', borderRadius: 'var(--r)'
-      }
-    },
-      YU.h('span', { metin: 'Tarih', stil: { font: '600 13.5px/1 var(--font)', color: 'var(--metin-2)' } }),
-      tarihAlan.kok,
-      gezinme,
-      hizli,
-      YU.h('span', { stil: { flex: '1' } }),
-      YU.ui.dugme({
-        metin: 'Silo Durumu', ikon: '#ic-building', tur: 'ikincil', kucuk: true,
-        onClick: function () { YU.git('silo-durumu', { tarih: d.tarih }); }
-      }),
-      YU.ui.dugme({
-        metin: 'Günlük Rapor', ikon: '#ic-doc', tur: 'ikincil', kucuk: true,
-        onClick: function () { YU.git('gunluk-rapor', { tarih: d.tarih }); }
-      }),
-      rozet
-    );
+    /* Son Kayıtlı Gün düğmesi kaldırıldı (kullanıcı isteği, 24.08.2026). */
+    return kap;
   }
 
   /* 4. KPI kartları kaldırıldı — kullanıcı isteği, 23.08.2026 ("kartları
@@ -260,19 +301,12 @@
     }
 
     var kutu = sutunKap(11);
-    kutu.appendChild(YU.h('div', {
-      sinif: 'yu-yardim',
-      metin: 'Dökme kuru küspe fiziksel olarak silolarda durur; stoğu basit formülle değil ' +
-        'siloların toplamıyla hesaplanır (Şartname §5, kritik kural).'
-    }));
+    /* Açıklama yazısı ve Silo Durumu düğmesi kaldırıldı (kullanıcı isteği,
+       24.08.2026); kırılım yalnız tabloyu gösterir. */
     kutu.appendChild(YU.ui.tablo({
       sutunlar: sutunlar, satirlar: satirlar, kompakt: true,
       bos: 'Tanımlı silo yok.'
     }));
-    kutu.appendChild(YU.h('div', null, YU.ui.dugme({
-      metin: 'Silo Durumu', ikon: '#ic-building', kucuk: true, tur: 'ikincil',
-      onClick: function () { YU.git('silo-durumu', { tarih: d.tarih }); }
-    })));
     return kutu;
   }
 
@@ -291,16 +325,51 @@
        sayı sütunları sağa yaslı olduğu için fazladan genişlik, komşu sütunla
        arasında boşluk olarak okunur. Devir Tarihi de aynı nedenle sağa yaslandı;
        yoksa soldaki Devir rakamına yapışık duruyordu. */
+    /* İade kolonu ve "Stok" başlığı kullanıcı isteği (24.08.2026); iade,
+       Malzeme Girişi'ndeki sırayla üretimin solunda durur. Günlük Üretim ve
+       Günlük Satış seçili günün rakamlarıdır (kullanıcı isteği, 24.08.2026). */
     var sutunlar = [
       { baslik: 'Malzeme' },
-      { baslik: 'Devir', genislik: 180, hiza: 'sag', mono: true },
-      { baslik: 'Devir Tarihi', genislik: 140, hiza: 'sag' },
-      { baslik: 'Toplam Üretim', genislik: 195, hiza: 'sag', mono: true },
-      { baslik: 'Toplam Satış', genislik: 195, hiza: 'sag', mono: true },
-      { baslik: 'Mevcut', genislik: 195, hiza: 'sag', mono: true }
+      { baslik: 'Devir', genislik: 130, hiza: 'sag', mono: true },
+      { baslik: 'Devir Tarihi', genislik: 115, hiza: 'sag' },
+      /* Gün Başı = seçili günün hareketleri işlenmeden önceki stok; en
+         sağdaki Stok gün sonunu söyler (kullanıcı isteği, 24.08.2026). */
+      { baslik: 'Gün Başı', genislik: 140, hiza: 'sag', mono: true },
+      { baslik: 'Toplam İade', genislik: 130, hiza: 'sag', mono: true },
+      { baslik: 'Günlük Üretim', genislik: 140, hiza: 'sag', mono: true },
+      { baslik: 'Günlük Satış', genislik: 140, hiza: 'sag', mono: true },
+      { baslik: 'Toplam Üretim', genislik: 150, hiza: 'sag', mono: true },
+      { baslik: 'Toplam Satış', genislik: 150, hiza: 'sag', mono: true },
+      { baslik: 'Stok', genislik: 150, hiza: 'sag', mono: true }
     ];
 
     var satirlar = [], dokmeSira = -1, i, r, acKapa = null, ok = null;
+
+    /* Seçili günün hareketi tek geçişte haritalanır (satır başına tarama yok). */
+    var gunluk = {}, gh = YU.db.gunlukHareket, j;
+    for (j = 0; j < gh.length; j++) {
+      if (gh[j].Tarih === d.tarih) gunluk[gh[j].MalzemeId] = gh[j];
+    }
+
+    function gunlukHucre(malzeme, alan) {
+      var h = gunluk[malzeme.Id];
+      if (!h) return YU.h('span', { sinif: 'yu-zayif', metin: '—', title: 'Bu güne giriş yok.' });
+      return olcu(Number(h[alan]) || 0, malzeme);
+    }
+
+    /* Gün başı stok: dökme için siloların gün başı toplamı (Tarih < seçilen,
+       Şartname §5); basit malzemede gün sonu stoktan o günün net değişimi
+       geri alınır. gunBasi + üretim + iade − satış = Stok. */
+    function gunBasi(r) {
+      if (r.malzeme.OzelTip === 'DokmeKuruKuspe') {
+        var t = 0, silolar = YU.db.silolar, k;
+        for (k = 0; k < silolar.length; k++) t += YU.stok.siloGunBasi(YU.db, silolar[k].Id, d.tarih);
+        return YU.yuvarla(t);
+      }
+      var h = gunluk[r.malzeme.Id];
+      if (!h) return r.mevcut;
+      return YU.yuvarla(r.mevcut - (Number(h.Uretim) || 0) - (Number(h.Iade) || 0) + (Number(h.Satis) || 0));
+    }
 
     for (i = 0; i < d.satirlar.length; i++) {
       r = d.satirlar[i];
@@ -325,6 +394,14 @@
           malzemeHucresi(d, r, r.malzeme.OzelTip === 'DokmeKuruKuspe' ? acKapa : null),
           olcu(r.devir, r.malzeme),
           r.devirTarihi ? mono(YU.fmt.tarih(r.devirTarihi), true) : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
+          olcu(gunBasi(r), r.malzeme),
+          /* Çuvallıya iade girilebilir (kullanıcı direktifi, 24.08.2026);
+             yalnız dökme kilitli — iadesi siloya girmek zorunda. */
+          r.malzeme.OzelTip === 'DokmeKuruKuspe'
+            ? YU.h('span', { sinif: 'yu-zayif', metin: '—', title: 'Dökme iade siloya girer; bu kolonda izlenmez.' })
+            : olcu(r.iade, r.malzeme),
+          gunlukHucre(r.malzeme, 'Uretim'),
+          gunlukHucre(r.malzeme, 'Satis'),
           olcu(r.uretim, r.malzeme),
           olcu(r.satis, r.malzeme),
           olcu(r.mevcut, r.malzeme)
@@ -340,6 +417,10 @@
         : 'Aktif malzeme yok. Pasif malzemeleri görmek için filtreyi açın.',
       yapiskan: true
     });
+    /* Yazdırmada 9 kolon A4'e sığmıyordu (kullanıcı isteği, 24.08.2026):
+       bu sınıf, baskıda kolon genişliklerini serbest bırakıp yazıyı küçültür
+       (tema.css @media print .yu-baski-sig). Ekran görünümü değişmez. */
+    sar.className += ' yu-baski-sig';
 
     /* Açılır alt satır YU.ui.tablo'nun sözleşmesinde yok; tablo kurulduktan
        sonra dökme satırının hemen altına eklenir. */
@@ -359,13 +440,38 @@
       onClick: function () { git(d, { pasif: d.pasifGoster ? null : '1' }); }
     });
 
-    return YU.ui.panel({
+    /* Tarih kutusu ve gün düğmeleri panel başlığında (kullanıcı isteği,
+       24.08.2026 — "tarih kısmını aşağıya koy"). Baskıda kontroller gizlenir;
+       kâğıtta günü yalnız-baskı tarih etiketi söyler. */
+    var tarihEtiketi = YU.h('span', {
+      sinif: 'yu-yalniz-baski',
+      metin: YU.fmt.tarih(d.tarih) + ' · ' + YU.fmt.gunAdi(d.tarih),
+      stil: {
+        font: '600 14px/1 var(--sayi)', fontVariantNumeric: 'tabular-nums',
+        color: 'var(--metin-2)', whiteSpace: 'nowrap'
+      }
+    });
+
+    var panel = YU.ui.panel({
       baslik: 'Malzeme Bazında Stok',
       ikon: '#ic-chart',
       dolgusuz: true,
-      sag: filtre,
+      sag: YU.h('span', { stil: { display: 'inline-flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' } },
+        tarihEtiketi, filtre),
       govde: sar
     });
+
+    /* Tarih kontrolleri başlığın HEMEN SAĞINDA (kullanıcı isteği, 24.08.2026
+       — "tarih kısmını en sola, başlığın sağına al"); filtre sağ uçta kalır. */
+    var basEl = panel.querySelector('.yu-panel-bas');
+    var baslikEl = basEl ? basEl.querySelector('.yu-panel-baslik') : null;
+    if (basEl && baslikEl) {
+      baslikEl.style.flex = '0 0 auto';
+      basEl.insertBefore(tarihKontrolleri(d), baslikEl.nextSibling);
+      var sagEl = basEl.querySelector('.yu-panel-sag');
+      if (sagEl) sagEl.style.marginLeft = 'auto';
+    }
+    return panel;
   }
 
   function kirilimAcKapa(d) {
@@ -419,6 +525,7 @@
         ' + ham dökme üretim ' + YU.fmt.kgU(c.ham) +
         ' − dökme satış ' + YU.fmt.kgU(c.dokmeSatis) +
         ' − çuvallı satış ' + YU.fmt.kgU(c.cuvalSatis) +
+        (c.cuvalIade ? ' + çuvallı iade ' + YU.fmt.kgU(c.cuvalIade) : '') +
         (c.bas ? ' · ' + YU.fmt.tarih(c.bas) + ' – ' + YU.fmt.tarih(d.tarih) + ' penceresi'
                : ' · tüm kayıtlar'),
       title: 'Şartname Test 6'
@@ -444,6 +551,34 @@
       }));
     }
 
+    /* Fark varsa panelin üstünde İRİ kırmızı uyarı (kullanıcı isteği,
+       24.08.2026); aynı koşul üst şerit uyarılarına da düşer (10-kabuk,
+       YU.ciftSayimKontrol üzerinden). */
+    if (!c.tutuyor) {
+      var buyukSerit = YU.ui.serit({
+        tur: 'hata',
+        baslik: 'Çift Sayım Tutmuyor',
+        metin: 'Ekrandaki kuru küspe toplamı, ham üretimden beklenen toplamla uyuşmuyor. ' +
+          'Çuvallanan küspe iki kez sayılmış ya da bir kayıt bozulmuş olabilir (Şartname Test 6).'
+      });
+      var seritGovde = buyukSerit.querySelector('.yu-serit-govde');
+      if (seritGovde) {
+        seritGovde.appendChild(YU.h('div', {
+          stil: { display: 'flex', alignItems: 'baseline', gap: '10px', marginTop: '8px', flexWrap: 'wrap' }
+        },
+          YU.h('span', { metin: 'Fark', stil: { font: '500 14px/1.2 var(--font)', color: 'var(--metin-2)' } }),
+          YU.h('span', {
+            metin: (c.fark > 0 ? '+' : '') + YU.fmt.kgU(c.fark),
+            stil: {
+              font: '650 26px/1.1 var(--sayi)', letterSpacing: '-.02em',
+              fontVariantNumeric: 'tabular-nums', color: 'var(--olumsuz)'
+            }
+          })
+        ));
+      }
+      govde.unshift(buyukSerit);
+    }
+
     return YU.ui.panel({
       baslik: 'Çift Sayım Kontrolü',
       ikon: '#ic-percent',
@@ -451,6 +586,12 @@
       govde: govde
     });
   }
+
+  /* Üst şerit uyarıları için köprü (10-kabuk YU.uyarilar): fark varsa
+     ünlem paneline "Çift Sayım Tutmuyor" uyarısı düşer. */
+  YU.ciftSayimKontrol = function (tarih) {
+    return ciftSayim(tarih || YU.tarih.bugun());
+  };
 
   /* ==================================================================
      8. Sayfa
@@ -505,10 +646,10 @@
        Kuru Küspe ve Malzeme Girişi'ndeki düzenin aynısı. */
     YU.ui.sayfaEylemleri();
 
-    /* Geniş ekranda panel gereksiz büyümesin: giriş ekranlarıyla aynı
-       genişlik sınırı (1478px), sol hizalı. */
+    /* Panel tam genişlik: sağda boşluk kalıyordu (kullanıcı isteği,
+       24.08.2026 — 1478px sınırı kaldırıldı). */
     var govde = YU.h('div', {
-      stil: { display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '1478px', minWidth: '0' }
+      stil: { display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '0' }
     });
     kap.appendChild(govde);
 

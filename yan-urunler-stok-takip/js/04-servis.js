@@ -930,8 +930,10 @@
       degerler.Uretim = oku(girdi.uretim);
     }
     if (girdi.satis !== undefined && girdi.satis !== null) degerler.Satis = oku(girdi.satis);
-    /* İade yalnız basit malzemede yazılır; doğrulama özel tipe zaten izin vermez. */
-    if (!malzeme.OzelTip && girdi.iade !== undefined && girdi.iade !== null) {
+    /* İade çuvallıya da yazılır (kullanıcı direktifi, 24.08.2026); yalnız
+       DÖKME dışarıda — dökme stok silo toplamıdır, iade silo girişi ister
+       (03-dogrulama aynı kuralı hata olarak verir). */
+    if (malzeme.OzelTip !== "DokmeKuruKuspe" && girdi.iade !== undefined && girdi.iade !== null) {
       degerler.Iade = oku(girdi.iade);
     }
 
