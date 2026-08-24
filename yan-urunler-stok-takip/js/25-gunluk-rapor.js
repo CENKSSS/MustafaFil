@@ -80,9 +80,9 @@
     return YU.h('div', { sinif: 'yu-hesap-ok', metin: m, 'aria-hidden': 'true' });
   }
 
-  function akisSatiri(ogeler) {
+  function akisSatiri(ogeler, sutunAraligi) {
     return YU.h('div', {
-      stil: { display: 'flex', alignItems: 'flex-end', columnGap: '18px', rowGap: '12px', flexWrap: 'wrap' }
+      stil: { display: 'flex', alignItems: 'flex-end', columnGap: (sutunAraligi || 18) + 'px', rowGap: '12px', flexWrap: 'wrap' }
     }, ogeler);
   }
 
@@ -134,11 +134,13 @@
     );
 
     var fark = hesap.siloNetDegisim;
+    /* Rakamlar biraz küçüldü, panel biraz sıkılaştı (kullanıcı isteği,
+       24.08.2026): 30px -> 26px, etiket-değer arası 7px -> 5px. */
     function iriOge(etiket, deger, renk) {
-      return YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '7px', minWidth: '0' } },
+      return YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '5px', minWidth: '0' } },
         YU.h('div', { sinif: 'yu-hesap-etiket', metin: etiket }),
         YU.h('div', {
-          stil: { font: '650 30px/1 var(--sayi)', letterSpacing: '-.02em',
+          stil: { font: '650 26px/1 var(--sayi)', letterSpacing: '-.02em',
                   fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
                   color: renk || 'var(--metin)' },
           metin: deger
@@ -146,12 +148,12 @@
       );
     }
 
-    return YU.ui.panel({
+    var panel = YU.ui.panel({
       baslik: 'Günün Özeti',
       ikon: '#ic-chart',
       sag: tarihBlok,
       govde: YU.h('div', {
-        stil: { display: 'flex', alignItems: 'flex-end', columnGap: '48px', rowGap: '14px', flexWrap: 'wrap' }
+        stil: { display: 'flex', alignItems: 'flex-end', columnGap: '36px', rowGap: '10px', flexWrap: 'wrap' }
       },
         iriOge('Net Dökme Üretim', YU.fmt.kgU(hesap.netDokmeUretim), 'var(--vurgu)'),
         iriOge('Dökme Satış', YU.fmt.kgU(hesap.satilanDokme)),
@@ -160,6 +162,13 @@
           fark > 0 ? 'var(--olumlu)' : (fark < 0 ? 'var(--olumsuz)' : null))
       )
     });
+    /* Yalnız bu panel örneği sıkılaştı — shared .yu-panel/.yu-panel-bas
+       diğer tüm ekranlarda kullanıldığı için sınıf değil, örnek düzeyinde
+       inline geçersiz kılma (KURAL 5.1: başka ekrana yayılmaz). */
+    panel.style.padding = '11px 16px';
+    var bas = panel.querySelector('.yu-panel-bas');
+    if (bas) bas.style.marginBottom = '8px';
+    return panel;
   }
 
   function kuruKuspePaneli(kk, hesap) {
@@ -169,7 +178,9 @@
     var durumB = hesap.durum === 'B';
 
     /* 1. satır — operatörün girdiği ham değerler. Satılan dökme burada
-       TEKRARLANMAZ; hesap satırında tek kez görünür (vurgu düzeltmesi). */
+       TEKRARLANMAZ; hesap satırında tek kez görünür (vurgu düzeltmesi).
+       Üç kalem sıkışık duruyordu; aralık büyütüldü (kullanıcı isteği,
+       24.08.2026) — yalnız bu satır, "hesaplanan" satırı 18px'te kaldı. */
     var girilen = akisSatiri([
       hesapOge('Üretilen Dökme · Ham', YU.fmt.kgU(ham), null,
         'İşletme raporundan gelen ham rakam — net üretim 0 olsa bile burada durur (Şartname §4).'),
@@ -177,7 +188,7 @@
         '1 çuval = ' + YU.fmt.sayi(YU.hesap.CUVAL_KG) + ' kg (sabit).'),
       hesapOge('Çuval Karşılığı', YU.fmt.kgU(hesap.cuvalKg), null,
         YU.fmt.sayi(adet) + ' × ' + YU.fmt.sayi(YU.hesap.CUVAL_KG) + ' kg')
-    ]);
+    ], 40);
 
     /* 2. satır — sistemin hesabı; önemli sonuçlar renkle vurgulanır */
     var hesaplanan = akisSatiri([
@@ -263,22 +274,27 @@
       ]);
     }
 
+    var tablo = YU.ui.tablo({
+      sutunlar: [
+        { baslik: 'Malzeme' },
+        { baslik: 'Üretim', hiza: 'sag', mono: true, genislik: 150 },
+        { baslik: 'Satış', hiza: 'sag', mono: true, genislik: 150 },
+        { baslik: 'Kaynak', genislik: 220 },
+        { baslik: 'Kaydeden', genislik: 190 }
+      ],
+      satirlar: satirlar,
+      bos: 'Bu gün için malzeme hareketi yazılmamış.',
+      yapiskan: true
+    });
+    /* Kaydeden sütunu YAZDIRMADA görünmez (kullanıcı isteği, 24.08.2026);
+       ekranda durur. Sınıf tema.css'teki @media print kuralı içindir. */
+    tablo.className += ' yu-yazdirmada-kaydedensiz';
+
     return YU.ui.panel({
       baslik: 'Malzeme Hareketleri',
       ikon: '#ic-pencil',
       sag: YU.h('span', { metin: YU.fmt.sayi(ozet.malzemeSatirlari.length) + ' satır' }),
-      govde: YU.ui.tablo({
-        sutunlar: [
-          { baslik: 'Malzeme' },
-          { baslik: 'Üretim', hiza: 'sag', mono: true, genislik: 150 },
-          { baslik: 'Satış', hiza: 'sag', mono: true, genislik: 150 },
-          { baslik: 'Kaynak', genislik: 220 },
-          { baslik: 'Kaydeden', genislik: 190 }
-        ],
-        satirlar: satirlar,
-        bos: 'Bu gün için malzeme hareketi yazılmamış.',
-        yapiskan: true
-      })
+      govde: tablo
     });
   }
 
@@ -383,9 +399,6 @@
         ? (kullaniciAdi(depo, sonKisi) || '—') + ' · ' + YU.fmt.tarihSaat(sonAn)
         : '—')
     ];
-    if (ozet.kuruKuspe) {
-      ogeler.push(kunyeCifti('Sürüm', 'RowVersion ' + YU.fmt.sayi(Number(ozet.kuruKuspe.RowVersion) || 0), false));
-    }
     ogeler.push(kunyeCifti('Kayıt',
       (ozet.kuruKuspe ? '1 kuru küspe · ' : '') +
       YU.fmt.sayi(ozet.malzemeSatirlari.length) + ' malzeme · ' +

@@ -633,6 +633,8 @@ html[data-tema="acik"] input[type="date"]::-webkit-calendar-picker-indicator { f
 .yu-ust {
   display: flex;
   align-items: center;
+  /* Arama kutusu kaldırıldı (24.08.2026): denetimler sağa yaslanır. */
+  justify-content: flex-end;
   gap: 16px;
   height: 64px;
   flex: none;
@@ -1879,6 +1881,11 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
 
   .yu-tablo-sar { overflow: visible; }
   .yu-tablo thead th { position: static; background: #f2f2f2; color: #000; }
+  /* Günlük Rapor: yazdırılan kağıtta kim kaydettiği yazmaz, ekranda durur
+     (kullanıcı isteği, 24.08.2026). Sınıf yalnız o tabloda; diğer tablolar
+     etkilenmez. */
+  .yu-yazdirmada-kaydedensiz thead th:last-child,
+  .yu-yazdirmada-kaydedensiz tbody td:last-child { display: none; }
   /* Yapışkan varyantın seçicisi üstteki kuraldan daha özgül; yazdırmada da
      kazanıp başlığı top:64px ile satırların üzerine itiyordu. Kâğıtta
      kaydırma yok — aynı özgüllükte etkisizleştirilir. */
