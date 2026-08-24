@@ -864,17 +864,19 @@
       sag: temizle,
       govde: [
         YU.h('div', { sinif: 'yu-izgara yu-iz-4' }, tabloAlan.kok, kullaniciAlan.kok, islemAlan.kok, siloAlan.kok),
-        /* Tek satır (kullanıcı isteği, 24.08.2026): Başlangıç · Bitiş yan
-           yana, gün düğmeleri hemen SAĞLARINDA, Ara kalan yeri kaplar.
-           Izgara değil esnek satır: takvimler sabit genişlikte kalsın,
-           düğmeler kendi boyunca dursun, artan yer aramaya gitsin.
-           alignItems flex-end — düğmelerin etiketi yok, alt kenarlar hizalanır. */
+        /* Başlangıç · Bitiş yan yana, gün düğmeleri ALTLARINDA; Ara alanı
+           sağda kalan yeri kaplar (kullanıcı isteği, 24.08.2026).
+           Izgara değil esnek satır: takvim bloğu sabit, artan yer aramaya. */
         YU.h('div', {
-          stil: { display: 'flex', alignItems: 'flex-end', gap: '10px', flexWrap: 'wrap' }
+          stil: { display: 'flex', alignItems: 'flex-start', gap: '10px', flexWrap: 'wrap' }
         },
-          (basAlan.kok.style.width = '158px', basAlan.kok),
-          (bitAlan.kok.style.width = '158px', bitAlan.kok),
-          gunDugmeleri,
+          YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '8px', flex: 'none' } },
+            YU.h('div', { stil: { display: 'flex', gap: '10px' } },
+              (basAlan.kok.style.width = '158px', basAlan.kok),
+              (bitAlan.kok.style.width = '158px', bitAlan.kok)
+            ),
+            gunDugmeleri
+          ),
           (aramaAlan.kok.style.flex = '1 1 260px', aramaAlan.kok.style.minWidth = '0', aramaAlan.kok)
         )
       ]
