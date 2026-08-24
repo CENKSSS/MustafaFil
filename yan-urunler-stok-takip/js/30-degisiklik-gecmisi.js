@@ -634,7 +634,7 @@
       title: s.Islem === 'Sil'
         ? 'Bu hareket silindi — artık yok.'
         : 'Bu satırdaki değer sonradan değişti — artık geçerli değil.'
-    }, YU.svg('#ic-x', 14)) : null;
+    }, YU.svg('#ic-x', 21)) : null;   /* 14 -> 21: yarım kat büyük (kullanıcı isteği) */
 
     var kayitHucresi = YU.h('div', {
       stil: { display: 'flex', alignItems: 'baseline', gap: '7px', minWidth: '0' },
@@ -932,7 +932,7 @@
     var satirlar = [];
     for (i = 0; i < dilim.length; i++) satirlar.push(tabloSatiri(dilim[i]));
 
-    kap.appendChild(YU.ui.panel({
+    var panelEl = YU.ui.panel({
       baslik: 'Değişiklikler',
       ikon: '#ic-doc',
       dolgusuz: true,
@@ -944,12 +944,14 @@
       govde: [
         YU.ui.tablo({
           sutunlar: [
-            { baslik: 'Tarih · Saat', genislik: 152 },
-            { baslik: 'Kullanıcı', genislik: 130 },
-            { baslik: 'İşlem', genislik: 96, hiza: 'orta' },
-            { baslik: 'Tablo', genislik: 140 },
+            /* Genişlikler sabit yerleşim için ölçülerek dengelendi: kullanıcı
+               adı ve alan adı tam sığar, kalan alanı iki değer kolonu paylaşır. */
+            { baslik: 'Tarih · Saat', genislik: 142 },
+            { baslik: 'Kullanıcı', genislik: 185 },
+            { baslik: 'İşlem', genislik: 92, hiza: 'orta' },
+            { baslik: 'Tablo', genislik: 132 },
             { baslik: 'Kayıt', genislik: 210 },
-            { baslik: 'Ne Değişti', genislik: 150 },
+            { baslik: 'Ne Değişti', genislik: 142 },
             { baslik: 'Eski Değer', hiza: 'sag' },
             { baslik: 'Yeni Değer', hiza: 'sag' }
           ],
@@ -960,7 +962,24 @@
         }),
         toplamSayfa > 1 ? sayfalama(durum, toplamSayfa, function () { sonuclariCiz(kap, durum); }) : null
       ]
-    }));
+    });
+
+    /* Yeni Değer kolonu panelin sağ kenarına yapışıyordu; son kolonun sağ
+       dolgusu açılarak blok sola çekildi (kullanıcı isteği, 24.08.2026).
+       Malzeme Stokları tablosunda da aynı çözüm kullanılıyor.
+
+       Bunun çalışması için tablo SABİT yerleşime alınır: kendiliğinden
+       yerleşimde "… düzeltmede silindi" gibi uzun bir eski değer kolonu
+       şişirip tabloyu panelin 58px dışına taşırıyordu ve panel (dolgusuz,
+       clip) sağ kenarı kırpıyordu. Sabit yerleşimde kolon genişlikleri
+       birebir uygulanır, taşan metin üç noktayla kısalır — tam metin hücre
+       ipucunda ve detay penceresinde durmaya devam eder. */
+    var tabloEl = panelEl.querySelector('table');
+    if (tabloEl) tabloEl.style.tableLayout = 'fixed';
+    var sonHucreler = panelEl.querySelectorAll('tr > th:last-child, tr > td:last-child');
+    for (var sh = 0; sh < sonHucreler.length; sh++) sonHucreler[sh].style.paddingRight = '40px';
+
+    kap.appendChild(panelEl);
   }
 
   function sayfalama(durum, toplamSayfa, tazele) {
