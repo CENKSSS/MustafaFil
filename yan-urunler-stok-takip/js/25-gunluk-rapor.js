@@ -493,32 +493,45 @@
     return parcalar;
   }
 
-  function islemAyrintisi(depo, l, tarih) {
+  /* Değişiklik Geçmişi ekranındaki okuma dili buraya taşındı (kullanıcı
+     isteği, 24.08.2026): tek "Ne Yapıldı" cümlesi yerine Kayıt · Ne Değişti ·
+     Eski Değer · Yeni Değer kolonları. Artık geçerli olmayan değerin üstü
+     çizilidir; sonradan silinen ya da üzerine yazılan adımın künyesinde
+     kırmızı ✕ ve rozet durur. */
+  function cizili(icerik) {
+    return YU.h('span', {
+      stil: { textDecoration: 'line-through', textDecorationColor: 'var(--metin-4)' }
+    }, icerik);
+  }
+
+  function bosHucre() {
+    return YU.h('span', { sinif: 'yu-zayif', metin: '—' });
+  }
+
+  /* Kayıt künyesi: boş kalırsa kaydın geldiği ekranın adı yazılır — kuru
+     küspe günlük kaydının künyesi yalnız tarihten oluştuğu için rapor
+     içinde boşalıyordu. */
+  function kayitHucresi(depo, l, tarih, gecersizlik) {
     var kunye = YU.log.kayitEtiketi(depo, l.Tablo, l.KayitId);
-    /* Kuru küspe günlük kaydının künyesi yalnız tarihten oluşuyor; rapor tek
-       güne ait olduğu için o tarih temizlenince sol taraf boşalıyor ve ayıraç
-       tiresi tek başına kalıyordu. Boşalan künyenin yerine kaydın geldiği
-       ekranın adı yazılır (kullanıcı isteği, 24.08.2026). */
-    var solMetin = kunye ? gunTarihsiz(kunye, tarih) : '';
-    if (!solMetin) solMetin = KAYIT_KAYNAGI[l.Tablo] || '';
-    var parcalar = [];
-    if (solMetin) parcalar.push(YU.h('span', { sinif: 'yu-guclu', metin: solMetin }));
-    if (l.Alan) {
-      if (parcalar.length) parcalar.push(' — ');
-      parcalar.push(l.Alan + ': ');
-      parcalar.push(vurguluDeger(l.EskiDeger, 'var(--olumsuz)'));
-      parcalar.push(YU.h('span', { sinif: 'yu-zayif', metin: ' → ' }));
-      parcalar.push(vurguluDeger(l.YeniDeger, 'var(--olumlu)'));
-    } else {
-      var ozet = l.Islem === 'Sil' ? l.EskiDeger : l.YeniDeger;
-      if (ozet) {
-        if (parcalar.length) parcalar.push(' — ');
-        parcalar = parcalar.concat(sayiVurgula(gunTarihsiz(ozet, tarih),
-          l.Islem === 'Sil' ? 'var(--olumsuz)' : 'var(--olumlu)'));
-      }
+    var metin = kunye ? gunTarihsiz(kunye, tarih) : '';
+    if (!metin) metin = KAYIT_KAYNAGI[l.Tablo] || '—';
+
+    var kap = YU.h('div', {
+      stil: { display: 'flex', alignItems: 'center', gap: '8px', minWidth: '0' }
+    });
+    if (gecersizlik) {
+      kap.appendChild(YU.h('span', {
+        stil: { display: 'flex', flex: 'none', color: 'var(--olumsuz)' },
+        title: gecersizlik === 'Silindi'
+          ? 'Bu kayıt sonradan silindi — artık yok.'
+          : 'Bu adımın üstüne sonradan yazıldı — değerler artık geçerli değil.'
+      }, YU.svg('#ic-x', 18)));
     }
-    if (!parcalar.length) parcalar.push(YU.h('span', { sinif: 'yu-zayif', metin: '—' }));
-    return YU.h('span', null, parcalar);
+    kap.appendChild(YU.h('span', { sinif: 'yu-guclu', metin: metin, stil: { minWidth: '0' } }));
+    if (gecersizlik) {
+      kap.appendChild(YU.ui.rozet(gecersizlik, gecersizlik === 'Silindi' ? 'olumsuz' : 'bekleyen'));
+    }
+    return kap;
   }
 
   function gunIslemGecmisi(depo, tarih) {
@@ -554,24 +567,37 @@
       }
     }
 
-    var satirlar = [];
+    var satirlar = [], eskiH, yeniH;
     for (i = 0; i < liste.length; i++) {
       l = liste[i];
-      var ayrinti = islemAyrintisi(depo, l, tarih);
-      if (gecersiz[i]) {
-        ayrinti.style.textDecoration = 'line-through';
-        ayrinti.style.textDecorationColor = 'var(--metin-4)';
-        ayrinti.style.color = 'var(--metin-4)';
-        ayrinti = YU.h('span', { stil: { display: 'inline-flex', alignItems: 'center', gap: '9px', minWidth: '0' } },
-          ayrinti,
-          YU.ui.rozet(gecersiz[i], gecersiz[i] === 'Silindi' ? 'olumsuz' : 'bekleyen')
-        );
+
+      /* Alanlı satırda eski ve yeni değer ayrı kolonlara düşer. Alansız
+         satırlarda (kayıt açılışı / silme) özet tek kolona yazılır: silmenin
+         özeti eskiye, eklemenin özeti yeniye. */
+      if (l.Alan) {
+        eskiH = vurguluDeger(l.EskiDeger, 'var(--olumsuz)');
+        yeniH = vurguluDeger(l.YeniDeger, 'var(--olumlu)');
+      } else if (l.Islem === 'Sil') {
+        eskiH = YU.h('span', null, sayiVurgula(gunTarihsiz(l.EskiDeger, tarih), 'var(--olumsuz)'));
+        yeniH = bosHucre();
+      } else {
+        eskiH = bosHucre();
+        yeniH = YU.h('span', null, sayiVurgula(gunTarihsiz(l.YeniDeger, tarih), 'var(--olumlu)'));
       }
+
+      /* Eski değer tanımı gereği geçmiş değerdir; sonradan aşılan adımda
+         yeni değer de geçerliliğini yitirir. */
+      if (!bosDeger(l.EskiDeger)) eskiH = cizili(eskiH);
+      if (gecersiz[i] && !bosDeger(l.YeniDeger)) yeniH = cizili(yeniH);
+
       satirlar.push([
         YU.h('span', { sinif: 'yu-mono', metin: YU.fmt.saat(l.Tarih), stil: { whiteSpace: 'nowrap' } }),
         YU.h('span', { metin: kullaniciAdi(depo, l.KullaniciId) || '—' }),
         YU.ui.rozet(ISLEM_ADI[l.Islem] || l.Islem, ISLEM_RENGI[l.Islem] || 'notr'),
-        ayrinti
+        kayitHucresi(depo, l, tarih, gecersiz[i]),
+        l.Alan ? YU.h('span', { metin: l.Alan }) : bosHucre(),
+        eskiH,
+        yeniH
       ]);
     }
 
@@ -586,9 +612,12 @@
       govde: YU.ui.tablo({
         sutunlar: [
           { baslik: 'Saat', genislik: 76 },
-          { baslik: 'Kullanıcı', genislik: 170 },
-          { baslik: 'İşlem', genislik: 96, hiza: 'orta' },
-          { baslik: 'Ne Yapıldı' }
+          { baslik: 'Kullanıcı', genislik: 160 },
+          { baslik: 'İşlem', genislik: 92, hiza: 'orta' },
+          { baslik: 'Kayıt', genislik: 260 },
+          { baslik: 'Ne Değişti', genislik: 150 },
+          { baslik: 'Eski Değer', hiza: 'sag' },
+          { baslik: 'Yeni Değer', hiza: 'sag' }
         ],
         satirlar: satirlar,
         bos: 'Bu günün verisine dokunan işlem kaydı yok. (Örnek veri denetim izi bırakmaz; ' +
