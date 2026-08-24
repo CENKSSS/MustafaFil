@@ -451,12 +451,12 @@
     var suzgecler = YU.h('div', {
       stil: { display: 'flex', alignItems: 'flex-start', gap: '10px', flexWrap: 'wrap' }
     },
-      YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '8px', flex: 'none' } },
-        YU.h('div', { stil: { display: 'flex', gap: '10px' } },
-          (basAlani.kok.style.width = '158px', basAlani.kok),
-          (bitAlani.kok.style.width = '158px', bitAlani.kok)
-        ),
-        gunDugmeleri
+      /* Gün düğmeleri tarihlerin SAĞINDA durur (kullanıcı isteği, 24.08.2026);
+         alt hiza girdi kutusuyla eşitlenir. */
+      YU.h('div', { stil: { display: 'flex', alignItems: 'flex-end', gap: '10px', flexWrap: 'wrap', flex: 'none' } },
+        (basAlani.kok.style.width = '158px', basAlani.kok),
+        (bitAlani.kok.style.width = '158px', bitAlani.kok),
+        YU.h('div', { stil: { display: 'flex', paddingBottom: '3px' } }, gunDugmeleri)
       )
     );
 
