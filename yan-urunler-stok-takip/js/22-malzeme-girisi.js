@@ -714,11 +714,14 @@
     /* Kolon sırası kullanıcı isteği (24.08.2026): İade en solda. */
     var sutunlar = [
       { baslik: 'Malzeme' },
-      { baslik: 'İade (Kg)', genislik: 150, hiza: 'sag' },
+      /* Üç giriş kolonu EŞİT genişlikte (kullanıcı isteği, 24.08.2026 —
+         "kolonları hizala"): iade kutusu diğerlerinden dar kalınca ızgara
+         ritmi bozuluyordu. */
+      { baslik: 'İade (Kg)', genislik: 175, hiza: 'sag' },
       { baslik: 'Üretim (Kg)', genislik: 175, hiza: 'sag' },
       { baslik: 'Satış (Kg)', genislik: 175, hiza: 'sag' },
-      { baslik: 'Gün Sonu Stok', genislik: 150, hiza: 'sag', mono: true },
-      { baslik: 'Durum', genislik: 168 }
+      { baslik: 'Gün Sonu Stok', genislik: 160, hiza: 'sag', mono: true },
+      { baslik: 'Durum', genislik: 150 }
     ];
 
     var satirlar = [], i, satir, uretimHucre, satisHucre;
