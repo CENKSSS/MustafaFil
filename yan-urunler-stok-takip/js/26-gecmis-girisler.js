@@ -260,6 +260,7 @@
         durum.hazirAralik = null;
         durum.sayfa = 1;
         hazirDugmeleriIsaretle();
+        gunDugmeleriTazele();
         listeyiTazele();
       }
     });
@@ -270,6 +271,7 @@
         durum.hazirAralik = null;
         durum.sayfa = 1;
         hazirDugmeleriIsaretle();
+        gunDugmeleriTazele();
         listeyiTazele();
       }
     });
@@ -284,6 +286,49 @@
     });
     dom.basAlan = basAlan;
     dom.bitAlan = bitAlan;
+
+    /* Gün gezinme üçlüsü diğer ekranlarla aynı (kullanıcı isteği, 24.08.2026):
+       aralık filtresini TEK GÜNE indirir, böylece gün gün gezilebilir.
+       Hazır aralık işareti kalkar — artık el ile seçilmiş bir gün vardır. */
+    function refGun() { return durum.bas || durum.bit || YU.tarih.bugun(); }
+
+    function tekGune(iso) {
+      durum.bas = iso;
+      durum.bit = iso;
+      durum.hazirAralik = null;
+      durum.sayfa = 1;
+      basAlan.ayarla(iso);
+      bitAlan.ayarla(iso);
+      hazirDugmeleriIsaretle();
+      gunDugmeleriTazele();
+      listeyiTazele();
+    }
+
+    var oncekiDugme = YU.ui.dugme({
+      metin: 'Önceki Gün', tur: 'ikincil', kucuk: true,
+      onClick: function () { tekGune(YU.tarih.ekle(refGun(), -1)); }
+    });
+    var bugunDugme = YU.ui.dugme({
+      metin: 'Bugün', ikon: '#ic-calendar', tur: 'ikincil', kucuk: true,
+      onClick: function () { tekGune(YU.tarih.bugun()); }
+    });
+    var sonrakiDugme = YU.ui.dugme({
+      metin: 'Sonraki Gün', tur: 'ikincil', kucuk: true,
+      onClick: function () { tekGune(YU.tarih.ekle(refGun(), 1)); }
+    });
+
+    function gunDugmeleriTazele() {
+      var ileri = refGun() >= YU.tarih.bugun();
+      sonrakiDugme.disabled = ileri;
+      sonrakiDugme.title = ileri ? 'Bugünden sonrası için kayıt olmaz' : '';
+    }
+    gunDugmeleriTazele();
+
+    var gunKutusu = YU.h('div', { sinif: 'yu-alan' },
+      YU.h('label', { sinif: 'yu-etiket', metin: 'Gün' }),
+      YU.h('div', { stil: { display: 'flex', gap: '6px', flexWrap: 'wrap' } },
+        oncekiDugme, bugunDugme, sonrakiDugme)
+    );
 
     var dugmeSatiri = YU.h('div', { stil: { display: 'flex', gap: '6px', flexWrap: 'wrap' } });
     dom.hazirDugmeler = [];
@@ -312,7 +357,7 @@
 
     var satir = YU.h('div', {
       stil: { display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }
-    }, basAlan.kok, bitAlan.kok, araAlan.kok, YU.h('div', { stil: { flex: '1', minWidth: '12px' } }), hazirKutu);
+    }, basAlan.kok, bitAlan.kok, gunKutusu, araAlan.kok, YU.h('div', { stil: { flex: '1', minWidth: '12px' } }), hazirKutu);
 
     var yardim = YU.h('div', {
       sinif: 'yu-yardim',

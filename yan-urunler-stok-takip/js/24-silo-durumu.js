@@ -243,20 +243,18 @@
     var sayacMetni = YU.h('span');
     var tabloKabi = YU.h('div');
 
-    var siloSecenek = [{ deger: '', metin: 'Tüm silolar' }];
+    /* Silo ve hareket tipi süzgeçleri kaldırıldı (kullanıcı isteği,
+       24.08.2026): liste HER ZAMAN tüm siloları ve tüm tipleri gösterir,
+       geriye yalnız tarih süzgeci kalır. */
     var i;
-    for (i = 0; i < silolar.length; i++) siloSecenek.push({ deger: String(silolar[i].Id), metin: silolar[i].Ad });
-
-    var siloAlani, basAlani, bitAlani;
+    var basAlani, bitAlani;
 
     function suzulmus() {
-      var siloId = siloAlani.deger();
       var bas = basAlani.deger();
       var bit = bitAlani.deger();
       var liste = [], j, h;
       for (j = 0; j < tumu.length; j++) {
         h = tumu[j];
-        if (siloId && String(h.siloId) !== siloId) continue;
         if (bas && h.tarih < bas) continue;
         if (bit && h.tarih > bit) continue;
         liste.push(h);
@@ -390,10 +388,6 @@
       }
     }
 
-    siloAlani = YU.ui.alan({
-      etiket: 'Silo', tip: 'secim', secenekler: siloSecenek,
-      deger: '', onChange: suzgecDegisti
-    });
     basAlani = YU.ui.alan({
       etiket: 'Başlangıç', tip: 'tarih', deger: varsayilanBas,
       onChange: function () { gunDugmeleriTazele(); suzgecDegisti(); }
@@ -441,12 +435,11 @@
       stil: { display: 'flex', gap: '6px', flexWrap: 'wrap' }
     }, oncekiDugme, bugunDugme, sonrakiDugme);
 
-    /* Izgara yerine esnek satır: takvimler sabit genişlikte kalır, gün
-       düğmeleri altlarında durur, seçim kutuları kalan yeri paylaşır. */
+    /* Geriye yalnız tarih süzgeci kaldı: takvimler yan yana, gün düğmeleri
+       altlarında. */
     var suzgecler = YU.h('div', {
       stil: { display: 'flex', alignItems: 'flex-start', gap: '10px', flexWrap: 'wrap' }
     },
-      (siloAlani.kok.style.flex = '1 1 190px', siloAlani.kok.style.minWidth = '0', siloAlani.kok),
       YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '8px', flex: 'none' } },
         YU.h('div', { stil: { display: 'flex', gap: '10px' } },
           (basAlani.kok.style.width = '158px', basAlani.kok),
@@ -459,7 +452,6 @@
     var temizle = YU.ui.dugme({
       metin: 'Süzgeci Temizle', ikon: '#ic-filter', tur: 'sade', kucuk: true,
       onClick: function () {
-        siloAlani.ayarla('');
         basAlani.ayarla('');
         bitAlani.ayarla('');
         gunDugmeleriTazele();
@@ -475,8 +467,7 @@
         ikon: '#ic-filter',
         sag: [sayacMetni, temizle],
         govde: [suzgecler, tabloKabi]
-      }),
-      siloSec: function (id) { siloAlani.ayarla(String(id)); suzgecDegisti(); }
+      })
     };
   }
 
@@ -498,13 +489,13 @@
       tip: 'tarih', deger: tarih, genislik: 158,
       onChange: function () {
         var yeni = tarihAlani.deger();
-        if (gecerliTarih(yeni)) YU.git('silo-durumu', { tarih: yeni, silo: param && param.silo ? param.silo : null });
+        if (gecerliTarih(yeni)) YU.git('silo-durumu', { tarih: yeni });
       }
     });
     /* Gün gezinme üçlüsü diğer ekranlarla aynı (kullanıcı isteği, 24.08.2026):
        Önceki Gün · Bugün · Sonraki Gün; Sonraki bugünde pasiftir. */
     function guneGit(iso) {
-      YU.git('silo-durumu', { tarih: iso, silo: param && param.silo ? param.silo : null });
+      YU.git('silo-durumu', { tarih: iso });
     }
     var bugun = YU.tarih.bugun();
     YU.ui.sayfaEylemleri(
@@ -549,11 +540,9 @@
       if (grafik) kap.appendChild(grafik);
     }
 
-    var hareket = hareketPaneli(depo, silolar, tarih);
-    kap.appendChild(hareket.panel);
-
-    /* Üst şerit aramasından "#/silo-durumu?silo=2" ile gelinebiliyor. */
-    if (param && param.silo) hareket.siloSec(param.silo);
+    /* Silo süzgeci kalktığı için ?silo= parametresi de kullanılmıyor
+       (24.08.2026); hiçbir ekran bu parametreyle buraya yönlendirmiyor. */
+    kap.appendChild(hareketPaneli(depo, silolar, tarih).panel);
   }
 
   YU.sayfaTanimla({

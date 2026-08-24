@@ -1042,7 +1042,7 @@
       sinif: 'yu-zil', role: 'button', tabindex: '0', title: 'Uyarılar',
       onClick: function () { unlemPaneliAc(dugme); },
       onKeyDown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); unlemPaneliAc(dugme); } }
-    }, YU.svg('#ic-alert', 19), rozet);
+    }, YU.svg('#ic-alert', 24), rozet);   /* 19 -> 24: biraz büyük (kullanıcı isteği, 24.08.2026) */
     return dugme;
   }
 
@@ -1218,14 +1218,13 @@
 
     var yan = YU.h('div', { sinif: 'yu-yan' }, markaBlogu(true, true), seciciKutusu(), menuKur());
 
-    /* Arama kutusu kaldırıldı (kullanıcı isteği, 24.08.2026); denetimler
-       sağa yaslanır (.yu-ust justify-content). */
+    /* Arama kutusu, kampanya tarih çipi ve Son Hareketler zili kaldırıldı
+       (kullanıcı istekleri, 24.08.2026); denetimler sağa yaslanır
+       (.yu-ust justify-content). */
     var ust = YU.h('div', { sinif: 'yu-ust' },
       testDugmeleri(),
-      cipKutusu(),
       temaDugmesi(),
       unlemDugmesi(),
-      zilDugmesi(),
       kullaniciKarti()
     );
 
@@ -1902,7 +1901,41 @@
     if (s.pasif) girdi.disabled = true;
     if (s.yerTutucu) girdi.setAttribute('placeholder', s.yerTutucu);
     if (s.onInput) girdi.addEventListener('input', s.onInput);
-    if (s.onChange) girdi.addEventListener('change', s.onChange);
+
+    if (s.onChange && tip === 'tarih') {
+      /* TARİH ALANI — yazarken erken tetikleme sorunu (kullanıcı bildirimi,
+         24.08.2026): input[type=date] tüm bölümleri doluyken TEK bölüm
+         değişince de 'change' yayar. Gün hanesine "23" yazmak isteyen
+         kullanıcı "2"ye bastığı anda tarih 02 olup geçerli kaldığı için
+         change ateşleniyor, ekran yeniden çiziliyor ve "3" yazılamıyor.
+         Çözüm: change GECİKTİRİLİR; kullanıcı yazmaya devam ederse bekleyen
+         iş iptal olur. Alandan çıkınca ya da Enter'a basınca hemen uygulanır,
+         böylece takvimden seçim ve klavyeyle yazım ikisi de doğru çalışır. */
+      var TARIH_BEKLEME = 700;   /* ms — iki tuş vuruşu arasına rahat sığar */
+      var tarihZamanlayici = null;
+
+      var tarihIptal = function () {
+        if (tarihZamanlayici) { clearTimeout(tarihZamanlayici); tarihZamanlayici = null; }
+      };
+      var tarihUygula = function () {
+        tarihIptal();
+        s.onChange();
+      };
+
+      girdi.addEventListener('change', function () {
+        tarihIptal();
+        tarihZamanlayici = setTimeout(tarihUygula, TARIH_BEKLEME);
+      });
+      /* Alandan çıkıldıysa yazım bitmiştir: bekleyen varsa hemen uygulanır. */
+      girdi.addEventListener('blur', function () {
+        if (tarihZamanlayici) tarihUygula();
+      });
+      girdi.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && tarihZamanlayici) { e.preventDefault(); tarihUygula(); }
+      });
+    } else if (s.onChange) {
+      girdi.addEventListener('change', s.onChange);
+    }
 
     var sar = YU.h('div', { sinif: 'yu-girdi-sar' }, girdi,
       s.sag ? YU.h('span', { sinif: 'yu-girdi-sag' }, s.sag) : null);
