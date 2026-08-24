@@ -875,7 +875,7 @@
       k.style.cursor = 'pointer';
       /* Seçili kartın çerçevesi 1,5px'te zor görünüyordu; kalınlaştırıldı
          (kullanıcı isteği, 24.08.2026). */
-      if (aktif) k.style.boxShadow = 'inset 0 0 0 3.5px var(--vurgu)';
+      if (aktif) k.style.boxShadow = 'inset 0 0 0 4.5px var(--vurgu)';
       function uygula() {
         durum.islem = aktif ? '' : ayar.islem;
         durum.sayfa = 0;
