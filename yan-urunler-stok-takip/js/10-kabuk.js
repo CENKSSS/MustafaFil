@@ -335,6 +335,11 @@
     else location.hash = yeni;
   };
 
+  /* Bağlantıların gerçek href alabilmesi için (kullanıcı isteği, 24.08.2026):
+     href="#" verilen bağlantılar orta tuşla yeni sekmede anasayfayı açıyordu.
+     YU.adres(kod, param) o sayfanın adresini üretir. */
+  YU.adres = function (kod, param) { return hashKur(kod, param); };
+
   YU.param = function () { return aktif.param || {}; };
 
   YU.yenile = function () { ciz(); };

@@ -1107,11 +1107,18 @@
         );
       }
 
+      /* Gerçek adres verilir (kullanıcı isteği, 24.08.2026): orta tuş ya da
+         Ctrl+tık bu sayfayı YENİ SEKMEDE açar; sol tık pencereyi kapatıp aynı
+         sekmede gider. Önceden href="#" olduğu için yeni sekmede anasayfa
+         açılıyordu. */
       function baglanti(metin, kod, param) {
         return YU.h("a", {
-          href: "#", metin: metin,
+          href: YU.adres(kod, param), metin: metin,
           stil: { color: "var(--vurgu)", textDecoration: "underline", font: "500 13.5px/1.4 var(--font)" },
-          onClick: function (e) { e.preventDefault(); m.kapat(); YU.git(kod, param); }
+          onClick: function (e) {
+            if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button === 1) return;
+            e.preventDefault(); m.kapat(); YU.git(kod, param);
+          }
         });
       }
 
