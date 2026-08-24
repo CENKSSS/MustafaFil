@@ -559,7 +559,11 @@
       ]);
     }
 
-    return YU.ui.panel({
+    /* Bu panel BASKIYA GİRMEZ (kullanıcı isteği, 24.08.2026): yazdırılan
+       günlük rapor Şartname §7'de tanımlanan içerikle kalsın — o günün kuru
+       küspe detayı, malzeme ve silo hareketleri. Denetim izi ekranda kalır.
+       Başlıktaki not, kullanıcının çıktıda bu bölümü aramasını önler. */
+    var panel = YU.ui.panel({
       baslik: 'Günün İşlem Geçmişi',
       ikon: '#ic-dots',
       sag: YU.h('span', { metin: satirlar.length ? YU.fmt.sayi(satirlar.length) + ' işlem' : null }),
@@ -575,6 +579,16 @@
           'elle yapılan her giriş, düzeltme ve silme burada adım adım listelenir.)'
       })
     });
+
+    panel.className += ' yu-baski-yok';
+    var baslikEl = panel.querySelector('.yu-panel-baslik');
+    if (baslikEl) {
+      baslikEl.appendChild(YU.h('span', {
+        metin: '(Yazdırmada Gözükmez)',
+        stil: { font: '400 12.5px/1 var(--font)', color: 'var(--metin-4)', marginLeft: '9px' }
+      }));
+    }
+    return panel;
   }
 
   /* ------------------------------------------------------------------

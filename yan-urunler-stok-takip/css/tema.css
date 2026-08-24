@@ -1853,6 +1853,9 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
   .yu-yan-daralt-satir,
   .yu-bildirimler,
   .yu-perde,
+  /* Ekranda kalıp çıktıya girmemesi istenen bloklar (kullanıcı isteği,
+     24.08.2026): Günlük Rapor > Günün İşlem Geçmişi bu sınıfı taşır. */
+  .yu-baski-yok,
   .yu-sekmeler { display: none !important; }
 
   .yu-kabuk { display: block; min-height: 0; }
