@@ -14,18 +14,12 @@
   var EKSIK_LIMIT = 8;          /* şeritte adı geçen en fazla eksik gün */
   var SAYFA_PENCERE = 7;        /* sayfalama çubuğunda görünen numara sayısı */
 
-  var HAZIR_ARALIKLAR = [
-    { kod: 'gun7', metin: 'Son 7 gün' },
-    { kod: 'gun30', metin: 'Son 30 gün' },
-    { kod: 'kampanya', metin: 'Bu kampanya' },
-    { kod: 'tumu', metin: 'Tümü' }
-  ];
-
-  /* Filtre modül düzeyinde durur: silme/düzeltme sonrası sayfa yeniden çizilince
-     kullanıcının seçtiği aralık ve arama kaybolmasın. */
-  var durum = { bas: null, bit: null, ara: '', sayfa: 1, hazirAralik: null, kuruldu: false };
-  var sonParamImzasi = null;
-  var dom = { liste: null, basAlan: null, bitAlan: null, hazirDugmeler: [] };
+  /* Filtre ve tarih seçimi KALDIRILDI (kullanıcı kararı, 24.08.2026 —
+     "sade yalın olsun, tarih seçimi olmasın"): ekran doğrudan kayıtlı gün
+     listesidir; ayrıntı Program Hareketleri'ne (Detay) gider. Geriye yalnız
+     sayfa numarası durum olarak kalır. */
+  var durum = { sayfa: 1, gun: null };   /* gun: başlıktaki tarih kutusu — tek güne süzer */
+  var dom = { liste: null };
 
   /* ------------------------------------------------------------------
      Sayı eki — "148 kayıttan 25'i gösteriliyor" (tasarım referansı sayfalama
@@ -53,86 +47,15 @@
   function kisaTarih(iso) { return YU.fmt.tarih(iso).slice(0, 5); }
 
   /* ------------------------------------------------------------------
-     Aralık
-     ------------------------------------------------------------------ */
-
-  /* Hazır aralıklar sistem tarihine değil SON KAYITLI güne dayanır: prototip
-     verisi geçmiş bir kampanyaya ait, "son 7 gün" bugüne göre ölçülürse hep boş
-     çıkar ve düğme işlevsiz görünür. Kullanılan referans ekranda yazılır. */
-  function referansGun() {
-    var l = YU.stok.kayitliGunler(YU.db, null, null);
-    return l.length ? l[0].tarih : YU.tarih.bugun();
-  }
-
-  function araligiKur(kod) {
-    durum.hazirAralik = kod;
-    durum.sayfa = 1;
-    if (kod === 'tumu') { durum.bas = null; durum.bit = null; return; }
-    if (kod === 'kampanya') {
-      var d = YU.donem.aktif();
-      durum.bas = d ? d.bas : null;
-      durum.bit = d ? d.bit : null;
-      return;
-    }
-    var r = referansGun();
-    durum.bit = r;
-    durum.bas = YU.tarih.ekle(r, kod === 'gun7' ? -6 : -29);
-  }
-
-  function baslat(param) {
-    var p = param || {};
-    if (!durum.kuruldu) {
-      araligiKur(YU.donem.aktif() ? 'kampanya' : 'tumu');
-      durum.kuruldu = true;
-    }
-    /* Adres çubuğundaki parametre her yeniden çizimde değil, yalnız DEĞİŞTİĞİNDE
-       uygulanır — yoksa kullanıcının elle seçtiği aralık her tazelemede geri alınır. */
-    var imza = (p.bas || '') + '|' + (p.bit || '') + '|' + (p.ara === undefined ? '' : p.ara);
-    if (imza === sonParamImzasi) return;
-    sonParamImzasi = imza;
-    if (p.bas || p.bit) {
-      durum.bas = p.bas || null;
-      durum.bit = p.bit || null;
-      durum.hazirAralik = null;
-      durum.sayfa = 1;
-    }
-    if (p.ara !== undefined) { durum.ara = p.ara; durum.sayfa = 1; }
-  }
-
-  /* ------------------------------------------------------------------
      Veri
      ------------------------------------------------------------------ */
 
-  function kuruKuspeHaritasi() {
-    var h = {}, liste = YU.db.kuruKuspeGunluk || [], i;
-    for (i = 0; i < liste.length; i++) h[liste[i].Tarih] = liste[i];
-    return h;
-  }
-
-  function satirlariSuz(gunler, harita) {
-    var q = String(durum.ara || '').trim().toLocaleLowerCase('tr');
-    var liste = [], i, g, kk, metin;
-    for (i = 0; i < gunler.length; i++) {
-      g = gunler[i];
-      kk = harita[g.tarih] || null;
-      if (q) {
-        metin = (YU.fmt.tarih(g.tarih) + ' ' + g.tarih + ' ' + (g.kullanici || '')).toLocaleLowerCase('tr');
-        if (metin.indexOf(q) < 0) continue;
-      }
-      liste.push({
-        gun: g,
-        kk: kk,
-        hesap: kk ? YU.hesap.kuruKuspe(kk.UretilenDokme, kk.CuvalAdet, kk.SatilanDokme) : null
-      });
-    }
-    return liste;
-  }
-
-  /* Aralıkta hiç kaydı olmayan günler. Aralık ucu boşsa (Tümü) kayıtların ilk ve
-     son günü sınır alınır — açık uçlu döngü olmaz. */
+  /* Kayıtsız günler, aktif kampanyanın BAŞLANGICINDAN BUGÜNE sayılır
+     (kullanıcı isteği, 24.08.2026); dönem yoksa kayıt uçlarına düşülür. */
   function eksikGunler(gunler) {
-    var bas = durum.bas || (gunler.length ? gunler[gunler.length - 1].tarih : null);
-    var bit = durum.bit || (gunler.length ? gunler[0].tarih : null);
+    var donem = YU.donem.aktif();
+    var bas = donem ? donem.bas : (gunler.length ? gunler[gunler.length - 1].tarih : null);
+    var bit = YU.tarih.bugun();
     if (!bas || !bit || bas > bit) return [];
     var var_ = {}, i;
     for (i = 0; i < gunler.length; i++) var_[gunler[i].tarih] = 1;
@@ -145,18 +68,17 @@
     return eksik;
   }
 
+  /* Günde düzeltme var mı — DENETİM İZİNDEN okunur: o günün kaydına dokunan
+     Guncelle/Sil log satırı ya da o günden arşive düşmüş silinmiş kayıt varsa
+     gün "düzeltilmiş" sayılır. GuncellemeTarihi alanına bakılmaz: normal
+     günlük giriş akışı bile (çuvallı üretim + satış iki adımda yazılır) o
+     alanı doldurur ve her gün yanlışlıkla "Evet" görünürdü. */
   /* ------------------------------------------------------------------
      Satır içi eylemler
      ------------------------------------------------------------------ */
 
-  function eylemDugmesi(ikon, baslik, onClick, tehlike) {
-    return YU.h('span', {
-      sinif: 'yu-satir-eylem' + (tehlike ? ' tehlike' : ''),
-      role: 'button', tabindex: '0', title: baslik, 'aria-label': baslik,
-      onClick: onClick,
-      onKeyDown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }
-    }, YU.svg(ikon, 14));
-  }
+  /* eylemDugmesi kaldırıldı (24.08.2026): eylemler artık metinli
+     Detay/Sil düğmeleri. */
 
   function gunSilmeyiBaslat(tarih, malzemeSayisi) {
     YU.ui.onay({
@@ -245,144 +167,8 @@
      (kullanıcı isteği, 24.08.2026)
      ------------------------------------------------------------------ */
 
-  function hazirDugmeleriIsaretle() {
-    var i, d;
-    for (i = 0; i < dom.hazirDugmeler.length; i++) {
-      d = dom.hazirDugmeler[i];
-      d.el.className = 'yu-dugme kucuk ' + (durum.hazirAralik === d.kod ? 'birincil' : 'ikincil');
-    }
-  }
-
-  function filtreBlogu() {
-    var basAlan = YU.ui.alan({
-      etiket: 'Başlangıç', tip: 'tarih', deger: durum.bas || '', genislik: 168,
-      onChange: function () {
-        durum.bas = basAlan.girdi.value || null;
-        durum.hazirAralik = null;
-        durum.sayfa = 1;
-        hazirDugmeleriIsaretle();
-        gunDugmeleriTazele();
-        listeyiTazele();
-      }
-    });
-    var bitAlan = YU.ui.alan({
-      etiket: 'Bitiş', tip: 'tarih', deger: durum.bit || '', genislik: 168,
-      onChange: function () {
-        durum.bit = bitAlan.girdi.value || null;
-        durum.hazirAralik = null;
-        durum.sayfa = 1;
-        hazirDugmeleriIsaretle();
-        gunDugmeleriTazele();
-        listeyiTazele();
-      }
-    });
-    var araAlan = YU.ui.alan({
-      etiket: 'Ara', tip: 'metin', deger: durum.ara, genislik: 260,
-      yerTutucu: 'Tarih (03.07.2026) veya kullanıcı adı',
-      onInput: function () {
-        durum.ara = araAlan.girdi.value;
-        durum.sayfa = 1;
-        listeyiTazele();
-      }
-    });
-    dom.basAlan = basAlan;
-    dom.bitAlan = bitAlan;
-
-    /* Gün gezinme üçlüsü diğer ekranlarla aynı (kullanıcı isteği, 24.08.2026):
-       aralık filtresini TEK GÜNE indirir, böylece gün gün gezilebilir.
-       Hazır aralık işareti kalkar — artık el ile seçilmiş bir gün vardır. */
-    function refGun() { return durum.bas || durum.bit || YU.tarih.bugun(); }
-
-    function tekGune(iso) {
-      durum.bas = iso;
-      durum.bit = iso;
-      durum.hazirAralik = null;
-      durum.sayfa = 1;
-      basAlan.ayarla(iso);
-      bitAlan.ayarla(iso);
-      hazirDugmeleriIsaretle();
-      gunDugmeleriTazele();
-      listeyiTazele();
-    }
-
-    var oncekiDugme = YU.ui.dugme({
-      metin: 'Önceki Gün', tur: 'ikincil', kucuk: true,
-      onClick: function () { tekGune(YU.tarih.ekle(refGun(), -1)); }
-    });
-    var bugunDugme = YU.ui.dugme({
-      metin: 'Bugün', ikon: '#ic-calendar', tur: 'ikincil', kucuk: true,
-      onClick: function () { tekGune(YU.tarih.bugun()); }
-    });
-    var sonrakiDugme = YU.ui.dugme({
-      metin: 'Sonraki Gün', tur: 'ikincil', kucuk: true,
-      onClick: function () { tekGune(YU.tarih.ekle(refGun(), 1)); }
-    });
-
-    function gunDugmeleriTazele() {
-      var ileri = refGun() >= YU.tarih.bugun();
-      sonrakiDugme.disabled = ileri;
-      sonrakiDugme.title = ileri ? 'Bugünden sonrası için kayıt olmaz' : '';
-    }
-    gunDugmeleriTazele();
-
-    var gunKutusu = YU.h('div', { sinif: 'yu-alan' },
-      YU.h('label', { sinif: 'yu-etiket', metin: 'Gün' }),
-      YU.h('div', { stil: { display: 'flex', gap: '6px', flexWrap: 'wrap' } },
-        oncekiDugme, bugunDugme, sonrakiDugme)
-    );
-
-    var dugmeSatiri = YU.h('div', { stil: { display: 'flex', gap: '6px', flexWrap: 'wrap' } });
-    dom.hazirDugmeler = [];
-    for (var i = 0; i < HAZIR_ARALIKLAR.length; i++) {
-      (function (h) {
-        var d = YU.ui.dugme({
-          metin: h.metin, tur: 'ikincil', kucuk: true,
-          onClick: function () {
-            araligiKur(h.kod);
-            basAlan.ayarla(durum.bas || '');
-            bitAlan.ayarla(durum.bit || '');
-            hazirDugmeleriIsaretle();
-            listeyiTazele();
-          }
-        });
-        dom.hazirDugmeler.push({ kod: h.kod, el: d });
-        dugmeSatiri.appendChild(d);
-      })(HAZIR_ARALIKLAR[i]);
-    }
-    hazirDugmeleriIsaretle();
-
-    var hazirKutu = YU.h('div', { sinif: 'yu-alan' },
-      YU.h('label', { sinif: 'yu-etiket', metin: 'Hazır Aralık' }),
-      dugmeSatiri
-    );
-
-    var satir = YU.h('div', {
-      stil: { display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }
-    }, basAlan.kok, bitAlan.kok, gunKutusu, araAlan.kok, YU.h('div', { stil: { flex: '1', minWidth: '12px' } }), hazirKutu);
-
-    var yardim = YU.h('div', {
-      sinif: 'yu-yardim',
-      metin: 'Son 7 / Son 30 gün, son kayıtlı güne (' + YU.fmt.tarih(referansGun()) +
-        ') göre hesaplanır. Tarih alanı boş bırakılırsa o uç sınırsızdır.'
-    });
-
-    /* Blok bir kez kurulur ve liste tazelenirken DOKUNULMAZ: arama kutusu
-       her karakterde listeyi tazeliyor, blok yeniden kurulsa odak kaybolurdu. */
-    return YU.h('div', {
-      stil: {
-        display: 'flex', flexDirection: 'column', gap: '9px',
-        padding: '15px 18px 14px', borderBottom: '1px solid var(--ayrac)'
-      }
-    },
-      YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '7px', color: 'var(--metin-5)' } },
-        YU.svg('#ic-filter', 15),
-        YU.h('span', {
-          metin: 'Filtre',
-          stil: { font: '500 12.5px/1 var(--font)', letterSpacing: '.06em', textTransform: 'uppercase' }
-        })
-      ),
-      satir, yardim);
-  }
+  /* Filtre bloğu kaldırıldı (kullanıcı kararı, 24.08.2026): ekran doğrudan
+     kayıtlı günler listesidir, tarih seçimi yok. */
 
   /* ------------------------------------------------------------------
      Eksik gün şeridi
@@ -395,7 +181,7 @@
 
     var serit = YU.ui.serit({
       tur: 'bilgi', ikon: '#ic-calendar',
-      baslik: 'Aralıkta ' + YU.fmt.sayi(eksik.length) + ' gün kayıtsız: ' + adlar.join(', ') +
+      baslik: 'Kayıtlar arasında ' + YU.fmt.sayi(eksik.length) + ' gün kayıtsız: ' + adlar.join(', ') +
         (eksik.length > gosterilecek.length ? ' …' : ''),
       metin: 'Girişi yapılmamış günler. Bir tarihe tıklayınca o günün Kuru Küspe Günlük Giriş ekranı açılır.'
     });
@@ -426,55 +212,70 @@
      Tablo ve sayfalama
      ------------------------------------------------------------------ */
 
-  function sonGuncellemeHucresi(g) {
-    if (!g.sonGuncelleme) return YU.h('span', { sinif: 'yu-zayif', metin: '—' });
+  function kisiAdi(id) {
+    if (id === null || id === undefined) return null;
+    var k = YU.db.kullanicilar, i;
+    for (i = 0; i < k.length; i++) if (k[i].Id === id) return k[i].AdSoyad;
+    return 'Kullanıcı #' + id;
+  }
+
+  /* Günün İLK ve SON veri girişi (kullanıcı isteği, 24.08.2026): o günün kuru
+     küspe ve malzeme kayıtları taranır; ilk = en erken oluşturma, son = en geç
+     dokunuş (güncelleme dahil), kişileriyle birlikte. */
+  function gunKunyesi(tarih) {
+    var db = YU.db, ilk = null, son = null, i;
+
+    function isle(k) {
+      var o = k.OlusturmaTarihi, oid = k.OlusturanKullaniciId;
+      if (o && (!ilk || o < ilk.an)) ilk = { an: o, kim: oid };
+      var g = k.GuncellemeTarihi || o;
+      var gid = k.GuncellemeTarihi ? k.GuncelleyenKullaniciId : oid;
+      if (g && (!son || g > son.an)) son = { an: g, kim: gid };
+    }
+
+    for (i = 0; i < db.kuruKuspeGunluk.length; i++) {
+      if (db.kuruKuspeGunluk[i].Tarih === tarih) isle(db.kuruKuspeGunluk[i]);
+    }
+    for (i = 0; i < db.gunlukHareket.length; i++) {
+      if (db.gunlukHareket[i].Tarih === tarih) isle(db.gunlukHareket[i]);
+    }
+    return { ilk: ilk, son: son };
+  }
+
+  function kunyeHucresi(k) {
+    if (!k || !k.an) return YU.h('span', { sinif: 'yu-zayif', metin: '—' });
     return YU.h('div', null,
-      YU.h('div', { metin: YU.fmt.tarihSaat(g.sonGuncelleme) }),
-      YU.h('div', { sinif: 'yu-yardim', metin: g.kullanici || 'kullanıcı bilinmiyor' })
+      YU.h('div', { metin: YU.fmt.tarihSaat(k.an) }),
+      YU.h('div', { sinif: 'yu-yardim', metin: kisiAdi(k.kim) || 'kullanıcı bilinmiyor' })
     );
   }
 
+  /* Satır sade (kullanıcı kararı, 24.08.2026): tarih, ilk/son kaydeden
+     ve işlemler — "Değiştirildi Mi" kolonu kaldırıldı (24.08.2026). Rakam dökümü Detay'dadır (Program
+     Hareketleri) — kolon kalabalığı bilerek yok. */
   function tabloSatiri(kayit) {
-    var g = kayit.gun, kk = kayit.kk, h = kayit.hesap;
+    var g = kayit.gun;
 
-    var netHucre;
-    if (!h) {
-      netHucre = YU.h('span', { sinif: 'yu-zayif', metin: '—' });
-    } else if (h.durum === 'B') {
-      /* Durum B: çuvallama üretimi aştı, net üretim 0 — ham girdi kaybolmasın diye
-         satırda işaretlenir (Şartname §4 "Raporlamada dikkat"). */
-      netHucre = YU.h('span', {
-        stil: { display: 'inline-flex', alignItems: 'center', gap: '7px', justifyContent: 'flex-end' }
-      }, YU.h('span', { metin: YU.fmt.kg(h.netDokmeUretim) }), YU.ui.rozet('B', 'bekleyen'));
-    } else {
-      netHucre = YU.fmt.kg(h.netDokmeUretim);
-    }
-
-    /* Rapor ikonu yerine EN SAĞDA yazılı "Detay" düğmesi (kullanıcı isteği,
-       21.08.2026); düzelt ve sil ikonları olduğu gibi durur. */
-    var eylemler = YU.h('div', { stil: { display: 'flex', gap: '3px', alignItems: 'center', justifyContent: 'flex-end' } },
-      eylemDugmesi('#ic-pencil', 'Düzelt — Kuru Küspe Günlük Giriş', function () {
-        YU.git('kuru-kuspe', { tarih: g.tarih });
-      }),
-      eylemDugmesi('#ic-trash', 'Bu günün tüm girişlerini sil', function () {
-        gunSilmeyiBaslat(g.tarih, g.malzemeSayisi);
-      }, true),
+    /* Yalnız Detay + Sil (kullanıcı isteği, 24.08.2026): Düzelt ikonu
+       kalktı; Sil de Detay gibi metinli düğme — kırmızı ve EN SAĞDA. */
+    var eylemler = YU.h('div', { stil: { display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'flex-end' } },
       YU.ui.dugme({
-        metin: 'Detay', ikon: '#ic-doc', tur: 'ikincil', kucuk: true,
-        baslik: 'Günlük Rapor · ' + YU.fmt.tarih(g.tarih),
+        metin: 'Detay', ikon: '#ic-doc', tur: 'ikincil',
+        baslik: 'Program Hareketleri · ' + YU.fmt.tarih(g.tarih),
         onClick: function () { YU.git('gunluk-rapor', { tarih: g.tarih }); }
+      }),
+      YU.ui.dugme({
+        metin: 'Sil', ikon: '#ic-trash', tur: 'tehlike',
+        baslik: 'Bu günün tüm girişlerini sil',
+        onClick: function () { gunSilmeyiBaslat(g.tarih, g.malzemeSayisi); }
       })
     );
 
+    var kunye = gunKunyesi(g.tarih);
     return [
       YU.h('span', { sinif: 'yu-guclu', metin: YU.fmt.tarih(g.tarih) }),
-      YU.h('span', { sinif: 'yu-zayif', metin: YU.fmt.gunAdi(g.tarih) }),
-      kk ? YU.fmt.kg(kk.UretilenDokme) : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
-      kk ? YU.fmt.sayi(kk.CuvalAdet) : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
-      netHucre,
-      kk ? YU.fmt.kg(kk.SatilanDokme) : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
-      YU.fmt.sayi(g.malzemeSayisi),
-      sonGuncellemeHucresi(g),
+      kunyeHucresi(kunye.ilk),
+      kunyeHucresi(kunye.son),
       eylemler
     ];
   }
@@ -500,32 +301,37 @@
     return cikti;
   }
 
+  /* Sayfalama Silo Durumu'ndaki dille (kullanıcı isteği, 24.08.2026):
+     numaralar ORTADA ve bir boy büyük, iki yanda Önceki/Sonraki düğmeleri;
+     bilgi metni solda kalır. */
   function sayfalamaSeridi(toplam, gosterilen, sayfaSayisi) {
-    var kap = YU.h('div', {
-      stil: {
-        display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 18px',
-        borderTop: '1px solid var(--ayrac)', font: '400 13px/1.6 var(--font)', color: 'var(--metin-5)'
-      }
+    var numaraKap = YU.h('div', {
+      stil: { display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', justifyContent: 'center' }
     });
-    kap.appendChild(YU.h('span', {
-      metin: YU.fmt.sayi(toplam) + ' kayıttan ' + sayiEkli(gosterilen) + ' gösteriliyor'
+
+    numaraKap.appendChild(YU.ui.dugme({
+      metin: 'Önceki', tur: 'ikincil', kucuk: true, pasif: durum.sayfa <= 1,
+      onClick: function () { durum.sayfa--; listeyiTazele(); }
     }));
-    kap.appendChild(YU.h('div', { stil: { flex: '1' } }));
 
     var numaralar = sayfaNumaralari(durum.sayfa, sayfaSayisi), i;
     for (i = 0; i < numaralar.length; i++) {
       if (numaralar[i] === null) {
-        kap.appendChild(YU.h('span', { metin: '…', stil: { padding: '4px 4px' } }));
+        numaraKap.appendChild(YU.h('span', { metin: '…', sinif: 'yu-yardim', stil: { padding: '4px 2px' } }));
         continue;
       }
       (function (no) {
         var aktifMi = no === durum.sayfa;
-        var stil = { padding: '4px 8px', borderRadius: '5px', cursor: 'pointer' };
+        var stil = {
+          padding: '6px 12px', borderRadius: '6px', cursor: 'pointer',
+          font: '400 14px/1.4 var(--font)', color: 'var(--metin-5)',
+          border: '1px solid transparent'
+        };
         if (aktifMi) {
           stil.border = '1px solid var(--kenar-2)';
           stil.color = 'var(--metin)';
         }
-        kap.appendChild(YU.h('span', {
+        numaraKap.appendChild(YU.h('span', {
           metin: YU.fmt.sayi(no), stil: stil, role: 'button', tabindex: '0',
           title: YU.fmt.sayi(no) + '. sayfa',
           onClick: function () { durum.sayfa = no; listeyiTazele(); },
@@ -535,7 +341,27 @@
         }));
       })(numaralar[i]);
     }
-    return kap;
+
+    numaraKap.appendChild(YU.ui.dugme({
+      metin: 'Sonraki', tur: 'ikincil', kucuk: true, pasif: durum.sayfa >= sayfaSayisi,
+      onClick: function () { durum.sayfa++; listeyiTazele(); }
+    }));
+
+    /* Bilgi solda, numaralar tam ortada: iki yanına eşit esneyen boşluk. */
+    return YU.h('div', {
+      stil: {
+        display: 'flex', alignItems: 'center', gap: '10px',
+        padding: '12px 18px', borderTop: '1px solid var(--ayrac)'
+      }
+    },
+      YU.h('span', {
+        sinif: 'yu-yardim',
+        stil: { flex: '1', minWidth: '0' },
+        metin: YU.fmt.sayi(toplam) + ' kayıttan ' + sayiEkli(gosterilen) + ' gösteriliyor'
+      }),
+      numaraKap,
+      YU.h('span', { stil: { flex: '1', minWidth: '0' } })
+    );
   }
 
   /* ------------------------------------------------------------------
@@ -543,13 +369,6 @@
      ------------------------------------------------------------------ */
 
   function listeyiTazele() { if (dom.liste) listeyiCiz(dom.liste); }
-
-  function aralikMetni() {
-    if (durum.bas && durum.bit) return YU.fmt.tarih(durum.bas) + ' – ' + YU.fmt.tarih(durum.bit);
-    if (durum.bas) return YU.fmt.tarih(durum.bas) + ' ve sonrası';
-    if (durum.bit) return YU.fmt.tarih(durum.bit) + ' ve öncesi';
-    return 'tüm kayıtlar';
-  }
 
   /* Panel dolgusuz olduğu için şerit ve uyarılar kendi kenar boşluğunu ister. */
   function dolguKutu(icerik) {
@@ -559,45 +378,30 @@
   function listeyiCiz(kap) {
     YU.bos(kap);
 
-    if (durum.bas && durum.bit && durum.bas > durum.bit) {
-      kap.appendChild(dolguKutu(YU.ui.serit({
-        tur: 'hata', baslik: 'Tarih Aralığı Geçersiz',
-        metin: 'Bitiş tarihi (' + YU.fmt.tarih(durum.bit) + ') başlangıç tarihinden (' +
-          YU.fmt.tarih(durum.bas) + ') önce olamaz.'
-      })));
-      return;
-    }
-
-    var gunler = YU.stok.kayitliGunler(YU.db, durum.bas, durum.bit);
+    var gunler = YU.stok.kayitliGunler(YU.db, null, null);
     var eksik = eksikGunler(gunler);
     if (eksik.length) kap.appendChild(dolguKutu(eksikSeridi(eksik)));
 
-    var liste = satirlariSuz(gunler, kuruKuspeHaritasi());
+    var liste = [], j;
+    for (j = 0; j < gunler.length; j++) {
+      /* Başlıktaki tarih kutusu tek güne süzer (kullanıcı isteği, 24.08.2026). */
+      if (durum.gun && gunler[j].tarih !== durum.gun) continue;
+      liste.push({ gun: gunler[j] });
+    }
 
     if (!liste.length) {
       kap.appendChild(YU.ui.bosDurum({
         ikon: '#ic-calendar',
-        baslik: durum.ara ? 'Aramaya uyan gün yok' : 'Bu aralıkta kayıt yok',
-        metin: durum.ara
-          ? '“' + durum.ara + '” için ' + aralikMetni() + ' aralığında kayıtlı gün bulunamadı. Aramayı temizleyin veya aralığı genişletin.'
-          : aralikMetni() + ' aralığında girilmiş gün yok. Aralığı genişletin ya da yeni bir gün girin.',
-        eylemler: [
+        baslik: durum.gun ? YU.fmt.tarih(durum.gun) + ' için kayıt yok' : 'Kayıtlı gün yok',
+        metin: durum.gun
+          ? 'Seçilen tarihte girilmiş gün yok.'
+          : 'Henüz hiçbir güne giriş yapılmamış. İlk günü Kuru Küspe Günlük Giriş ekranından girin.',
+        eylemler: durum.gun ? [
           YU.ui.dugme({
-            metin: 'Kuru Küspe Girişi', ikon: '#ic-plus', tur: 'birincil',
-            onClick: function () { YU.git('kuru-kuspe'); }
-          }),
-          YU.ui.dugme({
-            metin: 'Tüm Kayıtlar', ikon: '#ic-calendar', tur: 'ikincil',
-            onClick: function () {
-              araligiKur('tumu');
-              durum.ara = '';
-              if (dom.basAlan) dom.basAlan.ayarla('');
-              if (dom.bitAlan) dom.bitAlan.ayarla('');
-              hazirDugmeleriIsaretle();
-              listeyiTazele();
-            }
+            metin: 'Tümünü Göster', ikon: '#ic-calendar', tur: 'ikincil',
+            onClick: function () { durum.gun = null; durum.sayfa = 1; listeyiTazele(); }
           })
-        ]
+        ] : []
       }));
       return;
     }
@@ -611,33 +415,62 @@
     var satirlar = [], i;
     for (i = 0; i < dilim.length; i++) satirlar.push(tabloSatiri(dilim[i]));
 
+    /* Sade kolon seti (kullanıcı kararı, 24.08.2026): tarih + son kaydeden +
+       düzeltilme durumu + işlemler. Rakamlar Detay'da. */
     var tablo = YU.ui.tablo({
       sutunlar: [
-        { baslik: 'Tarih', genislik: 110 },
-        { baslik: 'Gün', genislik: 96 },
-        { baslik: 'Üretilen Dökme', hiza: 'sag', mono: true, genislik: 132 },
-        { baslik: 'Çuval Adet', hiza: 'sag', mono: true, genislik: 104 },
-        { baslik: 'Net Dökme', hiza: 'sag', mono: true, genislik: 140 },
-        { baslik: 'Satılan Dökme', hiza: 'sag', mono: true, genislik: 128 },
-        { baslik: 'Malzeme Satırı', hiza: 'sag', mono: true, genislik: 124 },
-        { baslik: 'Son Güncelleme', genislik: 168 },
-        { baslik: 'İşlem', hiza: 'sag', genislik: 112 }
+        { baslik: 'Tarih', genislik: 120 },
+        { baslik: 'İlk Veri Girişi', genislik: 190 },
+        { baslik: 'Son Veri Girişi', genislik: 190 },
+        { baslik: 'İşlem', hiza: 'sag' }
       ],
       satirlar: satirlar,
-      bos: 'Bu aralıkta kayıtlı gün yok.',
+      bos: 'Kayıtlı gün yok.',
       yapiskan: true
     });
 
-    /* Panel çerçevesi ve filtre bloğu sayfa kurulurken bir kez yapılır; burada
-       yalnız başlık şeridi ile gövde tazelenir. Başlık şeridi, dolgusuz panelin
-       kendi başlığıyla aynı sınıf ve boşlukları kullanır. */
+    /* Satıra tıklayınca Detay açılır (kullanıcı kararı, 24.08.2026);
+       işlem düğmelerine basınca satır tıklaması devreye girmez. */
+    var trler = tablo.querySelectorAll('tbody tr'), t2;
+    for (j = 0; j < dilim.length && j < trler.length; j++) {
+      (function (tarih, tr) {
+        tr.style.cursor = 'pointer';
+        tr.title = 'Detay · Program Hareketleri · ' + YU.fmt.tarih(tarih);
+        tr.addEventListener('click', function (e) {
+          if (e.target.closest && (e.target.closest('button') || e.target.closest('.yu-satir-eylem'))) return;
+          YU.git('gunluk-rapor', { tarih: tarih });
+        });
+      })(dilim[j].gun.tarih, trler[j]);
+    }
+
+    /* Başlıkta tek günlük tarih seçimi (kullanıcı isteği, 24.08.2026):
+       kutu doluysa liste o güne iner, boşaltınca tümü döner. */
+    var gunAlan = YU.ui.alan({
+      tip: 'tarih', deger: durum.gun || '', genislik: '148px',
+      onChange: function () {
+        durum.gun = gunAlan.girdi.value || null;
+        durum.sayfa = 1;
+        listeyiTazele();
+      }
+    });
+
+    /* Tarih kutusu SOLDA, Tarih kolonunun üzerinde durur (kullanıcı isteği,
+       24.08.2026); sağ uçta yalnız gün sayacı kalır. */
     kap.appendChild(YU.h('div', {
       sinif: 'yu-panel-bas',
-      stil: { padding: '15px 18px', marginBottom: '0', borderBottom: '1px solid var(--ayrac)' }
+      stil: { padding: '15px 18px', marginBottom: '0', borderBottom: '1px solid var(--ayrac)', gap: '12px' }
     },
       YU.h('span', { stil: { display: 'flex', color: 'var(--vurgu)' } }, YU.svg('#ic-calendar', 18)),
-      YU.h('div', { sinif: 'yu-panel-baslik', metin: 'Kayıtlı Günler', stil: { flex: '1' } }),
-      YU.h('div', { sinif: 'yu-panel-sag' }, YU.h('span', { metin: aralikMetni() }))
+      YU.h('div', { sinif: 'yu-panel-baslik', metin: 'Kayıtlı Günler', stil: { flex: '0 0 auto' } }),
+      gunAlan.kok,
+      /* Tek tıkla sıfırlama (kullanıcı isteği, 24.08.2026): kutu doluyken
+         görünür; tarih filtresini kaldırıp bütün günlere döner. */
+      durum.gun ? YU.ui.dugme({
+        metin: 'Tarihi Sıfırla', ikon: '#ic-calendar', tur: 'sade', kucuk: true,
+        onClick: function () { durum.gun = null; durum.sayfa = 1; listeyiTazele(); }
+      }) : null,
+      YU.h('span', { stil: { flex: '1' } }),
+      YU.h('div', { sinif: 'yu-panel-sag' }, YU.h('span', { metin: YU.fmt.sayi(liste.length) + ' gün' }))
     ));
     kap.appendChild(tablo);
     kap.appendChild(sayfalamaSeridi(liste.length, dilim.length, sayfaSayisi));
@@ -649,26 +482,19 @@
 
   YU.sayfaTanimla({
     kod: 'gecmis-girisler',
+    zemin: 'gri-duz',   /* Stok Durumu ile aynı panel rengi (kullanıcı isteği, 24.08.2026) */
     baslik: 'Geçmiş Girişler',
-    altBaslik: 'Tarih aralığına göre girilmiş günler · düzeltme, günlük rapor ve gün silme',
+    altBaslik: 'Kayıtlı günler · ilk ve son veri girişi, gün silme · ayrıntı için satıra tıklayın',
     ikon: '#ic-calendar',
     grup: 'Takip',
     rol: 'Hepsi',
-    ciz: function (kap, param) {
-      baslat(param);
+    ciz: function (kap) {
+      /* Kuru Küspe Girişi düğmesi kaldırıldı (kullanıcı isteği, 24.08.2026). */
+      YU.ui.sayfaEylemleri();
 
-      YU.ui.sayfaEylemleri(YU.ui.dugme({
-        metin: 'Kuru Küspe Girişi', ikon: '#ic-plus', tur: 'birincil',
-        onClick: function () { YU.git('kuru-kuspe'); }
-      }));
-
-      /* Filtre ile liste TEK panelde: filtre bloğu en üstte sabit durur,
-         altındaki kap her tazelemede yeniden çizilir. */
       var listeKap = YU.h('div');
       dom.liste = listeKap;
-      var panel = YU.ui.panel({ dolgusuz: true, govde: [filtreBlogu(), listeKap] });
-      /* Gövde boşluğu sıfırlanır: filtrenin ayraç çizgisiyle "Kayıtlı Günler"
-         başlığı arasında, başlığın kendi kenar boşluğundan başka aralık kalmasın. */
+      var panel = YU.ui.panel({ dolgusuz: true, govde: [listeKap] });
       panel.querySelector('.yu-panel-govde').style.gap = '0';
       kap.appendChild(panel);
       listeyiCiz(listeKap);
