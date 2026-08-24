@@ -284,9 +284,9 @@
 
   function hareketPaneli(depo, silolar, tarih) {
     var tumu = hareketleriHazirla(depo);
-    /* Tarih süzgeci BOŞ açılır (kullanıcı isteği, 24.08.2026): liste komple
-       gelir, sayfalama baştan bütün günleri kapsar. Daraltma takvimlerden
-       ve gün düğmelerinden yapılır. */
+    /* Süzgeç BUGÜNLE açılır (kullanıcı isteği, 24.08.2026 — son karar):
+       başlangıç = bitiş = bugün, liste günün hareketleri. Takvimler
+       boşaltılırsa bütün kayıtlar döner; gün düğmeleriyle gezilir. */
 
     var sayacMetni = YU.h('span');
     var tabloKabi = YU.h('div');
@@ -486,11 +486,11 @@
     }
 
     basAlani = YU.ui.alan({
-      etiket: 'Başlangıç', tip: 'tarih', deger: '',
+      etiket: 'Başlangıç', tip: 'tarih', deger: YU.tarih.bugun(),
       onChange: function () { gunDugmeleriTazele(); suzgecDegisti(); }
     });
     bitAlani = YU.ui.alan({
-      etiket: 'Bitiş', tip: 'tarih', deger: '',
+      etiket: 'Bitiş', tip: 'tarih', deger: YU.tarih.bugun(),
       onChange: function () { gunDugmeleriTazele(); suzgecDegisti(); }
     });
 
