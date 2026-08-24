@@ -72,20 +72,6 @@
     satir.baslangicUretim = satir.kayitUretim;
     satir.baslangicSatis = satir.kayitSatis;
     satir.baslangicIade = satir.kayitIade;
-    /* Dökme iadesinin kayıtlı silosu: bu kayda bağlı Manuel "giren" hareketi
-       (04-servis aynı bağla yazar). Pencere açılınca seçili gelsin. */
-    satir.iadeSiloId = null;
-    if (satir.ozel === 'DokmeKuruKuspe' && kayit) {
-      var sh = YU.db.siloHareket, k;
-      for (k = 0; k < sh.length; k++) {
-        if (sh[k].KaynakKayitId === kayit.Id && sh[k].HareketTipi === 'Manuel' &&
-            sh[k].Tarih === satir.tarih && (Number(sh[k].GirenKg) || 0) > 0) {
-          satir.iadeSiloId = sh[k].SiloId;
-          break;
-        }
-      }
-    }
-    satir.baslangicIadeSiloId = satir.iadeSiloId;
     satir.taban = satir.sabitTaban
       ? stok.mevcut
       : YU.yuvarla(stok.mevcut - satir.kayitUretim - satir.kayitIade + satir.kayitSatis);
@@ -120,8 +106,6 @@
     if (!satir.kilitliIade) {
       v = alanSayisi(satir.iadeAlan);
       if (!isFinite(v) || YU.yuvarla(v) !== satir.baslangicIade) return true;
-      /* Dökme: aynı miktar başka siloya taşındıysa da değişikliktir. */
-      if (satir.ozel === 'DokmeKuruKuspe' && satir.iadeSiloId !== satir.baslangicIadeSiloId) return true;
     }
     return false;
   }
@@ -259,19 +243,6 @@
       return;
     }
 
-    /* Dökme iade silosu KAYDET aşamasında sorulur (kullanıcı isteği,
-       24.08.2026): iade yazılmış ama silo seçilmemişse önce "hangi siloya
-       girsin" penceresi açılır; seçim yapılınca kayıt akışı baştan sürer. */
-    for (var si = 0; si < degisen.length; si++) {
-      var ds = degisen[si];
-      if (ds.ozel !== 'DokmeKuruKuspe' || ds.kilitliIade) continue;
-      var iadeV = alanSayisi(ds.iadeAlan);
-      if (isFinite(iadeV) && iadeV > 0 && ds.iadeSiloId === null) {
-        siloSecimiAc(d, ds, YU.yuvarla(iadeV), function () { kaydet(d); });
-        return;
-      }
-    }
-
     var bugun = YU.tarih.bugun();
     /* Ulaşılmaz emniyet: tarih bir yolla geleceğe kaymışsa onay penceresi
        hiç açılmaz — pencere ileri günü "(bugün)" diye etiketliyordu (Bulgu 1). */
@@ -322,14 +293,7 @@
         kalemler.appendChild(alanSatiri('Satış', satir.baslangicSatis, !!satir.kayit, satir.satisAlan));
       }
       if (!satir.kilitliIade && (!isFinite(alanSayisi(satir.iadeAlan)) || YU.yuvarla(alanSayisi(satir.iadeAlan)) !== satir.baslangicIade)) {
-        /* Dökme iadesinde seçilen silo etikete yazılır (kullanıcı isteği,
-           24.08.2026): onay penceresi iadenin hangi siloya gireceğini de
-           söylesin. */
-        var iadeEtiketi = 'İade';
-        if (satir.ozel === 'DokmeKuruKuspe' && satir.iadeSiloId !== null) {
-          iadeEtiketi = 'İade → ' + siloAdiBul(satir.iadeSiloId);
-        }
-        kalemler.appendChild(alanSatiri(iadeEtiketi, satir.baslangicIade, !!satir.kayit, satir.iadeAlan));
+        kalemler.appendChild(alanSatiri('İade', satir.baslangicIade, !!satir.kayit, satir.iadeAlan));
       }
       liste.appendChild(kalemler);
     }
@@ -379,11 +343,7 @@
          hata olarak döndürür (03-dogrulama, Şartname §7). */
       if (!satir.kilitliUretim) girdi.uretim = gonderilecek(satir.uretimAlan);
       if (!satir.kilitliSatis) girdi.satis = gonderilecek(satir.satisAlan);
-      if (!satir.kilitliIade) {
-        girdi.iade = gonderilecek(satir.iadeAlan);
-        /* Dökme: iadenin gireceği silo (pencereden seçildi) da gönderilir. */
-        if (satir.ozel === 'DokmeKuruKuspe') girdi.iadeSiloId = satir.iadeSiloId;
-      }
+      if (!satir.kilitliIade) girdi.iade = gonderilecek(satir.iadeAlan);
 
       s = YU.servis.malzemeHareketKaydet(YU.db, girdi, YU.oturum.kullanici);
       if (s.uyarilar && s.uyarilar.length) uyarilar = uyarilar.concat(s.uyarilar);
@@ -626,73 +586,6 @@
     return id === null ? null : 'Silo #' + id;
   }
 
-  /* Dökme iadesi için silo seçim penceresi. Artık KAYDET aşamasında açılır
-     (kullanıcı isteği, 24.08.2026): satır içi "silo seç" kalktı; Kaydet'e
-     basılınca "N kg iade hangi siloya girsin?" diye sorulur, seçim yapılınca
-     kayıt akışı kaldığı yerden sürer. Radyo listesi gün başı mevcutla. */
-  function siloSecimiAc(d, satir, miktar, onSecildi) {
-    var secili = satir.iadeSiloId;
-    var liste = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '8px' } });
-    var silolar = YU.db.silolar.filter(function (s) { return s.Aktif !== false; });
-    var m;
-
-    silolar.forEach(function (s) {
-      var isaretli = secili === s.Id;
-      var oge = YU.h('label', {
-        stil: {
-          display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px',
-          border: '1px solid ' + (isaretli ? 'var(--vurgu)' : 'var(--kenar)'),
-          borderRadius: 'var(--r)', cursor: 'pointer', background: 'var(--yuzey)'
-        }
-      },
-        (function () {
-          var r = YU.h('input', { tip: 'radio' });
-          r.name = 'yu-iade-silo';
-          r.checked = isaretli;
-          r.addEventListener('change', function () { secili = s.Id; });
-          return r;
-        })(),
-        YU.h('span', { sinif: 'yu-guclu', metin: s.Ad, stil: { flex: '1' } }),
-        YU.h('span', {
-          sinif: 'yu-yardim',
-          metin: 'gün başı ' + YU.fmt.kgU(YU.stok.siloGunBasi(YU.db, s.Id, satir.tarih))
-        })
-      );
-      liste.appendChild(oge);
-    });
-
-    m = YU.ui.modal({
-      baslik: 'İade Hangi Siloya Girsin?',
-      genislik: 420,
-      govde: YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '12px' } },
-        YU.h('div', {
-          stil: { font: '600 14px/1.5 var(--font)', color: 'var(--metin)' },
-          metin: (isFinite(miktar) && miktar > 0 ? YU.fmt.kgU(miktar) + ' ' : '') +
-            'dökme kuru küspe iadesi kaydedilecek.'
-        }),
-        YU.h('div', {
-          sinif: 'yu-yardim', stil: { margin: '0' },
-          metin: 'Dökme kuru küspe silolarda durur (Şartname §5); iade edilen mal fiziksel olarak hangi siloya girdiyse o seçilmeli.'
-        }),
-        liste
-      ),
-      dugmeler: [
-        { metin: 'Vazgeç', tur: 'sade', onClick: function () { m.kapat(); } },
-        {
-          metin: 'Bu Siloya Yaz', tur: 'birincil',
-          onClick: function () {
-            if (secili === null) return;   /* seçim yapılmadan kapanmaz */
-            satir.iadeSiloId = secili;
-            m.kapat();
-            satirTazele(satir);
-            ozetTazele(d);
-            if (onSecildi) onSecildi();
-          }
-        }
-      ]
-    });
-  }
-
   /* İade girilen satırda alan boş başlar (0 yerine) — kolon dolu görünmesin. */
   function iadeHucresi(d, satir) {
     if (satir.kilitliIade) {
@@ -700,9 +593,6 @@
     }
     var kok = girdiHucresi(d, satir, 'iadeAlan', satir.baslangicIade || null);
     if (satir.kayit && !satir.baslangicIade) satir.iadeAlan.ayarla(null);
-    /* Dökme satırında satır içi "silo seç" YOK (kullanıcı isteği,
-       24.08.2026): silo, Kaydet'e basılınca sorulur — kaydet() içindeki
-       siloSecimiAc çağrısına bak. */
     return kok;
   }
 
@@ -826,10 +716,11 @@
         sabitTaban: ozel === 'DokmeKuruKuspe',
         kilitliUretim: m.Aktif === false || ozel === 'DokmeKuruKuspe' || ozel === 'CuvalKuruKuspe',
         kilitliSatis: m.Aktif === false || ozel === 'DokmeKuruKuspe',
-        /* İade her malzemeye girilir (kullanıcı direktifi, 24.08.2026).
-           Dökme İSTİSNA DEĞİL ama silo ister: rakam yazılınca küçük silo
-           seçim penceresi açılır (Şartname §5 — dökme stok silo toplamı). */
-        kilitliIade: m.Aktif === false,
+        /* İade yalnız STOKTA görünür, siloya girmez (revize, 24.08.2026).
+           Dökme kuru küspe bu yüzden İADEYE KAPALI: dökme stok siloların
+           toplamıdır (Şartname §5 Demirbaş) — siloya girmeyen iade dökme
+           stoğunda gösterilemez. Diğer malzemelerde iade stoğa işler. */
+        kilitliIade: m.Aktif === false || ozel === 'DokmeKuruKuspe',
         yardim: null
       };
 

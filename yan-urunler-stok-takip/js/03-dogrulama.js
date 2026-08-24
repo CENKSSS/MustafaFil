@@ -449,43 +449,19 @@
     }
 
     /* İade (kullanıcı direktifi, 24.08.2026): stokta üretim gibi davranır,
-       ayrı alanda saklanır; satış rakamına dokunmaz. Çuvallı kuru küspeye de
-       girilebilir (kullanıcı direktifi, 24.08.2026) — çuvallı stok silo dışı,
-       çift sayım beklenen formülü çuvallı iadeyi ayrıca sayar. Yalnız DÖKME
-       kilitli: dökme stok silo TOPLAMIDIR (Şartname §5 Demirbaş), iade ancak
-       bir siloya "giren" olarak yazılabilir; silo seçimi olmayan bu ekrandan
-       girilen rakam stoğa hiç işlemezdi. */
+       ayrı alanda saklanır; satış rakamına dokunmaz. REVİZE (24.08.2026):
+       iade yalnız STOKTA görünür, siloya GİRMEZ. Bu yüzden dökme kuru
+       küspeye iade girilemez: dökme stok siloların toplamıdır (Şartname §5
+       Demirbaş) — siloya girmeyen iade dökme stoğunda görünemezdi. Çuvallı
+       ve basit malzemelerde iade stoğa işler. */
     var iade = girdi.iade === null || girdi.iade === undefined ? null : oku(girdi.iade);
     if (iade !== null && isNaN(iade)) {
       hatalar.push(kayit(ALAN, "\"" + malzeme.Ad + "\" iade miktarı sayı olmalı. Girilen: \"" + String(girdi.iade) + "\"."));
     } else if (iade !== null && iade < 0) {
       hatalar.push(kayit(ALAN, "\"" + malzeme.Ad + "\" iade miktarı negatif olamaz. Girilen: " + kg(iade) + "."));
     } else if (iade !== null && iade > 0 && malzeme.OzelTip === "DokmeKuruKuspe") {
-      /* Dökme iadesi bir SİLOYA girmek zorunda (Şartname §5: dökme stok
-         silo toplamıdır). Ekran silo seçtirir; seçilmediyse kayıt geçmez. */
-      var iadeSiloId = girdi.iadeSiloId === undefined || girdi.iadeSiloId === null
-        ? null : Number(girdi.iadeSiloId);
-      var iadeSilo = iadeSiloId === null ? null : satirBul(depo.silolar, iadeSiloId);
-      if (!iadeSilo) {
-        hatalar.push(kayit(ALAN, "Dökme iadesi için silo seçilmedi. İade edilen küspe hangi siloya boşaltıldıysa o seçilmeli (Şartname §5)."));
-      } else if (iadeSilo.Aktif === false) {
-        hatalar.push(kayit(ALAN, iadeSilo.Ad + " pasif — iade pasif siloya yazılamaz."));
-      } else {
-        /* D15 dili: gün sonu bakiye kapasiteyi aşarsa UYARI, engel değil. */
-        var kapasite = Number(iadeSilo.Kapasite) || 0;
-        if (kapasite > 0) {
-          var bakiye = YU.stok.siloGunBasi(depo, iadeSiloId, tarih), j, sh;
-          for (j = 0; j < depo.siloHareket.length; j++) {
-            sh = depo.siloHareket[j];
-            if (sh.SiloId !== iadeSiloId || sh.Tarih !== tarih) continue;
-            bakiye = YU.yuvarla(bakiye + (Number(sh.GirenKg) || 0) - (Number(sh.CikanKg) || 0));
-          }
-          if (YU.yuvarla(bakiye + iade) > kapasite) {
-            uyarilar.push(kayit("D15", iadeSilo.Ad + " iadeyle birlikte kapasiteyi aşıyor: " +
-              kg(YU.yuvarla(bakiye + iade)) + " / " + kg(kapasite) + ". Kayıt engellenmez."));
-          }
-        }
-      }
+      hatalar.push(kayit(ALAN, "Dökme kuru küspeye iade girilemez: dökme stok siloların toplamıdır " +
+        "(Şartname §5) ve iade siloya girmediği için stokta gösterilemez."));
     }
 
     if (hatalar.length) return { hatalar: hatalar, uyarilar: uyarilar };
