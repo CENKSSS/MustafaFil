@@ -34,6 +34,16 @@
     return '#/gunluk-rapor?tarih=' + encodeURIComponent(tarih);
   }
 
+  /* Tarih sütunu yakın günleri sözle yazar (kullanıcı isteği, 24.08.2026):
+     bugün "Bugün", dün "Dün", öncesi normal tarih. İki günden eskisi için
+     sözel ifade ("3 gün önce") kullanılmaz — orada gerçek tarih daha okunur. */
+  function tarihMetni(iso) {
+    var fark = YU.tarih.fark(String(iso || '').slice(0, 10), YU.tarih.bugun());
+    if (fark === 0) return 'Bugün';
+    if (fark === 1) return 'Dün';
+    return YU.fmt.tarih(iso);
+  }
+
   /* D15 eşikleri: kapasitenin üstü kırmızı, %90 üstü kehribar (Şartname §8 D15). */
   function dolulukTur(oran) {
     if (oran > 1) return 'olumsuz';
@@ -305,7 +315,7 @@
         if (gosterilen[j].devir) {
           satirlar.push({
             hucreler: [
-              YU.fmt.tarih(gosterilen[j].devir.DevirTarihi),
+              tarihMetni(gosterilen[j].devir.DevirTarihi),
               siloAdi(depo, gosterilen[j].siloId),
               YU.fmt.kg(gosterilen[j].devirMiktari),
               YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
@@ -324,7 +334,7 @@
           /* Tam sayfaya gitmek yerine küçük pencere: kullanıcı listeden kopmuyor. */
           onClick: (function (t) { return function () { YU.gunPenceresi(t); }; })(h.Tarih),
           hucreler: [
-            YU.fmt.tarih(h.Tarih),
+            tarihMetni(h.Tarih),
             siloAdi(depo, h.SiloId),
             /* Ekstra bilgi: satırın dayandığı devir — tekrar ettiği için soluk. */
             YU.h('span', { sinif: 'yu-zayif', metin: YU.fmt.kg(gosterilen[j].devirMiktari) }),
