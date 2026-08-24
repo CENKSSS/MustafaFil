@@ -689,7 +689,9 @@ html[data-tema="acik"] input[type="date"]::-webkit-calendar-picker-indicator { f
 /* Açılır çip — tıklanınca altında kutu açan filtre düğmesi.
    Tasarım referansındaki "Durum: Tümü" / dönem seçici çipinin dili:
    ikon + etiket + ok, kenarlıklı, üzerine gelince zemin belirir. */
-.yu-cip.acilir { padding-right: 8px; }
+/* Açılır çip ve segment, efsaneyle aynı ölçekte büyütüldü (kullanıcı
+   isteği, 24.08.2026). Üst şeritteki dönem çipi (.yu-cip taban) DEĞİŞMEZ. */
+.yu-cip.acilir { padding: 9px 10px 9px 13px; font-size: 16px; gap: 7px; }
 .yu-cip.acik {
   background: var(--vurgu-zemin);
   border-color: transparent;
@@ -739,11 +741,11 @@ html[data-tema="acik"] input[type="date"]::-webkit-calendar-picker-indicator { f
   flex: none;
 }
 .yu-secim-oge {
-  padding: 5px 11px;
+  padding: 7px 14px;   /* 5px 11px -> 7px 14px (kullanıcı isteği, 24.08.2026) */
   border: 0;
   background: transparent;
   border-radius: 5px;
-  font: 400 14.5px/1 var(--font);
+  font: 400 16px/1 var(--font);   /* 14.5 -> 16 */
   color: var(--metin-4);
   cursor: pointer;
   white-space: nowrap;
