@@ -997,9 +997,13 @@
     dom.cipKilit = kilitEl;
     var cip = YU.h('div', {
       sinif: 'yu-cip', role: 'button', tabindex: '0', title: 'Kampanya dönemi',
+      /* Çip üst şeridin ana ögesi (kullanıcı isteği, 24.08.2026): iri yazı,
+         geniş dolgu — hangi kampanyada olunduğu uzaktan okunur. Yalnız bu
+         örnek büyür; .yu-cip sınıfının diğer kullanımları değişmez. */
+      stil: { font: '600 16px/1 var(--font)', padding: '11px 20px', gap: '10px' },
       onClick: function () { donemPaneliAc(cip); },
       onKeyDown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); donemPaneliAc(cip); } }
-    }, YU.svg('#ic-calendar', 14), metin, kilitEl);
+    }, YU.svg('#ic-calendar', 18), metin, kilitEl);
     return cip;
   }
 
@@ -1276,19 +1280,29 @@
     YU.bos(k);
     dom = {};
 
-    var yan = YU.h('div', { sinif: 'yu-yan' }, markaBlogu(true, true), seciciKutusu(), menuKur());
+    /* Kenar çubuğundaki kampanya seçicisi kaldırıldı (kullanıcı isteği,
+       24.08.2026): kampanya artık yalnız üst şeritteki iri çipten seçilir. */
+    var yan = YU.h('div', { sinif: 'yu-yan' }, markaBlogu(true, true), menuKur());
 
     /* Arama kutusu ve Son Hareketler zili kaldırıldı (kullanıcı istekleri,
        24.08.2026); denetimler sağa yaslanır (.yu-ust justify-content).
        Kampanya çipi ADIYLA geri geldi (kullanıcı isteği, 24.08.2026):
        "2025/2026 Kampanyası · aralık" yazar, kampanya kilitliyse kırmızı
        asma kilitle belirtir. */
+    /* Üç bölge: sol boşluk — ORTADA kampanya çipi — sağda denetimler
+       (kullanıcı isteği, 24.08.2026). İki kenar da flex:1 olduğu için çip
+       şeridin gerçek ortasında durur. */
     var ust = YU.h('div', { sinif: 'yu-ust' },
+      YU.h('div', { stil: { flex: '1 1 0', minWidth: '0' } }),
       cipKutusu(),
-      testDugmeleri(),
-      temaDugmesi(),
-      unlemDugmesi(),
-      kullaniciKarti()
+      YU.h('div', {
+        stil: { flex: '1 1 0', minWidth: '0', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px' }
+      },
+        testDugmeleri(),
+        temaDugmesi(),
+        unlemDugmesi(),
+        kullaniciKarti()
+      )
     );
 
     var baslik = YU.h('div', { sinif: 'yu-sayfa-baslik' });

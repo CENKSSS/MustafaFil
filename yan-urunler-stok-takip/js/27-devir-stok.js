@@ -980,7 +980,7 @@
         ]);
       })(liste[i]);
     }
-    return YU.ui.panel({
+    var pnl = YU.ui.panel({
       baslik: 'Kampanya Yönetimi',
       ikon: '#ic-calendar-dots',
       dolgusuz: true,
@@ -998,6 +998,11 @@
         bos: 'Henüz kampanya yok — ilk devir girildiğinde burada listelenir.'
       })
     });
+    /* Satır yazıları bir tık iri (kullanıcı isteği, 24.08.2026) — yalnız bu
+       panel; ortak tablo yazısına dokunulmaz. */
+    var hucreler = pnl.querySelectorAll('tbody td');
+    for (var h2 = 0; h2 < hucreler.length; h2++) hucreler[h2].style.fontSize = '15px';
+    return pnl;
   }
 
   /* Malzeme ve silo devirleri AYNI SAYFADA alt alta durur (kullanıcı isteği,
