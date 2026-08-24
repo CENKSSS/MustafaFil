@@ -208,14 +208,8 @@
     },
       buyukTarih,
       YU.h('span', { stil: { flex: '1' } }),
-      /* Silo Durumu ve Günlük Rapor düğmeleri kaldırıldı; yerlerine Malzeme
-         Girişi (aynı tarihe düzenleme) ve Yazdır kondu (kullanıcı istekleri,
-         24.08.2026). */
-      YU.ui.dugme({
-        metin: 'Malzeme Girişi', ikon: '#ic-pencil', tur: 'ikincil', kucuk: true,
-        baslik: YU.fmt.tarih(d.tarih) + ' gününü Malzeme Girişi\'nde düzenle',
-        onClick: function () { YU.git('malzeme-girisi', { tarih: d.tarih }); }
-      }),
+      /* Malzeme Girişi düğmesi de kaldırıldı (kullanıcı isteği, 24.08.2026);
+         şeritte yalnız Yazdır kaldı. Girişe sol menüden gidilir. */
       YU.ui.dugme({
         metin: 'Yazdır', ikon: '#ic-download', tur: 'birincil', kucuk: true,
         onClick: function () { window.print(); }
