@@ -495,19 +495,6 @@
       bos: 'Karşılaştırılacak gösterge yok.'
     });
 
-    var notlar = [d.tamAralikMi
-      ? 'Kampanyanın 1. gününden bugüne (' + gunMetni(N) + ') bütün günler sayılır.'
-      : 'Üstten seçilen ' + aralikMetni(d) + ' aralığı (' + YU.fmt.sayi(d.gunSayisi) + ' gün) sayılır.'];
-    if (d.kisitliMi) {
-      notlar.push('Geçmiş kampanyanın kaydı ' + gunMetni(ortakBit) + ' bittiği için fark yalnız ' +
-        'iki kampanyada da kaydı olan ' + YU.fmt.sayi(d.ortakGun) + ' gün üzerinden hesaplanabiliyor — ' +
-        'bu seçilmiş bir aralık değil, verinin bittiği yerdir.');
-    }
-    notlar.push('“Sezon Başından Bugüne” sütunu üstteki tarih aralığından BAĞIMSIZDIR: ' +
-      'her iki sezonun da ilk ' + YU.fmt.sayi(d.sonGun) + ' gününü toplayıp karşılaştırır.' +
-      (d.tamAralikMi ? ' Seçili aralık zaten sezonun tamamı olduğu için ayrıca aralık farkı sütunu gösterilmez.' : ''));
-    notlar.push('Satıra tıklayınca o gösterge grafikte açılır.');
-
     /* Tablonun ÜSTÜNDE tek cümlelik açıklama: kampanya günü mantığı bu
        ekranın en anlaşılmaz yeri. Somut tarih vermek kavramı oturtuyor.
        Ayrıntılı notlar tablonun altında kalır. */
@@ -539,7 +526,7 @@
       ikon: '#ic-doc',
       sag: YU.fmt.sayi(d.gostergeler.length) + ' gösterge · ' + aralikMetni(d),
       dolgusuz: true,
-      govde: [ustAciklama, tablo, YU.h('div', { sinif: 'yu-yardim', metin: notlar.join(' '), stil: { padding: '10px 18px 12px' } })]
+      govde: [ustAciklama, tablo]
     });
   }
 
