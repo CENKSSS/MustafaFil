@@ -339,10 +339,8 @@
     return YU.ui.panel({
       baslik: 'Silo Hareketleri',
       ikon: '#ic-building',
-      sag: YU.ui.dugme({
-        metin: 'Silo Durumu', ikon: '#ic-chart', tur: 'sade', kucuk: true,
-        onClick: function () { YU.git('silo-durumu', { tarih: tarih }); }
-      }),
+      /* "Silo Durumu" düğmesi kaldırıldı (kullanıcı isteği, 24.08.2026);
+         ekrana sol menüden gidilir. */
       govde: YU.ui.tablo({
         sutunlar: [
           { baslik: 'Silo', genislik: 120 },
