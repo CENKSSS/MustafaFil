@@ -442,7 +442,24 @@
         var g = k.gosterge;
         var aktif = g.kod === d.gosterge.kod;
         var bugune = YU.analiz.karsilastir(d, g, bugunAralik);
-        var hucreler = [YU.h('span', { sinif: aktif ? 'yu-guclu' : '', metin: g.ad })];
+        /* Satırın tıklanabilir olduğu anlaşılmıyordu (kullanıcı isteği,
+           24.08.2026): her satırın solunda seçim işareti durur — seçili
+           göstergede dolu daire içinde tik, diğerlerinde boş daire. Grafik
+           tek gösterge çizdiği için aynı anda yalnız BİR tik açıktır;
+           başka satıra tıklamak tiki oraya taşır. */
+        var isaret = YU.h('span', {
+          'aria-hidden': 'true',
+          stil: {
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: '17px', height: '17px', borderRadius: '50%', flex: 'none',
+            border: aktif ? 'none' : '1.5px solid var(--kenar-3)',
+            background: aktif ? 'var(--vurgu)' : 'transparent',
+            color: '#fff', font: '700 11px/1 var(--font)'
+          }
+        }, aktif ? YU.h('span', { metin: '✓' }) : null);
+        var hucreler = [YU.h('div', {
+          stil: { display: 'flex', alignItems: 'center', gap: '10px', minWidth: '0' }
+        }, isaret, YU.h('span', { sinif: aktif ? 'yu-guclu' : '', metin: g.ad, stil: { minWidth: '0' } }))];
         /* Seçili her kampanya için bir sütun; fark sütunları en yeni iki
            kampanyayı karşılaştırır (grafikteki mavi ve kırmızı çizgi). */
         var sirali = gosterimSirasi(d);
