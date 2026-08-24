@@ -722,7 +722,6 @@
     var sonGiren = sonSiloHareketi(YU.db, s.silo.Id, 'GirenKg');
     var sonCikan = sonSiloHareketi(YU.db, s.silo.Id, 'CikanKg');
     var tur = cubukTuru(oran);
-    var ac = function () { YU.git('silo-durumu', { silo: s.silo.Id }); };
 
     /* Silo Durumu ekranındaki kart düzeni (kullanıcı isteği, 21.08.2026) —
        oradan farkı: "mevcut · … ton" ve "Kapasite … kg · … ton" satırları YOK;
@@ -768,13 +767,10 @@
           })
         ];
 
-    var kart = YU.h('div', {
-      sinif: 'yu-kpi', role: 'button', tabindex: '0',
-      title: s.silo.Ad + ' · Silo Durumu ekranını aç',
-      stil: { cursor: 'pointer' },
-      onClick: ac,
-      onKeyDown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ac(); } }
-    },
+    /* Silo kartı TIKLANMAZ (kullanıcı isteği, 24.08.2026): üstüne basınca
+       Silo Durumu ekranının açılması istenmiyor. Kart yalnız göstergedir;
+       Silo Durumu'na sol menüden gidilir. */
+    var kart = YU.h('div', { sinif: 'yu-kpi' },
       YU.h('div', { sinif: 'yu-kpi-bas' },
         YU.h('div', { sinif: 'yu-kpi-ikon' }, YU.svg('#ic-building', 15)),
         YU.h('div', { sinif: 'yu-kpi-etiket', metin: s.silo.Ad }),
