@@ -1815,6 +1815,10 @@
           if (ipucuMetni) metinIpucuBagla(tr, ipucuMetni);
         }
         if (ham.vurgu) tr.style.boxShadow = 'inset 3px 0 0 ' + (RENK_METIN[ham.vurgu] || 'var(--vurgu)');
+        /* zemin: satıra kalıcı dolgu zemini (fare üstündeymiş görünümü) —
+           anlamca zıt satırları ayırmak için seçimli; tıklanır satırın
+           hover/odak vurgusu CSS'te bu sınıfı ezer. */
+        if (ham.zemin) tr.className = tr.className ? tr.className + ' yu-satir-zemin' : 'yu-satir-zemin';
       }
       for (var c = 0; c < hucreler.length; c++) {
         var sut = sutunlar[c] || {};

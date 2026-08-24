@@ -159,7 +159,12 @@
   /* Bir kampanyanın "bu sezon / geçen sezon" etiketi, listedeki yerine
      değil KENDİ YENİLİĞİNE bağlıdır. */
   function sezonEtiketi(d, veri) {
-    if (d.veriler[0] && d.veriler[0].donem.ad === veri.donem.ad) return 'Bu Sezon · ';
+    if (d.veriler[0] && d.veriler[0].donem.ad === veri.donem.ad) {
+      /* Aralık daraltılmamışken kolon, sezon başından bugüne BİRİKMİŞ toplamı
+         gösterir; adı da bunu söyler (kullanıcı isteği, 24.08.2026). Aralık
+         seçiliyken toplam o aralığa aittir, ad "Bu Sezon" kalır. */
+      return d.tamAralikMi ? 'Şimdiye Kadarki · ' : 'Bu Sezon · ';
+    }
     if (d.veriler[1] && d.veriler[1].donem.ad === veri.donem.ad) return 'Geçen Sezon · ';
     return '';
   }
@@ -457,6 +462,10 @@
         hucreler.push(gunlukFarkHucresi(bugune));
         satirlar.push({
           vurgu: aktif ? 'vurgu' : null,
+          /* Satış satırları kalıcı dolgu zeminiyle ayrışır (kullanıcı isteği,
+             24.08.2026): üretim ile satış zıt kalemlerdir, art arda aynı
+             görünmesin. Üretim ve Çuvallama satırları düz kalır. */
+          zemin: /-satis$/.test(g.kod),
           ipucu: aktif ? 'Grafikte gösteriliyor' : 'Grafikte göstermek için tıklayın',
           onClick: function () { YU.git(SAYFA, bagKur(d, { gosterge: g.kod })); },
           hucreler: hucreler

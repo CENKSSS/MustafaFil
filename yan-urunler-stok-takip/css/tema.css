@@ -1188,6 +1188,11 @@ button.yu-efsane-oge:hover { background: var(--yuzey-3); border-color: var(--ken
 .yu-tablo tbody tr:last-child td { border-bottom: 0; }
 .yu-tablo tbody tr:hover { background: var(--yuzey-2); }
 
+/* Kalıcı dolgu zemini (tablo satırı `zemin` bayrağı): anlamca zıt satırları
+   ayırır — Analizler'de satış satırları üretimden böyle ayrışır. Tıklanır
+   satırın hover/odak vurgusu (aşağıda) bu zemini ezer. */
+.yu-tablo tbody tr.yu-satir-zemin { background: var(--yuzey-2); }
+
 /* Tıklanabilir satır: sönük zemin değişimi "buraya tıklanır" demiyordu.
    Vurgu zemini + sol kenar şeridi hem farede hem klavye odağında görünür. */
 .yu-tablo tbody tr.yu-tiklanir { cursor: pointer; }
