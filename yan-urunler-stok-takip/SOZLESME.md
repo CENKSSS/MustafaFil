@@ -46,11 +46,8 @@ js/28-malzeme-yonetimi.js
 js/29-kullanici-yonetimi.js
 js/30-degisiklik-gecmisi.js
 js/31-analizler.js
-js/32-analiz-dil.js     Türkçe dil araçları (YU.dil)
 js/33-analiz-veri.js    analiz veri katmanı (YU.analiz)
-js/34-analiz-soru.js    soru çözümleme + cevap üretimi (YU.soru)
 js/40-kabul-testleri.js
-js/41-soru-testleri.js  soru motoru külliyatı + ölçüm ekranı (YU.soruTest)
 js/99-baslat.js       YU.baslat()
 ```
 
@@ -410,7 +407,6 @@ Grafiklerin tamamı **inline SVG**; kütüphane yok (tasarım referansı kuralı
 | `kullanici-yonetimi` | Kullanıcı Yönetimi | Yönetim | Yonetici | `29-kullanici-yonetimi.js` |
 | `degisiklik-gecmisi` | Değişiklik Geçmişi | Yönetim | Yonetici | `30-degisiklik-gecmisi.js` |
 | `analizler` | Analizler | Yönetim | Yonetici | `31-analizler.js` — kampanyaları GÜN SIRASINA göre karşılaştırır (devir günü = 1. gün; bugün N. günse geçmiş kampanyanın N. günü karşısına konur). Kampanyalar grafiğin üstündeki EFSANEDEN onay kutusuyla işaretlenir; işaretli olanlar çizilir ve tabloda birer sütun alır. GÖSTERİM SIRASI eskiden yeniye (soldan sağa artan); RENK ise yenilik sırasına göre sabittir (en yeni mavi, bir önceki kırmızı) — listedeki yeri değişse de kampanyanın rengi değişmez. Analiz penceresi VARSAYILAN OLARAK KAMPANYANIN TAMAMIDIR, üstteki tarih aralığıyla daraltılabilir. URL: `?kampanyalar=a,b&gosterge=&mod=gunluk|birikimli&basGun=&bitGun=` (`bu`/`karsi` de kabul edilir) |
-| `soru-testleri` | Soru Testleri | Yönetim | Yonetici | `41-soru-testleri.js` — soru motorunun ölçüm külliyatı; niyet, malzeme, ölçüt, gün ve kapsam ayrı ayrı denetlenir. Tuzak soruları CEVAPLANMAMALIDIR. |
 | `kabul-testleri` | Kabul Testleri | Yönetim | Yonetici | `40-kabul-testleri.js` |
 
 ### İkon eşlemesi (tasarım referansındaki 20 ikon dışına ÇIKILMAZ)
@@ -419,8 +415,7 @@ Grafiklerin tamamı **inline SVG**; kütüphane yok (tasarım referansı kuralı
 `stok-durumu→#ic-chart` · `silo-durumu→#ic-building` · `gunluk-rapor→#ic-doc` ·
 `gecmis-girisler→#ic-calendar` · `devir-stok→#ic-wallet` ·
 `malzeme-yonetimi→#ic-gear` · `kullanici-yonetimi→#ic-users` ·
-`degisiklik-gecmisi→#ic-dots` · `analizler→#ic-bars-up` · `kabul-testleri→#ic-percent` ·
-`soru-testleri→#ic-checklist`
+`degisiklik-gecmisi→#ic-dots` · `analizler→#ic-bars-up` · `kabul-testleri→#ic-percent`
 
 ---
 
@@ -558,141 +553,11 @@ AÇIK                                  KOYU
 
 ---
 
-## 10. Soru-cevap motoru — `js/32-analiz-dil.js` · `33-analiz-veri.js` · `34-analiz-soru.js`
+## 10. Soru-cevap motoru — KALDIRILDI (kullanıcı isteği, 24.08.2026)
 
-Analizler ekranındaki soru kutusu. Kütüphane **yok**, internet **yok**,
-rastgelelik **yok** — aynı soru her zaman aynı cevabı verir.
-
-### 10.1 `YU.dil` — Türkçe dil araçları (`32-analiz-dil.js`)
-
-```js
-YU.dil.katla(metin)          // "GEÇEN Işık" -> "gecen isik"   (İ/I/ı/ğ/ş/ç/ö/ü/â -> ASCII)
-YU.dil.kelimeler(metin)      // -> [{ham, kat, kok, sayi, sira}]  ("15." -> sayi:15 sira:true)
-YU.dil.yumusat(gövde)        // son ünsüz yumuşaması: toprak -> toprag
-YU.dil.kok(gövde)            // temkinli ek atma, SABİT NOKTAYA kadar
-YU.dil.uzaklik(a, b, tavan)  // Damerau-Levenshtein (harf devriği dahil)
-YU.dil.esik(uzunluk)         // ≤3:0  ≤7:1  ≤11:2  üstü:3
-YU.dil.katiMi(kelime)        // alan dışı sık kelime mi (yalnız birebir eşleşir)
-YU.dil.puan(kelime, terim)   // 0..1 benzerlik
-YU.dil.Sozluk(girdiler)      // -> {terimSayisi, bul(kelimeler) -> eşleşmeler}
-YU.dil.grupla / ilk / deger / icerir / sirala
-```
-
-**Bağlayıcı kurallar** (hepsi ölçümle konuldu, 23.08.2026):
-
-1. **Türkçe harf kullanmamak hata değildir.** Karşılaştırma katlanmış
-   (ASCII) gövde üzerinde yapılır. `"gecen sene"` ile `"geçen sene"`,
-   `"atik"` ile `"atık"`, `"IŞIK"`/`"ışık"`/`"isik"` aynı yere düşer.
-2. **Eşleştirme kök üzerinden değil GÖVDE üzerinden yapılır.** Türkçe
-   eklemeli bir dildir, ekler sona gelir; asıl ölçüt ÖN EK İLİŞKİSİDİR
-   (`"satis"` ⊂ `"satislarimiz"`). Ek atma yalnız son çaredir.
-3. **Ek atma sabit noktaya kadar sürer.** Sabit sayıda tur, aynı kelimeye
-   iki farklı kök veriyordu (`kampanya`→`kampa`, `kampanyada`→`kampan`).
-4. **Yazım hatası eşiği KISA kelimeye göre hesaplanır.** Uzun tarafa göre
-   hesaplanınca kısa kelimeler alakasız uzun terimlere yapışıyordu.
-5. **Son harfteki yer değiştirme yazım hatası sayılmaz.** Türkçede başka
-   kelime demektir: `satın`/`satış`. Silme, ekleme ve harf devriği serbest.
-6. **Katı kelimeler yalnız birebir eşleşir.** Alan dışı sık kelimelerin
-   listesi (`artik`, `satin`, `uretici`, `isik`, `silah`, …) bulanık
-   eşleşmeye kapalıdır.
-7. **Bitişik yazım çözülür.** Eşleşmeyen uzun kelime ikiye bölünüp iki
-   kelimelik terimlerle denenir (`"gecenseneye"` → `"gecen seneye"`),
-   ceza puanıyla.
-
-### 10.2 `YU.analiz` — veri katmanı (`33-analiz-veri.js`)
-
-Ekran ile cevap motorunun **ortak** hesap katmanı: cevapta geçen sayı ile
-tablodaki sayı aynı koddan gelir.
-
-```js
-YU.analiz.gostergeler(depo)              // [{kod, ad, kisaAd, birim, tur, kaynak, alan, malzemeId}]
-YU.analiz.gostergeBul(liste, kod) / gostergeSec(liste, malzemeId, tur, ozelTip)
-YU.analiz.kampanyaVerisi(depo, donem)    // {donem, kayitli, kk, gh, sonGun, kayitliGun}
-YU.analiz.gunTarihi(veri, gun)           // kampanyanın n. gününün ISO tarihi
-YU.analiz.gunDegeri(veri, gosterge, tarih)
-YU.analiz.seri(veri, gosterge, n)        // {gunluk[], birikimli[], toplam, kayitliGun}
-YU.analiz.bugunkuGun(veri)               // {ham, gun}
-YU.analiz.tarihGunu(veri, iso)           // takvim tarihi -> kampanya günü
-YU.analiz.ozet(depo, buAd, gecmisAd, aralik)
-   // aralik: {basGun, bitGun} — verilmezse KAMPANYANIN TAMAMI (1 … bugün)
-   // -> {donemler, bu, gecmis, bugun, sonGun, basGun, bitGun, gunSayisi,
-   //     tamAralikMi, ortakBit, ortakGun, kisitliMi, gostergeler}
-YU.analiz.karsilastir(ozet, gosterge, aralik) / tumKarsilastirma(ozet, aralik) / siralaFark(l, yon)
-   // karsilastir -> {bu, gecmis, buOrtak, gecmisOrtak, fark, yuzde, ortakBit, kisitliMi, ...}
-YU.analiz.pencere(veri, gosterge, basGun, bitGun) / zirve / dip / ucNokta
-YU.analiz.yuzdeFark(bu, gecmis)          // geçmiş 0 ise null — sıfırdan artış yüzdesi tanımsızdır
-YU.analiz.malzemeStok / tumStok / tumSilo / siloToplami
-YU.analiz.malzemeler / malzemeIle / silolar / donemBul / oncekiDonem
-```
-
-**Kampanya günü kuralı (DEMİRBAŞ):** devir günü 1. gündür. Karşılaştırma
-takvim tarihine göre DEĞİL gün sırasına göre yapılır. Bugün N. günse
-geçmiş kampanyanın N. günü karşısına konur. Bugün son kayıtlı günü aşarsa
-N son kayıtlı güne çekilir.
-
-**Analiz penceresi kuralı (kullanıcı düzeltmesi, 23.08.2026):** pencere
-VARSAYILAN OLARAK KAMPANYANIN TAMAMIDIR (1. gün … bugün); kullanıcı üstteki
-tarih aralığıyla daraltabilir. Kampanyanın hiçbir günü diğerinden önemli
-değildir — ekran hiçbir zaman kendiliğinden birkaç günlük bir pencereye
-sıkışmaz. Geçmiş kampanyanın kaydı erken bitiyorsa pencere KISALMAZ;
-yalnızca farkın hesaplanabildiği son gün (`ortakBit`) kısıtlanır ve bu
-durum sütun başlığına parametre gibi yazılmaz, tablonun altında düz
-Türkçeyle söylenir.
-
-### 10.3 `YU.soru` — çözümleme ve cevap (`34-analiz-soru.js`)
-
-```js
-YU.soru.sozluk(depo)          // depodan kurulan sözlük (malzeme adları veritabanından)
-YU.soru.coz(depo, metin)      // sözlük çözümlemesi (kampanya bağlamı YOK)
-YU.soru.cozTam(depo, metin)   // -> {cozum, ozet}   göreli gün ifadesi çözülmüş
-YU.soru.cevapla(depo, metin)  // -> {basarili, baslik, satirlar, grafik, ikinciGrafik,
-                              //     anlam, eslesmeler, guven, niyet, bag, oneriler}
-YU.soru.anlamOzeti(depo, c, ozet)     // "Anladığım" rozetleri
-YU.soru.kelimeEslesmeleri(c)          // yazılan kelime -> anlaşılan terim
-YU.soru.ornekler()                    // hazır soru listesi
-```
-
-**Niyetler:** `karsilastirma` · `genel-durum` · `deger` · `siralama` ·
-`zirve` · `gun-degeri` · `pencere` · `ortalama` · `stok` · `silo` ·
-`kampanya-gunu` · `kayit` · `yardim`
-
-Niyet **kalıp eşleştirmeyle değil puanlamayla** seçilir: her niyet, ortamda
-hangi kavramların bulunduğuna bakıp puan toplar. Aynı soru farklı
-kurulduğunda aynı kavram kümesini üretir, aynı niyete düşer.
-
-**Cevap verilmeme kuralı.** Soru şu üç şartı birden sağlamazsa
-"anlayamadım" denir; tahminle cevap üretilmez:
-1. bir niyet en az 3 puan almış olmalı,
-2. cümlede en az bir **alan kavramı** bulunmalı (soru kelimesi tek başına
-   yeterli değildir — `"hava nasıl olacak"` cevaplanmaz),
-3. kanıt zayıfsa (`nasıl gidiyor` gibi özneyi söylemeyen kalıp) cümlede
-   **anlaşılmayan içerik kelimesi olmamalı** (`"IŞIK ne durumda"`,
-   `"bugün maç var mı"` cevaplanmaz).
-
-**Görünürlük kuralı.** Cevabın yanında motorun ne anladığı (`anlam`) ve
-yazılan kelimenin neye çevrildiği (`eslesmeler`) **mutlaka gösterilir**.
-Yanlış okuma sessiz kalmaz.
-
-**Grafik tanımı.** Cevap motoru grafiği ÇİZMEZ, tanımını üretir; çizim
-ekranda yapılır.
-
-```js
-{tur:'karsilastirma', baslik, birim, noktalar:[...], seri1:{ad,renk}, seri2:{ad,renk}|null}
-{tur:'sira',  baslik, ogeler:[{ad, kod, yuzde, deger, birim, tur}], enBuyuk}
-{tur:'deger', baslik, ogeler:[{ad, deger, birim, oran, ek, tur}]}
-```
-
-### 10.4 Ölçüm — `js/41-soru-testleri.js`
-
-Külliyat **359 soru**. Üç eksende zorlar: yazım (Türkçe harfli/harfsiz),
-kuruluş (aynı soru farklı cümlelerle), hata (harf düşmesi, devrik harf,
-bitişik yazım). İçinde **15 tuzak sorusu** vardır; bunlar CEVAPLANMAMALIDIR.
-Her soruda niyet, malzeme, ölçüt, gün ve kapsam **ayrı ayrı** denetlenir ve
-cevap üretimi de çalıştırılır.
-
-> Bu külliyat bağlayıcıdır: motor değiştirilince `Soru Testleri` ekranı
-> yeniden çalıştırılır ve **kalan sıfır** olmalıdır.
-
+Analizler ekranındaki soru kutusu ve motoru (`32-analiz-dil.js`,
+`34-analiz-soru.js`, `41-soru-testleri.js`) silindi — gereksiz yük.
+`33-analiz-veri.js` (YU.analiz) DURUYOR: grafik ve tablo onu kullanır.
 
 ---
 

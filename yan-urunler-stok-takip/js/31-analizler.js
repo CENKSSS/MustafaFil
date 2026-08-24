@@ -21,11 +21,6 @@
    bir önceki kırmızı, sonrakiler kategorik paletten — işaret açılıp
    kapandıkça bir kampanyanın rengi değişmez.
 
-   Ekranın üstünde SORU KUTUSU durur (kullanıcı isteği, 23.08.2026): Türkçe
-   yazılan soru YU.soru ile çözümlenir, cevap YU.analiz'in hesapladığı
-   rakamlarla kurulur ve yanına grafiği çizilir. Hesap ekranla ortaktır —
-   cevapta geçen sayı ile tablodaki sayı aynı koddan gelir.
-
    Görsel dil: design-reference/accounting-dashboard artboard 2a (açık) / 1b (koyu).
    SÖZLEŞME §6 (UI imzaları), §9 (sınıf adları).
    Dosya yüklenirken hiçbir şey çizmez; yalnızca YU.sayfaTanimla çağırır. */
@@ -38,12 +33,6 @@
   /* Kampanya çizgi renkleri YU.analiz.kampanyaRengi() ile verilir:
      en yeni kampanya mavi, bir önceki kırmızı, sonrakiler kategorik palet. */
   var GRAFIK_YUKSEKLIK = 240;
-  var ORNEK_SINIRI = 7;    /* soru kutusunda gösterilen hazır soru sayısı */
-
-  /* Son soru ve cevabı ekranda kalır: gösterge seçimi değişip sayfa yeniden
-     çizilince cevap kaybolmamalı. */
-  var sonSoru = { metin: '', cevap: null };
-
   /* ------------------------------------------------------------------
      Küçük yardımcılar
      ------------------------------------------------------------------ */
@@ -229,320 +218,7 @@
   }
 
   /* ==================================================================
-     1. Soru kutusu
-     ================================================================== */
-
-  function soruPaneli(depo) {
-    var alan = YU.ui.alan({
-      tip: 'metin',
-      yerTutucu: 'Örnek: geçen seneye göre nasıl ilerliyoruz?'
-    });
-    alan.kok.style.flex = '1';
-    alan.kok.style.minWidth = '0';
-    if (sonSoru.metin) alan.ayarla(sonSoru.metin);
-
-    function sor(metin) {
-      var soru = metin === undefined ? alan.deger() : metin;
-      if (!soru || !String(soru).trim()) { alan.odakla(); return; }
-      sonSoru.metin = soru;
-      sonSoru.cevap = YU.soru.cevapla(depo, soru);
-      YU.yenile();
-    }
-
-    alan.girdi.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') { e.preventDefault(); sor(); }
-    });
-
-    var dugme = YU.ui.dugme({ metin: 'Sor', ikon: '#ic-search', tur: 'birincil', onClick: function () { sor(); } });
-    var temizle = YU.ui.dugme({
-      metin: 'Temizle', tur: 'sade', kucuk: true,
-      onClick: function () { sonSoru.metin = ''; sonSoru.cevap = null; YU.yenile(); }
-    });
-
-    var satir = YU.h('div', { stil: { display: 'flex', gap: '8px', alignItems: 'flex-end' } },
-      alan.kok, dugme, sonSoru.cevap ? temizle : null);
-
-    /* Hazır sorular: tıklanınca doğrudan sorulur. Yalnız ilk birkaçı durur —
-       on dörtnün tamamı iki satır kaplayıp paneli şişiriyordu; kalanlar
-       "Daha fazla" ile yardım cevabında listelenir. */
-    var ornekler = YU.soru.ornekler().slice(0, ORNEK_SINIRI);
-    var cipler = YU.h('div', {
-      stil: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '12px' }
-    });
-
-    function ornekCipi(metin, vurgulu) {
-      return YU.h('button', {
-        tip: 'button', metin: metin,
-        stil: {
-          font: '400 12px/1 var(--font)',
-          color: vurgulu ? 'var(--vurgu)' : 'var(--metin-3)',
-          background: vurgulu ? 'var(--vurgu-zemin)' : 'var(--yuzey-3)',
-          border: '1px solid ' + (vurgulu ? 'transparent' : 'var(--kenar)'),
-          borderRadius: '999px', padding: '6px 11px', cursor: 'pointer'
-        },
-        onClick: function () {
-          alan.ayarla(metin);
-          sor(metin);
-        }
-      });
-    }
-
-    for (var i = 0; i < ornekler.length; i++) cipler.appendChild(ornekCipi(ornekler[i], false));
-    cipler.appendChild(ornekCipi('Daha fazla örnek', true));
-
-    return YU.ui.panel({
-      baslik: 'Soru Sor',
-      ikon: '#ic-search',
-      sag: 'Türkçe harf kullanmak zorunlu değil',
-      govde: [satir, cipler]
-    });
-  }
-
-  /* ==================================================================
-     2. Cevap kartı
-     ================================================================== */
-
-  /* "Anladığım" şeridi — motorun ne anladığı MUTLAKA görünür. Yanlış okuma
-     sessiz kalmasın; kullanıcı rozetlere bakıp sorusunu düzeltebilsin. */
-  function anlamSeridi(cevap) {
-    if (!cevap.anlam || !cevap.anlam.length) return null;
-    var kap = YU.h('div', {
-      stil: { display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }
-    }, YU.h('span', {
-      metin: 'Anladığım:',
-      stil: { font: '400 12px/1 var(--font)', color: 'var(--metin-4)', marginRight: '2px' }
-    }));
-    for (var i = 0; i < cevap.anlam.length; i++) {
-      kap.appendChild(YU.ui.rozet(cevap.anlam[i], i === 0 ? 'vurgu' : 'notr'));
-    }
-    return kap;
-  }
-
-  /* Yazılan kelime ile anlaşılan terim farklıysa gösterilir: yazım hatası
-     düzeltmesi de, yanlış eşleşme de burada görünür. */
-  function duzeltmeSeridi(cevap) {
-    if (!cevap.eslesmeler) return null;
-    var farklar = [], i;
-    for (i = 0; i < cevap.eslesmeler.length; i++) {
-      var e = cevap.eslesmeler[i];
-      if (e.birebir) continue;
-      farklar.push(e.yazilan + ' → ' + e.anlasilan);
-    }
-    if (!farklar.length) return null;
-    return YU.h('div', {
-      sinif: 'yu-yardim',
-      metin: 'Okuduğum: ' + farklar.join(' · '),
-      stil: { marginTop: '2px' }
-    });
-  }
-
-  function cevapSatirlari(cevap) {
-    if (!cevap.satirlar || !cevap.satirlar.length) return null;
-    var satirlar = [], i;
-    for (i = 0; i < cevap.satirlar.length; i++) {
-      var s = cevap.satirlar[i];
-      var deger = s.deger;
-      satirlar.push([
-        s.etiket,
-        s.tur ? YU.h('span', { metin: String(deger), stil: { color: RENK_METIN[s.tur] || 'var(--metin)' } }) : String(deger)
-      ]);
-    }
-    return YU.ui.tablo({
-      sutunlar: [{ baslik: '', genislik: 240 }, { baslik: '', hiza: 'sol' }],
-      satirlar: satirlar
-    });
-  }
-
-  function guvenRozeti(cevap) {
-    if (typeof cevap.guven !== 'number') return null;
-    var y = Math.round(cevap.guven * 100);
-    var tur = cevap.guven >= 0.75 ? 'olumlu' : (cevap.guven >= 0.45 ? 'bekleyen' : 'olumsuz');
-    return YU.ui.rozet('Güven %' + y, tur);
-  }
-
-  function oneriCipleri(oneriler, depo) {
-    if (!oneriler || !oneriler.length) return null;
-    var kap = YU.h('div', { stil: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px' } });
-    for (var i = 0; i < oneriler.length; i++) {
-      (function (metin) {
-        kap.appendChild(YU.h('button', {
-          tip: 'button', metin: metin,
-          stil: {
-            font: '400 12px/1 var(--font)', color: 'var(--vurgu)',
-            background: 'var(--vurgu-zemin)', border: '1px solid transparent',
-            borderRadius: '999px', padding: '6px 11px', cursor: 'pointer'
-          },
-          onClick: function () {
-            sonSoru.metin = metin;
-            sonSoru.cevap = YU.soru.cevapla(depo, metin);
-            YU.yenile();
-          }
-        }));
-      })(oneriler[i]);
-    }
-    return kap;
-  }
-
-  function cevapKarti(depo, cevap, d) {
-    var govde = [];
-    var anlam = anlamSeridi(cevap);
-    if (anlam) govde.push(anlam);
-
-    govde.push(YU.h('div', {
-      metin: cevap.baslik,
-      stil: {
-        font: (cevap.basarili ? '500' : '400') + ' 15.5px/1.55 var(--font)',
-        color: cevap.basarili ? 'var(--metin)' : 'var(--metin-3)',
-        marginTop: anlam ? '4px' : '0'
-      }
-    }));
-
-    var duzeltme = duzeltmeSeridi(cevap);
-    if (duzeltme) govde.push(duzeltme);
-
-    var tablo = cevapSatirlari(cevap);
-    if (tablo) {
-      tablo.style.marginTop = '4px';
-      tablo.style.border = '1px solid var(--kenar)';
-      tablo.style.borderRadius = 'var(--r)';
-      govde.push(tablo);
-    }
-
-    var g1 = grafikCiz(cevap.grafik);
-    if (g1) govde.push(grafikKutusu(cevap.grafik.baslik, g1));
-    var g2 = grafikCiz(cevap.ikinciGrafik);
-    if (g2) govde.push(grafikKutusu(cevap.ikinciGrafik.baslik, g2));
-
-    var oneri = oneriCipleri(cevap.oneriler, depo);
-    if (oneri) govde.push(oneri);
-
-    /* Cevabın kaynağı ekranda açılabilsin: aynı gösterge, aynı dönem. */
-    if (cevap.bag && cevap.basarili) {
-      govde.push(YU.h('div', { stil: { display: 'flex', gap: '8px', marginTop: '4px' } },
-        YU.ui.dugme({
-          metin: cevap.bag.kod === SAYFA ? 'Bu Sayfada Aç' : 'İlgili Ekranı Aç',
-          ikon: '#ic-chart', tur: 'ikincil', kucuk: true,
-          onClick: function () { YU.git(cevap.bag.kod, cevap.bag.param); }
-        })
-      ));
-    }
-
-    return YU.ui.panel({
-      baslik: 'Cevap',
-      ikon: '#ic-doc',
-      sag: cevap.basarili ? guvenRozeti(cevap) : YU.ui.rozet('Anlaşılmadı', 'olumsuz'),
-      govde: govde
-    });
-  }
-
-  function grafikKutusu(baslik, icerik) {
-    return YU.h('div', {
-      stil: {
-        border: '1px solid var(--kenar)', borderRadius: 'var(--r-l)',
-        padding: '14px 16px', marginTop: '4px'
-      }
-    },
-      YU.h('div', {
-        metin: baslik || '',
-        stil: { font: '500 13px/1.2 var(--font)', color: 'var(--metin-3)', marginBottom: '12px' }
-      }),
-      icerik
-    );
-  }
-
-  /* ==================================================================
-     3. Grafik tanımından çizim
-     Cevap motoru yalnızca TANIM üretir (hangi seri, hangi renk, hangi
-     nokta); çizim burada, ekranın grafik diliyle yapılır.
-     ================================================================== */
-
-  function grafikCiz(spec) {
-    if (!spec) return null;
-    if (spec.tur === 'karsilastirma') {
-      return YU.ui.karsilastirmaGrafik({
-        noktalar: spec.noktalar,
-        seri1: spec.seri1,
-        seri2: spec.seri2,
-        yukseklik: GRAFIK_YUKSEKLIK,
-        bicim: function (v) { return miktar(v, spec.birim); },
-        eksenBicim: eksenMetni(spec.birim)
-      });
-    }
-    if (spec.tur === 'sira') return siraCubuklari(spec);
-    if (spec.tur === 'deger') return degerCubuklari(spec);
-    return null;
-  }
-
-  /* Yüzde çubukları — tasarım referansındaki "Gider Kategorileri" dili. */
-  function siraCubuklari(spec) {
-    var kap = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '11px' } });
-    if (!spec.ogeler || !spec.ogeler.length) {
-      return YU.h('div', { sinif: 'yu-bos-metin', metin: 'Karşılaştırılabilir kalem yok.' });
-    }
-    for (var i = 0; i < spec.ogeler.length; i++) {
-      var o = spec.ogeler[i];
-      var oran = spec.enBuyuk > 0 ? Math.min(1, Math.abs(o.yuzde) / spec.enBuyuk) : 0;
-      kap.appendChild(YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '12px' } },
-        YU.h('div', {
-          metin: o.ad,
-          stil: {
-            flex: '0 0 200px', minWidth: '0', font: '400 12.5px/1.3 var(--font)',
-            color: 'var(--metin-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-          }
-        }),
-        YU.h('div', { stil: { flex: '1', minWidth: '60px' } }, YU.ui.cubuk(oran, o.tur)),
-        YU.h('div', {
-          metin: yuzdeMetni(o.yuzde),
-          stil: {
-            flex: '0 0 76px', textAlign: 'right', font: '500 12.5px/1 var(--sayi)',
-            color: RENK_METIN[o.tur] || 'var(--metin)', fontVariantNumeric: 'tabular-nums'
-          }
-        }),
-        YU.h('div', {
-          metin: (o.deger > 0 ? '+' : (o.deger < 0 ? '-' : '')) +
-            (o.birim === 'adet' ? YU.fmt.sayi(Math.abs(o.deger)) + ' adet' : YU.fmt.kgU(Math.abs(o.deger))),
-          stil: {
-            flex: '0 0 130px', textAlign: 'right', font: '400 12px/1 var(--sayi)',
-            color: 'var(--metin-4)', fontVariantNumeric: 'tabular-nums'
-          }
-        })
-      ));
-    }
-    return kap;
-  }
-
-  /* Mutlak değer çubukları — stok ve silo dökümü. */
-  function degerCubuklari(spec) {
-    var kap = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '11px' } });
-    if (!spec.ogeler || !spec.ogeler.length) {
-      return YU.h('div', { sinif: 'yu-bos-metin', metin: 'Gösterilecek kayıt yok.' });
-    }
-    for (var i = 0; i < spec.ogeler.length; i++) {
-      var o = spec.ogeler[i];
-      kap.appendChild(YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '12px' } },
-        YU.h('div', {
-          metin: o.ad,
-          stil: {
-            flex: '0 0 200px', minWidth: '0', font: '400 12.5px/1.3 var(--font)',
-            color: 'var(--metin-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-          }
-        }),
-        YU.h('div', { stil: { flex: '1', minWidth: '60px' } }, YU.ui.cubuk(o.oran || 0, o.tur)),
-        YU.h('div', {
-          metin: (o.birim === 'adet' ? YU.fmt.sayi(o.deger) + ' adet' : YU.fmt.kgU(o.deger)) +
-            (o.ek ? ' · ' + o.ek : ''),
-          stil: {
-            flex: '0 0 200px', textAlign: 'right', font: '500 12.5px/1 var(--sayi)',
-            color: RENK_METIN[o.tur] || 'var(--metin)', fontVariantNumeric: 'tabular-nums'
-          }
-        })
-      ));
-    }
-    return kap;
-  }
-
-  /* ==================================================================
-     4. Araç şeridi — ekranın filtre satırı
+     1. Araç şeridi — ekranın filtre satırı
 
      Önceki sürümde üç bant üst üste duruyordu: dört tam genişlik seçim
      kutusu, altında tarih satırı, altında açıklama. Ekran veriye
@@ -679,7 +355,7 @@
   }
 
   /* ==================================================================
-     5. Grafik paneli
+     2. Grafik paneli
      ================================================================== */
 
   function grafikPaneli(d) {
@@ -730,30 +406,16 @@
       }
     });
 
-    var cumleler = ['Yatay eksen kampanya günüdür; devir günü 1. gün sayılır. ' +
-      'Kampanyalar aynı gün sırasında karşılaştırılır: ' + gunMetni(N) + ' ↔ ' + gunMetni(N) + '.'];
-    var tarihler = [], sirali = gosterimSirasi(d);
-    for (i = 0; i < sirali.length; i++) {
-      tarihler.push(sirali[i].donem.ad + ' → ' +
-        YU.fmt.tarih(YU.analiz.gunTarihi(sirali[i], Math.min(N, sirali[i].sonGun))));
-    }
-    if (tarihler.length) cumleler.push(gunMetni(N) + ' hangi tarihe denk geliyor: ' + tarihler.join(', ') + '.');
-    if (d.kisitliMi) {
-      cumleler.push('Geçen sezonun kaydı ' + gunMetni(d.gecmis.sonGun) +
-        ' bittiği için o çizgi orada kesilir.');
-    }
-    cumleler.push('Üstteki listeden kampanya işaretini kaldırıp geri açabilirsiniz.');
-
     return YU.ui.panel({
       baslik: (birikimli ? 'Birikimli Karşılaştırma · ' : 'Günlük Karşılaştırma · ') + g.ad,
       ikon: '#ic-chart',
       sag: aralikMetni(d),
-      govde: [grafik, YU.h('div', { sinif: 'yu-yardim', metin: cumleler.join(' ') })]
+      govde: grafik
     });
   }
 
   /* ==================================================================
-     6. Karşılaştırma tablosu
+     3. Karşılaştırma tablosu
      ================================================================== */
 
   function tabloPaneli(d) {
@@ -882,7 +544,7 @@
   }
 
   /* ==================================================================
-     7. Sayfa
+     4. Sayfa
      ================================================================== */
 
   function ciz(kap, param) {
@@ -903,9 +565,6 @@
       kap.appendChild(YU.ui.bosDurum({ ikon: '#ic-chart', baslik: 'Gösterge Yok', metin: 'Karşılaştırılacak malzeme tanımı bulunamadı.' }));
       return;
     }
-
-    kap.appendChild(soruPaneli(depo));
-    if (sonSoru.cevap) kap.appendChild(cevapKarti(depo, sonSoru.cevap, d));
 
     kap.appendChild(ayarPaneli(d));
 

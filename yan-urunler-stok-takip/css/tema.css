@@ -762,12 +762,12 @@ html[data-tema="acik"] input[type="date"]::-webkit-calendar-picker-indicator { f
 .yu-efsane-oge {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 5px 10px;
+  gap: 8px;
+  padding: 7px 13px;   /* 5px 10px -> 7px 13px: büyütme (kullanıcı isteği, 24.08.2026) */
   border: 1px solid transparent;
   border-radius: 999px;
   background: transparent;
-  font: 400 13.5px/1 var(--font);
+  font: 400 15px/1 var(--font);   /* 13.5 -> 15 (kullanıcı isteği, 24.08.2026) */
   color: var(--metin-4);
   white-space: nowrap;
   transition: background-color .12s, border-color .12s, color .12s;
@@ -781,8 +781,8 @@ button.yu-efsane-oge:hover { background: var(--yuzey-3); border-color: var(--ken
    tik konur. Tik ayrı bir ikon değil, iki kenarlıktan çizilir — tasarım
    referansındaki 20 ikonun dışına çıkılmaz (CLAUDE.md KURAL 1). */
 .yu-efsane-kutu {
-  width: 15px;
-  height: 15px;
+  width: 17px;   /* 15 -> 17: öge yazısıyla birlikte büyüdü (24.08.2026) */
+  height: 17px;
   border-radius: 4px;
   border: 1.5px solid currentColor;
   flex: none;
@@ -793,8 +793,8 @@ button.yu-efsane-oge:hover { background: var(--yuzey-3); border-color: var(--ken
 }
 .yu-efsane-kutu::after {
   content: '';
-  width: 3px;
-  height: 7px;
+  width: 4px;
+  height: 8px;
   margin-top: -2px;
   border: solid var(--vurgu-uzeri);
   border-width: 0 1.8px 1.8px 0;
