@@ -13,14 +13,6 @@
   var GRAFIK_GUN = 14;          /* hareket listesinin varsayılan penceresi: son 14 kayıtlı gün (kullanıcı isteği, 21.08.2026) */
   var SAYFA_GUN = 14;           /* sayfalama gün bazlıdır: her sayfa 14 kayıtlı günün hareketlerini gösterir */
 
-  /* Şartname §6 hareket tipleri — ekran metni ve anlam rengi tek yerde. */
-  var TIP = {
-    DokmeUretim: { metin: 'Dökme Üretim', tur: 'olumlu' },
-    Cuvallama: { metin: 'Çuvallama', tur: 'notr' },
-    DokmeSatis: { metin: 'Dökme Satış', tur: 'vurgu' },
-    Manuel: { metin: 'Manuel', tur: 'bekleyen' }
-  };
-  var TIP_SIRA = ['DokmeUretim', 'Cuvallama', 'DokmeSatis', 'Manuel'];
 
   /* ------------------------------------------------------------------
      Küçük yardımcılar
@@ -203,22 +195,35 @@
       var dv = (devirler[anahtar] || []).slice().sort(function (a, b) {
         return a.DevirTarihi < b.DevirTarihi ? -1 : (a.DevirTarihi > b.DevirTarihi ? 1 : 0);
       });
+      /* Devir de LİSTEDE bir satırdır (kullanıcı isteği, 24.08.2026): bakiye
+         kolonunun başlangıcı görünür olur. Şartname §5 gereği devir bakiyeyi
+         sıfırlayıp yerine geçer; satırı da bunu söyler. */
+      function devirSatiri(devir) {
+        sonuc.push({
+          devir: devir, tarih: devir.DevirTarihi, siloId: Number(anahtar),
+          sira: -1, bakiye: YU.yuvarla(Number(devir.Miktar) || 0)
+        });
+      }
       var bakiye = 0, k = 0;
       for (i = 0; i < liste.length; i++) {
         while (k < dv.length && dv[k].DevirTarihi <= liste[i].Tarih) {
           bakiye = YU.yuvarla(Number(dv[k].Miktar) || 0);
+          devirSatiri(dv[k]);
           k++;
         }
         bakiye = YU.yuvarla(bakiye + (Number(liste[i].GirenKg) || 0) - (Number(liste[i].CikanKg) || 0));
-        sonuc.push({ hareket: liste[i], bakiye: bakiye });
+        sonuc.push({ hareket: liste[i], tarih: liste[i].Tarih, siloId: liste[i].SiloId, sira: liste[i].Id || 0, bakiye: bakiye });
       }
+      while (k < dv.length) { devirSatiri(dv[k]); k++; }   /* son hareketten sonraki devirler */
     }
 
-    /* Ekranda yeni hareket üstte; bakiye kolonu o hareketten SONRAKİ bakiyedir. */
+    /* Ekranda yeni satır üstte; bakiye kolonu o satırdan SONRAKİ bakiyedir.
+       Devir, aynı günün hareketlerinden önce geldiği için (sira: -1) ekranda
+       o günün EN ALTINA düşer. */
     sonuc.sort(function (a, b) {
-      if (a.hareket.Tarih !== b.hareket.Tarih) return a.hareket.Tarih < b.hareket.Tarih ? 1 : -1;
-      if (a.hareket.SiloId !== b.hareket.SiloId) return a.hareket.SiloId - b.hareket.SiloId;
-      return (b.hareket.Id || 0) - (a.hareket.Id || 0);
+      if (a.tarih !== b.tarih) return a.tarih < b.tarih ? 1 : -1;
+      if (a.siloId !== b.siloId) return a.siloId - b.siloId;
+      return b.sira - a.sira;
     });
     return sonuc;
   }
@@ -228,10 +233,6 @@
     return 'Silo #' + id;
   }
 
-  function tipRozeti(tip) {
-    var t = TIP[tip];
-    return t ? YU.ui.rozet(t.metin, t.tur) : YU.ui.rozet(String(tip || '—'), 'notr');
-  }
 
   function hareketPaneli(depo, silolar, tarih) {
     var tumu = hareketleriHazirla(depo);
@@ -246,24 +247,19 @@
     var i;
     for (i = 0; i < silolar.length; i++) siloSecenek.push({ deger: String(silolar[i].Id), metin: silolar[i].Ad });
 
-    var tipSecenek = [{ deger: '', metin: 'Tüm hareket tipleri' }];
-    for (i = 0; i < TIP_SIRA.length; i++) tipSecenek.push({ deger: TIP_SIRA[i], metin: TIP[TIP_SIRA[i]].metin });
-
-    var siloAlani, tipAlani, basAlani, bitAlani;
+    var siloAlani, basAlani, bitAlani;
 
     function suzulmus() {
       var siloId = siloAlani.deger();
-      var tip = tipAlani.deger();
       var bas = basAlani.deger();
       var bit = bitAlani.deger();
       var liste = [], j, h;
       for (j = 0; j < tumu.length; j++) {
-        h = tumu[j].hareket;
-        if (siloId && String(h.SiloId) !== siloId) continue;
-        if (tip && h.HareketTipi !== tip) continue;
-        if (bas && h.Tarih < bas) continue;
-        if (bit && h.Tarih > bit) continue;
-        liste.push(tumu[j]);
+        h = tumu[j];
+        if (siloId && String(h.siloId) !== siloId) continue;
+        if (bas && h.tarih < bas) continue;
+        if (bit && h.tarih > bit) continue;
+        liste.push(h);
       }
       return liste;
     }
@@ -281,9 +277,9 @@
          olduğundan gün listesi de aynı sırada toplanır. */
       var gunListesi = [], gorulenGun = {}, j;
       for (j = 0; j < liste.length; j++) {
-        if (!gorulenGun[liste[j].hareket.Tarih]) {
-          gorulenGun[liste[j].hareket.Tarih] = 1;
-          gunListesi.push(liste[j].hareket.Tarih);
+        if (!gorulenGun[liste[j].tarih]) {
+          gorulenGun[liste[j].tarih] = 1;
+          gunListesi.push(liste[j].tarih);
         }
       }
       var toplamSayfa = Math.max(1, Math.ceil(gunListesi.length / SAYFA_GUN));
@@ -294,11 +290,27 @@
       for (j = 0; j < dilim.length; j++) sayfaGunleri[dilim[j]] = 1;
       var gosterilen = [];
       for (j = 0; j < liste.length; j++) {
-        if (sayfaGunleri[liste[j].hareket.Tarih]) gosterilen.push(liste[j]);
+        if (sayfaGunleri[liste[j].tarih]) gosterilen.push(liste[j]);
       }
       var satirlar = [], k, h;
 
       for (j = 0; j < gosterilen.length; j++) {
+        /* Devir satırı: giren/çıkan yok, bakiye devir miktarının kendisi.
+           Gün penceresi açılmaz — devir bir günlük giriş değildir. */
+        if (gosterilen[j].devir) {
+          satirlar.push({
+            hucreler: [
+              YU.fmt.tarih(gosterilen[j].devir.DevirTarihi),
+              siloAdi(depo, gosterilen[j].siloId),
+              YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
+              YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
+              YU.fmt.kg(gosterilen[j].bakiye),
+              YU.ui.rozet('Devir', 'vurgu'),
+              ''
+            ]
+          });
+          continue;
+        }
         h = gosterilen[j].hareket;
         k = gosterilen[j].bakiye;
         satirlar.push({
@@ -308,7 +320,6 @@
           hucreler: [
             YU.fmt.tarih(h.Tarih),
             siloAdi(depo, h.SiloId),
-            tipRozeti(h.HareketTipi),
             h.GirenKg > 0 ? YU.fmt.kg(h.GirenKg) : '—',
             h.CikanKg > 0 ? YU.fmt.kg(h.CikanKg) : '—',
             k < 0 ? YU.ui.rozet(YU.fmt.kg(k), 'olumsuz') : YU.fmt.kg(k),
@@ -333,20 +344,19 @@
 
       sayacMetni.textContent = dilim.length && toplamSayfa > 1
         ? YU.fmt.tarih(dilim[dilim.length - 1]) + ' – ' + YU.fmt.tarih(dilim[0]) + ' · ' +
-          YU.fmt.sayi(gosterilen.length) + ' / ' + YU.fmt.sayi(liste.length) + ' hareket'
-        : YU.fmt.sayi(liste.length) + ' hareket';
+          YU.fmt.sayi(gosterilen.length) + ' / ' + YU.fmt.sayi(liste.length) + ' satır'
+        : YU.fmt.sayi(liste.length) + ' satır';
 
       YU.bos(tabloKabi).appendChild(YU.ui.tablo({
         /* Genişlikler toplamı dar ekranda da Kaynak sütununa yer bırakmalı;
            yoksa "Kuru küspe #138" satır satır sarar ve tablo şişer. */
         sutunlar: [
-          { baslik: 'Tarih', genislik: 92 },
-          { baslik: 'Silo', genislik: 88 },
-          { baslik: 'Hareket Tipi', genislik: 128 },
-          { baslik: 'Giren', hiza: 'sag', mono: true, genislik: 104 },
-          { baslik: 'Çıkan', hiza: 'sag', mono: true, genislik: 104 },
-          { baslik: 'Bakiye', hiza: 'sag', mono: true, genislik: 116 },
-          { baslik: 'Kaynak', genislik: 150 },
+          { baslik: 'Tarih', genislik: 100 },
+          { baslik: 'Silo', genislik: 96 },
+          { baslik: 'Giren', hiza: 'sag', mono: true, genislik: 118 },
+          { baslik: 'Çıkan', hiza: 'sag', mono: true, genislik: 118 },
+          { baslik: 'Bakiye', hiza: 'sag', mono: true, genislik: 128 },
+          { baslik: 'Kaynak', genislik: 160 },
           { baslik: '', hiza: 'sag', genislik: 96 }
         ],
         satirlar: satirlar,
@@ -382,10 +392,6 @@
 
     siloAlani = YU.ui.alan({
       etiket: 'Silo', tip: 'secim', secenekler: siloSecenek,
-      deger: '', onChange: suzgecDegisti
-    });
-    tipAlani = YU.ui.alan({
-      etiket: 'Hareket Tipi', tip: 'secim', secenekler: tipSecenek,
       deger: '', onChange: suzgecDegisti
     });
     basAlani = YU.ui.alan({
@@ -441,7 +447,6 @@
       stil: { display: 'flex', alignItems: 'flex-start', gap: '10px', flexWrap: 'wrap' }
     },
       (siloAlani.kok.style.flex = '1 1 190px', siloAlani.kok.style.minWidth = '0', siloAlani.kok),
-      (tipAlani.kok.style.flex = '1 1 190px', tipAlani.kok.style.minWidth = '0', tipAlani.kok),
       YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '8px', flex: 'none' } },
         YU.h('div', { stil: { display: 'flex', gap: '10px' } },
           (basAlani.kok.style.width = '158px', basAlani.kok),
@@ -455,7 +460,6 @@
       metin: 'Süzgeci Temizle', ikon: '#ic-filter', tur: 'sade', kucuk: true,
       onClick: function () {
         siloAlani.ayarla('');
-        tipAlani.ayarla('');
         basAlani.ayarla('');
         bitAlani.ayarla('');
         gunDugmeleriTazele();
@@ -497,11 +501,27 @@
         if (gecerliTarih(yeni)) YU.git('silo-durumu', { tarih: yeni, silo: param && param.silo ? param.silo : null });
       }
     });
+    /* Gün gezinme üçlüsü diğer ekranlarla aynı (kullanıcı isteği, 24.08.2026):
+       Önceki Gün · Bugün · Sonraki Gün; Sonraki bugünde pasiftir. */
+    function guneGit(iso) {
+      YU.git('silo-durumu', { tarih: iso, silo: param && param.silo ? param.silo : null });
+    }
+    var bugun = YU.tarih.bugun();
     YU.ui.sayfaEylemleri(
       tarihAlani.kok,
       YU.ui.dugme({
+        metin: 'Önceki Gün', tur: 'ikincil',
+        onClick: function () { guneGit(YU.tarih.ekle(tarih, -1)); }
+      }),
+      YU.ui.dugme({
         metin: 'Bugün', ikon: '#ic-calendar', tur: 'ikincil',
-        onClick: function () { YU.git('silo-durumu', { tarih: YU.tarih.bugun() }); }
+        onClick: function () { guneGit(bugun); }
+      }),
+      YU.ui.dugme({
+        metin: 'Sonraki Gün', tur: 'ikincil',
+        pasif: tarih >= bugun,
+        baslik: tarih >= bugun ? 'Bugünden ileri gidilemez' : '',
+        onClick: function () { guneGit(YU.tarih.ekle(tarih, 1)); }
       })
     );
 
