@@ -2799,103 +2799,33 @@
     var adim = basamak * us;
     var tavan = adim * 4;
 
-    function xKoord(i2) { return n === 1 ? W / 2 : (i2 / (n - 1)) * W; }
+    /* --- X penceresi: fareyle yakınlaştırma ve kaydırma (kullanıcı isteği,
+       24.08.2026). Yerleşik grafik kitaplıklarının fare dili örnek alındı
+       (chartjs-plugin-zoom, svg-pan-zoom, Highcharts):
+       - tekerlek, imlecin ALTINDAKİ günü sabit tutarak X ekseninde yakınlaştırır
+       - basılı sürükleme pencereyi kaydırır (grab/grabbing imleci)
+       - çift tıklama tüm aralığa döndürür; düğme yoktur.
+       viewBox gerilmez (preserveAspectRatio="none" yazıyı yamultur); pencere
+       değişince X yeniden çizilir. Y ekseni ve tavan TÜM veriden hesaplı
+       kalır ki gezinirken ölçek zıplamasın. */
+    var wBas = 0;
+    var TAM_SPAN = n > 1 ? (n - 1) : 1;
+    var wSpan = TAM_SPAN;
+    var MIN_SPAN = Math.min(TAM_SPAN, 2);   /* en az ~3 gün görünür */
+    var yakinlasir = n > 2;
+    var surukluyor = false;
+
+    function xKoord(i2) { return n === 1 ? W / 2 : ((i2 - wBas) / wSpan) * W; }
     function yKoord(v) { return H - altBosluk - (v / tavan) * (H - ustBosluk - altBosluk); }
 
-    var svg = svgOge('svg', {
-      width: '100%', height: H, viewBox: '0 0 ' + W + ' ' + H,
-      preserveAspectRatio: 'none', role: 'group'
-    });
-    svg.style.display = 'block';
-
-    var bantKat = svgOge('g', {});
-    svg.appendChild(bantKat);
-
-    /* Kılavuz çizgileri: 1/4 aralıklarla dört çizgi + taban. */
-    for (i = 0; i <= 4; i++) {
-      var gy = yKoord(adim * i);
-      svg.appendChild(svgOge('line', {
-        x1: 0, y1: gy, x2: W, y2: gy, stroke: 'var(--ayrac)', 'stroke-width': 1,
-        'vector-effect': 'non-scaling-stroke', 'pointer-events': 'none'
-      }));
-    }
-
-    /* Bir seriyi parça parça çizer: null görülünce parça biter, yeni parça
-       açılır. Tek noktalık parça çizgi olmaz; nokta işaretiyle görünür kalır. */
-    function seriCiz(seri) {
-      var parca = [], p;
-      function bitir() {
-        if (parca.length >= 2) {
-          svg.appendChild(svgOge('polyline', {
-            points: parca.join(' '), fill: 'none', stroke: seri.renk, 'stroke-width': 2.2,
-            'stroke-linejoin': 'round', 'stroke-linecap': 'round',
-            'vector-effect': 'non-scaling-stroke', 'pointer-events': 'none'
-          }));
-        }
-        parca = [];
-      }
-      for (p = 0; p < n; p++) {
-        var d = sayi(seri.degerler[p]);
-        if (d === null) { bitir(); continue; }
-        parca.push(xKoord(p) + ',' + yKoord(Math.max(0, d)));
-      }
-      bitir();
-      if (n > 60) return;
-      for (p = 0; p < n; p++) {
-        var d2 = sayi(seri.degerler[p]);
-        if (d2 === null) continue;
-        var px = xKoord(p), py = yKoord(Math.max(0, d2));
-        svg.appendChild(svgOge('path', {
-          d: 'M' + px + ' ' + py + ' l0.01 0', stroke: seri.renk, 'stroke-width': 5.5,
-          'stroke-linecap': 'round', 'vector-effect': 'non-scaling-stroke', 'pointer-events': 'none'
-        }));
-      }
-    }
-    /* Sondan başa çizilir: ilk seri (bu kampanya) en üstte kalsın. */
-    for (i = cizilen.length - 1; i >= 0; i--) seriCiz(cizilen[i]);
-
-    /* Gün şeritleri: fare/klavye ile o günün bütün serileri görünür. */
-    var yakalaKat = svgOge('g', {});
-    svg.appendChild(yakalaKat);
-    for (i = 0; i < n; i++) {
-      var o = noktalar[i] || {};
-      var xi = xKoord(i);
-      var sol = i === 0 ? 0 : (xKoord(i - 1) + xi) / 2;
-      var sag = i === n - 1 ? W : (xKoord(i + 1) + xi) / 2;
-      var gen = Math.max(0.5, sag - sol);
-
-      var bant = svgOge('rect', { x: sol, y: 0, width: gen, height: H, fill: 'var(--yuzey-3)', opacity: '0' });
-      bantKat.appendChild(bant);
-      var yakala = svgOge('rect', { x: sol, y: 0, width: gen, height: H, fill: 'transparent', tabindex: '0', role: 'img' });
-      yakalaKat.appendChild(yakala);
-
-      var baslik = o.baslik || ipucuBasligi(o);
-      var satirlar = [], ariaParcalari = [];
-      for (j = 0; j < cizilen.length; j++) {
-        var sj = cizilen[j];
-        var dj = sayi(sj.degerler[i]);
-        var altj = sj.altlar && sj.altlar[i] ? ' · ' + sj.altlar[i] : '';
-        var metinj = dj === null ? 'kayıt yok' : bicim(dj);
-        satirlar.push({ renk: sj.renk, ad: sj.ad + altj, deger: metinj });
-        ariaParcalari.push(sj.ad + ' ' + metinj);
-      }
-      /* Fark yalnız TAM İKİ seri seçiliyken anlamlıdır. */
-      var ek = null;
-      if (cizilen.length === 2) {
-        var a1 = sayi(cizilen[0].degerler[i]), a2 = sayi(cizilen[1].degerler[i]);
-        if (a1 !== null && a2 !== null) {
-          var fark = YU.yuvarla(a1 - a2);
-          ek = {
-            metin: 'Fark ' + (fark > 0 ? '+' : (fark < 0 ? '-' : '')) + bicim(Math.abs(fark)),
-            renk: fark > 0 ? 'var(--olumlu)' : (fark < 0 ? 'var(--olumsuz)' : 'var(--metin-4)')
-          };
-        }
-      }
-      ipucuBagla(yakala, bantVurgu(bant), baslik, satirlar, ek, baslik + ' · ' + ariaParcalari.join(' · '));
+    function kelepce(a) {
+      var enBuyuk = TAM_SPAN - wSpan;
+      return a < 0 ? 0 : (a > enBuyuk ? enBuyuk : a);
     }
 
     /* Sol eksen: metin SVG dışında (preserveAspectRatio="none" yazıyı yamultur).
-       Görünmez ölçü etiketi sütunun genişliğini en uzun değere göre açar. */
+       Görünmez ölçü etiketi sütunun genişliğini en uzun değere göre açar.
+       Y sabit olduğu için bir kez kurulur. */
     var eksen = YU.h('div', { stil: { position: 'relative', height: H + 'px', flex: 'none' } });
     var enUzun = '';
     for (i = 0; i <= 4; i++) { var m = eksenBicim(adim * i, tavan); if (m.length > enUzun.length) enUzun = m; }
@@ -2911,27 +2841,202 @@
       }));
     }
 
-    /* Alt eksen: her etiket kendi gününün hizasında; ilk ve son etiket kenardan taşmaz. */
-    var altEksen = YU.h('div', { stil: { position: 'relative', height: '14px', marginTop: '8px' } });
-    var araliklar = [1, 2, 5, 10, 20, 25, 50, 100];
-    var xAdim = araliklar[araliklar.length - 1];
-    for (i = 0; i < araliklar.length; i++) if (Math.ceil(n / araliklar[i]) <= 10) { xAdim = araliklar[i]; break; }
-    function altEtiket(i2) {
-      var kaydir = i2 === 0 ? '0' : (i2 === n - 1 ? '-100%' : '-50%');
-      altEksen.appendChild(YU.h('span', {
-        metin: String(noktalar[i2].etiket === undefined ? (i2 + 1) : noktalar[i2].etiket),
-        stil: {
-          position: 'absolute', left: (n === 1 ? 50 : (i2 / (n - 1)) * 100) + '%', transform: 'translateX(' + kaydir + ')',
-          font: '400 13px/1 var(--font)', color: 'var(--metin-5)', whiteSpace: 'nowrap'
-        }
-      }));
-    }
-    var sonEtiket = 0;
-    for (i = 0; i < n; i += xAdim) { altEtiket(i); sonEtiket = i; }
-    /* Son gün de yazılır; bir öncekine yapışacak kadar yakınsa atlanır. */
-    if (n > 1 && sonEtiket !== n - 1 && (n - 1 - sonEtiket) * 2 >= xAdim) altEtiket(n - 1);
+    var cizim = YU.h('div', { stil: { flex: '1', minWidth: '0' } });
 
-    var cizim = YU.h('div', { stil: { flex: '1', minWidth: '0' } }, svg, altEksen);
+    /* Sürükleme sırasında art arda çizim rAF ile seyreltilir. */
+    var cizimBekliyor = false;
+    function alanCizSeyrek() {
+      if (cizimBekliyor) return;
+      cizimBekliyor = true;
+      requestAnimationFrame(function () { cizimBekliyor = false; alanCiz(); });
+    }
+
+    function alanCiz() {
+      var svg = svgOge('svg', {
+        width: '100%', height: H, viewBox: '0 0 ' + W + ' ' + H,
+        preserveAspectRatio: 'none', role: 'group'
+      });
+      svg.style.display = 'block';
+      var i3, j3;
+
+      if (yakinlasir) {
+        svg.style.cursor = surukluyor ? 'grabbing' : 'grab';
+        var ipucuEl = svgOge('title', {});
+        ipucuEl.textContent = 'Tekerlek: yakınlaştır · Sürükleyerek kaydır · Çift tık: tüm aralık';
+        svg.appendChild(ipucuEl);
+      }
+
+      var bantKat = svgOge('g', {});
+      svg.appendChild(bantKat);
+
+      /* Kılavuz çizgileri: 1/4 aralıklarla dört çizgi + taban. */
+      for (i3 = 0; i3 <= 4; i3++) {
+        var gy = yKoord(adim * i3);
+        svg.appendChild(svgOge('line', {
+          x1: 0, y1: gy, x2: W, y2: gy, stroke: 'var(--ayrac)', 'stroke-width': 1,
+          'vector-effect': 'non-scaling-stroke', 'pointer-events': 'none'
+        }));
+      }
+
+      /* Pencerede görünen tam gün aralığı. */
+      var ilkGun = Math.max(0, Math.ceil(wBas - 1e-9));
+      var sonGun = Math.min(n - 1, Math.floor(wBas + wSpan + 1e-9));
+      var gorunenSayisi = Math.max(0, sonGun - ilkGun + 1);
+
+      /* Bir seriyi parça parça çizer: null görülünce parça biter, yeni parça
+         açılır. SVG pencere dışını kendisi kırpar; tüm noktalar gezilir. */
+      function seriCiz(seri) {
+        var parca = [], p;
+        function bitir() {
+          if (parca.length >= 2) {
+            svg.appendChild(svgOge('polyline', {
+              points: parca.join(' '), fill: 'none', stroke: seri.renk, 'stroke-width': 2.2,
+              'stroke-linejoin': 'round', 'stroke-linecap': 'round',
+              'vector-effect': 'non-scaling-stroke', 'pointer-events': 'none'
+            }));
+          }
+          parca = [];
+        }
+        for (p = 0; p < n; p++) {
+          var d = sayi(seri.degerler[p]);
+          if (d === null) { bitir(); continue; }
+          parca.push(xKoord(p) + ',' + yKoord(Math.max(0, d)));
+        }
+        bitir();
+        /* Nokta işaretleri görünen yoğunluğa göre: yakınlaşınca ortaya çıkar. */
+        if (gorunenSayisi > 60) return;
+        for (p = ilkGun; p <= sonGun; p++) {
+          var d2 = sayi(seri.degerler[p]);
+          if (d2 === null) continue;
+          var px = xKoord(p), py = yKoord(Math.max(0, d2));
+          svg.appendChild(svgOge('path', {
+            d: 'M' + px + ' ' + py + ' l0.01 0', stroke: seri.renk, 'stroke-width': 5.5,
+            'stroke-linecap': 'round', 'vector-effect': 'non-scaling-stroke', 'pointer-events': 'none'
+          }));
+        }
+      }
+      /* Sondan başa çizilir: ilk seri (bu kampanya) en üstte kalsın. */
+      for (i3 = cizilen.length - 1; i3 >= 0; i3--) seriCiz(cizilen[i3]);
+
+      /* Gün şeritleri: fare/klavye ile o günün bütün serileri görünür.
+         Sürükleme sırasında kurulmaz — ipucu paneli gezinmeyi bölmesin. */
+      var yakalaKat = svgOge('g', {});
+      svg.appendChild(yakalaKat);
+      if (!surukluyor) for (i3 = ilkGun; i3 <= sonGun; i3++) {
+        var o = noktalar[i3] || {};
+        var xi = xKoord(i3);
+        var sol = i3 === 0 ? Math.max(0, xi - W / (2 * Math.max(1, wSpan))) : (xKoord(i3 - 1) + xi) / 2;
+        var sag = i3 === n - 1 ? Math.min(W, xi + W / (2 * Math.max(1, wSpan))) : (xKoord(i3 + 1) + xi) / 2;
+        if (sol < 0) sol = 0;
+        if (sag > W) sag = W;
+        var gen = Math.max(0.5, sag - sol);
+
+        var bant = svgOge('rect', { x: sol, y: 0, width: gen, height: H, fill: 'var(--yuzey-3)', opacity: '0' });
+        bantKat.appendChild(bant);
+        var yakala = svgOge('rect', { x: sol, y: 0, width: gen, height: H, fill: 'transparent', tabindex: '0', role: 'img' });
+        yakalaKat.appendChild(yakala);
+
+        var baslik = o.baslik || ipucuBasligi(o);
+        var satirlar = [], ariaParcalari = [];
+        for (j3 = 0; j3 < cizilen.length; j3++) {
+          var sj = cizilen[j3];
+          var dj = sayi(sj.degerler[i3]);
+          var altj = sj.altlar && sj.altlar[i3] ? ' · ' + sj.altlar[i3] : '';
+          var metinj = dj === null ? 'kayıt yok' : bicim(dj);
+          satirlar.push({ renk: sj.renk, ad: sj.ad + altj, deger: metinj });
+          ariaParcalari.push(sj.ad + ' ' + metinj);
+        }
+        /* Fark yalnız TAM İKİ seri seçiliyken anlamlıdır. */
+        var ek = null;
+        if (cizilen.length === 2) {
+          var a1 = sayi(cizilen[0].degerler[i3]), a2 = sayi(cizilen[1].degerler[i3]);
+          if (a1 !== null && a2 !== null) {
+            var fark = YU.yuvarla(a1 - a2);
+            ek = {
+              metin: 'Fark ' + (fark > 0 ? '+' : (fark < 0 ? '-' : '')) + bicim(Math.abs(fark)),
+              renk: fark > 0 ? 'var(--olumlu)' : (fark < 0 ? 'var(--olumsuz)' : 'var(--metin-4)')
+            };
+          }
+        }
+        ipucuBagla(yakala, bantVurgu(bant), baslik, satirlar, ek, baslik + ' · ' + ariaParcalari.join(' · '));
+      }
+
+      /* Alt eksen: görünen günlere göre yeniden kurulur; ilk ve son etiket
+         kenardan taşmaz. */
+      var altEksen = YU.h('div', { stil: { position: 'relative', height: '14px', marginTop: '8px' } });
+      var araliklar = [1, 2, 5, 10, 20, 25, 50, 100];
+      var xAdim = araliklar[araliklar.length - 1];
+      for (i3 = 0; i3 < araliklar.length; i3++) if (Math.ceil(gorunenSayisi / araliklar[i3]) <= 10) { xAdim = araliklar[i3]; break; }
+      function altEtiket(i2) {
+        var yuzde = n === 1 ? 50 : ((i2 - wBas) / wSpan) * 100;
+        var kaydir = yuzde <= 3 ? '0' : (yuzde >= 97 ? '-100%' : '-50%');
+        altEksen.appendChild(YU.h('span', {
+          metin: String(noktalar[i2].etiket === undefined ? (i2 + 1) : noktalar[i2].etiket),
+          stil: {
+            position: 'absolute', left: yuzde + '%', transform: 'translateX(' + kaydir + ')',
+            font: '400 13px/1 var(--font)', color: 'var(--metin-5)', whiteSpace: 'nowrap'
+          }
+        }));
+      }
+      var sonEtiket = ilkGun;
+      for (i3 = ilkGun; i3 <= sonGun; i3 += xAdim) { altEtiket(i3); sonEtiket = i3; }
+      /* Son görünen gün de yazılır; öncekine yapışacak kadar yakınsa atlanır. */
+      if (gorunenSayisi > 1 && sonEtiket !== sonGun && (sonGun - sonEtiket) * 2 >= xAdim) altEtiket(sonGun);
+
+      if (yakinlasir) {
+        svg.addEventListener('wheel', function (e) {
+          e.preventDefault();
+          var carpan = e.deltaY < 0 ? 1 / 1.25 : 1.25;
+          var yeniSpan = wSpan * carpan;
+          if (yeniSpan > TAM_SPAN) yeniSpan = TAM_SPAN;
+          if (yeniSpan < MIN_SPAN) yeniSpan = MIN_SPAN;
+          if (yeniSpan === wSpan) return;
+          var r = svg.getBoundingClientRect();
+          var fx = r.width ? (e.clientX - r.left) / r.width : 0.5;
+          if (fx < 0) fx = 0;
+          if (fx > 1) fx = 1;
+          /* İmlecin altındaki gün sabit kalır (haritalardaki gibi). */
+          var sabit = wBas + fx * wSpan;
+          wSpan = yeniSpan;
+          wBas = kelepce(sabit - fx * wSpan);
+          alanCiz();
+        }, { passive: false });
+
+        svg.addEventListener('dblclick', function () {
+          wBas = 0;
+          wSpan = TAM_SPAN;
+          alanCiz();
+        });
+
+        svg.addEventListener('mousedown', function (e) {
+          if (e.button !== 0) return;
+          e.preventDefault();
+          surukluyor = true;
+          var sonX = e.clientX;
+          var rGen = svg.getBoundingClientRect().width || 1;
+          function hareket(ev) {
+            var dx = ev.clientX - sonX;
+            sonX = ev.clientX;
+            wBas = kelepce(wBas - (dx / rGen) * wSpan);
+            alanCizSeyrek();
+          }
+          function birak() {
+            document.removeEventListener('mousemove', hareket);
+            document.removeEventListener('mouseup', birak);
+            surukluyor = false;
+            alanCiz();   /* şeritler ve ipuçları geri gelir */
+          }
+          document.addEventListener('mousemove', hareket);
+          document.addEventListener('mouseup', birak);
+        });
+      }
+
+      YU.bos(cizim);
+      cizim.appendChild(svg);
+      cizim.appendChild(altEksen);
+    }
+
+    alanCiz();
     return sar(YU.h('div', { stil: { display: 'flex', gap: '10px', alignItems: 'flex-start' } }, eksen, cizim));
   };
 
