@@ -106,58 +106,22 @@
   }
 
   /* GÜNÜN ÖZETİ — sayfanın ilk paneli (kullanıcı seçimi, 21.08.2026):
-     günün üç sonuç rakamı iri ve renkli; tarih ve ±1 gün okları burada.
+     günün üç sonuç rakamı iri ve renkli; sağda yalnız iri tarih durur.
      Ayrıntının matematiği aşağıdaki Kuru Küspe Detayı'nda durur. */
   function gununOzeti(hesap, tarih) {
-    function tarihOku(geri) {
-      var hedef = YU.tarih.ekle(tarih, geri ? -1 : 1);
-      var ipucu = (geri ? '−1 Gün · ' : '+1 Gün · ') + YU.fmt.tarih(hedef);
-      var NS = 'http://www.w3.org/2000/svg';
-      var sv = document.createElementNS(NS, 'svg');
-      sv.setAttribute('width', '26'); sv.setAttribute('height', '26');
-      sv.setAttribute('viewBox', '0 0 24 24'); sv.setAttribute('aria-hidden', 'true');
-      var yolEl = document.createElementNS(NS, 'path');
-      yolEl.setAttribute('d', 'M9 6l6 6-6 6');
-      yolEl.setAttribute('fill', 'none');
-      yolEl.setAttribute('stroke', 'currentColor');
-      yolEl.setAttribute('stroke-width', '2.6');
-      yolEl.setAttribute('stroke-linecap', 'round');
-      yolEl.setAttribute('stroke-linejoin', 'round');
-      sv.appendChild(yolEl);
-      if (geri) sv.style.transform = 'rotate(180deg)';
-      var d = YU.h('button', {
-        tip: 'button', sinif: 'yu-satir-eylem',
-        title: ipucu, 'aria-label': ipucu,
-        stil: { color: 'var(--metin-2)', padding: '4px' },
-        onClick: function () { YU.git('gunluk-rapor', { tarih: hedef }); }
-      }, sv);
-      /* Bugünden ileri gidilemez (gelecek gün seçilemez). */
-      if (!geri && hedef > YU.donem.gorunumSonu()) {   /* kampanya bakışı */
-        d.disabled = true;
-        d.title = 'Bugünden sonrası için rapor olmaz';
-        d.setAttribute('aria-label', 'Bugünden sonrası için rapor olmaz');
-        d.style.opacity = '.35';
-        d.style.cursor = 'default';
-      }
-      d.addEventListener('mouseenter', function () { d.style.color = 'var(--vurgu)'; });
-      d.addEventListener('mouseleave', function () { d.style.color = 'var(--metin-2)'; });
-      return d;
-    }
-
-    var tarihBlok = YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '10px', flex: 'none' } },
-      tarihOku(true),
-      YU.h('div', { stil: { textAlign: 'center' } },
-        YU.h('div', {
-          stil: { font: '650 26px/1.1 var(--sayi)', letterSpacing: '-.02em',
-                  fontVariantNumeric: 'tabular-nums', color: 'var(--metin)' },
-          metin: YU.fmt.tarih(tarih)
-        }),
-        YU.h('div', {
-          stil: { font: '500 15px/1.5 var(--font)', color: 'var(--metin-4)' },
-          metin: YU.fmt.gunAdi(tarih)
-        })
-      ),
-      tarihOku(false)
+    /* ±1 gün okları KALDIRILDI (kullanıcı isteği, 24.08.2026): rapor
+       içinden tarih değiştirilmez; gün, Geçmiş Girişler listesinden
+       seçilerek açılır. İri tarih yalnız hangi güne bakıldığını söyler. */
+    var tarihBlok = YU.h('div', { stil: { textAlign: 'center', flex: 'none' } },
+      YU.h('div', {
+        stil: { font: '650 26px/1.1 var(--sayi)', letterSpacing: '-.02em',
+                fontVariantNumeric: 'tabular-nums', color: 'var(--metin)' },
+        metin: YU.fmt.tarih(tarih)
+      }),
+      YU.h('div', {
+        stil: { font: '500 15px/1.5 var(--font)', color: 'var(--metin-4)' },
+        metin: YU.fmt.gunAdi(tarih)
+      })
     );
 
     var fark = hesap.siloNetDegisim;
@@ -796,47 +760,32 @@
      Sayfa
      ------------------------------------------------------------------ */
 
-  function okDugmesi(geri, tarih) {
-    var hedef = YU.tarih.ekle(tarih, geri ? -1 : 1);
-    /* Bugünden ileri gidilemez (gelecek gün seçilemez). */
-    var ileri = !geri && hedef > YU.donem.gorunumSonu();   /* kampanya bakışı */
-    var d = YU.ui.dugme({
-      ikon: '#ic-chevron', tur: 'ikincil', pasif: ileri,
-      baslik: ileri ? 'Bugünden sonrası için rapor olmaz'
-        : (geri ? 'Önceki Gün' : 'Sonraki Gün') + ' · ' + YU.fmt.tarih(hedef),
-      onClick: function () { YU.git('gunluk-rapor', { tarih: hedef }); }
-    });
-    if (geri) {
-      var s = d.querySelector('svg');
-      if (s) s.style.transform = 'rotate(180deg)';   /* ikon seti tek yönlü; ikinci ikon eklenmez */
-    }
-    return d;
-  }
-
   function ciz(kap, param) {
     var depo = YU.db;
     var tarih = tarihSec(param);
     var ozet = YU.stok.gunOzeti(depo, tarih);
 
-    var tarihAlani = YU.ui.alan({
-      tip: 'tarih', deger: tarih, genislik: 158,
-      onChange: function () {
-        var yeni = tarihAlani.deger();
-        if (gecerliTarih(yeni)) YU.git('gunluk-rapor', { tarih: yeni });
-      }
-    });
-
+    /* Tarih değiştirme kontrolleri KALDIRILDI (kullanıcı isteği, 24.08.2026):
+       rapor tek güne bakar; gün, Geçmiş Girişler listesinden seçilerek
+       açılır (satır tıklaması ?tarih= ile buraya getirir). Menüden gelinirse
+       bugünün raporu görünür. */
     YU.ui.sayfaEylemleri(
-      okDugmesi(true, tarih),
-      tarihAlani.kok,
-      okDugmesi(false, tarih),
       YU.ui.dugme({
-        metin: YU.donem.gecmisMi() ? 'Kampanya Sonu' : 'Bugün', ikon: '#ic-calendar', tur: 'ikincil',
-        onClick: function () { YU.git('gunluk-rapor', { tarih: YU.donem.gorunumSonu() }); }
+        metin: 'Geçmiş Girişler', ikon: '#ic-calendar', tur: 'ikincil',
+        onClick: function () { YU.git('gecmis-girisler'); }
+      }),
+      /* "Bu Günü Düzenle" ikiye ayrıldı (kullanıcı isteği, 24.08.2026):
+         düzenleme iki ekranda da olabilir, kullanıcı hangisini açacağını
+         düğmeden seçer — ikisi de bu günün tarihini taşır. */
+      YU.ui.dugme({
+        metin: 'Kuru Küspe Girişi', ikon: '#ic-pencil', tur: 'ikincil',
+        baslik: YU.fmt.tarih(tarih) + ' gününü Kuru Küspe Günlük Giriş\'te düzenle',
+        onClick: function () { YU.git('kuru-kuspe', { tarih: tarih }); }
       }),
       YU.ui.dugme({
-        metin: 'Bu Günü Düzenle', ikon: '#ic-pencil', tur: 'ikincil',
-        onClick: function () { YU.git('kuru-kuspe', { tarih: tarih }); }
+        metin: 'Malzeme Girişi', ikon: '#ic-pencil', tur: 'ikincil',
+        baslik: YU.fmt.tarih(tarih) + ' gününü Malzeme Girişi\'nde düzenle',
+        onClick: function () { YU.git('malzeme-girisi', { tarih: tarih }); }
       }),
       YU.ui.dugme({
         metin: 'Yazdır', ikon: '#ic-download', tur: 'birincil',
@@ -864,11 +813,13 @@
       return;
     }
 
-    if (ozet.kuruKuspe) {
-      /* Günün Özeti kurgusu (kullanıcı seçimi, 21.08.2026): sonuç en üstte. */
-      kap.appendChild(gununOzeti(ozet.hesap, tarih));
-      kap.appendChild(kuruKuspePaneli(ozet.kuruKuspe, ozet.hesap));
-    } else {
+    /* Günün Özeti, Kuru Küspe Detayı ve Silo Günlük Değişimi panelleri
+       kaldırıldı (kullanıcı isteği, 24.08.2026): ekran yalnız hareket
+       dökümlerini gösterir. Ham girdi (UretilenDokme) veri düzeyinde ve
+       Kuru Küspe Günlük Giriş ekranında ayrı durmaya devam eder — §4
+       "raporlamada dikkat" veri kuralı bozulmaz, yalnız bu ekrandaki
+       gösterim kalktı. Fonksiyonlar geri istenirse duruyor. */
+    if (!ozet.kuruKuspe) {
       kap.appendChild(YU.ui.serit({
         tur: 'bilgi',
         baslik: 'Bu Gün İçin Kuru Küspe Girişi Yapılmamış',
@@ -880,24 +831,26 @@
       }));
     }
 
-    /* Günlük değişim özeti üstte, hareket dökümleri altında (24.08.2026). */
+    /* Kayıt Bilgisi EN TEPEDE (kullanıcı isteği, 24.08.2026): güne kimin
+       dokunduğu ilk bakışta görünsün. */
+    kap.appendChild(kayitPaneli(depo, ozet));
+
     var siloOzet = siloGunlukOzet(depo, ozet, tarih);
-    kap.appendChild(siloDegisimPaneli(siloOzet));
     kap.appendChild(malzemePaneli(depo, ozet, tarih, siloOzet));
     kap.appendChild(siloPaneli(depo, ozet, tarih));
     /* Denetim izi: günün verisine dokunan her adım — güvenlik kaydı.
        Şartname §7 Değişiklik Geçmişi'ni YÖNETİCİYE ayırır; gün düzeyindeki
        bu alt küme de aynı kurala tabidir (kullanıcı kararı, 21.08.2026). */
     if (YU.yonetici()) kap.appendChild(gunIslemGecmisi(depo, tarih));
-    /* Künye tek satır hâlinde EN ALTTA — asıl veriyi aşağı itmesin. */
-    kap.appendChild(kayitPaneli(depo, ozet));
   }
 
   YU.sayfaTanimla({
-    kod: 'gunluk-rapor',
-    baslik: 'Günlük Rapor',
+    kod: 'gunluk-rapor',   /* kod değişmez — uygulamadaki tüm bağlantılar buna gider */
+    baslik: 'Program Hareketleri',
     ikon: '#ic-doc',
-    grup: 'Takip',
+    /* Sol menüde görünmez (kullanıcı isteği, 24.08.2026); ekrana rapor
+       merkezi kartı ve diğer ekranlardaki düğme/bağlantılarla gidilir. */
+    grup: null,
     rol: 'Hepsi',
     altBaslik: function (param) {
       var t = tarihSec(param);
