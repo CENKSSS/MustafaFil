@@ -135,14 +135,23 @@
     durumHucresiTazele(satir);
   }
 
+  /* Durum rozetleri bu ekranda ortak boyuttan büyük (kullanıcı isteği,
+     24.08.2026): yalnız burada büyütülür, ortak .yu-rozet'e dokunulmaz. */
+  function durumRozeti(metin, tur) {
+    var r = YU.ui.rozet(metin, tur);
+    r.style.font = '500 12.5px/1 var(--font)';
+    r.style.padding = '6px 12px';
+    return r;
+  }
+
   function durumHucresiTazele(satir) {
     var kap = YU.bos(satir.durumHucre);
-    if (satir.pasif) kap.appendChild(YU.ui.rozet('Pasif', 'bekleyen'));
-    if (!satir.gecerli) kap.appendChild(YU.ui.rozet('Geçersiz', 'olumsuz'));
-    else if (satir.degisti) kap.appendChild(YU.ui.rozet('Değişti', 'bekleyen'));
-    else if (satir.kayit) kap.appendChild(YU.ui.rozet('Kayıtlı', 'olumlu'));
-    else kap.appendChild(YU.ui.rozet('Giriş Yok', 'notr'));
-    if (satir.negatif) kap.appendChild(YU.ui.rozet('Negatif Stok', 'olumsuz'));
+    if (satir.pasif) kap.appendChild(durumRozeti('Pasif', 'bekleyen'));
+    if (!satir.gecerli) kap.appendChild(durumRozeti('Geçersiz', 'olumsuz'));
+    else if (satir.degisti) kap.appendChild(durumRozeti('Değişti', 'bekleyen'));
+    else if (satir.kayit) kap.appendChild(durumRozeti('Kayıtlı', 'olumlu'));
+    else kap.appendChild(durumRozeti('Giriş Yok', 'notr'));
+    if (satir.negatif) kap.appendChild(durumRozeti('Negatif Stok', 'olumsuz'));
   }
 
   function ozetTazele(d) {
@@ -222,6 +231,12 @@
     }
 
     var bugun = YU.tarih.bugun();
+    /* Ulaşılmaz emniyet: tarih bir yolla geleceğe kaymışsa onay penceresi
+       hiç açılmaz — pencere ileri günü "(bugün)" diye etiketliyordu (Bulgu 1). */
+    if (d.tarih > bugun) {
+      YU.ui.bildir('Gelecek tarihe kayıt girilemez: ' + YU.fmt.tarih(d.tarih) + ' bugünden sonra (D17).', 'hata');
+      return;
+    }
     var gecmis = d.tarih < bugun;
     var f = YU.tarih.fark(d.tarih, bugun);
     var gunEtiketi = YU.fmt.tarih(d.tarih) + ' ' + YU.fmt.gunAdi(d.tarih) +
@@ -374,13 +389,20 @@
     });
   }
 
-  function sayfayaGit(d, kod, param) {
-    if (!degisenSatirlar(d).length) { YU.git(kod, param); return; }
-    ayrilmaOnayi(d).then(function (ok) { if (ok) YU.git(kod, param); });
-  }
+  /* sayfayaGit kaldırıldı (24.08.2026): tek çağıranı, kilit açıklamasındaki
+     "ekranı aç" bağlantısıydı; o metin kalkınca fonksiyon ölü kaldı.
+     Tarih değişimi ayrilmaOnayi'yi tarihIste üzerinden kullanmaya devam eder. */
 
   function tarihIste(d, yeni) {
     if (!gecerliTarih(yeni)) { d.tarihAlan.ayarla(d.tarih); return; }
+    /* Gelecek gün seçilemez (kullanıcı direktifi, 24.08.2026): elle yazılan
+       ileri tarih reddedilir. D17 servis katmanında zaten engelliyordu; artık
+       onay penceresine hiç ulaşılmaz (Bulgu 1). */
+    if (yeni > YU.tarih.bugun()) {
+      YU.ui.bildir('Gelecek tarihe kayıt girilemez: ' + YU.fmt.tarih(yeni) + ' bugünden sonra (D17).', 'hata');
+      d.tarihAlan.ayarla(d.tarih);
+      return;
+    }
     if (yeni === d.tarih) return;
     if (!degisenSatirlar(d).length) { YU.git(KOD, { tarih: yeni }); return; }
     ayrilmaOnayi(d).then(function (ok) {
@@ -410,16 +432,13 @@
       }));
       return;
     }
+    /* "X satır kayıtlı · son giriş · kullanıcı" metni kaldırıldı (kullanıcı
+       isteği, 24.08.2026): aynı bilgi Durum kolonu, alt bar ve Değişiklik
+       Geçmişi'nde zaten var. Rozet kaldı — kilitli kolonların kaynağını anlatır. */
     kap.appendChild(YU.ui.rozet(
       g.kuruKuspeVar ? 'Kuru Küspe Girildi' : 'Kuru Küspe Girilmedi',
       g.kuruKuspeVar ? 'vurgu' : 'bekleyen'
     ));
-    kap.appendChild(YU.h('span', {
-      metin: YU.fmt.sayi(g.malzemeSayisi) + ' satır kayıtlı' +
-        (g.sonGuncelleme
-          ? ' · son giriş ' + YU.fmt.tarihSaat(g.sonGuncelleme) + (g.kullanici ? ' · ' + g.kullanici : '')
-          : '')
-    }));
   }
 
   /* Tarih küçük bir kontrol: koca panel bloğu değil, tek satırlık ince şerit —
@@ -487,10 +506,15 @@
 
   function kilitliHucre(deger, otomatik, soluk) {
     var kutu = satirKap('center', 8);
-    kutu.style.justifyContent = 'flex-end';
-    if (otomatik) kutu.appendChild(YU.ui.rozet('Otomatik', 'vurgu'));
+    /* Rozet solda sabit, sayı sağda: rozetler tüm satırlarda aynı kolon
+       sınırına oturur — flex-end'de sayının genişliğine göre kayıyordu
+       (kullanıcı isteği, 24.08.2026). */
+    kutu.style.justifyContent = 'space-between';
+    kutu.style.flexWrap = 'nowrap';
+    if (otomatik) kutu.appendChild(YU.ui.rozet('Kilitli', 'vurgu'));
     kutu.appendChild(YU.h('span', {
       sinif: 'yu-mono' + (soluk ? ' yu-zayif' : ''),
+      stil: { marginLeft: 'auto' },
       metin: YU.fmt.kg(deger)
     }));
     return kutu;
@@ -504,19 +528,10 @@
     var kutu = sutunKap(4);
     kutu.appendChild(ustSatir);
 
+    /* Geriye yalnız pasif malzeme açıklaması kaldı; "ekranı aç" bağlantısı
+       kilit açıklamalarıyla birlikte kalktı (24.08.2026). */
     if (satir.yardim) {
-      var yardim = YU.h('div', { sinif: 'yu-yardim' }, satir.yardim + ' ');
-      if (satir.baglanti) {
-        yardim.appendChild(YU.h('a', {
-          href: '#/kuru-kuspe?tarih=' + encodeURIComponent(d.tarih),
-          metin: 'ekranı aç',
-          onClick: function (e) {
-            e.preventDefault();
-            sayfayaGit(d, 'kuru-kuspe', { tarih: d.tarih });
-          }
-        }));
-      }
-      kutu.appendChild(yardim);
+      kutu.appendChild(YU.h('div', { sinif: 'yu-yardim', metin: satir.yardim }));
     }
     return kutu;
   }
@@ -652,18 +667,14 @@
         sabitTaban: ozel === 'DokmeKuruKuspe',
         kilitliUretim: m.Aktif === false || ozel === 'DokmeKuruKuspe' || ozel === 'CuvalKuruKuspe',
         kilitliSatis: m.Aktif === false || ozel === 'DokmeKuruKuspe',
-        yardim: null,
-        baglanti: false
+        yardim: null
       };
 
-      if (ozel === 'DokmeKuruKuspe') {
-        satir.yardim = 'Üretim ve satış kilitli — Kuru Küspe Günlük Giriş ekranından gelir.';
-        satir.baglanti = true;
-      } else if (ozel === 'CuvalKuruKuspe') {
-        satir.yardim = 'Üretim kilitli — çuvallanan adetten hesaplanır (1 çuval = ' +
-          YU.fmt.sayi(YU.hesap.CUVAL_KG) + ' kg). Satış bu ekrandan girilir.';
-        satir.baglanti = true;
-      } else if (satir.pasif) {
+      /* Kuru küspe satırlarının kilit açıklaması kaldırıldı (kullanıcı
+         isteği, 24.08.2026): kolondaki "Kilitli" rozeti zaten söylüyor,
+         iki satırlık metin tabloyu şişiriyordu. Kilit davranışı aynen
+         duruyor — yalnız açıklama yazısı ve "ekranı aç" bağlantısı gitti. */
+      if (satir.pasif) {
         satir.yardim = 'Pasif malzeme — yeni hareket girilemez (D12).';
       }
 
@@ -674,7 +685,11 @@
 
   function ciz(kap, param) {
     var d = {
-      tarih: gecerliTarih(param && param.tarih) ? param.tarih : YU.tarih.bugun(),
+      /* Adresle gelen ileri tarih bugüne çekilir (gelecek gün seçilemez). */
+      tarih: (function () {
+        var t = gecerliTarih(param && param.tarih) ? param.tarih : YU.tarih.bugun();
+        return t > YU.tarih.bugun() ? YU.tarih.bugun() : t;
+      })(),
       satirlar: [],
       /* display:contents — boşken kabın 20px'lik ızgara boşluğunu tüketmesin,
          doluyken şerit doğrudan sayfa akışına girsin. */
@@ -730,6 +745,7 @@
     baslik: 'Malzeme Girişi',
     altBaslik: function (param) {
       var t = gecerliTarih(param && param.tarih) ? param.tarih : YU.tarih.bugun();
+      if (t > YU.tarih.bugun()) t = YU.tarih.bugun();   /* gelecek gün seçilemez */
       return YU.fmt.tarihUzun(t) + ' · ' + YU.fmt.gunAdi(t) +
         ' · kuru küspe kolonları otomatik doldurulur';
     },
