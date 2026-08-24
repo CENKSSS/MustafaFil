@@ -620,10 +620,27 @@
        günü olduğunu söylemiyordu. */
     var cozum = kayitCoz(s.Tablo, s.KayitId);
     var kunye = kayitEtiketi(s.Tablo, cozum.satir);
+
+    /* Kırmızı ✕ = "artık yok" (kullanıcı isteği, 24.08.2026). İki durumda
+       çıkar: hareket silinmişse ya da o satırın yazdığı değer sonradan
+       aşılmışsa. Güncelle satırında ✕ yoktur — onun yeni değeri geçerlidir,
+       yalnız eski değeri çizilidir. */
+    var gecersiz = asildi || s.Islem === 'Sil';
+    var carpi = gecersiz ? YU.h('span', {
+      stil: {
+        display: 'flex', flex: 'none', alignSelf: 'center',
+        color: 'var(--olumsuz)'
+      },
+      title: s.Islem === 'Sil'
+        ? 'Bu hareket silindi — artık yok.'
+        : 'Bu satırdaki değer sonradan değişti — artık geçerli değil.'
+    }, YU.svg('#ic-x', 14)) : null;
+
     var kayitHucresi = YU.h('div', {
       stil: { display: 'flex', alignItems: 'baseline', gap: '7px', minWidth: '0' },
       title: kunye || null
     },
+      carpi,
       YU.h('span', {
         sinif: s.KayitId === null || s.KayitId === undefined ? 'yu-zayif' : 'yu-mono',
         stil: { flex: 'none' },
