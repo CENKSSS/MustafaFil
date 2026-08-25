@@ -40,10 +40,17 @@
   --vurgu-zemin:    #eef2fb;
   --vurgu-uzeri:    #ffffff;
 
+  /* Seçim tiki (Analizler sol menüsü) — kullanıcı isteği, 25.08.2026:
+     dolu dairenin İÇİ koyu temada beyaz, açık temada mavi olsun ki hangi
+     satırın seçili olduğu iki temada da göz ucuyla ayrılsın. */
+  --tik-zemin:      var(--vurgu);
+  --tik-uzeri:      #ffffff;
+
   --olumlu:         #0f7b4f;
   --olumlu-zemin:   #e7f4ed;
   --olumsuz:        #d94a4a;
   --olumsuz-zemin:  #fdecec;
+  --olumsuz-silik:  #a9706d;
   --bekleyen:       #8a5a00;
   --bekleyen-zemin: #fdf3e0;
   --notr-zemin:     #eef0f3;
@@ -135,10 +142,16 @@
     --vurgu-zemin:    rgba(90,140,230,.16);
     --vurgu-uzeri:    #0a1120;
 
+    /* Koyu temada tik dairesi BEYAZ, tikin kendisi koyu (kullanıcı isteği,
+       25.08.2026): koyu zeminde en yüksek kontrast beyaz dairededir. */
+    --tik-zemin:      #ffffff;
+    --tik-uzeri:      #0a1120;
+
     --olumlu:         #6ee7a0;
     --olumlu-zemin:   rgba(110,231,160,.12);
     --olumsuz:        #f87171;
     --olumsuz-zemin:  rgba(248,113,113,.12);
+    --olumsuz-silik:  #c98f8d;
     --bekleyen:       #e9b872;
     --bekleyen-zemin: rgba(233,184,114,.12);
     --notr-zemin:     rgba(255,255,255,.07);
@@ -205,10 +218,16 @@ html[data-tema="koyu"] {
   --vurgu-zemin:    rgba(90,140,230,.16);
   --vurgu-uzeri:    #0a1120;
 
+  /* Koyu temada tik dairesi BEYAZ, tikin kendisi koyu (kullanıcı isteği,
+     25.08.2026). */
+  --tik-zemin:      #ffffff;
+  --tik-uzeri:      #0a1120;
+
   --olumlu:         #6ee7a0;
   --olumlu-zemin:   rgba(110,231,160,.12);
   --olumsuz:        #f87171;
   --olumsuz-zemin:  rgba(248,113,113,.12);
+  --olumsuz-silik:  #c98f8d;
   --bekleyen:       #e9b872;
   --bekleyen-zemin: rgba(233,184,114,.12);
   --notr-zemin:     rgba(255,255,255,.07);
@@ -530,11 +549,14 @@ html[data-tema="acik"] input[type="date"]::-webkit-calendar-picker-indicator { f
 .yu-menu-grup-bas {
   /* Sertlik YAZIDA, çizgide değil (kullanıcı isteği, 21.08.2026): başlık
      kalın ve koyu; ray boyunca çizgi ince ve yumuşak tonda. */
-  font: 700 12.5px/1 var(--font);
-  letter-spacing: .06em;
+  /* Ölçü büyütüldü (kullanıcı isteği, 25.08.2026): bunlar KATEGORİ
+     başlıkları, menü ögelerinden ayrışmaları gerekiyordu — 12,5 -> 15px,
+     harf aralığı ve dolgu da bir kademe açıldı. */
+  font: 700 15px/1.15 var(--font);
+  letter-spacing: .07em;
   text-transform: uppercase;
   color: var(--metin);
-  padding: 12px 10px 8px;
+  padding: 16px 10px 10px;
   border-bottom: 1px solid var(--kenar-3);
   margin-bottom: 2px;
 }
@@ -898,6 +920,98 @@ button.yu-efsane-oge:hover { background: var(--yuzey-3); border-color: var(--ken
   color: var(--metin);
 }
 
+/* Geri bağlantısı — başlığın üstünde, sol üstte (kullanıcı isteği,
+   25.08.2026). Sade metin + ok; üstüne gelince vurgu rengine döner, hafif
+   zemin alır ve ok bir tık sola kayar. Ok, #ic-chevron'un 180° dönmüşüdür —
+   ikon seti büyütülmez (CLAUDE.md KURAL 1). */
+/* Grafik kaydırma kabı: çubuk GİZLİ (kullanıcı isteği, 25.08.2026 —
+   "grafiğin altında bir scroll oluyor, ilk açılışta görünüp kayboluyor").
+   Gezinme zaten iki yandaki oklarla ve fareyle sürükleyerek yapılıyor;
+   çubuk grafiğin altında fazladan bir çizgi bırakıyordu. Kaydırma
+   davranışı aynen duruyor, yalnız çubuk çizilmiyor. */
+/* İri tablo (kullanıcı isteği, 25.08.2026): Aylık Özet'in karşılaştırma ve
+   malzeme özeti tablolarında satırlar biraz uzar, yazılar bir kademe büyür.
+   Yalnız bu sınıfı taşıyan tabloya etki eder; diğer tablolar değişmez. */
+.yu-tablo-iri .yu-tablo th {
+  font-size: 13.5px;
+  padding-top: 13px;
+  padding-bottom: 13px;
+}
+.yu-tablo-iri .yu-tablo td {
+  font-size: 15.5px;
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+.yu-tablo-iri .yu-tablo td .yu-rozet { font-size: 13px; }
+
+.yu-grafik-kaydir {
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* eski Edge */
+}
+.yu-grafik-kaydir::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+.yu-sayfa-geri { margin-bottom: 10px; }
+.yu-sayfa-geri:empty { display: none; }
+
+/* Ölçü bir kademe değil, GÖRÜNÜR şekilde büyütüldü (kullanıcı isteği,
+   25.08.2026 — "2-3 kat büyült"): 13,5px/14px ikon → 17px/22px, dolgu iki
+   katına çıktı ve kenar artık BAŞTAN görünüyor; bağlantı değil düğme gibi
+   okunuyor. Kutu alanı yaklaşık 2,5 katına çıkar. */
+/* Renk: yumuşak vurgu çipi (kullanıcı seçimi, 25.08.2026 — "göze vurgusu
+   artsın"). Duruşta açık mavi zemin + mavi yazı/kenar; üstüne gelince DOLU
+   maviye döner. İki temada da vurgu değişkenlerinden okunur, sabit renk
+   yazılmaz — koyu temada zemin saydam mavi katmandır (CLAUDE.md KURAL 1:
+   derinlik gölgeyle değil katman tonuyla). Semantik renkler (olumlu/olumsuz/
+   bekleyen) kullanılmaz; onlar gecikmiş/ödendi/bekliyor için ayrıldı. */
+.yu-geri-bag {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font: 600 17px/1 var(--font);
+  color: var(--vurgu);
+  text-decoration: none;
+  padding: 11px 20px 11px 15px;
+  /* Negatif kenar boşluğu KALDIRILDI (kullanıcı isteği, 25.08.2026): metni
+     başlıkla hizalamak için kutuyu -15px sola çekiyordu, ama çerçeveli
+     düğmede kutunun kendisi başlığın soluna taşıp kenara yapışık duruyordu.
+     Artık düğmenin SOL KENARI, başlığın sol kenarıyla aynı hizada. */
+  border-radius: var(--r);
+  border: 1px solid var(--vurgu);
+  background-color: var(--vurgu-zemin);
+  /* RENK GEÇİŞİ YOK — bilinçli (25.08.2026, ölçülerek bulundu): değeri
+     var() ile temadan gelen bir özellik transition listesine girerse Chrome,
+     tema değiştiğinde yeni değere geçmiyor ve renk ESKİ temada donuyor
+     (koyu temaya geçilince buton açık mavi kalıyordu; sayfa yenilenmeden
+     düzelmiyordu). Hover geri bildirimi anında renk değişimi + okun kayma
+     animasyonuyla veriliyor; okun transform'u temadan beslenmediği için
+     orada geçiş güvenle duruyor. */
+}
+.yu-geri-bag:hover,
+.yu-geri-bag:focus-visible {
+  color: var(--vurgu-uzeri);
+  background-color: var(--vurgu);
+  border-color: var(--vurgu);
+}
+.yu-geri-ok {
+  display: flex;
+  transform: rotate(180deg);
+  transition: transform .15s ease;
+}
+.yu-geri-bag:hover .yu-geri-ok,
+.yu-geri-bag:focus-visible .yu-geri-ok { transform: rotate(180deg) translateX(3px); }
+
+/* KOYU TEMA: duruşta yazı ve ok BEYAZ (kullanıcı isteği, 25.08.2026) —
+   mavi zemin üstünde mavi yazı sönük kalıyordu; beyaz, koyu zeminde en
+   yüksek kontrastı verir. Kenar mavi kalır: çipi paletle bağlayan öge o.
+   Üstüne gelince zemin dolu maviye döner ve yazı --vurgu-uzeri'ye (koyu
+   lacivert) geçer — kontrast iki durumda da korunur.
+   İki koyu seçici de yazılır: sistem tercihi (media) ve elle seçim
+   (data-tema="koyu") — dosyanın mevcut kalıbı. */
+@media (prefers-color-scheme: dark) {
+  html:not([data-tema="acik"]) .yu-geri-bag { color: #ffffff; }
+}
+html[data-tema="koyu"] .yu-geri-bag { color: #ffffff; }
+
 .yu-sayfa-alt {
   font: 500 14.5px/1.4 var(--font);
   color: var(--metin-3);
@@ -1253,6 +1367,107 @@ button.yu-efsane-oge:hover { background: var(--yuzey-3); border-color: var(--ken
 .yu-satir-eylem:hover { background: var(--ayrac); color: var(--metin-2); }
 .yu-satir-eylem.tehlike:hover { background: var(--olumsuz-zemin); color: var(--olumsuz); }
 
+/* İri satır eylemi — Devir Stok'un silme düğmesi (kullanıcı isteği, 25.08.2026).
+   Yalnız bu sınıfı taşıyan düğmeleri büyütür; diğer ekranların satır eylemleri
+   olduğu gibi kalır. Kırmızı hover burada belirgindir: dolgulu zemin + çerçeve. */
+.yu-satir-eylem-buyuk { padding: 8px; border-radius: var(--r-l); }
+/* Kırmızı görünüm HER ZAMAN açık (kullanıcı isteği, 25.08.2026): düğme fare
+   üstüne gelmeden de silme düğmesi gibi durur. Fare üstündeyken tehlike
+   düğmesinin dilini izler — dolu kırmızı zemin, beyaz ikon. */
+.yu-satir-eylem-buyuk.tehlike {
+  background: var(--olumsuz-zemin);
+  color: var(--olumsuz);
+  box-shadow: inset 0 0 0 1px var(--olumsuz);
+}
+.yu-satir-eylem-buyuk.tehlike:hover,
+.yu-satir-eylem-buyuk.tehlike:focus-visible {
+  background: var(--olumsuz);
+  color: var(--vurgu-uzeri);
+}
+
+/* Devir panelinin alt şeridi: Kaydet ve Değişiklikleri Geri Al İRİ ve
+   belirgin durur (kullanıcı isteği, 25.08.2026) — ekranın bütün işi bu iki
+   düğmede bitiyor. Yalnız bu şerit etkilenir. */
+.yu-devir-alt .yu-dugme {
+  padding: 12px 22px;
+  font-size: 15.5px;
+  font-weight: 600;
+}
+.yu-devir-alt .yu-dugme svg { width: 17px; height: 17px; }
+.yu-devir-alt .yu-dugme.birincil:not(:disabled) { box-shadow: 0 0 0 3px var(--vurgu-zemin); }
+.yu-devir-alt .yu-dugme.ikincil:not(:disabled) { border-color: var(--kenar-3); }
+
+/* Kampanya Yönetimi tablosu (Devir Stok ekranı) — yazılar ortak tablodan bir
+   tık iri (kullanıcı isteği, 25.08.2026: "hepsi çok küçük"). Sınıf yalnız o
+   panele verildiği için başka tablolar etkilenmez; hücre dolgusu tablonun
+   'dolgu' seçeneğinden gelir. */
+.yu-kampanya-tablo .yu-tablo { font-size: 15.5px; }
+.yu-kampanya-tablo .yu-tablo thead th {
+  font-size: 13.5px;
+  letter-spacing: .04em;
+}
+/* Kampanya satırı: fare üstündeyken BELİRGİN (kullanıcı isteği, 25.08.2026 —
+   "ciddi bir hover olsun"). Ortak .yu-tiklanir vurgusu bu tabloda fazla
+   siliktı: kalın sol şerit + vurgu çerçevesi + zemin birlikte gelir.
+   Görüntülenen kampanya ayrıca .yu-secili-kampanya ile kalıcı işaretlidir. */
+.yu-kampanya-tablo .yu-tablo tbody tr.yu-tiklanir:hover,
+.yu-kampanya-tablo .yu-tablo tbody tr.yu-tiklanir:focus-visible {
+  background: var(--vurgu-zemin);
+  box-shadow: inset 6px 0 0 var(--vurgu), inset 0 0 0 1px var(--vurgu);
+}
+.yu-kampanya-tablo .yu-tablo tbody tr.yu-secili-kampanya,
+.yu-kampanya-tablo .yu-tablo tbody tr.yu-secili-kampanya:hover {
+  background: var(--vurgu-zemin);
+  box-shadow: inset 6px 0 0 var(--vurgu);
+}
+.yu-kampanya-tablo .yu-secili-ad { color: var(--vurgu); font-weight: 700; }
+
+.yu-kampanya-tablo .yu-rozet { font-size: 14px; padding: 5px 11px; }
+.yu-kampanya-tablo .yu-dugme.kucuk { font-size: 14px; padding: 8px 12px; }
+
+/* Evet / Hayır seçimi — Devir Stok'taki "Yeni Kampanya Oluştur" penceresi.
+   Seçilen taraf tıklandığı ANLAŞILSIN diye üç işaret birden taşır (kullanıcı
+   isteği, 25.08.2026): dolu zemin + kalın kenarlık + tik. Seçili olmayan taraf
+   yine renkli zeminde durur, yalnız soluktur — kırmızı hiç sönmez.
+   Yapı, projenin .yu-secim-grubu kalıbıyla aynı dildedir; erişilebilirlik
+   W3C APG radio-group kalıbıdır (role=radiogroup / role=radio / aria-checked,
+   ok tuşlarıyla geçiş). */
+.yu-eh-grup { display: inline-flex; gap: 10px; flex: none; }
+.yu-eh-oge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 104px;
+  padding: 10px 16px;
+  border: 2px solid transparent;
+  border-radius: var(--r);
+  font: 500 15px/1 var(--font);
+  cursor: pointer;
+  transition: background-color .12s, color .12s, border-color .12s, box-shadow .12s;
+}
+.yu-eh-tik { width: 13px; text-align: center; opacity: 0; }
+.yu-eh-oge[aria-checked="true"] .yu-eh-tik { opacity: 1; }
+.yu-eh-oge:focus-visible { outline: 2px solid var(--vurgu); outline-offset: 3px; }
+
+.yu-eh-oge.evet  { background: var(--vurgu-zemin);   color: var(--vurgu);   border-color: transparent; }
+.yu-eh-oge.hayir { background: var(--olumsuz-zemin); color: var(--olumsuz); border-color: transparent; }
+.yu-eh-oge.evet:hover  { border-color: var(--vurgu); }
+.yu-eh-oge.hayir:hover { border-color: var(--olumsuz); }
+
+.yu-eh-oge.evet[aria-checked="true"] {
+  background: var(--vurgu);
+  color: var(--vurgu-uzeri);
+  border-color: var(--vurgu);
+  box-shadow: 0 0 0 3px var(--vurgu-zemin);
+}
+.yu-eh-oge.hayir[aria-checked="true"] {
+  background: var(--olumsuz);
+  color: var(--vurgu-uzeri);
+  border-color: var(--olumsuz);
+  box-shadow: 0 0 0 3px var(--olumsuz-zemin);
+}
+
 /* Rozet */
 .yu-rozet {
   display: inline-flex;
@@ -1427,6 +1642,17 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
   margin-bottom: 6px;
 }
 .yu-serit.yu-cetin .yu-serit-ikon { align-items: flex-start; margin-top: 2px; }
+
+/* Hover (kullanıcı isteği, 25.08.2026): geçmiş kampanya şeridi üstüne
+   gelince zemin bir ton koyulaşır ve vurgu çizgisi kalınlaşır — şeridin
+   canlı/tıklanabilir olduğu anlaşılsın. Yalnız yu-tiklanir taşıyan sert
+   şeride etki eder; diğer şeritler değişmez (CLAUDE.md KURAL 1). */
+.yu-serit.yu-cetin.yu-tiklanir { transition: box-shadow .15s ease, border-color .15s ease; }
+.yu-serit.yu-cetin.yu-tiklanir:hover {
+  box-shadow: inset 6px 0 0 var(--olumsuz);
+  border-color: var(--olumsuz);
+}
+.yu-serit.yu-cetin.yu-tiklanir:hover .yu-serit-baslik { text-decoration: underline; text-underline-offset: 3px; }
 
 .yu-bos {
   padding: 56px 32px;
@@ -1866,7 +2092,12 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
    YAZDIRMA
    ========================================================================== */
 
+/* Yalnız yazdırmada görünen öge (Stok Durumu panel başlığındaki tarih):
+   ekranda aynı bilgiyi tarih kutusu verir, kâğıtta kutu gizlenince bu yazar. */
+.yu-yalniz-baski { display: none; }
+
 @media print {
+  .yu-yalniz-baski { display: inline; }
   .yu-yan,
   .yu-ust,
   .yu-eylemler,
@@ -1917,6 +2148,36 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
      kaydırma yok — aynı özgüllükte etkisizleştirilir. */
   .yu-tablo-sar.yu-yapiskan thead th { position: static; top: auto; }
   .yu-tablo tbody tr:hover { background: none; }
+
+  /* Stok Durumu: 9 kolonlu tablo A4'e taşıyordu (kullanıcı isteği,
+     24.08.2026). Baskıda kolon genişlikleri serbest kalır, yazı ve dolgu
+     küçülür; tablo kâğıt genişliğine sığar. Yalnız bu sınıfı taşıyan tablo
+     etkilenir, diğer ekranların çıktısı değişmez. */
+  /* Program Hareketleri (kullanıcı isteği, 24.08.2026): uzun hareket paneli
+     .yu-panel'in genel "break-inside: avoid" kuralına takılıp 1. sayfanın
+     yarısını boş bırakıyor, rapor 4 kâğıda taşıyordu. Bu sınıfı taşıyan
+     panel sayfalar arasında BÖLÜNEBİLİR; satırlar bölünmez, tablo başlığı
+     her sayfada yinelenir. Sınıf yalnız o ekranda; diğer çıktılar değişmez. */
+  .yu-baski-bolunur { break-inside: auto; }
+  .yu-baski-bolunur .yu-tablo-sar { break-inside: auto; }
+  .yu-baski-bolunur tbody tr { break-inside: avoid; }
+  .yu-baski-bolunur thead { display: table-header-group; }
+
+  .yu-baski-sig table { min-width: 0 !important; width: 100%; table-layout: auto; }
+  .yu-baski-sig thead th { width: auto !important; min-width: 0 !important; }
+  .yu-baski-sig thead th,
+  .yu-baski-sig tbody td { padding: 6px 7px !important; font-size: 10px !important; }
+  .yu-baski-sig tbody td .yu-mono { font-size: 10.5px; }
+  /* Hücre içi rozetler ("Silo Toplamı", "Çuvallı") kâğıtta iri kalıyordu
+     (kullanıcı isteği, 24.08.2026): hücre yazısıyla aynı boya iner, zemin
+     bastırılamadığında da rozet gibi okunsun diye ince çerçeve alır. */
+  .yu-baski-sig .yu-rozet {
+    font-size: 9.5px !important;
+    padding: 1px 6px !important;
+    border: 1px solid #bbb;
+    background: #fff !important;
+    color: #333 !important;
+  }
 }
 
 
@@ -1947,3 +2208,158 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
 .yu-icerik.yu-zemin-gri .yu-kpi:hover { border-color: color-mix(in srgb, var(--metin-5) 45%, var(--gri-kenar)); }
 .yu-icerik.yu-zemin-gri .yu-tablo thead th { background: var(--gri-tablo-bas); }
 @media print { .yu-icerik.yu-zemin-gri, .yu-icerik.yu-zemin-gri-duz { background: #fff; } }
+
+/* ------------------------------------------------------------------
+   Grafik kaydırma okları ve gezinme (kullanıcı isteği, 25.08.2026)
+
+   Ok, ÇIPLAK METİN karakteridir (← →): daire slotu yok, çizimin üstünde
+   yüzmez — grafiğin solunda ve sağında aynı satırda durur. Kalın ve beyaz
+   (koyu temada), açık temada koyu; ikon setinde yana bakan ok olmadığı ve
+   döndürülen chevron ekranda aşağı baktığı için SVG kullanılmıyor.
+
+   Kaydırma çubuğu GİZLİDİR (kullanıcı kararı); gezinme üç yolla yapılır:
+     1. iki yandaki ok düğmeleri (tık = bir adım, basılı tutma = sürekli),
+     2. grafiğe basıp sağa sola sürükleme,
+     3. fare tekerleği (grafiğin üzerindeyken yatay kaydırır).
+   ------------------------------------------------------------------ */
+.yu-grafik-ok {
+  flex: none;
+  /* 40 -> 30 (kullanıcı isteği, 25.08.2026): ok düğmesi küçüldü. */
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  /* Beyaz ok (kullanıcı isteği, 25.08.2026). Açık temada beyaz zeminde
+     kaybolmasın diye orada koyu metin rengine döner. */
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: var(--r-s);
+  transition: color .12s, background .12s;
+}
+html[data-tema="acik"] .yu-grafik-ok { color: var(--metin); }
+@media (prefers-color-scheme: light) {
+  html:not([data-tema="koyu"]) .yu-grafik-ok { color: var(--metin); }
+}
+.yu-grafik-ok:hover,
+.yu-grafik-ok:focus-visible { color: var(--vurgu); background: var(--yuzey-3); }
+.yu-grafik-ok:active { color: var(--vurgu-koyu); }
+/* Kaydıracak yer yoksa düğme yerini KORUR ama görünmez — grafik genişliği
+   ok göründü/gizlendi diye oynamasın. */
+.yu-grafik-ok[hidden] { display: flex; visibility: hidden; }
+
+/* Kaydırma çubuğu GİZLİ: gezinme ok düğmeleri, sürükleme ve tekerlekle. */
+.yu-grafik-kaydir {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.yu-grafik-kaydir::-webkit-scrollbar { display: none; height: 0; }
+
+@media print { .yu-grafik-ok { display: none; } }
+
+/* Yalnız YAZIYI büyüten tablo varyantı (kullanıcı isteği, 25.08.2026:
+   "satırların içindeki verileri çok az büyüt"). yu-tablo-iri satır dolgusunu
+   da artırıyor ve satır 58px'ten 104px'e çıkıyordu; bu varyant dolguya
+   dokunmaz, sadece hücre yazısını bir kademe büyütür. */
+.yu-tablo-yazi-buyuk .yu-tablo td { font-size: 15px; }
+.yu-tablo-yazi-buyuk .yu-tablo th { font-size: 12.5px; }
+/* Sayısal hücreler tek satırda kalır: yazı büyüyünce "871.850 kg" alt satıra
+   iniyor ve satır yüksekliği 58px'ten 104px'e fırlıyordu (ölçüldü). */
+.yu-tablo-yazi-buyuk .yu-tablo td.yu-mono,
+.yu-tablo-yazi-buyuk .yu-tablo td.yu-sag { white-space: nowrap; }
+
+/* TOPLAM satırı (kullanıcı isteği, 25.08.2026): veri satırlarından ayrılsın
+   diye koyu gece mavisi zemin ve üstünde belirgin bir çizgi taşır. Koyu
+   temada zemin lacivere çalar, açık temada soğuk gri-mavi olur; ikisinde de
+   yazı kalın ve tam kontrastlı kalır. Fare üstüne gelince satır değişmez —
+   toplam tıklanacak bir satır değildir. */
+.yu-tablo tbody tr.yu-satir-toplam {
+  background: #101a2e;
+  border-top: 2px solid var(--kenar-3);
+}
+.yu-tablo tbody tr.yu-satir-toplam td {
+  color: var(--metin);
+  font-weight: 600;
+  border-bottom: none;
+}
+.yu-tablo tbody tr.yu-satir-toplam:hover { background: #101a2e; }
+
+html[data-tema="acik"] .yu-tablo tbody tr.yu-satir-toplam,
+html[data-tema="acik"] .yu-tablo tbody tr.yu-satir-toplam:hover {
+  background: #e8edf7;
+}
+@media (prefers-color-scheme: light) {
+  html:not([data-tema="koyu"]) .yu-tablo tbody tr.yu-satir-toplam,
+  html:not([data-tema="koyu"]) .yu-tablo tbody tr.yu-satir-toplam:hover {
+    background: #e8edf7;
+  }
+}
+
+/* ------------------------------------------------------------------
+   Ay seçici listesi (kullanıcı isteği, 25.08.2026)
+
+   Diğer ekranlardaki gün gezinmesinin ay karşılığı: çip + Önceki/Bu/Sonraki
+   düğmeleri. Çipin içindeki liste KAYDIRILIR; pencere sabit yükseklikte
+   kalır ve kaydırma çubuğu görünür durur — devamı olduğu belli olsun.
+   Yıl başlıkları listeyi bölerek uzun listede yer kaybını önler.
+   ------------------------------------------------------------------ */
+.yu-ay-liste {
+  scrollbar-width: thin;
+  scrollbar-color: var(--kenar-3) transparent;
+  overscroll-behavior: contain;
+}
+.yu-ay-liste::-webkit-scrollbar { width: 10px; }
+.yu-ay-liste::-webkit-scrollbar-track { background: transparent; }
+.yu-ay-liste::-webkit-scrollbar-thumb {
+  background: var(--kenar-3);
+  border-radius: 5px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+.yu-ay-liste::-webkit-scrollbar-thumb:hover {
+  background: var(--metin-5);
+  background-clip: content-box;
+}
+
+.yu-ay-yil {
+  /* 11 -> 12.5px, bir tık koyu (kullanıcı isteği, 25.08.2026): yıl ayracı
+     listede net okunsun. */
+  font: 600 12.5px/1 var(--font);
+  letter-spacing: .05em;
+  color: var(--metin-4);
+  margin: 13px 4px 7px;
+}
+
+.yu-ay-satir {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: var(--r-s);
+  background: transparent;
+  color: var(--metin-2);
+  font: 400 14.5px/1.3 var(--font);
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.yu-ay-satir:hover,
+.yu-ay-satir:focus-visible { background: var(--yuzey-3); color: var(--metin); }
+.yu-ay-satir.secili {
+  background: var(--vurgu-zemin);
+  color: var(--vurgu);
+  font-weight: 500;
+}
+.yu-ay-satir-gun {
+  flex: none;
+  font: 400 12.5px/1 var(--sayi);
+  color: var(--metin-4);
+  font-variant-numeric: tabular-nums;
+}
+.yu-ay-satir.secili .yu-ay-satir-gun { color: var(--vurgu); opacity: .8; }

@@ -218,15 +218,57 @@
         Aktif: durumAlan.deger() !== 'Pasif'
       };
 
-      /* İkinci savunma hattı: ekran kilitlense de servis aynı kuralı uygular. */
-      var sonuc = YU.servis.kullaniciKaydet(db(), aday, oturumKullanicisi());
-      if (!sonuc.ok) {
-        YU.bos(hataKap).appendChild(YU.ui.hataListesi(sonuc.hatalar, 'hata'));
-        return;
+      /* Ciddi işlem onayı (M28): rol/durum değişimi yetki değişimidir; onay
+         penceresi neyin neye döndüğünü listeler. Değişiklik yoksa pencere
+         açılmaz. */
+      function rolAdi(r) { return r === 'Yonetici' ? 'Yönetici' : 'Operatör'; }
+      var maddeler = [], rolDegisti = false;
+      if (duzenle) {
+        if (String(aday.KullaniciAdi) !== String(kullanici.KullaniciAdi)) {
+          maddeler.push({ etiket: 'Kullanıcı Adı', eski: kullanici.KullaniciAdi, yeni: aday.KullaniciAdi });
+        }
+        if (String(aday.AdSoyad) !== String(kullanici.AdSoyad)) {
+          maddeler.push({ etiket: 'Ad Soyad', eski: kullanici.AdSoyad, yeni: aday.AdSoyad });
+        }
+        if (aday.Rol !== kullanici.Rol) {
+          rolDegisti = true;
+          maddeler.push({ etiket: 'Rol', eski: rolAdi(kullanici.Rol), yeni: rolAdi(aday.Rol) });
+        }
+        if (aktifMi(kullanici) !== (aday.Aktif !== false)) {
+          maddeler.push({ etiket: 'Durum', eski: aktifMi(kullanici) ? 'Aktif' : 'Pasif', yeni: aday.Aktif !== false ? 'Aktif' : 'Pasif' });
+        }
+        if (!maddeler.length) { uygula(); return; }
+      } else {
+        maddeler.push({ etiket: 'Kullanıcı Adı', deger: aday.KullaniciAdi || '—' });
+        maddeler.push({ etiket: 'Ad Soyad', deger: aday.AdSoyad || '—' });
+        maddeler.push({ etiket: 'Rol', deger: rolAdi(aday.Rol) });
+        rolDegisti = aday.Rol === 'Yonetici';
       }
-      m.kapat();
-      YU.ui.bildir(sonuc.kayit.AdSoyad + ' ' + (duzenle ? 'güncellendi.' : 'eklendi.'), 'basari');
-      YU.yenile();
+      var onayMetin = duzenle ? 'Kullanıcı hesabı değiştirilecek.' : 'Yeni kullanıcı giriş ekranında listelenir.';
+      if (rolDegisti && aday.Rol === 'Yonetici') {
+        onayMetin += ' Yönetici; devir stok, malzeme ve kullanıcı yönetimine erişir.';
+      } else if (rolDegisti) {
+        onayMetin += ' Operatör; yönetim ekranlarına erişemez.';
+      }
+      YU.ui.onay({
+        baslik: duzenle ? 'Kullanıcı Değişikliğini Onayla' : 'Yeni Kullanıcıyı Onayla',
+        metin: onayMetin,
+        ayrinti: YU.ui.farkListesi(maddeler),
+        onayMetni: duzenle ? 'Kaydet' : 'Ekle',
+        tehlike: rolDegisti
+      }).then(function (evet) { if (evet) uygula(); });
+
+      function uygula() {
+        /* İkinci savunma hattı: ekran kilitlense de servis aynı kuralı uygular. */
+        var sonuc = YU.servis.kullaniciKaydet(db(), aday, oturumKullanicisi());
+        if (!sonuc.ok) {
+          YU.bos(hataKap).appendChild(YU.ui.hataListesi(sonuc.hatalar, 'hata'));
+          return;
+        }
+        m.kapat();
+        YU.ui.bildir(sonuc.kayit.AdSoyad + ' ' + (duzenle ? 'güncellendi.' : 'eklendi.'), 'basari');
+        YU.yenile();
+      }
     }
 
     adiAlan.odakla();
@@ -446,12 +488,6 @@
           onClick: function () { kullaniciModali(null); }
         }),
         govde: kullaniciTablosu()
-      }));
-
-      kap.appendChild(YU.h('div', {
-        sinif: 'yu-yardim',
-        metin: 'Kayıt sayısı: kullanıcının oluşturduğu veya güncellediği günlük kayıt, silo hareketi ve ' +
-          'devir satırlarının toplamıdır. Bu bağ, hesapların neden silinmediğini (D12) gösterir.'
       }));
     }
   });

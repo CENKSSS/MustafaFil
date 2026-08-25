@@ -249,7 +249,7 @@
     var ad = kullaniciAdi(depo, id);
     var saat = an ? YU.fmt.saat(an) : '—';
     if (!ad && saat === '—') return YU.h('span', { sinif: 'yu-zayif', metin: '—' });
-    return YU.h('span', { sinif: 'yu-zayif', metin: (ad || '—') + (saat !== '—' ? ' · ' + saat : '') });
+    return YU.h('span', { sinif: 'yu-zayif', metin: (ad || '—') + (saat !== '—' ? ' · ' + saat : ''), stil: { whiteSpace: 'nowrap' } });
   }
 
   /* Malzeme satırları da günlük değişim diliyle okunur (kullanıcı isteği,
@@ -276,10 +276,30 @@
         basi = YU.yuvarla(sonu - (Number(s.uretim) || 0) - iade + (Number(s.satis) || 0));
       }
 
+      /* Şartname §4 "Raporlamada dikkat" (DEMİRBAŞ, DUZELTME-PLANI M6):
+         dökme satırı NET üretimi gösterir; operatörün girdiği HAM rakam
+         kaybolmamalı — hücrede ayrı bir alt satır olarak durur. Durum B'de
+         net "—" iken "Ham: 5.000" bu satırda okunur. */
+      var uretimHucresi = s.uretim > 0 ? '+' + YU.fmt.kg(s.uretim) : YU.h('span', { sinif: 'yu-zayif', metin: '—' });
+      if (s.malzeme && s.malzeme.OzelTip === 'DokmeKuruKuspe' && ozet.kuruKuspe) {
+        uretimHucresi = YU.h('div', {
+          stil: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' },
+          title: 'İşletme raporundan gelen ham rakam. Net üretim 0 olsa bile burada durur (Şartname §4).'
+        },
+          typeof uretimHucresi === 'string' ? YU.h('span', { metin: uretimHucresi }) : uretimHucresi,
+          YU.h('span', {
+            sinif: 'yu-zayif',
+            stil: { font: '400 11px/1.3 var(--mono)', whiteSpace: 'nowrap' },
+            metin: 'Ham: ' + YU.fmt.kg(ozet.hesap.hamUretilenDokme)
+          })
+        );
+      }
+
       satirlar.push([
-        YU.h('span', { sinif: 'yu-guclu', metin: s.malzeme ? s.malzeme.Ad : ('Malzeme #' + s.hareket.MalzemeId) }),
+        /* nowrap: ad kolonda kırılıp satırı 3 kata çıkarıyordu (24.08.2026). */
+        YU.h('span', { sinif: 'yu-guclu', metin: s.malzeme ? s.malzeme.Ad : ('Malzeme #' + s.hareket.MalzemeId), stil: { whiteSpace: 'nowrap' } }),
         basi === null ? YU.h('span', { sinif: 'yu-zayif', metin: '—' }) : YU.fmt.kg(basi),
-        s.uretim > 0 ? '+' + YU.fmt.kg(s.uretim) : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
+        uretimHucresi,
         iade > 0 ? '+' + YU.fmt.kg(iade) : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
         s.satis > 0 ? '−' + YU.fmt.kg(s.satis) : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
         sonu === null
@@ -291,28 +311,45 @@
     }
 
     var tablo = YU.ui.tablo({
+      /* Kolonlar kısıldı (24.08.2026): sabit genişlikler konteyneri aşınca
+         Malzeme kolonu eziliyor, adlar 2-3 satıra kırılıp satırı yükseltiyordu. */
       sutunlar: [
         { baslik: 'Malzeme' },
-        { baslik: 'Gün Başı', hiza: 'sag', mono: true, genislik: 122 },
-        { baslik: 'Üretim', hiza: 'sag', mono: true, genislik: 108 },
+        { baslik: 'Gün Başı', hiza: 'sag', mono: true, genislik: 125 },
+        { baslik: 'Üretim', hiza: 'sag', mono: true, genislik: 110 },
         { baslik: 'İade', hiza: 'sag', mono: true, genislik: 100 },
-        { baslik: 'Satış', hiza: 'sag', mono: true, genislik: 108 },
-        { baslik: 'Gün Sonu', hiza: 'sag', mono: true, genislik: 122 },
-        { baslik: 'Kaynak', genislik: 180 },
-        { baslik: 'Kaydeden', genislik: 165 }
+        { baslik: 'Satış', hiza: 'sag', mono: true, genislik: 110 },
+        { baslik: 'Gün Sonu', hiza: 'sag', mono: true, genislik: 125 },
+        { baslik: 'Kaynak', genislik: 160 },
+        { baslik: 'Kaydeden', genislik: 160 }
       ],
       satirlar: satirlar,
       bos: 'Bu gün için malzeme hareketi yazılmamış.',
+      /* Sık stil kapalı (kullanıcı isteği, 24.08.2026 — "satırı çok az
+         büyüt"): satır dolgusu bir kademe rahatlar. */
+      sik: false,
       yapiskan: true
     });
     /* Kaydeden sütunu YAZDIRMADA görünmez (kullanıcı isteği, 24.08.2026);
-       ekranda durur. Sınıf tema.css'teki @media print kuralı içindir. */
-    tablo.className += ' yu-yazdirmada-kaydedensiz';
+       ekranda durur. Sınıf tema.css'teki @media print kuralı içindir.
+       yu-baski-sig (24.08.2026, yazdırma düzeltmesi): aşağıdaki inline
+       minWidth A4'e sığmayıp GÜN SONU kolonunu kırptırıyordu — baskıda
+       min-width !important ile sıfırlanır, yazı/dolgu küçülür (Stok
+       Durumu'yla aynı çare). Ekran görünümü değişmez. */
+    tablo.className += ' yu-yazdirmada-kaydedensiz yu-baski-sig';
+    /* Kolon araları için tablo kendi genişliğini korur (kullanıcı isteği,
+       24.08.2026); dar pencerede kap yatay kaydırır. */
+    var tabloEl = tablo.querySelector('table');
+    if (tabloEl) tabloEl.style.minWidth = '1060px';
 
+    /* Stok Durumu'ndaki panel diliyle (kullanıcı isteği, 24.08.2026):
+       dolgusuz panel — tablo kenara oturur, panel daha derli durur. */
     return YU.ui.panel({
       baslik: 'Malzeme Günlük Değişimi',
       ikon: '#ic-pencil',
-      sag: YU.h('span', { metin: YU.fmt.sayi(ozet.malzemeSatirlari.length) + ' satır' }),
+      dolgusuz: true,
+      /* "N satır" sayacı KALDIRILDI (kullanıcı isteği, 25.08.2026): satırlar
+         zaten gözle görünüyor, sayaç ekranda fazladan gürültü yapıyordu. */
       govde: tablo
     });
   }
@@ -348,8 +385,11 @@
     for (i = 0; i < silolar.length; i++) {
       var s = silolar[i];
       o = toplamlar[s.Id] || { giren: 0, cikan: 0 };
-      if (s.Aktif === false && !o.giren && !o.cikan) continue;
       var basi = YU.stok.siloGunBasi(depo, s.Id, tarih);
+      /* Pasif silo ancak hem hareketsiz HEM bakiyesiz ise düşer (M27):
+         stoklu pasif silo düşünce dökme gün başı/sonu, Stok Durumu'nun
+         silo toplamından kopuyordu (ölçüldü: 240 ton fark). */
+      if (s.Aktif === false && !o.giren && !o.cikan && !basi) continue;
       var sonu = YU.yuvarla(basi + o.giren - o.cikan);
       liste.push({ silo: s, basi: basi, giren: o.giren, cikan: o.cikan, sonu: sonu });
       toplam.basi = YU.yuvarla(toplam.basi + basi);
@@ -511,10 +551,8 @@
         ? (kullaniciAdi(depo, sonKisi) || '—') + ' · ' + YU.fmt.tarihSaat(sonAn)
         : '—')
     ];
-    ogeler.push(kunyeCifti('Kayıt',
-      (ozet.kuruKuspe ? '1 kuru küspe · ' : '') +
-      YU.fmt.sayi(ozet.malzemeSatirlari.length) + ' malzeme · ' +
-      YU.fmt.sayi(ozet.siloHareketleri.length) + ' silo hareketi', false));
+    /* "Kayıt: 1 kuru küspe · 8 malzeme · 6 silo hareketi" sayacı kaldırıldı
+       (kullanıcı isteği, 24.08.2026). */
 
     return YU.ui.panel({
       baslik: 'Kayıt Bilgisi',
@@ -655,81 +693,102 @@
   }
 
   function gunIslemGecmisi(depo, tarih) {
-    var liste = [], i, l;
-    for (i = 0; i < depo.degisiklikLog.length; i++) {
-      l = depo.degisiklikLog[i];
-      if (logGunu(depo, l) === tarih) liste.push(l);
-    }
-    /* Adım adım okunur: en eski işlem en üstte, aynı andakiler yazılma sırasında. */
-    liste.sort(function (a, b) {
-      var x = String(a.Tarih || ''), y = String(b.Tarih || '');
-      if (x !== y) return x < y ? -1 : 1;
-      return (Number(a.Id) || 0) - (Number(b.Id) || 0);
-    });
+    /* TEK işlem geçmişi burasıdır (kullanıcı kararı, 24.08.2026 — Değişiklik
+       Geçmişi ekranı menüden kalktı): o günün verisine dokunan işlemlere ek
+       olarak, güne bağlanamayan işlemler de (kullanıcı/malzeme/devir yönetimi)
+       YAPILDIKLARI günün panelinde listelenir — hiçbir denetim kaydı
+       görünmez kalmaz (Şartname §7 denetim izi).
 
-    /* Sonradan geçersizleşen adımlar işaretlenir (kullanıcı isteği,
-       21.08.2026): aynı kaydın üstüne daha sonra yazılmışsa eski adımın
-       ayrıntısı ÜSTÜ ÇİZİLİ ama okunur kalır, sağında "Değiştirildi" /
-       "Silindi" rozeti durur. Kurallar:
-       - sonra aynı kayıt silindiyse                        -> Silindi
-       - Ekle'nin kaydına sonra herhangi bir dokunuş        -> Değiştirildi
-       - aynı ALANIN daha yeni bir güncellemesi varsa       -> Değiştirildi */
-    var gecersiz = [], j, sonra;
-    for (i = 0; i < liste.length; i++) {
-      l = liste[i];
-      if (l.Islem === 'Sil') continue;   /* silme eylemi sonradan geçersizleşmez */
-      for (j = i + 1; j < liste.length; j++) {
-        sonra = liste[j];
-        if (sonra.Tablo !== l.Tablo || sonra.KayitId !== l.KayitId) continue;
-        if (sonra.Islem === 'Sil') { gecersiz[i] = 'Silindi'; break; }
-        if (l.Islem === 'Ekle') { gecersiz[i] = gecersiz[i] || 'Değiştirildi'; }
-        else if (l.Islem === 'Guncelle' && l.Alan && sonra.Alan === l.Alan) { gecersiz[i] = 'Değiştirildi'; }
+       Süzgeçler (M29): varsayılan, raporun günüdür — KURAL 7'nin "gün bazlı,
+       varsayılan bugün" bakışı korunur; tarih aralığı görünümü yalnız
+       GENİŞLETİR, kullanıcı ve kayıt türü daraltır. "Geçen ay bu rakamı kim
+       değiştirdi" sorusu günü bilmeden cevaplanabilsin diye eklendi. */
+    var suzgec = { bas: tarih, bit: tarih, kullanici: '', tablo: '' };
+
+    function listeKur() {
+      var liste = [], i, l, g, gun;
+      for (i = 0; i < depo.degisiklikLog.length; i++) {
+        l = depo.degisiklikLog[i];
+        g = logGunu(depo, l);
+        gun = g !== null ? g : String(l.Tarih || '').slice(0, 10);
+        if (suzgec.bas && gun < suzgec.bas) continue;
+        if (suzgec.bit && gun > suzgec.bit) continue;
+        if (suzgec.kullanici !== '' && String(l.KullaniciId) !== suzgec.kullanici) continue;
+        if (suzgec.tablo !== '' && l.Tablo !== suzgec.tablo) continue;
+        liste.push(l);
       }
-    }
+      /* Adım adım okunur: en eski işlem en üstte, aynı andakiler yazılma sırasında. */
+      liste.sort(function (a, b) {
+        var x = String(a.Tarih || ''), y = String(b.Tarih || '');
+        if (x !== y) return x < y ? -1 : 1;
+        return (Number(a.Id) || 0) - (Number(b.Id) || 0);
+      });
 
-    var satirlar = [], eskiH, yeniH;
-    for (i = 0; i < liste.length; i++) {
-      l = liste[i];
-
-      /* Alanlı satırda eski ve yeni değer ayrı kolonlara düşer. Alansız
-         satırlarda (kayıt açılışı / silme) özet tek kolona yazılır: silmenin
-         özeti eskiye, eklemenin özeti yeniye. */
-      if (l.Alan) {
-        eskiH = vurguluDeger(l.EskiDeger, 'var(--olumsuz)');
-        yeniH = vurguluDeger(l.YeniDeger, 'var(--olumlu)');
-      } else if (l.Islem === 'Sil') {
-        eskiH = YU.h('span', null, sayiVurgula(gunTarihsiz(l.EskiDeger, tarih), 'var(--olumsuz)'));
-        yeniH = bosHucre();
-      } else {
-        eskiH = bosHucre();
-        yeniH = YU.h('span', null, sayiVurgula(gunTarihsiz(l.YeniDeger, tarih), 'var(--olumlu)'));
+      /* Sonradan geçersizleşen adımlar işaretlenir (kullanıcı isteği,
+         21.08.2026): aynı kaydın üstüne daha sonra yazılmışsa eski adımın
+         ayrıntısı ÜSTÜ ÇİZİLİ ama okunur kalır, sağında "Değiştirildi" /
+         "Silindi" rozeti durur. Kurallar:
+         - sonra aynı kayıt silindiyse                        -> Silindi
+         - Ekle'nin kaydına sonra herhangi bir dokunuş        -> Değiştirildi
+         - aynı ALANIN daha yeni bir güncellemesi varsa       -> Değiştirildi */
+      var gecersiz = [], j, sonra;
+      for (i = 0; i < liste.length; i++) {
+        l = liste[i];
+        if (l.Islem === 'Sil') continue;   /* silme eylemi sonradan geçersizleşmez */
+        for (j = i + 1; j < liste.length; j++) {
+          sonra = liste[j];
+          if (sonra.Tablo !== l.Tablo || sonra.KayitId !== l.KayitId) continue;
+          if (sonra.Islem === 'Sil') { gecersiz[i] = 'Silindi'; break; }
+          if (l.Islem === 'Ekle') { gecersiz[i] = gecersiz[i] || 'Değiştirildi'; }
+          else if (l.Islem === 'Guncelle' && l.Alan && sonra.Alan === l.Alan) { gecersiz[i] = 'Değiştirildi'; }
+        }
       }
 
-      /* Eski değer tanımı gereği geçmiş değerdir; sonradan aşılan adımda
-         yeni değer de geçerliliğini yitirir. */
-      if (!bosDeger(l.EskiDeger)) eskiH = cizili(eskiH);
-      if (gecersiz[i] && !bosDeger(l.YeniDeger)) yeniH = cizili(yeniH);
+      var satirlar = [], eskiH, yeniH;
+      for (i = 0; i < liste.length; i++) {
+        l = liste[i];
 
-      satirlar.push([
-        zamanHucresi(l.Tarih, tarih),
-        YU.h('span', { metin: kullaniciAdi(depo, l.KullaniciId) || '—' }),
-        YU.ui.rozet(ISLEM_ADI[l.Islem] || l.Islem, ISLEM_RENGI[l.Islem] || 'notr'),
-        kayitHucresi(depo, l, tarih, gecersiz[i]),
-        l.Alan ? YU.h('span', { metin: l.Alan }) : bosHucre(),
-        eskiH,
-        yeniH
-      ]);
+        /* Alanlı satırda eski ve yeni değer ayrı kolonlara düşer. Alansız
+           satırlarda (kayıt açılışı / silme) özet tek kolona yazılır: silmenin
+           özeti eskiye, eklemenin özeti yeniye. */
+        if (l.Alan) {
+          eskiH = vurguluDeger(l.EskiDeger, 'var(--olumsuz)');
+          yeniH = vurguluDeger(l.YeniDeger, 'var(--olumlu)');
+        } else if (l.Islem === 'Sil') {
+          eskiH = YU.h('span', null, sayiVurgula(gunTarihsiz(l.EskiDeger, tarih), 'var(--olumsuz)'));
+          yeniH = bosHucre();
+        } else {
+          eskiH = bosHucre();
+          yeniH = YU.h('span', null, sayiVurgula(gunTarihsiz(l.YeniDeger, tarih), 'var(--olumlu)'));
+        }
+
+        /* Eski değer tanımı gereği geçmiş değerdir; sonradan aşılan adımda
+           yeni değer de geçerliliğini yitirir. */
+        if (!bosDeger(l.EskiDeger)) eskiH = cizili(eskiH);
+        if (gecersiz[i] && !bosDeger(l.YeniDeger)) yeniH = cizili(yeniH);
+
+        satirlar.push([
+          zamanHucresi(l.Tarih, tarih),
+          YU.h('span', { metin: kullaniciAdi(depo, l.KullaniciId) || '—' }),
+          YU.ui.rozet(ISLEM_ADI[l.Islem] || l.Islem, ISLEM_RENGI[l.Islem] || 'notr'),
+          kayitHucresi(depo, l, tarih, gecersiz[i]),
+          l.Alan ? YU.h('span', { metin: l.Alan }) : bosHucre(),
+          eskiH,
+          yeniH
+        ]);
+      }
+      return satirlar;
     }
 
-    /* Bu panel BASKIYA GİRMEZ (kullanıcı isteği, 24.08.2026): yazdırılan
-       günlük rapor Şartname §7'de tanımlanan içerikle kalsın — o günün kuru
-       küspe detayı, malzeme ve silo hareketleri. Denetim izi ekranda kalır.
-       Başlıktaki not, kullanıcının çıktıda bu bölümü aramasını önler. */
-    var panel = YU.ui.panel({
-      baslik: 'Günün İşlem Geçmişi',
-      ikon: '#ic-dots',
-      sag: YU.h('span', { metin: satirlar.length ? YU.fmt.sayi(satirlar.length) + ' işlem' : null }),
-      govde: YU.ui.tablo({
+    /* Süzgeç değişince yalnız tablo yeniden çizilir (34'teki dokumYenile
+       kalıbı); saat kolonu farklı günün işlemine tarihi zaten yazar. */
+    var sayacEl = YU.h('span');
+    var tabloKap = YU.h('div');
+
+    function tabloCiz() {
+      var satirlar = listeKur();
+      sayacEl.textContent = satirlar.length ? YU.fmt.sayi(satirlar.length) + ' işlem' : '';
+      YU.bos(tabloKap).appendChild(YU.ui.tablo({
         sutunlar: [
           { baslik: 'Saat', genislik: 96 },
           { baslik: 'Kullanıcı', genislik: 160 },
@@ -740,9 +799,70 @@
           { baslik: 'Yeni Değer', hiza: 'sag' }
         ],
         satirlar: satirlar,
-        bos: 'Bu günün verisine dokunan işlem kaydı yok. (Örnek veri denetim izi bırakmaz; ' +
+        bos: 'Seçilen aralık ve süzgeçlere uyan işlem kaydı yok. (Örnek veri denetim izi bırakmaz; ' +
           'elle yapılan her giriş, düzeltme ve silme burada adım adım listelenir.)'
-      })
+      }));
+    }
+
+    var basAlan = YU.ui.alan({
+      etiket: 'Başlangıç', tip: 'tarih', deger: tarih, genislik: 150,
+      onChange: function () { suzgec.bas = basAlan.deger() || tarih; tabloCiz(); }
+    });
+    var bitAlan = YU.ui.alan({
+      etiket: 'Bitiş', tip: 'tarih', deger: tarih, genislik: 150,
+      onChange: function () { suzgec.bit = bitAlan.deger() || tarih; tabloCiz(); }
+    });
+    var kSecenek = [{ deger: '', metin: 'Tümü' }], ki;
+    for (ki = 0; ki < depo.kullanicilar.length; ki++) {
+      kSecenek.push({
+        deger: String(depo.kullanicilar[ki].Id),
+        metin: depo.kullanicilar[ki].AdSoyad + (depo.kullanicilar[ki].Aktif === false ? ' (pasif)' : '')
+      });
+    }
+    var kullaniciAlan = YU.ui.alan({
+      etiket: 'Kullanıcı', tip: 'secim', secenekler: kSecenek, deger: '', genislik: 170,
+      onChange: function () { suzgec.kullanici = kullaniciAlan.deger(); tabloCiz(); }
+    });
+    var tSecenek = [{ deger: '', metin: 'Tümü' }], tListe = (YU.log && YU.log.TABLOLAR) || [], ti;
+    for (ti = 0; ti < tListe.length; ti++) {
+      tSecenek.push({ deger: tListe[ti], metin: KAYIT_KAYNAGI[tListe[ti]] || tListe[ti] });
+    }
+    var tabloAlan = YU.ui.alan({
+      etiket: 'Kayıt Türü', tip: 'secim', secenekler: tSecenek, deger: '', genislik: 190,
+      onChange: function () { suzgec.tablo = tabloAlan.deger(); tabloCiz(); }
+    });
+    var suzgecSeridi = YU.h('div', {
+      stil: { display: 'flex', alignItems: 'flex-end', gap: '12px', flexWrap: 'wrap',
+              padding: '12px 16px', borderBottom: '1px solid var(--kenar)' }
+    }, basAlan.kok, bitAlan.kok, kullaniciAlan.kok, tabloAlan.kok);
+
+    /* Denetim izi sınır uyarısı (M29): M10 budaması sessizdi — en eski
+       satırın düşmek üzere olduğu ilk kez burada söylenir. */
+    var logSayisi = depo.degisiklikLog.length;
+    var logSinir = (YU.log && YU.log.SINIR) || 5000;
+    var sinirSeridi = null;
+    if (logSayisi >= logSinir * 0.9) {
+      sinirSeridi = YU.h('div', { stil: { padding: '12px 16px 0' } }, YU.ui.serit(logSayisi >= logSinir
+        ? { tur: 'hata', baslik: 'Denetim İzi Sınırında',
+            metin: 'Değişiklik kaydı ' + YU.fmt.sayi(logSayisi) + ' / ' + YU.fmt.sayi(logSinir) +
+              ' satır — en eski kayıtlar düşmeye başladı. Üst şeritteki Yedek İndir ile arşivleyin.' }
+        : { tur: 'bilgi', baslik: 'Denetim İzi Sınıra Yaklaşıyor',
+            metin: 'Değişiklik kaydı ' + YU.fmt.sayi(logSayisi) + ' / ' + YU.fmt.sayi(logSinir) +
+              ' satır. Sınır aşılınca en eski kayıtlar düşer; Yedek İndir ile arşivleyin.' }));
+    }
+
+    tabloCiz();
+
+    /* Bu panel BASKIYA GİRMEZ (kullanıcı isteği, 24.08.2026): yazdırılan
+       günlük rapor Şartname §7'de tanımlanan içerikle kalsın — o günün kuru
+       küspe detayı, malzeme ve silo hareketleri. Denetim izi ekranda kalır.
+       Başlıktaki not, kullanıcının çıktıda bu bölümü aramasını önler. */
+    var panel = YU.ui.panel({
+      baslik: 'İşlem Geçmişi',
+      ikon: '#ic-dots',
+      sag: sayacEl,
+      dolgusuz: true,
+      govde: [sinirSeridi, suzgecSeridi, tabloKap]
     });
 
     panel.className += ' yu-baski-yok';
@@ -770,10 +890,9 @@
        açılır (satır tıklaması ?tarih= ile buraya getirir). Menüden gelinirse
        bugünün raporu görünür. */
     YU.ui.sayfaEylemleri(
-      YU.ui.dugme({
-        metin: 'Geçmiş Girişler', ikon: '#ic-calendar', tur: 'ikincil',
-        onClick: function () { YU.git('gecmis-girisler'); }
-      }),
+      /* "Geçmiş Girişler" düğmesi buradan KALDIRILDI (kullanıcı kararı,
+         25.08.2026): aynı işi sol üstteki geri bağlantısı yapıyor, iki
+         düğme mükerrerdi. */
       /* "Bu Günü Düzenle" ikiye ayrıldı (kullanıcı isteği, 24.08.2026):
          düzenleme iki ekranda da olabilir, kullanıcı hangisini açacağını
          düğmeden seçer — ikisi de bu günün tarihini taşır. */
@@ -786,6 +905,48 @@
         metin: 'Malzeme Girişi', ikon: '#ic-pencil', tur: 'ikincil',
         baslik: YU.fmt.tarih(tarih) + ' gününü Malzeme Girişi\'nde düzenle',
         onClick: function () { YU.git('malzeme-girisi', { tarih: tarih }); }
+      }),
+      YU.ui.dugme({
+        metin: 'CSV İndir', ikon: '#ic-download', tur: 'ikincil',
+        baslik: 'Günün malzeme ve silo dökümünü Excel uyumlu CSV olarak indirir (M17)',
+        onClick: function () {
+          var satirlar = [['Program Hareketleri', YU.fmt.tarih(tarih)]];
+          var so = siloGunlukOzet(YU.db, ozet, tarih);
+          var i, s, iade, basi, sonu;
+
+          satirlar.push([]);
+          satirlar.push(['Malzeme', 'Gün Başı (kg)', 'Üretim (kg)', 'Ham Üretim (kg)', 'İade (kg)', 'Satış (kg)', 'Gün Sonu (kg)']);
+          for (i = 0; i < ozet.malzemeSatirlari.length; i++) {
+            s = ozet.malzemeSatirlari[i];
+            iade = Number(s.hareket && s.hareket.Iade) || 0;
+            basi = null; sonu = null;
+            if (s.malzeme && s.malzeme.OzelTip === 'DokmeKuruKuspe') {
+              basi = so.toplam.basi; sonu = so.toplam.sonu;
+            } else if (s.malzeme) {
+              sonu = Number(YU.stok.malzemeStok(YU.db, s.malzeme.Id, tarih).mevcut) || 0;
+              basi = YU.yuvarla(sonu - (Number(s.uretim) || 0) - iade + (Number(s.satis) || 0));
+            }
+            satirlar.push([
+              s.malzeme ? s.malzeme.Ad : 'Malzeme #' + s.hareket.MalzemeId,
+              basi === null ? '' : YU.csvSayi(basi),
+              YU.csvSayi(s.uretim),
+              s.malzeme && s.malzeme.OzelTip === 'DokmeKuruKuspe' && ozet.kuruKuspe
+                ? YU.csvSayi(ozet.hesap.hamUretilenDokme) : '',
+              YU.csvSayi(iade),
+              YU.csvSayi(s.satis),
+              sonu === null ? '' : YU.csvSayi(sonu)
+            ]);
+          }
+
+          satirlar.push([]);
+          satirlar.push(['Silo', 'Gün Başı (kg)', 'Giren (kg)', 'Çıkan (kg)', 'Gün Sonu (kg)']);
+          for (i = 0; i < so.liste.length; i++) {
+            s = so.liste[i];
+            satirlar.push([s.silo.Ad, YU.csvSayi(s.basi), YU.csvSayi(s.giren), YU.csvSayi(s.cikan), YU.csvSayi(s.sonu)]);
+          }
+
+          YU.csvIndir('program-hareketleri-' + tarih + '.csv', satirlar);
+        }
       }),
       YU.ui.dugme({
         metin: 'Yazdır', ikon: '#ic-download', tur: 'birincil',
@@ -805,7 +966,7 @@
             onClick: function () { YU.git('kuru-kuspe', { tarih: tarih }); }
           }),
           YU.ui.dugme({
-            metin: 'Geçmiş Girişler', ikon: '#ic-calendar', tur: 'ikincil',
+            metin: 'Geçmiş İşlemler', ikon: '#ic-calendar', tur: 'ikincil',
             onClick: function () { YU.git('gecmis-girisler'); }
           })
         ]
@@ -837,21 +998,45 @@
 
     var siloOzet = siloGunlukOzet(depo, ozet, tarih);
     kap.appendChild(malzemePaneli(depo, ozet, tarih, siloOzet));
-    kap.appendChild(siloPaneli(depo, ozet, tarih));
-    /* Denetim izi: günün verisine dokunan her adım — güvenlik kaydı.
-       Şartname §7 Değişiklik Geçmişi'ni YÖNETİCİYE ayırır; gün düzeyindeki
-       bu alt küme de aynı kurala tabidir (kullanıcı kararı, 21.08.2026). */
-    if (YU.yonetici()) kap.appendChild(gunIslemGecmisi(depo, tarih));
+    /* Silo Hareketleri + İşlem Geçmişi panelleri, Tüm Hareketler'deki gün
+       paneliyle DEĞİŞTİRİLDİ (kullanıcı isteği, 24.08.2026): tek tabloda
+       silo + malzeme hareketleri, "Değiştirildi" rozetleri ve — yalnız
+       yöneticiye, Şartname §7 gereği — çizili "Silindi" satırları. Eski/yeni
+       değer düzeyindeki adım adım denetim izi bu ekrandan çıktı; tam döküm
+       #/tum-hareketler ve #/degisiklik-gecmisi ekranlarında durur.
+       siloPaneli ve gunIslemGecmisi fonksiyonları yedek olarak duruyor.
+       Kaydeden kolonu yazdırmada gizlenir (mevcut kullanıcı direktifi). */
+    var hareketPanel = YU.gunHareketPaneli(depo, tarih, YU.yonetici());
+    /* Yazdırma düzeltmesi (24.08.2026): yu-baski-bolunur — uzun panel
+       .yu-panel'in "break-inside: avoid" kuralına takılıp 1. sayfayı yarım
+       bırakıyor, raporu 4 kâğıda taşırıyordu; artık sayfalar arasında satır
+       bütünlüğü korunarak bölünür. Tabloya yu-baski-sig: satır/yazı baskıda
+       küçülür, kolonlar kâğıda sığar. Yalnız bu ekranın çıktısı etkilenir. */
+    hareketPanel.className += ' yu-yazdirmada-kaydedensiz yu-baski-bolunur';
+    var hareketTablo = hareketPanel.querySelector('.yu-tablo-sar') || hareketPanel.querySelector('.yu-tablo');
+    if (hareketTablo) hareketTablo.className += ' yu-baski-sig';
+    kap.appendChild(hareketPanel);
+    /* İşlem Geçmişi paneli EKRANDA DEĞİL (kullanıcı kararı, 25.08.2026 —
+       "geri çek"): 24.08'deki kaldırma geçerli kaldı. gunIslemGecmisi,
+       M29'da eklenen süzgeçleriyle (tarih aralığı + kullanıcı + kayıt türü)
+       birlikte YEDEK durur; log sınır uyarıları panele değil üst şerit
+       ziline bağlı olduğu için aktif kalır (10-kabuk YU.uyarilar). */
   }
 
   YU.sayfaTanimla({
     kod: 'gunluk-rapor',   /* kod değişmez — uygulamadaki tüm bağlantılar buna gider */
+    zemin: 'gri-duz',   /* Stok Durumu ile aynı: gri zemin, mavi panel (kullanıcı isteği, 24.08.2026) */
     baslik: 'Program Hareketleri',
     ikon: '#ic-doc',
     /* Sol menüde görünmez (kullanıcı isteği, 24.08.2026); ekrana rapor
        merkezi kartı ve diğer ekranlardaki düğme/bağlantılarla gidilir. */
     grup: null,
     rol: 'Hepsi',
+    /* Bu ekran bir GÜNÜN ayrıntısıdır; üst listesi Geçmiş Girişler'dir
+       (KURAL 7: gün listesi orada). Sol üstteki geri bağlantısı oraya döner
+       (kullanıcı isteği, 25.08.2026) — menüde yeri olmayan bu ekrandan
+       çıkışın tek tıklık yolu. */
+    geri: { metin: 'GERİ', kod: 'gecmis-girisler' },
     altBaslik: function (param) {
       var t = tarihSec(param);
       return YU.fmt.tarihUzun(t) + ' · ' + YU.fmt.gunAdi(t) +

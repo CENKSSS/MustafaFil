@@ -12,10 +12,14 @@
   var YU = window.YU;
 
   /* Şartname §6 + görev tanımı: yalnız kritik tablolar loglanır.
-     Silolar bilinçli olarak dışarıda — hareket üretmez, sayısı sabittir. */
+     Silolar (yalnız Kapasite alanı) ve KampanyaKilitleri 24.08.2026'da
+     eklendi (DUZELTME-PLANI M23): kapasite D15'i, kilit tüm yazmaları
+     etkiler — "kim, ne zaman" Değişiklik Geçmişi'nde cevapsız kalmasın.
+     Siloların öteki alanları (ad, sıra, aktif) eskisi gibi log dışıdır. */
   var LOGLANAN_TABLOLAR = [
     "KuruKuspeGunluk", "GunlukHareket", "SiloHareket",
-    "DevirStok", "SiloDevirStok", "Kullanicilar", "Malzemeler"
+    "DevirStok", "SiloDevirStok", "Kullanicilar", "Malzemeler",
+    "Silolar", "KampanyaKilitleri"
   ];
 
   var ALAN_ADI = {
@@ -115,6 +119,16 @@
 
   function hataSatiri(kod, mesaj) { return { kod: kod, mesaj: mesaj }; }
 
+  /* Şartname §8: "tek savunma hattı ekran olmamalı." §7'de Yönetici'ye ayrılan
+     ekranların servisleri, çağıranın rolünü burada da denetler (DUZELTME-PLANI
+     M15). Günlük veri servisleri (kuru küspe, malzeme hareketi, gün silme)
+     her role açıktır — mevcut yetki modeli değiştirilmedi. */
+  function yoneticiSarti(kullanici) {
+    if (kullanici && kullanici.Rol === "Yonetici") return null;
+    return sonuc(false, [hataSatiri("Yetki", "Bu işlem Yönetici rolü gerektirir. Oturum: " +
+      (kullanici && kullanici.AdSoyad ? kullanici.AdSoyad + " (" + (kullanici.Rol === "Operator" ? "Operatör" : String(kullanici.Rol)) + ")" : "tanımsız") + ".")], [], null);
+  }
+
   /* ---------- "ya hep ya hiç" ----------
      Prototipte veritabanı transaction'ı yok. Şartname §4'ün "ortada hata olursa
      hiçbiri yazılmamalı" şartının karşılığı: yazmadan önce ilgili tabloların derin
@@ -150,8 +164,15 @@
 
   function alanAdi(a) { return a === null || a === undefined ? null : (ALAN_ADI[a] || a); }
 
+  /* localStorage kotası emniyeti (DUZELTME-PLANI M10): arşiv/log tabloları
+     sınırsız büyürse kota dolar ve yazma tümden durur. Sınır aşılınca EN ESKİ
+     satır düşer — denetim izinin en eskisini kaybetmek, tamamını kaybetmekten
+     iyidir; kalıcı arşiv isteyen kullanıcı için üst şeritte "Yedek İndir" var. */
+  var DEGISIKLIK_SINIRI = 5000;
+
   function logYaz(depo, k) {
     if (LOGLANAN_TABLOLAR.indexOf(k.tablo) < 0) return null;
+    while (depo.degisiklikLog.length >= DEGISIKLIK_SINIRI) depo.degisiklikLog.shift();
     var satir = {
       Id: depo.yeniId("DegisiklikLog"),
       Tablo: k.tablo,
@@ -165,6 +186,19 @@
     };
     depo.degisiklikLog.push(satir);
     return satir;
+  }
+
+  /* Kapasite aşımının gerekçeli kabulü (M32) denetim izine AYRI satır olarak
+     yazılır: "Kapasite Aşımı" alanı, değer olarak silo · bakiye/kapasite ·
+     gerekçe. Yöneticinin zilindeki "Kapasite Aşıldı" uyarısı durumu, bu satır
+     ise SEBEBİ söyler. */
+  function kapasiteAsimiLogla(depo, kayitId, silo, gunSonu, kapasite, gerekce, kullaniciId) {
+    logYaz(depo, {
+      tablo: "SiloHareket", kayitId: kayitId, alan: "Kapasite Aşımı",
+      eski: YU.fmt.kgU(kapasite) + " kapasite",
+      yeni: silo.Ad + " · " + YU.fmt.kgU(gunSonu) + " — gerekçe: " + gerekce,
+      kullaniciId: kullaniciId, islem: "Guncelle"
+    });
   }
 
   /* Güncellemede DEĞİŞEN her alan için ayrı satır (Şartname §6 denetim izi). */
@@ -198,6 +232,7 @@
     if (kod === "Kullanicilar") return depo.kullanicilar;
     if (kod === "Malzemeler") return depo.malzemeler;
     if (kod === "Silolar") return depo.silolar;
+    if (kod === "KampanyaKilitleri") return depo.kampanyaKilitleri || [];
     return null;
   }
 
@@ -233,6 +268,7 @@
     if (tablo === "Kullanicilar") return k.AdSoyad;
     if (tablo === "Malzemeler") return k.Ad;
     if (tablo === "Silolar") return k.Ad;
+    if (tablo === "KampanyaKilitleri") return k.Kampanya + " kampanyası";
     return null;
   }
 
@@ -287,10 +323,32 @@
     return en ? { Id: en.Id, DevirTarihi: en.DevirTarihi, Miktar: say(en.Miktar) } : null;
   }
 
+  /* Dökme kuru küspenin SEZON penceresi (DUZELTME-PLANI M24): dökmenin
+     malzeme devri yazılmaz (devri silolardadır; 27-devir-stok ve
+     yeniKampanyaOlustur bilerek atlar), bu yüzden pencere SİLO
+     devirlerinden türetilir — miktar: silo devirlerinin toplamı, tarih:
+     en geç silo devri (23-stok-durumu çift sayım kontrolüyle aynı kural).
+     Hiç silo devri yoksa null: eski davranış (pencere sınırsız). */
+  function dokmeDeviri(depo, tarih) {
+    var toplam = 0, en = null, bulundu = false, i, d;
+    for (i = 0; i < depo.silolar.length; i++) {
+      d = enSonDevir(depo, "Silo", depo.silolar[i].Id, tarih);
+      if (!d) continue;
+      bulundu = true;
+      toplam += d.Miktar;
+      if (!en || d.DevirTarihi > en) en = d.DevirTarihi;
+    }
+    return bulundu ? { Id: null, DevirTarihi: en, Miktar: YU.yuvarla(toplam) } : null;
+  }
+
   /* Şartname §5: Stok = EnSonDevir(DevirTarihi <= sorgu) + Toplam(Uretim) − Toplam(Satis),
      hareketler yalnızca o devir tarihinden sonrakiler (>=). */
   function malzemeHesapla(depo, malzeme, tarih, hareketler, dokmeToplami) {
-    var devir = enSonDevir(depo, "Malzeme", malzeme.Id, tarih);
+    /* M24: dökmede pencere silo devirlerinden gelir; DevirStok'a bakılsaydı
+       satırı hiç olmadığı için bütün kampanyalar üst üste toplanırdı. */
+    var devir = malzeme.OzelTip === "DokmeKuruKuspe"
+      ? dokmeDeviri(depo, tarih)
+      : enSonDevir(depo, "Malzeme", malzeme.Id, tarih);
     var bas = devir ? devir.DevirTarihi : null;
     var uretim = 0, satis = 0, iade = 0, i, h;
     for (i = 0; i < hareketler.length; i++) {
@@ -300,8 +358,9 @@
       uretim += Number(h.Uretim) || 0;
       satis += Number(h.Satis) || 0;
       /* İade stokta üretim gibi davranır ama ayrı toplanır (kullanıcı
-         direktifi, 24.08.2026): ekranlar ayrı kolon gösterir. Iade alanı
-         boş/0 olan eski veri için sonuç birebir aynıdır. */
+         direktifi, 24.08.2026): ekranlar ayrı kolon gösterir. Satış-iade
+         mahsubu denendi ve GERİ ALINDI (kullanıcı kararı, 24.08.2026):
+         raporlanan iade girilen iadedir, satış girilen satıştır. */
       iade += Number(h.Iade) || 0;
     }
     uretim = YU.yuvarla(uretim);
@@ -620,7 +679,10 @@
     if (logla) {
       logYaz(depo, {
         tablo: "GunlukHareket", kayitId: yeni.Id, alan: null, eski: null,
-        yeni: YU.fmt.tarih(tarih) + " · üretim " + YU.fmt.kgU(yeni.Uretim) + " · satış " + YU.fmt.kgU(yeni.Satis),
+        /* M25: iade da özete girer (yalnız > 0 iken — sıfırlı günlerde özet
+           gürültülenmesin); güncelleme yolu zaten alan bazlı loglar. */
+        yeni: YU.fmt.tarih(tarih) + " · üretim " + YU.fmt.kgU(yeni.Uretim) + " · satış " + YU.fmt.kgU(yeni.Satis) +
+          (yeni.Iade > 0 ? " · iade " + YU.fmt.kgU(yeni.Iade) : ""),
         kullaniciId: kullaniciId, islem: "Ekle"
       });
     }
@@ -685,6 +747,28 @@
       " bu kampanyaya düşer ve değiştirilemez. Önce Devir Stok & Kampanya Yönetimi ekranından kilidi açın.");
   }
 
+  /* GEÇMİŞ KAMPANYA YALNIZ YÖNETİCİNİN (kullanıcı kararı, 25.08.2026):
+     kilit AÇIK olsa bile operatör, kapanmış bir sezonun gününe yazamaz —
+     düzeltemez, silemez, yeni kayıt açamaz. Kilit "kimse dokunamaz" demektir;
+     bu kural ondan bağımsızdır ve kilit açıkken de geçerlidir. Ölçü bugünün
+     kampanyası değil, tarihin düştüğü kampanyadır: en yeni kampanya güncel,
+     ondan öncekilerin hepsi geçmiştir. */
+  function gecmisKampanyaEngeli(depo, tarih, kullanici) {
+    if (kullanici && kullanici.Rol === "Yonetici") return null;
+    var g = kampanyaBaslari(depo);
+    if (g.length < 2) return null;                       /* tek kampanya varsa geçmiş yok */
+    var kmp = tarihinKampanyasi(depo, tarih);
+    if (!kmp || kmp.ad === g[g.length - 1].ad) return null;
+    return hataSatiri("Yetki", "\"" + kmp.ad + "\" geçmiş kampanyadır — " + YU.fmt.tarih(tarih) +
+      " bu kampanyaya düşer. Geçmiş kampanya kaydını yalnız Yönetici değiştirebilir.");
+  }
+
+  /* Bir güne yazmanın önündeki tüm engeller tek kapıda: önce kilit, sonra
+     geçmiş kampanya yetkisi. */
+  function yazmaEngeli(depo, tarih, kullanici) {
+    return kilitEngeli(depo, tarih) || gecmisKampanyaEngeli(depo, tarih, kullanici);
+  }
+
   function kuruKuspeKaydet(depo, girdi, kullanici, secenek) {
     secenek = secenek || {};
     var kullaniciId = kullanici && kullanici.Id !== undefined ? kullanici.Id : null;
@@ -696,7 +780,7 @@
 
     /* Kampanya kilidi her yazma yolunu keser (tohum verisi hariç — tohum
        kullanıcı işlemi değildir ve kilitler kurulmadan önce yazılır). */
-    var kilitH = logla ? kilitEngeli(depo, tarih) : null;
+    var kilitH = logla ? yazmaEngeli(depo, tarih, kullanici) : null;
     if (kilitH) return sonuc(false, [kilitH], [], null);
 
     var d = YU.dogrula.kuruKuspeKaydi(depo, girdi);
@@ -769,6 +853,10 @@
         var TIP_AD = { DokmeUretim: "Dökme Üretim", Cuvallama: "Çuvallama", DokmeSatis: "Dökme Satış" };
         var eskiHareket, eskiSilo, miktarMetni;
         for (i = depo.siloHareket.length - 1; i >= 0; i--) {
+          /* Manuel (sayım düzeltmesi) satırı bu döngüde ASLA silinmez (M16):
+             kaynağı kuru küspe kaydı değildir; Id çakışması ihtimaline karşı
+             tip süzgeci emniyet kemeridir. Günü komple silen gunSil etkilenmez. */
+          if (depo.siloHareket[i].HareketTipi === "Manuel") continue;
           if (depo.siloHareket[i].KaynakKayitId !== mevcut.Id) continue;
           eskiHareket = depo.siloHareket[i];
           depo.siloHareket.splice(i, 1);
@@ -848,6 +936,22 @@
         gunlukHareketYaz(depo, tarih, cuvalMalzeme.Id,
           { Uretim: hesap.cuvalKg }, kullaniciId, logla);
       }
+
+      /* 5 — kapasite aşımı gerekçeyle kabul edildiyse denetim izine yazılır
+         (M32). Doğrulama katmanı aşımı uyarıya çevirdiyse burada D15 kodlu
+         uyarı bulunur; her aşan silo için ayrı satır düşer. */
+      if (logla && YU.dogrula.kapasiteGerekcesiGecerli(girdi)) {
+        var gerekceMetni = String(girdi.kapasiteGerekcesi).trim();
+        for (var au = 0; au < uyarilar.length; au++) {
+          if (uyarilar[au].kod !== "D15") continue;
+          logYaz(depo, {
+            tablo: "KuruKuspeGunluk", kayitId: kayit ? kayit.Id : null, alan: "Kapasite Aşımı",
+            eski: null, yeni: uyarilar[au].mesaj.split(" Kapasite aşımı")[0] +
+              " Gerekçe: " + gerekceMetni,
+            kullaniciId: kullaniciId, islem: "Guncelle"
+          });
+        }
+      }
     } catch (e) {
       geriSar(depo, yedek);
       return sonuc(false, [beklenmedikHata(e)], uyarilar, null);
@@ -861,7 +965,7 @@
 
   function gunSil(depo, tarih, kullanici) {
     var kullaniciId = kullanici && kullanici.Id !== undefined ? kullanici.Id : null;
-    var kilitH = kilitEngeli(depo, tarih);
+    var kilitH = yazmaEngeli(depo, tarih, kullanici);
     if (kilitH) return sonuc(false, [kilitH], [], null);
     var d = YU.dogrula.gunSilme(depo, tarih);
     if (d.hatalar.length) return sonuc(false, d.hatalar, [], null);
@@ -918,7 +1022,7 @@
 
   function malzemeHareketKaydet(depo, girdi, kullanici) {
     var kullaniciId = kullanici && kullanici.Id !== undefined ? kullanici.Id : null;
-    var kilitH = kilitEngeli(depo, girdi.tarih);
+    var kilitH = yazmaEngeli(depo, girdi.tarih, kullanici);
     if (kilitH) return sonuc(false, [kilitH], [], null);
     var d = YU.dogrula.malzemeHareketi(depo, girdi);
     if (d.hatalar.length) return sonuc(false, d.hatalar, d.uyarilar, null);
@@ -954,6 +1058,100 @@
     return sonuc(true, [], d.uyarilar, kayit);
   }
 
+  /* ---------- Manuel silo hareketi — sayım düzeltmesi (M18, Şartname §11) ----------
+     Fiili sayım ile sistem stoğu arasındaki fark "Manuel" tipli silo hareketi
+     olarak girilir (§6'daki tip; §11'in öngördüğü kayıt). Yönetici işlemidir;
+     KaynakKayitId null'dur (kuru küspe kaydına bağlı değildir, üzerine yazmada
+     silinmez — M16) ve Aciklama zorunludur (denetim izinin "neden" ayağı). */
+
+  function manuelHareketKaydet(depo, girdi, kullanici) {
+    var yetki = yoneticiSarti(kullanici);
+    if (yetki) return yetki;
+
+    var d = YU.dogrula.manuelHareket(depo, girdi);
+    if (d.hatalar.length) return sonuc(false, d.hatalar, [], null);
+
+    var tarih = girdi.tarih;
+    var siloId = kimlik(girdi.siloId);
+    var silo = satirBul(depo.silolar, siloId);
+    var miktar = YU.yuvarla(oku(girdi.miktar));
+    var girenMi = girdi.yon === "giren";
+    var aciklama = String(girdi.aciklama).trim();
+    var hatalar = [], i;
+
+    var kilitliKmp = kilitKaydi(depo, kampanyaAdiHesapla(tarih));
+    if (kilitliKmp) {
+      return sonuc(false, [hataSatiri("KILIT", "\"" + kilitliKmp.Kampanya +
+        "\" kampanyası kilitli — sayım düzeltmesi girilemez. Önce Devir Stok & Kampanya Yönetimi ekranından kilidi açın.")], [], null);
+    }
+
+    /* D14 — işlem gününden ileriye her silonun bakiyesi taslakla doğrulanır. */
+    var negatifler = YU.dogrula.ileriBakiye(depo, tarih, {
+      tarih: tarih,
+      yeniHareketler: [{ siloId: siloId, GirenKg: girenMi ? miktar : 0, CikanKg: girenMi ? 0 : miktar }]
+    });
+    for (i = 0; i < negatifler.length; i++) {
+      hatalar.push(hataSatiri("D14", YU.dogrula.d14Mesaji(negatifler[i])));
+    }
+
+    /* D15 — gün sonu bakiye kapasiteyi aşamaz (kullanıcı kararı, 21.08.2026);
+       gerekçe yazılmışsa uyarıya döner (M32, 25.08.2026). */
+    var uyarilar = [];
+    var gunSonu = YU.yuvarla(say(siloStok(depo, siloId, tarih).mevcut) + (girenMi ? miktar : -miktar));
+    var kapasite = Number(silo.Kapasite) || 0;
+    var gerekce = String(girdi.kapasiteGerekcesi === undefined || girdi.kapasiteGerekcesi === null
+      ? "" : girdi.kapasiteGerekcesi).trim();
+    var asimVar = girenMi && kapasite > 0 && gunSonu - kapasite > 0.01;
+    if (asimVar) {
+      var d15Metin = silo.Ad + " gün sonu bakiyesi " + YU.fmt.kgU(gunSonu) +
+        " olur; kapasitesi " + YU.fmt.kgU(kapasite) + ". Aşım: " +
+        YU.fmt.kgU(YU.yuvarla(gunSonu - kapasite)) + " (" + YU.fmt.tarih(tarih) + ").";
+      if (YU.dogrula.kapasiteGerekcesiGecerli(girdi)) {
+        uyarilar.push(hataSatiri("D15", d15Metin + " Kapasite aşımı gerekçeyle kabul edildi: \"" + gerekce + "\"."));
+      } else {
+        hatalar.push(hataSatiri("D15", d15Metin + " Kapasite aşılamaz — kayıt engellendi. " +
+          "Aşım gerçekse gerekçe yazarak kaydedebilirsiniz."));
+      }
+    }
+    if (hatalar.length) return sonuc(false, hatalar, [], null);
+
+    var yedek = anlikGoruntu(depo, ["siloHareket", "degisiklikLog"]);
+    var kayit;
+    try {
+      kayit = {
+        Id: depo.yeniId("SiloHareket"),
+        Tarih: tarih,
+        SiloId: siloId,
+        HareketTipi: "Manuel",
+        GirenKg: girenMi ? miktar : 0,
+        CikanKg: girenMi ? 0 : miktar,
+        KaynakKayitId: null,
+        Aciklama: aciklama,
+        OlusturanKullaniciId: kullanici.Id,
+        OlusturmaTarihi: simdi()
+      };
+      depo.siloHareket.push(kayit);
+      logYaz(depo, {
+        tablo: "SiloHareket", kayitId: kayit.Id, alan: null,
+        eski: null,
+        yeni: YU.fmt.tarih(tarih) + " · " + silo.Ad + " · Manuel · " +
+          (girenMi ? "giren " : "çıkan ") + YU.fmt.kgU(miktar) + " — " + aciklama,
+        kullaniciId: kullanici.Id, islem: "Ekle"
+      });
+      /* Kapasite aşımı gerekçeyle geçirildiyse AYRI satır (M32): denetim
+         izinde "kim, ne zaman, hangi gerekçeyle aştı" tek bakışta okunur. */
+      if (asimVar && uyarilar.length) {
+        kapasiteAsimiLogla(depo, kayit.Id, silo, gunSonu, kapasite, gerekce, kullanici.Id);
+      }
+    } catch (e) {
+      geriSar(depo, yedek);
+      return sonuc(false, [beklenmedikHata(e)], [], null);
+    }
+
+    depo.kaydet();
+    return sonuc(true, [], uyarilar, kayit);
+  }
+
   /* ---------- devir stok ---------- */
 
   function devirUpsert(depo, tip, sahipId, devirTarihi, miktar, kullanici) {
@@ -987,6 +1185,13 @@
       if (mevcut) {
         eski = { Miktar: say(mevcut.Miktar) };
         mevcut.Miktar = YU.yuvarla(miktar);
+        /* Devir DÜZELTİLDİĞİNDE son dokunuş yazılır (kullanıcı bildirimi,
+           25.08.2026): devir tarihi ve oluşturan kişi korunur, güncelleyen
+           kişi ile anı ayrı alanlara geçer. Şartname v2: "Ana tablolara
+           GuncelleyenKullaniciId ve GuncellemeTarihi kolonları eklenir" —
+           devir tablolarında eksik kalmıştı. */
+        mevcut.GuncelleyenKullaniciId = kullaniciId;
+        mevcut.GuncellemeTarihi = simdi();
         kayit = mevcut;
         logDegisenler(depo, tabloAdi, kayit.Id, eski, kayit, ["Miktar"], kullaniciId);
       } else {
@@ -995,7 +1200,9 @@
           DevirTarihi: devirTarihi,
           Miktar: YU.yuvarla(miktar),
           OlusturanKullaniciId: kullaniciId,
-          OlusturmaTarihi: simdi()
+          OlusturmaTarihi: simdi(),
+          GuncelleyenKullaniciId: null,
+          GuncellemeTarihi: null
         };
         kayit[alan] = sahipId;
         tablo.push(kayit);
@@ -1028,14 +1235,20 @@
   }
 
   function devirKaydet(depo, girdi, kullanici) {
+    var yetki = yoneticiSarti(kullanici);
+    if (yetki) return yetki;
     return devirUpsert(depo, "Malzeme", kimlik(girdi.malzemeId), girdi.devirTarihi, oku(girdi.miktar), kullanici);
   }
 
   function siloDevirKaydet(depo, girdi, kullanici) {
+    var yetki = yoneticiSarti(kullanici);
+    if (yetki) return yetki;
     return devirUpsert(depo, "Silo", kimlik(girdi.siloId), girdi.devirTarihi, oku(girdi.miktar), kullanici);
   }
 
   function devirSil(depo, id, tip, kullanici) {
+    var yetki = yoneticiSarti(kullanici);
+    if (yetki) return yetki;
     var siloMu = tip === "Silo";
     var tablo = siloMu ? depo.siloDevirStok : depo.devirStok;
     var tabloAdi = siloMu ? "SiloDevirStok" : "DevirStok";
@@ -1081,6 +1294,8 @@
   }
 
   function malzemeKaydet(depo, malzeme, kullanici) {
+    var yetki = yoneticiSarti(kullanici);
+    if (yetki) return yetki;
     var kullaniciId = kullanici && kullanici.Id !== undefined ? kullanici.Id : null;
     var mevcut = malzeme.Id ? satirBul(depo.malzemeler, malzeme.Id) : null;
     var aday = {
@@ -1132,6 +1347,8 @@
   }
 
   function kullaniciKaydet(depo, kullanici, islemiYapan) {
+    var yetki = yoneticiSarti(islemiYapan);
+    if (yetki) return yetki;
     var kullaniciId = islemiYapan && islemiYapan.Id !== undefined ? islemiYapan.Id : null;
     var mevcut = kullanici.Id ? satirBul(depo.kullanicilar, kullanici.Id) : null;
     var aday = {
@@ -1193,6 +1410,8 @@
   }
 
   function siloKaydet(depo, silo, kullanici) {
+    var yetki = yoneticiSarti(kullanici);
+    if (yetki) return yetki;
     var mevcut = silo.Id ? satirBul(depo.silolar, silo.Id) : null;
     var aday = {
       Id: mevcut ? mevcut.Id : null,
@@ -1207,15 +1426,46 @@
     var d = YU.dogrula.silo(depo, aday);
     if (d.hatalar.length) return sonuc(false, d.hatalar, [], null);
 
-    var yedek = anlikGoruntu(depo, ["silolar"]);
+    /* Kapasite mevcut stoğun altına çekilirse geçmiş günler geriye dönük
+       kapasite aşımı görünür; kayıt engellenmez ama söylenir (DUZELTME-PLANI
+       M9 — uyarı burada üretilir çünkü stok sorgusu bu katmandadır). */
+    var uyarilar = [];
+    if (mevcut) {
+      var guncelMevcut = say(siloStok(depo, mevcut.Id).mevcut);
+      if (aday.Kapasite - guncelMevcut < -0.01) {
+        uyarilar.push(hataSatiri("D15", "\"" + aday.Ad + "\" kapasitesi (" + YU.fmt.kgU(aday.Kapasite) +
+          ") silonun güncel mevcudunun (" + YU.fmt.kgU(guncelMevcut) +
+          ") altında. Geçmiş günler kapasite aşımı olarak görünecek; değeri kontrol edin."));
+      }
+      /* Stoklu siloyu pasife alma (M27): kayıt engellenmez ama servis
+         katmanı da uyarır (Şartname §8 — tek savunma hattı ekran olmamalı).
+         Stok kaybolmaz: silo dökme toplamında ve raporlarda kalır. */
+      if (mevcut.Aktif !== false && aday.Aktif === false && Math.abs(guncelMevcut) > 0.005) {
+        uyarilar.push(hataSatiri("Silo", "\"" + aday.Ad + "\" pasifleştirilirken içinde " +
+          YU.fmt.kgU(guncelMevcut) + " var. Stok kaybolmaz — silo raporlarda ve dökme toplamında " +
+          "görünmeye devam eder; yalnız yeni girişlerde seçilemez."));
+      }
+    }
+
+    var yedek = anlikGoruntu(depo, ["silolar", "degisiklikLog"]);
     var kayit;
     try {
       if (mevcut) {
+        /* M23: yalnız KAPASİTE değişimi loglanır — D15'i etkileyen tek alan.
+           Ad/sıra/aktif eskisi gibi log dışı (LOGLANAN_TABLOLAR yorumu). */
+        var eskiKapasite = say(mevcut.Kapasite);
         mevcut.Ad = aday.Ad;
         mevcut.Sira = aday.Sira;
         mevcut.Kapasite = aday.Kapasite;
         mevcut.Aktif = aday.Aktif;
         kayit = mevcut;
+        if (YU.yuvarla(eskiKapasite) !== YU.yuvarla(aday.Kapasite)) {
+          logYaz(depo, {
+            tablo: "Silolar", kayitId: kayit.Id, alan: "Kapasite",
+            eski: eskiKapasite, yeni: aday.Kapasite,
+            kullaniciId: kullaniciKimligi(kullanici), islem: "Guncelle"
+          });
+        }
       } else {
         kayit = { Id: depo.yeniId("Silolar"), Ad: aday.Ad, Sira: aday.Sira, Kapasite: aday.Kapasite, Aktif: aday.Aktif };
         depo.silolar.push(kayit);
@@ -1226,7 +1476,51 @@
     }
 
     depo.kaydet();
-    return sonuc(true, [], [], kayit);
+    return sonuc(true, [], uyarilar, kayit);
+  }
+
+  /* Veri bütünlük taraması (DUZELTME-PLANI M19): negatif gün ve kapasite
+     aşımı zaten üst şeritteki Uyarılar panelinde; bu rapor onların GÖRMEDİĞİ
+     iki sınıfı tarar — yetim referans ve mükerrer tekil anahtar. Kabuk
+     açılışta çağırır; sorun varsa bildirir. Salt okumadır, veri değiştirmez. */
+  function butunlukRaporu(depo) {
+    var sorunlar = [], i, h, k;
+    var malzemeIdler = {}, siloIdler = {}, kullaniciIdler = {};
+    for (i = 0; i < depo.malzemeler.length; i++) malzemeIdler[depo.malzemeler[i].Id] = true;
+    for (i = 0; i < depo.silolar.length; i++) siloIdler[depo.silolar[i].Id] = true;
+    for (i = 0; i < depo.kullanicilar.length; i++) kullaniciIdler[depo.kullanicilar[i].Id] = true;
+
+    function yetim(tablo, ad, alanAdi, idHaritasi, satir) {
+      var id = satir[alanAdi];
+      if (id === null || id === undefined) return;
+      if (!idHaritasi[id]) {
+        sorunlar.push(ad + " #" + satir.Id + ": " + alanAdi + "=" + id + " tanımlı değil (yetim referans).");
+      }
+    }
+
+    var gorulenGH = {}, gorulenKK = {};
+    for (i = 0; i < depo.gunlukHareket.length; i++) {
+      h = depo.gunlukHareket[i];
+      yetim("gunlukHareket", "Günlük hareket", "MalzemeId", malzemeIdler, h);
+      k = h.Tarih + "|" + h.MalzemeId;
+      if (gorulenGH[k]) sorunlar.push("Günlük hareket: (" + YU.fmt.tarih(h.Tarih) + ", malzeme " + h.MalzemeId + ") ikilisi mükerrer — D8 tekilliği bozulmuş.");
+      gorulenGH[k] = true;
+    }
+    for (i = 0; i < depo.kuruKuspeGunluk.length; i++) {
+      h = depo.kuruKuspeGunluk[i];
+      if (gorulenKK[h.Tarih]) sorunlar.push("Kuru küspe günlük: " + YU.fmt.tarih(h.Tarih) + " günü mükerrer — tekillik bozulmuş.");
+      gorulenKK[h.Tarih] = true;
+    }
+    for (i = 0; i < depo.siloHareket.length; i++) {
+      yetim("siloHareket", "Silo hareketi", "SiloId", siloIdler, depo.siloHareket[i]);
+    }
+    for (i = 0; i < depo.devirStok.length; i++) {
+      yetim("devirStok", "Malzeme devri", "MalzemeId", malzemeIdler, depo.devirStok[i]);
+    }
+    for (i = 0; i < depo.siloDevirStok.length; i++) {
+      yetim("siloDevirStok", "Silo devri", "SiloId", siloIdler, depo.siloDevirStok[i]);
+    }
+    return sorunlar;
   }
 
   YU.stok = {
@@ -1239,7 +1533,8 @@
     tumSilolar: tumSilolar,
     negatifGunler: negatifGunler,
     gunOzeti: gunOzeti,
-    kayitliGunler: kayitliGunler
+    kayitliGunler: kayitliGunler,
+    butunlukRaporu: butunlukRaporu
   };
 
   /* ---------- Arka plan arşivi ----------
@@ -1273,6 +1568,8 @@
     while (depo.olayGunlugu.length > OLAY_SINIRI) depo.olayGunlugu.shift();
   }
 
+  var SILINEN_SINIRI = 2000;   /* M10 — OlayGunlugu ile aynı emniyet kalıbı */
+
   function copKutusunaAt(depo, gruplar, kullanici) {
     if (!depo.silinenKayitlar || !gruplar) return;
     var an = simdi(), i, j, g;
@@ -1289,6 +1586,7 @@
         });
       }
     }
+    while (depo.silinenKayitlar.length > SILINEN_SINIRI) depo.silinenKayitlar.shift();
   }
 
   /* Fotoğraf, kayıt ANINDAKİ hesabın çıktısıdır; sonraki bir düzeltme geçmiş
@@ -1311,15 +1609,31 @@
     for (i = 0; i < depo.stokFotograflari.length; i++) {
       if (depo.stokFotograflari[i].Tarih === tarih) { kayit = depo.stokFotograflari[i]; break; }
     }
+    /* Sadeleştirme (kullanıcı direktifi, 24.08.2026): içerik değişmediyse
+       fotoğraf yeniden yazılmaz — Damga bile oynamaz. Aynı günün ikinci
+       kaydında rakamlar aynıysa satır olduğu gibi durur. */
+    var yeniGovde = {
+      Malzemeler: m, Silolar: s,
+      DokmeToplam: say(dokmeToplam(depo, tarih)),
+      ToplamStok: YU.yuvarla(toplam)
+    };
+    if (kayit &&
+        JSON.stringify({ Malzemeler: kayit.Malzemeler, Silolar: kayit.Silolar,
+                         DokmeToplam: kayit.DokmeToplam, ToplamStok: kayit.ToplamStok }) ===
+        JSON.stringify(yeniGovde)) {
+      return;
+    }
     if (!kayit) {
       kayit = { Id: depo.yeniId("StokFotograflari"), Tarih: tarih };
       depo.stokFotograflari.push(kayit);
+      /* M10 — tarih başına tek kayıt olduğundan 400 ≈ üç sezon. */
+      while (depo.stokFotograflari.length > 400) depo.stokFotograflari.shift();
     }
     kayit.Damga = simdi();
-    kayit.Malzemeler = m;
-    kayit.Silolar = s;
-    kayit.DokmeToplam = say(dokmeToplam(depo, tarih));
-    kayit.ToplamStok = YU.yuvarla(toplam);
+    kayit.Malzemeler = yeniGovde.Malzemeler;
+    kayit.Silolar = yeniGovde.Silolar;
+    kayit.DokmeToplam = yeniGovde.DokmeToplam;
+    kayit.ToplamStok = yeniGovde.ToplamStok;
   }
 
   /* ayar.girdi / ayar.ek / ayar.kullanici: ilgili argümanın sırası.
@@ -1329,6 +1643,8 @@
   /* ---------- kampanya yönetimi (kullanıcı isteği, 24.08.2026) ---------- */
 
   function kampanyaKilitle(depo, girdi, kullanici) {
+    var yetki = yoneticiSarti(kullanici);
+    if (yetki) return yetki;
     var ad = girdi && girdi.kampanya;
     var g = kampanyaBaslari(depo), i, var2 = false;
     for (i = 0; i < g.length; i++) if (g[i].ad === ad) { var2 = true; break; }
@@ -1342,16 +1658,31 @@
       Tarih: simdi()
     };
     depo.kampanyaKilitleri.push(kayit);
+    /* M23: kilit, o kampanyaya TÜM yazmaları kapatır — kim kilitledi,
+       Değişiklik Geçmişi'nde görünür (eskiden yalnız OlayGunlugu'ndaydı). */
+    logYaz(depo, {
+      tablo: "KampanyaKilitleri", kayitId: kayit.Id, alan: null,
+      eski: null, yeni: "\"" + ad + "\" kampanyası kilitlendi — veri girişi/düzeltme/silme kapandı",
+      kullaniciId: kullaniciKimligi(kullanici), islem: "Ekle"
+    });
     depo.kaydet();
     return sonuc(true, [], [], kayit);
   }
 
   function kampanyaKilidiAc(depo, girdi, kullanici) {
+    var yetki = yoneticiSarti(kullanici);
+    if (yetki) return yetki;
     var ad = girdi && girdi.kampanya;
     var kayit = kilitKaydi(depo, ad);
     if (!kayit) return sonuc(false, [hataSatiri("Alan", "\"" + String(ad) + "\" zaten kilitli değil.")], [], null);
     var l = depo.kampanyaKilitleri, i;
     for (i = l.length - 1; i >= 0; i--) if (l[i].Kampanya === ad) l.splice(i, 1);
+    /* M23: kilidin açılması da iz bırakır — kampanya yeniden yazılabilir hâle geldi. */
+    logYaz(depo, {
+      tablo: "KampanyaKilitleri", kayitId: kayit.Id, alan: null,
+      eski: "\"" + ad + "\" kampanyası kilitliydi — kilit açıldı, veri girişi yeniden serbest",
+      yeni: null, kullaniciId: kullaniciKimligi(kullanici), islem: "Sil"
+    });
     depo.kaydet();
     return sonuc(true, [], [], YU.kopya(kayit));
   }
@@ -1361,6 +1692,8 @@
      Satırlar tek tek devirUpsert ile yazılır; biri hata verirse süreç
      durur ve o ana kadar yazılanlar kalır — hata mesajı bunu söyler. */
   function yeniKampanyaOlustur(depo, girdi, kullanici) {
+    var yetki = yoneticiSarti(kullanici);
+    if (yetki) return yetki;
     var tarih = girdi && girdi.tarih;
     if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(String(tarih || ""))) {
       return sonuc(false, [hataSatiri("Alan", "Kampanya başlangıç tarihi geçersiz.")], [], null);
@@ -1474,6 +1807,8 @@
         }
         if (!mevcut) return [];
         for (i = 0; i < depo.siloHareket.length; i++) {
+          /* Manuel satır üzerine yazmada silinmez (M16) — arşive de "silindi" diye girmesin. */
+          if (depo.siloHareket[i].HareketTipi === "Manuel") continue;
           if (depo.siloHareket[i].KaynakKayitId === mevcut.Id) l.push(depo.siloHareket[i]);
         }
         return l.length ? [{ tablo: "SiloHareket", kayitlar: l, baglam: "Üzerine yazma · " + girdi.tarih }] : [];
@@ -1484,6 +1819,9 @@
       silinecekler: gunKayitlariKopyala
     }),
     malzemeHareketKaydet: arsivli("malzemeHareketKaydet", malzemeHareketKaydet, {
+      tarih: function (depo, girdi) { return girdi ? girdi.tarih : null; }
+    }),
+    manuelHareketKaydet: arsivli("manuelHareketKaydet", manuelHareketKaydet, {
       tarih: function (depo, girdi) { return girdi ? girdi.tarih : null; }
     }),
     devirKaydet: arsivli("devirKaydet", devirKaydet, {
@@ -1511,6 +1849,10 @@
     yeniKampanyaOlustur: arsivli("yeniKampanyaOlustur", yeniKampanyaOlustur),
     /* Salt okuma: ekranlar kilit durumunu buradan sorar. */
     kampanyaKilitDurumu: function (depo, ad) { return kilitKaydi(depo, ad); },
+    /* Sezon adlandırması TEK KAYNAKTAN okunsun (25.08.2026): Devir Stok ekranı
+       "bugün hangi sezona düşer" sorusunu kendi kopyasıyla değil buradan
+       cevaplar; kural değişirse tek yerde değişir. */
+    kampanyaAdi: kampanyaAdiHesapla,
     malzemeKaydet: arsivli("malzemeKaydet", malzemeKaydet),
     kullaniciKaydet: arsivli("kullaniciKaydet", kullaniciKaydet),
     siloKaydet: arsivli("siloKaydet", siloKaydet)
@@ -1518,6 +1860,7 @@
 
   YU.log = {
     TABLOLAR: LOGLANAN_TABLOLAR,
+    SINIR: DEGISIKLIK_SINIRI,   /* M29: sınır uyarısı ekrana sihirli sayı yazmadan okusun */
     alanAdi: alanAdi,   /* ham alan anahtarı -> logdaki etiket (30-degisiklik-gecmisi rozeti kullanır) */
     yaz: logYaz,
     kayitBul: logKayitBul,

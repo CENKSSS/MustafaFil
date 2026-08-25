@@ -3,10 +3,15 @@
   "configurations": [
     {
       "name": "yan-urunler",
-      "runtimeExecutable": "node",
-      "runtimeArgs": [".claude/sunucu.js"],
-      "port": 8137,
-      "autoPort": true
+      "runtimeExecutable": "py",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8155",
+        "--directory",
+        "yan-urunler-stok-takip"
+      ],
+      "port": 8155
     }
   ]
 }

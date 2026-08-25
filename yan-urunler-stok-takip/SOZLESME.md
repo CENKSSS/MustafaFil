@@ -67,9 +67,11 @@ Malzemeler      {Id, Ad, Birim, Sira, OzelTip, Aktif}   // Birim:'Kg'
                                                         // OzelTip: null|'DokmeKuruKuspe'|'CuvalKuruKuspe'
 Silolar         {Id, Ad, Sira, Kapasite, Aktif}         // Kapasite kg
 DevirStok       {Id, MalzemeId, DevirTarihi, Miktar,
-                 OlusturanKullaniciId, OlusturmaTarihi}
+                 OlusturanKullaniciId, OlusturmaTarihi,
+                 GuncelleyenKullaniciId, GuncellemeTarihi}
 SiloDevirStok   {Id, SiloId, DevirTarihi, Miktar,
-                 OlusturanKullaniciId, OlusturmaTarihi}
+                 OlusturanKullaniciId, OlusturmaTarihi,
+                 GuncelleyenKullaniciId, GuncellemeTarihi}
 GunlukHareket   {Id, Tarih, MalzemeId, Uretim, Satis, RowVersion,
                  OlusturanKullaniciId, OlusturmaTarihi,
                  GuncelleyenKullaniciId, GuncellemeTarihi}
@@ -91,17 +93,23 @@ DegisiklikLog   {Id, Tablo, KayitId, Alan, EskiDeger, YeniDeger,
 
 `RowVersion`: tamsayı, her yazmada +1. D16 bunu karşılaştırır.
 
-### Başlangıç malzemeleri (Şartname §2 — sıra ve özel tip birebir)
+### Başlangıç malzemeleri (özel tipler Şartname §2 ile birebir; sıra ve 8. malzeme kullanıcı kararı, 24.08.2026)
 
 | Sıra | Ad | Birim | ÖzelTip |
 |---|---|---|---|
-| 1 | Yaş Küspe (Tonluk) | Kg | — |
-| 2 | Yaş Küspe (25'lik) | Kg | — |
-| 3 | Dökme Kuru Küspe | Kg | `DokmeKuruKuspe` |
-| 4 | Kuru Küspe (50 Kg) | Kg | `CuvalKuruKuspe` |
-| 5 | Atık Kuru Küspe | Kg | — |
-| 6 | Kuyruk | Kg | — |
-| 7 | Toprak | Kg | — |
+| 1 | Dökme Yaş Küspe | Kg | — |
+| 2 | Yaş Küspe (Tonluk) | Kg | — |
+| 3 | Yaş Küspe (25'lik) | Kg | — |
+| 4 | Dökme Kuru Küspe | Kg | `DokmeKuruKuspe` |
+| 5 | Kuru Küspe (50 Kg) | Kg | `CuvalKuruKuspe` |
+| 6 | Atık Kuru Küspe | Kg | — |
+| 7 | Kuyruk | Kg | — |
+| 8 | Toprak | Kg | — |
+
+> Doğru sayı 8'dir — "Dökme Yaş Küspe" 24.08.2026'da eklendi (basit malzeme,
+> silo akışına girmez); sözleşmedeki 7'li liste unutulmuştu (kullanıcı onayı,
+> 24.08.2026). Şartname §2'nin yedi malzemesi çekirdek küme olarak korunur;
+> şartname metni kullanıcı onayı olmadan değiştirilmez.
 
 ### Başlangıç siloları
 `Silo 1`, `Silo 2`, `Silo 3` — her biri `Kapasite = 3000000` kg.
@@ -164,17 +172,22 @@ YU.tohumla(depo)               // referans kampanya verisini üretir (aşağıda
 
 ### Tohum verisi (deterministik)
 
-* **Kampanya 2024/2025** — devir tarihi `2024-09-16`, malzeme + silo devirleri, ilk 10 gün
-  (`2024-09-16` … `2024-09-25`) günlük veri. Amacı: §5'teki **"en son devir"**
-  kuralının gerçekten iki devir satırıyla sınanması.
-* **Kampanya 2025/2026** — devir tarihi `2025-09-15`, tam veri
-  `2025-09-15` … `2026-01-20` (128 gün).
-* İçinde **en az 4 gün Durum B** (çuvallama > üretim) bulunmalı.
+* **Kampanya 2025/2026** — geçen yılın tamamlanmış sezonu: devir `2025-09-15`,
+  122 gün tam veri (kullanıcı kararı, 24.08.2026: geçmiş yıl verisi de dursun).
+* **Kampanya 2026/2027** — devir tarihi `2026-07-22`; devirden **bugüne**
+  kadar her gün günlük veri (gün sayısı açılışta hesaplanır, son kayıt hep
+  bugüne denk gelir; kampanya bitiş sınırı yok).
+* **Her gün her siloya** en az bir hareket düşer; **her gün her malzemenin**
+  günlük satırı oluşur.
+* İçinde **en az 2 gün Durum B** (çuvallama > üretim) bulunmalı.
 * En az 1 gün `SatilanDokme = 0`, çoğu günde dökme satış olmalı.
 * Silolar hiçbir gün negatife düşmemeli, kapasiteyi aşmamalı (D15 tetiklenmemeli).
 * Tohumlama **servis katmanı üzerinden** yapılır (`YU.servis.kuruKuspeKaydet` vb.),
   satırlar elle yazılmaz — böylece tohum verisi tüm kuralları sağlar.
   Servise `{tohumlama:true}` geçilirse D14 (ileri doğrulama) atlanır.
+* Tohumlamanın sonunda denetim izi üretilir: son iki haftaya dağılmış
+  düzeltme/ekleme/silme adımları DegisiklikLog, SilinenKayitlar ve arşiv
+  tablolarını doldurur.
 
 ---
 
@@ -398,8 +411,8 @@ Grafiklerin tamamı **inline SVG**; kütüphane yok (tasarım referansı kuralı
 | `anasayfa` | Ana Sayfa | — (üstte tek başına) | Hepsi | `20-anasayfa.js` |
 | `kuru-kuspe` | Kuru Küspe Günlük Giriş | Giriş | Hepsi | `21-kuru-kuspe-giris.js` |
 | `malzeme-girisi` | Malzeme Girişi | Giriş | Hepsi | `22-malzeme-girisi.js` |
-| `stok-durumu` | Stok Durumu | Takip | Hepsi | `23-stok-durumu.js` |
-| `silo-durumu` | Silo Durumu | Takip | Hepsi | `24-silo-durumu.js` |
+| `stok-durumu` | Günlük Stok Durumu | Takip | Hepsi | `23-stok-durumu.js` — ad "Stok Durumu" idi; gün bazlı görünüm olduğu için "Günlük" öneki eklendi (kullanıcı kararı, 25.08.2026) |
+| `silo-durumu` | Günlük Silo Durumu | Takip | Hepsi | `24-silo-durumu.js` — ad "Silo Durumu" idi; aynı karar |
 | `gunluk-rapor` | Günlük Rapor | Takip | Hepsi | `25-gunluk-rapor.js` |
 | `gecmis-girisler` | Geçmiş Girişler | Takip | Hepsi | `26-gecmis-girisler.js` |
 | `devir-stok` | Devir Stok | Yönetim | Yonetici | `27-devir-stok.js` |

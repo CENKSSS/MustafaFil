@@ -59,10 +59,20 @@
           birim: 'kg', tur: 'uretim', kaynak: 'gh', alan: 'Uretim', malzemeId: m.Id, malzemeAd: m.Ad
         });
       }
-      liste.push({
+      var satisGosterge = {
         kod: 'm' + m.Id + '-satis', ad: m.Ad + ' · Satış', kisaAd: m.Ad + ' satışı',
         birim: 'kg', tur: 'satis', kaynak: 'gh', alan: 'Satis', malzemeId: m.Id, malzemeAd: m.Ad
-      });
+      };
+      /* Çuvallının SATIŞI, üretimi olan "Çuvallama"nın hemen ALTINA konur
+         (kullanıcı isteği, 25.08.2026): ikisi aynı malın üretim–satış çifti;
+         listenin sonunda durunca çift olduğu görünmüyordu. Diğer malzemeler
+         sıralarını korur. */
+      if (m.OzelTip === 'CuvalKuruKuspe') {
+        var cuvalYeri = -1, ci;
+        for (ci = 0; ci < liste.length; ci++) if (liste[ci].kod === 'cuvallama') { cuvalYeri = ci; break; }
+        if (cuvalYeri >= 0) { liste.splice(cuvalYeri + 1, 0, satisGosterge); continue; }
+      }
+      liste.push(satisGosterge);
     }
     return liste;
   };
@@ -110,7 +120,9 @@
       h = depo.gunlukHareket[i];
       if (h.Tarih >= donem.bas && h.Tarih <= donem.bit) gh[h.Tarih + '|' + h.MalzemeId] = h;
     }
-    var sonGun = YU.tarih.fark(donem.bas, donem.bit) + 1;    /* son kayıtlı günün sırası */
+    /* M33: kampanya gün sırası VERİYE dayanır — dönem sonu (bit) artık
+       kayıt bitişinden sonrasını da kapsayabiliyor. */
+    var sonGun = YU.tarih.fark(donem.bas, donem.sonKayit || donem.bit) + 1;
     if (!isFinite(sonGun) || sonGun < 1) sonGun = 1;
     return { donem: donem, kayitli: kayitli, kk: kk, gh: gh, sonGun: sonGun, kayitliGun: gunler.length };
   };

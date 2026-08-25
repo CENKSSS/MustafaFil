@@ -237,14 +237,41 @@
       };
       if (duzenle) { aday.Sira = malzeme.Sira; aday.Aktif = malzeme.Aktif; }
 
-      var sonuc = YU.servis.malzemeKaydet(db(), aday, oturumKullanicisi());
-      if (!sonuc.ok) {
-        YU.bos(hataKap).appendChild(YU.ui.hataListesi(sonuc.hatalar, 'hata'));
-        return;
+      /* Ciddi işlem onayı (M28): değişen alanlar (ya da yeni kaydın künyesi)
+         onay penceresinde listelenir. Hiçbir alan değişmediyse pencere
+         açılmaz — boşuna tık istenmez. */
+      var maddeler = [];
+      if (duzenle) {
+        if (String(aday.Ad) !== String(malzeme.Ad)) maddeler.push({ etiket: 'Ad', eski: malzeme.Ad, yeni: aday.Ad });
+        if (String(aday.Birim) !== String(malzeme.Birim)) maddeler.push({ etiket: 'Birim', eski: malzeme.Birim, yeni: aday.Birim });
+        if (String(aday.OzelTip || '') !== String(malzeme.OzelTip || '')) {
+          maddeler.push({ etiket: 'Özel Tip', eski: malzeme.OzelTip || '—', yeni: aday.OzelTip || '—' });
+        }
+        if (!maddeler.length) { uygula(); return; }
+      } else {
+        maddeler.push({ etiket: 'Ad', deger: aday.Ad || '—' });
+        maddeler.push({ etiket: 'Birim', deger: aday.Birim || '—' });
+        if (aday.OzelTip) maddeler.push({ etiket: 'Özel Tip', deger: aday.OzelTip });
       }
-      m.kapat();
-      YU.ui.bildir('“' + sonuc.kayit.Ad + '” ' + (duzenle ? 'güncellendi.' : 'eklendi.'), 'basari');
-      YU.yenile();
+      YU.ui.onay({
+        baslik: duzenle ? 'Malzeme Değişikliğini Onayla' : 'Yeni Malzemeyi Onayla',
+        metin: duzenle
+          ? 'Ad ve birim geçmiş kayıtlarda da bu şekilde görünür (kayıtlar malzemeye bağlıdır).'
+          : 'Yeni malzeme giriş ekranlarına ve raporlara eklenir.',
+        ayrinti: YU.ui.farkListesi(maddeler),
+        onayMetni: duzenle ? 'Kaydet' : 'Ekle'
+      }).then(function (evet) { if (evet) uygula(); });
+
+      function uygula() {
+        var sonuc = YU.servis.malzemeKaydet(db(), aday, oturumKullanicisi());
+        if (!sonuc.ok) {
+          YU.bos(hataKap).appendChild(YU.ui.hataListesi(sonuc.hatalar, 'hata'));
+          return;
+        }
+        m.kapat();
+        YU.ui.bildir('“' + sonuc.kayit.Ad + '” ' + (duzenle ? 'güncellendi.' : 'eklendi.'), 'basari');
+        YU.yenile();
+      }
     }
 
     adAlan.odakla();
@@ -345,20 +372,44 @@
       kapasiteAlan.hataGoster(isNaN(kapasite) ? 'Kapasite sayı olmalı (örn. 3.000.000).' : '');
       if (isNaN(sira) || isNaN(kapasite)) return;
 
-      var sonuc = YU.servis.siloKaydet(db(), {
-        Id: silo.Id,
-        Ad: adAlan.deger(),
-        Sira: sira,
-        Kapasite: kapasite,
-        Aktif: silo.Aktif
-      }, oturumKullanicisi());
-      if (!sonuc.ok) {
-        YU.bos(hataKap).appendChild(YU.ui.hataListesi(sonuc.hatalar, 'hata'));
-        return;
+      /* Ciddi işlem onayı (M28): ad geçmiş kayıtlarda geriye dönük görünür,
+         kapasite D15 uyarılarının eşiğidir. Yalnız sıra değiştiyse onay
+         istenmez (kozmetik). */
+      var maddeler = [];
+      if (String(adAlan.deger()) !== String(silo.Ad)) {
+        maddeler.push({ etiket: 'Ad', eski: silo.Ad, yeni: adAlan.deger() });
       }
-      m.kapat();
-      YU.ui.bildir('“' + sonuc.kayit.Ad + '” güncellendi.', 'basari');
-      YU.yenile();
+      if (YU.yuvarla(Number(silo.Kapasite) || 0) !== YU.yuvarla(kapasite)) {
+        maddeler.push({ etiket: 'Kapasite', eski: YU.fmt.kgU(Number(silo.Kapasite) || 0), yeni: YU.fmt.kgU(kapasite) });
+      }
+      if (!maddeler.length) { uygula(); return; }
+      YU.ui.onay({
+        baslik: 'Silo Değişikliğini Onayla',
+        metin: 'Kapasite, doluluk ve D15 uyarılarının eşiğidir; ad geçmiş kayıtlarda da bu şekilde görünür.',
+        ayrinti: YU.ui.farkListesi(maddeler),
+        onayMetni: 'Kaydet'
+      }).then(function (evet) { if (evet) uygula(); });
+
+      function uygula() {
+        var sonuc = YU.servis.siloKaydet(db(), {
+          Id: silo.Id,
+          Ad: adAlan.deger(),
+          Sira: sira,
+          Kapasite: kapasite,
+          Aktif: silo.Aktif
+        }, oturumKullanicisi());
+        if (!sonuc.ok) {
+          YU.bos(hataKap).appendChild(YU.ui.hataListesi(sonuc.hatalar, 'hata'));
+          return;
+        }
+        m.kapat();
+        /* Kapasite mevcut stoğun altına indiyse servis uyarı döndürür (M9). */
+        if (sonuc.uyarilar && sonuc.uyarilar.length) {
+          YU.ui.bildir(sonuc.uyarilar[0].mesaj, 'uyari');
+        }
+        YU.ui.bildir('“' + sonuc.kayit.Ad + '” güncellendi.', 'basari');
+        YU.yenile();
+      }
     }
 
     adAlan.odakla();
@@ -397,6 +448,8 @@
         Id: silo.Id, Ad: silo.Ad, Sira: silo.Sira, Kapasite: silo.Kapasite, Aktif: !pasifeAl
       }, oturumKullanicisi());
       if (sonucuBildir(sonuc, '“' + silo.Ad + '” ' + (pasifeAl ? 'pasifleştirildi.' : 'aktifleştirildi.'))) {
+        /* Stoklu pasifleştirme uyarısı servis katmanından gelir (M27). */
+        if (sonuc.uyarilar && sonuc.uyarilar.length) YU.ui.bildir(sonuc.uyarilar[0].mesaj, 'uyari');
         YU.yenile();
       }
     });

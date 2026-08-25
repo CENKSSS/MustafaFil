@@ -310,7 +310,25 @@
   // localStorage kaydı geçersizleşir; sürüm artırılır ve depo yeniden kurulur.
   // 4 (23.08.2026): geçmiş kampanya 5 günlük parçadan tam sezona (122 gün)
   //   çıkarıldı; sürüm yükseltilmezse tarayıcıdaki eski veri ekranda kalır.
-  var SEMA_SURUM = 4;
+  // 5 (24.08.2026): tohum TEK kampanyaya indi (2026/2027, devirden bugüne her
+  //   gün, her siloya günlük hareket garantisi); eski iki kampanyalı veri
+  //   geçersiz.
+  // 6 (24.08.2026): geçen yılın tam sezonu (2025/2026, 122 gün) geri eklendi —
+  //   veri artık iki kampanya; süren kampanyada gün sınırı yok.
+  // 7 (24.08.2026): bugünün denetim izi inceltildi (ikinci kuru küspe
+  //   düzeltmesi tohumdan çıktı) — işlem geçmişi ~36'dan ~22 satıra indi.
+  // 8 (24.08.2026): "Dökme Yaş Küspe" basit malzemesi eklendi (devir + günlük
+  //   plan dahil).
+  // 9 (24.08.2026): GunlukHareket'e bilgi alanı Iade eklendi (stokta üretim
+  //   gibi davranır, yalnız basit malzemede girilir); yaş küspe sırası
+  //   değişti; bugüne iade örneği kondu.
+  // 10 (24.08.2026): Id sayaçları eklendi — silinen Id yeniden dağıtılmaz,
+  //   DegisiklikLog/arşiv yanlış kayda bağlanmaz (DUZELTME-PLANI M1). Tohum
+  //   satış rampası sabit ufka bağlandı (M8); iki değişiklik de tohum
+  //   çıktısını değiştirdiği için sürüm yükseltildi.
+  var SEMA_SURUM = 10;
+  var YAZMA_SAYAC_ANAHTAR = "yu.veri.sayac"; // sekmeler arası ezme bekçisi (M3)
+  var YEDEK_ANAHTAR = "yu.veri.yedek";       // okunamayan eski paketin kopyası (M4)
   var PAROLA_NOTU = "(prototip — gerçek uygulamada BCrypt)";
   // Başlangıç kayıtlarının tarihi sabit: değişse localStorage içeriği her
   // açılışta farklılaşır ve "deterministik veri" kuralı bozulur.
@@ -350,6 +368,8 @@
                            "kampanyaKilitleri"];
 
   var MALZEME_TANIMI = [
+    // Sıra kullanıcı isteğiyle (24.08.2026): Dökme Yaş, Tonluk, 25'lik.
+    ["Dökme Yaş Küspe", null],     // basit malzeme; silo akışına girmez
     ["Yaş Küspe (Tonluk)", null],
     ["Yaş Küspe (25'lik)", null],
     ["Dökme Kuru Küspe", "DokmeKuruKuspe"],
@@ -434,6 +454,31 @@
       }
     }
 
+    /* Okunamayan paket SİLİNMEDEN önce tek yedek anahtarına kopyalanır ve
+       sebep not düşülür; kabuk açılışta bu notu kullanıcıya söyler (M4).
+       Eskiden bozuk içerik sessizce yeniden tohumlanıyordu. */
+    function yedekleVeNotDus(ham, sebep) {
+      try {
+        window.localStorage.setItem(YEDEK_ANAHTAR, ham);
+      } catch (e) { /* yedek yazılamadıysa en azından not kalsın */ }
+      YU.depoKurtarmaNotu = { sebep: sebep, anahtar: YEDEK_ANAHTAR };
+    }
+
+    /* Paket doğrulaması oku() ve iceAktar()'ın ortak kapısı: sürüm eşleşmeli,
+       her çekirdek tablo dizi olmalı (arşiv tabloları eksikse tamamlanır). */
+    function paketGecerliMi(veri) {
+      if (!veri || typeof veri !== "object") return "bozuk";
+      if (veri.surum !== SEMA_SURUM) return "surum";
+      for (var j = 0; j < TABLOLAR.length; j++) {
+        var ad = TABLOLAR[j][1];
+        if (Object.prototype.toString.call(veri[ad]) !== "[object Array]") {
+          if (ARSIV_TABLOLARI.indexOf(ad) >= 0) { veri[ad] = []; continue; }
+          return "bozuk";
+        }
+      }
+      return null;
+    }
+
     function oku() {
       if (kaynak !== "local") return null;
       var ham, veri;
@@ -446,60 +491,214 @@
       try {
         veri = JSON.parse(ham);
       } catch (e) {
-        return null; // bozuk içerik: sessizce sıfırlanır
+        yedekleVeNotDus(ham, "bozuk");
+        return null;
       }
-      if (!veri || typeof veri !== "object" || veri.surum !== SEMA_SURUM) return null;
-      for (var j = 0; j < TABLOLAR.length; j++) {
-        var ad = TABLOLAR[j][1];
-        if (Object.prototype.toString.call(veri[ad]) !== "[object Array]") {
-          // Arşiv tabloları sonradan eklendi; eski kayıtta yoklarsa veri
-          // geçersiz sayılmaz, boş dizi ile tamamlanır.
-          if (ARSIV_TABLOLARI.indexOf(ad) >= 0) { veri[ad] = []; continue; }
-          return null;
-        }
+      var kusur = paketGecerliMi(veri);
+      if (kusur) {
+        yedekleVeNotDus(ham, kusur);
+        return null;
       }
       return veri;
     }
 
+    /* Yazma sayacı: paketin yanında duran küçük tamsayı. Başka sekme kaydettiyse
+       sayaç bu sekmenin bildiğinden ileridedir; kaydet() o zaman yazmaz (M3).
+       Okunamıyorsa null döner ve kontrol tümden atlanır (localStorage kapalı
+       ortamda eski davranış korunur). */
+    function yazmaSayaciOku() {
+      try {
+        var v = window.localStorage.getItem(YAZMA_SAYAC_ANAHTAR);
+        if (v === null || v === "") return 0;
+        var n = parseInt(v, 10);
+        return isFinite(n) ? n : 0;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function kancayiCagir(tip) {
+      if (typeof YU.depoUyari === "function") {
+        try { YU.depoUyari(tip); } catch (e) { /* kanca hatası yazmayı etkilemez */ }
+      }
+    }
+
+    /* Tablonun kanonik (küçük harfli) alan adı — sayaç anahtarı olarak kullanılır. */
+    function tabloAnahtari(ad) {
+      for (var j = 0; j < TABLOLAR.length; j++) {
+        if (TABLOLAR[j][0] === ad || TABLOLAR[j][1] === ad) return TABLOLAR[j][1];
+      }
+      return null;
+    }
+
+    /* Id sayacı ASLA geri gitmez (M1): silinen kaydın Id'si yeniden verilirse
+       DegisiklikLog ve arşiv o Id üzerinden YENİ kayda bağlanır, denetim izi
+       yanlış kaydı gösterir. Taban = max(sayaç, tablodaki en büyük Id) — eski
+       paketlerde sayaç yoksa tablo taraması devralır. */
+    depo.sayaclar = {};
+
     depo.yeniId = function (tabloAdi) {
-      var t = tablo(tabloAdi), enBuyuk = 0, id;
+      var anahtar = tabloAnahtari(tabloAdi);
+      var t = anahtar ? depo[anahtar] : null;
+      var enBuyuk = 0, id;
       if (!t) return 1;
       for (var j = 0; j < t.length; j++) {
         id = Number(t[j] && t[j].Id);
         if (isFinite(id) && id > enBuyuk) enBuyuk = id;
       }
+      var sayac = Number(depo.sayaclar[anahtar]);
+      if (isFinite(sayac) && sayac > enBuyuk) enBuyuk = sayac;
+      depo.sayaclar[anahtar] = enBuyuk + 1;
       return enBuyuk + 1;
     };
 
     // Saf üretici: SOZLESME §1 başlangıç satırlarını döndürür, depoyu değiştirmez.
     depo.temelVeri = temelVeriUret;
 
+    function paketKur() {
+      var paket = { surum: SEMA_SURUM, sayaclar: depo.sayaclar };
+      for (var j = 0; j < TABLOLAR.length; j++) paket[TABLOLAR[j][1]] = depo[TABLOLAR[j][1]];
+      return paket;
+    }
+
+    /* Açılışta storage'dan devralınır; her başarılı yazmada +1. */
+    var beklenenSayac = kaynak === "local" ? yazmaSayaciOku() : null;
+
+    /* Dönüş: yazma diske ulaştıysa true. false iki durumda gelir ve ikisinde de
+       YU.depoUyari kancası (kabuk bağlar) tetiklenir:
+       'cakisma' — başka sekme daha yeni yazmış; onun verisi EZİLMEZ, bu
+                   sekmenin yenilenmesi gerekir (M3),
+       'kota'    — localStorage yazmayı reddetti; kullanıcı "kaydedildi"
+                   sanmasın (M2). Bellekteki veri her iki durumda da günceldir. */
     depo.kaydet = function () {
-      if (kaynak !== "local") return; // bellek deposu localStorage'a hiç dokunmaz
+      if (kaynak !== "local") return true; // bellek deposu localStorage'a hiç dokunmaz
+      if (beklenenSayac !== null) {
+        var simdiki = yazmaSayaciOku();
+        if (simdiki !== null && simdiki !== beklenenSayac) {
+          kancayiCagir("cakisma");
+          return false;
+        }
+      }
       try {
-        var paket = { surum: SEMA_SURUM };
-        for (var j = 0; j < TABLOLAR.length; j++) paket[TABLOLAR[j][1]] = depo[TABLOLAR[j][1]];
-        window.localStorage.setItem(DEPO_ANAHTAR, JSON.stringify(paket));
+        window.localStorage.setItem(DEPO_ANAHTAR, JSON.stringify(paketKur()));
+        if (beklenenSayac !== null) {
+          beklenenSayac += 1;
+          window.localStorage.setItem(YAZMA_SAYAC_ANAHTAR, String(beklenenSayac));
+        }
+        return true;
       } catch (e) {
-        /* kota dolu ya da depolama kapalı: prototip yazamasa da çalışmaya devam eder */
+        kancayiCagir("kota");
+        return false;
       }
     };
 
     depo.bosla = function () {
-      for (var j = 0; j < HAREKET_TABLOLARI.length; j++) depo[HAREKET_TABLOLARI[j]].length = 0;
+      for (var j = 0; j < HAREKET_TABLOLARI.length; j++) {
+        depo[HAREKET_TABLOLARI[j]].length = 0;
+        /* Test yardımcısı: boşalan tabloların sayacı da sıfırlanır ki kabul
+           testleri bugünkü Id davranışıyla (1'den) başlasın. Canlı akışta
+           Id benzersizliğini sifirla()/kaydet() döngüsü değil, tablo boşken
+           zaten anlamsız kalan geçmiş korur. */
+        delete depo.sayaclar[HAREKET_TABLOLARI[j]];
+      }
       depo.kaydet();
     };
 
     depo.sifirla = function () {
+      depo.sayaclar = {}; // tohum her koşuda aynı Id'leri üretsin (determinizm)
       tablolariDoldur(temelVeriUret());
       // 05-tohum.js yüklenmemişse (tek dosya testi) sessizce atlanır.
       if (tohumIstenir && typeof YU.tohumla === "function") YU.tohumla(depo);
       depo.kaydet();
     };
 
+    /* Yedekleme uçları (M5). Doğrulama oku() ile aynı kapıdan geçer; kabuk
+       yalnız çağırır, biçim bilgisi bu dosyada kalır. */
+    depo.disaAktar = function () {
+      return JSON.stringify(paketKur());
+    };
+
+    /* İçe aktarma körlemesine yazmaz (kullanıcı direktifi, 24.08.2026):
+       1) sürüm — birebir eşleşir ya da bilinen eski sürümden DÖNÜŞTÜRÜLÜR
+          (9→10: yalnız Id sayaçları eklendi, tablolar aynı; sayaclar boş
+          başlar ve tablo taramasından devralınır),
+       2) yapı — çekirdek tablolar dizi olmalı (paketGecerliMi),
+       3) bağ — Id referansları ve tekil anahtarlar taranır (04-servis
+          yüklüyse YU.stok.butunlukRaporu aday paket üzerinde koşar),
+       4) yazım ancak bu üçü geçtikten sonra; kabuk onay penceresinde
+          buradan dönen ÖZETİ gösterir.
+       kuruDeneme:true yalnız inceler, depoya DOKUNMAZ. */
+    function paketiDonustur(veri) {
+      if (veri && typeof veri === "object" && veri.surum === 9) {
+        veri.surum = 10;
+        veri.sayaclar = {};
+        return "9 → 10 (Id sayaçları eklendi)";
+      }
+      return null;
+    }
+
+    function paketOzeti(veri) {
+      var gunler = [], i, t;
+      for (i = 0; i < (veri.kuruKuspeGunluk || []).length; i++) {
+        t = veri.kuruKuspeGunluk[i].Tarih;
+        if (t) gunler.push(t);
+      }
+      gunler.sort();
+      return {
+        gunSayisi: gunler.length,
+        ilkGun: gunler.length ? gunler[0] : null,
+        sonGun: gunler.length ? gunler[gunler.length - 1] : null,
+        hareketSayisi: (veri.gunlukHareket || []).length + (veri.siloHareket || []).length
+      };
+    }
+
+    depo.iceAktar = function (metin, secenek) {
+      var kuru = !!(secenek && secenek.kuruDeneme);
+      var veri, donusum = null;
+      try {
+        veri = JSON.parse(String(metin));
+      } catch (e) {
+        return { ok: false, hata: "Dosya JSON olarak okunamadı." };
+      }
+      var kusur = paketGecerliMi(veri);
+      if (kusur === "surum") {
+        donusum = paketiDonustur(veri);
+        if (donusum) kusur = paketGecerliMi(veri);
+      }
+      if (kusur === "surum") {
+        return { ok: false, hata: "Yedek desteklenmeyen bir şema sürümünden (" +
+          (veri && veri.surum) + "); beklenen " + SEMA_SURUM + " (9'dan dönüştürme yapılabilir)." };
+      }
+      if (kusur) return { ok: false, hata: "Yedek paketi eksik ya da bozuk — mevcut veriye dokunulmadı." };
+
+      /* Bağ/tekillik taraması aday paket üzerinde — bozuk paket reddedilir. */
+      if (YU.stok && typeof YU.stok.butunlukRaporu === "function") {
+        var sorunlar;
+        try { sorunlar = YU.stok.butunlukRaporu(veri); } catch (e) { sorunlar = []; }
+        if (sorunlar && sorunlar.length) {
+          return { ok: false, hata: "Yedek paketinde " + sorunlar.length +
+            " bütünlük sorunu var (ilki: " + sorunlar[0] + ") — mevcut veriye dokunulmadı." };
+        }
+      }
+
+      var ozet = paketOzeti(veri);
+      ozet.donusum = donusum;
+      ozet.mevcutGunSayisi = depo.kuruKuspeGunluk.length;
+      if (kuru) return { ok: true, hata: null, ozet: ozet };
+
+      tablolariDoldur(veri);
+      depo.sayaclar = veri.sayaclar && typeof veri.sayaclar === "object" ? veri.sayaclar : {};
+      if (!depo.kaydet()) return { ok: false, hata: "Veri geri yüklendi ama diske yazılamadı." };
+      return { ok: true, hata: null, ozet: ozet };
+    };
+
     var kayitli = oku();
-    if (kayitli) tablolariDoldur(kayitli);
-    else depo.sifirla();
+    if (kayitli) {
+      tablolariDoldur(kayitli);
+      depo.sayaclar = kayitli.sayaclar && typeof kayitli.sayaclar === "object" ? kayitli.sayaclar : {};
+    } else {
+      depo.sifirla();
+    }
 
     return depo;
   };

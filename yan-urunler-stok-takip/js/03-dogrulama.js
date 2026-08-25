@@ -25,9 +25,10 @@
     { kod: "D12", tur: "Tasarim", metin: "Kullanıcı ve malzeme silinmez, yalnızca pasifleştirilir." },
     { kod: "D13", tur: "Hata", metin: "Dökme satış için silolardan çekilen toplam, girilen SatilanDokme değerine eşit olmalı (±0,01 kg)." },
     { kod: "D14", tur: "Hata", metin: "Kayıt veya silme sonrası, işlem tarihinden son kayıtlı güne kadar her silonun bakiyesi ileri doğru hesaplanır. Herhangi bir gün negatife düşüyorsa işlem reddedilir ve hangi silonun hangi tarihte patladığı söylenir." },
-    { kod: "D15", tur: "Hata", metin: "Bir silonun gün sonu bakiyesi o silonun kapasitesini aşamaz — kayıt engellenir. (Kullanıcı kararı, 21.08.2026; şartname v2'de yumuşak uyarıydı.)" },
+    { kod: "D15", tur: "Hata", metin: "Bir silonun gün sonu bakiyesi o silonun kapasitesini aşamaz — kayıt engellenir. Aşım gerçekse operatör GEREKÇE yazarak kaydı geçirebilir; gerekçe denetim izine düşer ve uyarıya dönüşür. (Kullanıcı kararı, 21.08.2026; gerekçeli kabul kapısı 25.08.2026 — şartname v2'de yumuşak uyarıydı.)" },
     { kod: "D16", tur: "Hata", metin: "Kayıt güncellenirken RowVersion değeri okunduğu andakinden farklıysa işlem reddedilir; kullanıcıya kaydın değiştiği söylenir ve yenilemesi istenir." },
-    { kod: "D17", tur: "Hata", metin: "Gelecek bir tarihe üretim veya satış kaydı girilemez. Henüz gerçekleşmemiş bir günün rakamı olamaz. (Şartnamede yok — prototipte eklendi.)" }
+    { kod: "D17", tur: "Hata", metin: "Gelecek bir tarihe üretim veya satış kaydı girilemez. Henüz gerçekleşmemiş bir günün rakamı olamaz. (Şartnamede yok — prototipte eklendi.)" },
+    { kod: "D18", tur: "Hata", metin: "Kampanya başlangıcından (en eski devir tarihinden) önceki bir güne kayıt girilemez: o hareketler stok hesabına girmez, görünmez veri olur. (Şartnamede yok — prototipte eklendi; devir hiç tanımlı değilse kural uygulanmaz.)" }
   ];
 
   /* ---------- küçük yardımcılar ---------- */
@@ -43,6 +44,34 @@
   function d17(tarih) {
     return kayit("D17", "Gelecek tarihe kayıt girilemez: " + YU.fmt.tarih(tarih) +
       " bugünden (" + YU.fmt.tarih(YU.tarih.bugun()) + ") sonra. Henüz gerçekleşmemiş bir günün üretimi veya satışı kaydedilemez.");
+  }
+
+  /* D18 — şartnamede yok, prototipte eklendi (DUZELTME-PLANI M14). En eski
+     devirden önceki güne yazılan hareket stok hesabına girmez ("en son devir"
+     formülü bakiyeyi devirde sıfırlar, Şartname §5) — görünmez "hayalet" veri
+     olurdu. Devir hiç yoksa kural uygulanmaz: kabul testleri devirsiz temiz
+     depoyla koşar (Şartname §9), o akış aynen korunur. */
+  function enEskiDevir(depo) {
+    var en = null, i, t;
+    for (i = 0; i < depo.devirStok.length; i++) {
+      t = depo.devirStok[i].DevirTarihi;
+      if (t && (en === null || t < en)) en = t;
+    }
+    for (i = 0; i < depo.siloDevirStok.length; i++) {
+      t = depo.siloDevirStok[i].DevirTarihi;
+      if (t && (en === null || t < en)) en = t;
+    }
+    return en;
+  }
+
+  function d18Kontrol(depo, tarih, hatalar) {
+    var en = enEskiDevir(depo);
+    if (en !== null && gecerliTarih(tarih) && tarih < en) {
+      hatalar.push(kayit("D18", tr(tarih) + " gününe kayıt girilemez: kampanya başlangıcı (en eski devir) " +
+        tr(en) + ". Bu tarihten önceki hareketler stok hesabına girmez."));
+      return true;
+    }
+    return false;
   }
 
   function kayit(kod, mesaj) { return { kod: kod, mesaj: mesaj }; }
@@ -171,7 +200,10 @@
 
     for (i = 0; i < depo.siloHareket.length; i++) {
       h = depo.siloHareket[i];
-      if (silinecekKaynak !== null && h.KaynakKayitId === silinecekKaynak) continue;
+      /* Manuel satır yeniden kayıtta silinmez (M16) — önizleme de silmesin;
+         gün silme (silTarih) ise günü komple kaldırır, Manuel dahil. */
+      if (silinecekKaynak !== null && h.KaynakKayitId === silinecekKaynak &&
+          h.HareketTipi !== "Manuel") continue;
       if (silTarih !== null && h.Tarih === silTarih) continue;
       ekle(h.SiloId, h.Tarih, YU.yuvarla((Number(h.GirenKg) || 0) - (Number(h.CikanKg) || 0)));
     }
@@ -234,6 +266,19 @@
     return sonuc;
   }
 
+  /* Kapasite aşımı gerekçesi (M32). En az 10 karakter: "ok", "olsun" gibi
+     boş geçiştirmeler denetim izinde işe yaramaz. */
+  var GEREKCE_ENAZ = 10;
+
+  function kapasiteGerekcesi(girdi) {
+    return String(girdi && girdi.kapasiteGerekcesi !== undefined && girdi.kapasiteGerekcesi !== null
+      ? girdi.kapasiteGerekcesi : "").trim();
+  }
+
+  function kapasiteGerekcesiGecerli(girdi) {
+    return kapasiteGerekcesi(girdi).length >= GEREKCE_ENAZ;
+  }
+
   function d14Mesaji(n) {
     return n.siloAd + " bakiyesi " + tr(n.tarih) + " günü " + kg(n.bakiye) +
       "'a düşüyor. Sonraki günler negatife düştüğü için işlem reddedildi.";
@@ -252,6 +297,8 @@
       hatalar.push(kayit(ALAN, "Tarih geçersiz. Beklenen biçim: GG.AA.YYYY. Girilen: \"" + String(tarih) + "\"."));
     } else if (gelecekTarihMi(tarih)) {
       hatalar.push(d17(tarih));
+    } else {
+      d18Kontrol(depo, tarih, hatalar);
     }
 
     /* D1 */
@@ -349,8 +396,11 @@
 
       /* Gün başı mevcut = Tarih < tarih olan hareketler + en son silo devri.
          Aynı güne ait eski hareketler bu hesaba zaten girmez; düzeltmede
-         silinecekleri için doğru davranış budur (Şartname §5, §8 D7). */
-      gunBasi = YU.stok.siloGunBasi(depo, siloId, tarih);
+         silinecekleri için doğru davranış budur (Şartname §5, §8 D7).
+         İSTİSNA (M18): aynı günün MANUEL hareketleri yeniden kayıtta
+         silinmez, o yüzden zemine katılır — katılmasa D7/D15 eksik bakiyeyle
+         ölçer, D14 reddederdi ama mesajı yanlış kuraldan gelirdi. */
+      gunBasi = YU.yuvarla(YU.stok.siloGunBasi(depo, siloId, tarih) + gunIciManuelNet(depo, siloId, tarih));
 
       if (cikan > tol && cikan - gunBasi > tol) {
         hatalar.push(kayit("D7", silo.Ad + " silosundan " + tr(tarih) + " günü toplam " + kg(cikan) +
@@ -364,20 +414,40 @@
       gunSonu = YU.yuvarla(gunBasi + giren - cikan);
       kapasite = Number(silo.Kapasite) || 0;
       if (kapasite > 0 && gunSonu - kapasite > tol) {
-        hatalar.push(kayit("D15", silo.Ad + " gün sonu bakiyesi " + kg(gunSonu) + " olur; kapasitesi " +
-          kg(kapasite) + ". Aşım: " + kg(YU.yuvarla(gunSonu - kapasite)) + " (" + tr(tarih) +
-          "). Kapasite aşılamaz — kayıt engellendi."));
+        /* Gerekçeli kabul kapısı (kullanıcı kararı, 25.08.2026): şartname §8
+           D15'i uyarı sayar ve gerekçesini de yazar — "sert engel operatörü
+           kilitler". Fiili taşma/ölçüm sapması gerçek olduğu için operatör
+           GEREKÇE yazarak kaydı geçirebilir; o zaman D15 hataya değil
+           uyarıya düşer ve gerekçe denetim izine yazılır (04-servis). */
+        var d15Metin = silo.Ad + " gün sonu bakiyesi " + kg(gunSonu) + " olur; kapasitesi " +
+          kg(kapasite) + ". Aşım: " + kg(YU.yuvarla(gunSonu - kapasite)) + " (" + tr(tarih) + ").";
+        if (kapasiteGerekcesiGecerli(girdi)) {
+          uyarilar.push(kayit("D15", d15Metin + " Kapasite aşımı gerekçeyle kabul edildi: \"" +
+            kapasiteGerekcesi(girdi) + "\"."));
+        } else {
+          hatalar.push(kayit("D15", d15Metin + " Kapasite aşılamaz — kayıt engellendi. " +
+            "Aşım gerçekse gerekçe yazarak kaydedebilirsiniz."));
+        }
       }
     }
 
-    /* D16 */
-    if (girdi.rowVersion !== null && girdi.rowVersion !== undefined) {
-      var mevcut = kuruKuspeGunuBul(depo, tarih);
-      if (!mevcut) {
+    /* D16. Sözleşme girdi kontratı: rowVersion null = "yeni kayıt açıyorum".
+       Yeni-gün ayağı (prototip eklentisi, DUZELTME-PLANI M7): iki oturum aynı
+       KAYITSIZ günü açarsa ikisi de null taşır; ikincinin kaydı, birincinin
+       yazdığını sessizce ezerdi — null + mevcut kayıt da çakışmadır. */
+    var mevcutD16 = kuruKuspeGunuBul(depo, tarih);
+    if (girdi.rowVersion === null || girdi.rowVersion === undefined) {
+      if (mevcutD16) {
+        hatalar.push(kayit("D16", tr(tarih) + " günü siz ekranı açtıktan sonra başkası tarafından girilmiş (sürüm " +
+          YU.fmt.sayi(Number(mevcutD16.RowVersion)) +
+          "). Kaydınız yazılmadı; sayfayı yenileyip mevcut kaydın üzerinden düzeltin."));
+      }
+    } else {
+      if (!mevcutD16) {
         hatalar.push(kayit("D16", tr(tarih) + " gününe ait kayıt artık yok — siz ekranı açtıktan sonra silinmiş. Sayfayı yenileyip yeniden deneyin."));
-      } else if (Number(mevcut.RowVersion) !== Number(girdi.rowVersion)) {
+      } else if (Number(mevcutD16.RowVersion) !== Number(girdi.rowVersion)) {
         hatalar.push(kayit("D16", tr(tarih) + " günü siz ekranı açtıktan sonra başkası tarafından güncellenmiş (sürüm " +
-          YU.fmt.sayi(Number(girdi.rowVersion)) + " → " + YU.fmt.sayi(Number(mevcut.RowVersion)) +
+          YU.fmt.sayi(Number(girdi.rowVersion)) + " → " + YU.fmt.sayi(Number(mevcutD16.RowVersion)) +
           "). Kaydınız yazılmadı; sayfayı yenileyip yeniden deneyin."));
       }
     }
@@ -414,6 +484,57 @@
     return { hatalar: hatalar };
   }
 
+  /* O günün Manuel (sayım düzeltmesi) hareketlerinin net etkisi. Kuru küspe
+     yeniden kaydı Manuel'i silmez (M16); D7/D15 zemini bu neti içermeli. */
+  function gunIciManuelNet(depo, siloId, tarih) {
+    var net = 0, i, h;
+    for (i = 0; i < depo.siloHareket.length; i++) {
+      h = depo.siloHareket[i];
+      if (h.SiloId !== siloId || h.Tarih !== tarih || h.HareketTipi !== "Manuel") continue;
+      net = YU.yuvarla(net + (Number(h.GirenKg) || 0) - (Number(h.CikanKg) || 0));
+    }
+    return net;
+  }
+
+  /* ---------- Manuel silo hareketi — sayım düzeltmesi (M18, Şartname §11) ---------- */
+
+  function manuelHareket(depo, girdi) {
+    var hatalar = [];
+    var tarih = girdi.tarih;
+    var siloId = kimlik(girdi.siloId);
+    var silo = siloId === null ? null : satirBul(depo.silolar, siloId);
+    var miktar = oku(girdi.miktar);
+    var yon = girdi.yon;
+    var aciklama = String(girdi.aciklama === null || girdi.aciklama === undefined ? "" : girdi.aciklama).trim();
+
+    if (!gecerliTarih(tarih)) {
+      hatalar.push(kayit(ALAN, "Tarih geçersiz: \"" + String(tarih) + "\"."));
+    } else if (gelecekTarihMi(tarih)) {
+      hatalar.push(d17(tarih));
+    } else {
+      d18Kontrol(depo, tarih, hatalar);
+    }
+    if (!silo) {
+      hatalar.push(kayit(ALAN, "Silo bulunamadı (Id: " + String(girdi.siloId) + ")."));
+    } else if (silo.Aktif === false) {
+      hatalar.push(kayit(ALAN, "\"" + silo.Ad + "\" pasif durumda; sayım düzeltmesi girilemez."));
+    }
+    if (yon !== "giren" && yon !== "cikan") {
+      hatalar.push(kayit(ALAN, "Yön \"giren\" (sayım fazlası) veya \"cikan\" (sayım eksiği) olmalı."));
+    }
+    if (isNaN(miktar)) {
+      hatalar.push(kayit(ALAN, "Miktar sayı olmalı. Girilen: \"" + String(girdi.miktar) + "\"."));
+    } else if (miktar <= 0) {
+      hatalar.push(kayit(ALAN, "Miktar 0'dan büyük olmalı. Girilen: " + kg(miktar) + "."));
+    }
+    /* Sayım düzeltmesi gerekçesiz olmaz: denetim izinin "neden" ayağı. */
+    if (!aciklama) {
+      hatalar.push(kayit(ALAN, "Açıklama zorunlu: sayım farkının gerekçesi yazılmalı (örn. \"fiili sayım farkı\", \"fire\")."));
+    }
+
+    return { hatalar: hatalar };
+  }
+
   /* ---------- Malzeme hareketi (Malzeme Girişi ekranı) ---------- */
 
   function malzemeHareketi(depo, girdi) {
@@ -428,6 +549,8 @@
       hatalar.push(kayit(ALAN, "Tarih geçersiz: \"" + String(tarih) + "\"."));
     } else if (gelecekTarihMi(tarih)) {
       hatalar.push(d17(tarih));
+    } else {
+      d18Kontrol(depo, tarih, hatalar);
     }
     if (!malzeme) {
       hatalar.push(kayit(ALAN, "Malzeme bulunamadı (Id: " + String(girdi.malzemeId) + ")."));
@@ -482,8 +605,15 @@
         YU.fmt.sayi(YU.hesap.CUVAL_KG) + " kg). Bu ekrandan yalnızca satış girilir."));
     }
 
-    /* D16 */
-    if (girdi.rowVersion !== null && girdi.rowVersion !== undefined) {
+    /* D16. Yeni-gün ayağı kuru küspedekiyle aynı (DUZELTME-PLANI M7):
+       rowVersion null iken satır zaten varsa çakışmadır — ekran satırı
+       "yok" bilgisiyle açılmış, biri arada oluşturmuştur. */
+    if (girdi.rowVersion === null || girdi.rowVersion === undefined) {
+      if (mevcut) {
+        hatalar.push(kayit("D16", tr(tarih) + " / \"" + malzeme.Ad + "\" satırı siz ekranı açtıktan sonra oluşturulmuş (sürüm " +
+          YU.fmt.sayi(Number(mevcut.RowVersion)) + "). Kaydınız yazılmadı; sayfayı yenileyip mevcut satırın üzerinden düzeltin."));
+      }
+    } else {
       if (!mevcut) {
         hatalar.push(kayit("D16", tr(tarih) + " / \"" + malzeme.Ad + "\" kaydı artık yok — siz ekranı açtıktan sonra silinmiş. Sayfayı yenileyin."));
       } else if (Number(mevcut.RowVersion) !== Number(girdi.rowVersion)) {
@@ -663,8 +793,13 @@
     }
     if (isNaN(kapasite)) {
       hatalar.push(kayit(ALAN, "Kapasite sayı olmalı. Girilen: \"" + String(silo.Kapasite) + "\"."));
-    } else if (kapasite < 0) {
-      hatalar.push(kayit(ALAN, "Kapasite negatif olamaz. Girilen: " + kg(kapasite) + "."));
+    } else if (kapasite <= 0) {
+      /* 0 kapasite D15'i o silo için tamamen kapatır: tüm kapasite kontrolleri
+         "kapasite > 0" şartlıdır. Sessiz kapanmasın (DUZELTME-PLANI M9,
+         kullanıcı kararı 24.08.2026: 0 reddedilir). */
+      hatalar.push(kayit(ALAN, kapasite < 0
+        ? "Kapasite negatif olamaz. Girilen: " + kg(kapasite) + "."
+        : "Kapasite 0 olamaz — 0 kapasite, D15 kapasite kontrolünü bu silo için devre dışı bırakır."));
     }
 
     for (i = 0; i < depo.silolar.length; i++) {
@@ -734,11 +869,15 @@
     kuruKuspeKaydi: kuruKuspeKaydi,
     gunSilme: gunSilme,
     malzemeHareketi: malzemeHareketi,
+    manuelHareket: manuelHareket,
+    GEREKCE_ENAZ: GEREKCE_ENAZ,                        /* M32 — ekranlar eşiği buradan okur */
+    kapasiteGerekcesiGecerli: kapasiteGerekcesiGecerli,
     kullanici: kullaniciDogrula,
     malzeme: malzemeDogrula,
     silo: siloDogrula,
     devir: devirDogrula,
     ileriBakiye: ileriBakiye,
-    d14Mesaji: d14Mesaji
+    d14Mesaji: d14Mesaji,
+    enEskiDevir: enEskiDevir
   };
 })();

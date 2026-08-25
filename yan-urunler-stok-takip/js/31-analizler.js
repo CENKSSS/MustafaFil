@@ -32,7 +32,7 @@
   var SAYFA = 'analizler';
   /* Kampanya çizgi renkleri YU.analiz.kampanyaRengi() ile verilir:
      en yeni kampanya mavi, bir önceki kırmızı, sonrakiler kategorik palet. */
-  var GRAFIK_YUKSEKLIK = 240;
+  var GRAFIK_YUKSEKLIK = 360;   /* 240 -> 360 (kullanıcı isteği, 25.08.2026: "boyunu uzat") */
   /* ------------------------------------------------------------------
      Küçük yardımcılar
      ------------------------------------------------------------------ */
@@ -107,14 +107,25 @@
     if (!ozet) return null;
     ozet.gosterge = YU.analiz.gostergeBul(ozet.gostergeler, param.gosterge) || ozet.gostergeler[0] || null;
     ozet.mod = param.mod === 'birikimli' ? 'birikimli' : 'gunluk';
+    /* Zaman ölçeği (kullanıcı isteği, 25.08.2026): kampanya dokuz ay
+       sürebiliyor; her günü tek tek çizmek okunmuyor. Hafta/ay seçilirse
+       noktalar KAMPANYA GÜNÜ bloklarına toplanır (7 ya da 30 gün) —
+       kampanyalar zaten gün sırasına göre karşılaştırıldığı için blok da
+       gün sırası üzerinden kurulur, takvim ayına göre değil. */
+    ozet.olcek = OLCEK_BLOK[param.olcek] ? param.olcek : 'gun';
     return ozet;
   }
+
+  /* Ölçek kodu → blok uzunluğu (kampanya günü). */
+  var OLCEK_BLOK = { gun: 1, hafta: 7, ay: 30 };
+  var OLCEK_ADI = { gun: 'Gün', hafta: 'Hafta', ay: 'Ay' };
 
   function bagKur(d, ek) {
     var p = {
       kampanyalar: d.seciliAdlar.join(','),
       gosterge: d.gosterge ? d.gosterge.kod : null,
       mod: d.mod,
+      olcek: d.olcek === 'gun' ? null : d.olcek,
       basGun: d.tamAralikMi ? null : d.basGun,
       bitGun: d.tamAralikMi ? null : d.bitGun
     };
@@ -163,7 +174,7 @@
       /* Aralık daraltılmamışken kolon, sezon başından bugüne BİRİKMİŞ toplamı
          gösterir; adı da bunu söyler (kullanıcı isteği, 24.08.2026). Aralık
          seçiliyken toplam o aralığa aittir, ad "Bu Sezon" kalır. */
-      return d.tamAralikMi ? 'Şimdiye Kadarki · ' : 'Bu Sezon · ';
+      return d.tamAralikMi ? 'Şimdiye Kadarki Toplam · ' : 'Bu Sezon · ';
     }
     if (d.veriler[1] && d.veriler[1].donem.ad === veri.donem.ad) return 'Geçen Sezon · ';
     return '';
@@ -204,14 +215,26 @@
       return YU.h('span', { sinif: 'yu-zayif', metin: '—' });
     }
     var tur = farkTuru(k.fark);
+    /* HİZA (kullanıcı isteği, 25.08.2026): rakam ve yüzde rozeti akışkan
+       dururken rozetin genişliği satırdan satıra değişiyor ve rakamlar
+       kayıyordu ("-%3,7" ile "+%110,6" aynı genişlikte değil). İki parça da
+       SABİT sütuna oturtuldu: rakam sağa yaslı esnek alanda, rozet sabit
+       genişlikte bir kutuda — böylece bütün rakamlar aynı çizgide biter,
+       bütün rozetler aynı çizgide başlar. */
+    var rozet = YU.ui.rozet(yuzdeMetni(k.yuzde), tur);
+    rozet.style.width = '100%';
+    rozet.style.justifyContent = 'center';
     return YU.h('div', {
-      stil: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }
+      stil: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px' }
     },
       YU.h('span', {
         metin: isaretli(k.fark) + ' ' + k.gosterge.birim,
-        stil: { font: '400 12.5px/1 var(--sayi)', color: 'var(--metin-4)', fontVariantNumeric: 'tabular-nums' }
+        stil: {
+          flex: '1 1 auto', minWidth: '0', textAlign: 'right',
+          font: '400 12.5px/1 var(--sayi)', color: 'var(--metin-4)', fontVariantNumeric: 'tabular-nums'
+        }
       }),
-      YU.ui.rozet(yuzdeMetni(k.yuzde), tur)
+      YU.h('span', { stil: { flex: '0 0 78px', display: 'flex', justifyContent: 'flex-end' } }, rozet)
     );
   }
 
@@ -233,45 +256,10 @@
      dönem seçici çipinin dili korundu.
      ================================================================== */
 
-  function ayarPaneli(d) {
-    /* Kampanya seçimi buradan KALKTI: artık grafiğin üstündeki efsanede
-       hepsi listeleniyor ve tıklanarak açılıp kapanıyor (kullanıcı isteği,
-       23.08.2026). Şeritte yalnız gösterge, görünüm ve tarih aralığı kalır. */
-    var serit = YU.h('div', { sinif: 'yu-arac' },
-      gostergeCipi(d),
-      YU.h('span', { sinif: 'yu-arac-ayrac' }),
-      gorunumSecimi(d),
-      YU.h('div', { sinif: 'yu-arac-sag' }, aralikCipi(d))
-    );
-    return YU.h('div', {
-      stil: {
-        padding: '12px 14px', border: '1px solid var(--kenar)',
-        borderRadius: 'var(--r-l)', background: 'var(--yuzey)'
-      }
-    }, serit);
-  }
-
-  /* --- gösterge --- */
-
-  function gostergeCipi(d) {
-    return YU.ui.acilirCip({
-      ikon: '#ic-chart', metin: d.gosterge.ad, enGenis: 200,
-      baslik: 'Gösterge', genislik: 340,
-      govde: function (kapat) {
-        var kap = YU.h('div');
-        for (var i = 0; i < d.gostergeler.length; i++) {
-          (function (g) {
-            kap.appendChild(YU.ui.acilirSatir({
-              metin: g.ad,
-              secili: g.kod === d.gosterge.kod,
-              onClick: function () { kapat(); YU.git(SAYFA, bagKur(d, { gosterge: g.kod })); }
-            }));
-          })(d.gostergeler[i]);
-        }
-        return kap;
-      }
-    });
-  }
+  /* ayarPaneli KALDIRILDI (kullanıcı isteği, 25.08.2026): içinde yalnız
+     tarih aralığı çipi kalmıştı ve sayfanın en üstünde ayrı bir kutu olarak
+     duruyordu. Çip artık grafiğin üstündeki denetim satırında, Gün/Hafta/Ay
+     seçiminin sağında — bir grafiği ilgilendiren bütün ayarlar tek satırda. */
 
   /* --- görünüm: iki seçenek, açılır listeye değmez --- */
 
@@ -280,6 +268,21 @@
       deger: d.mod,
       secenekler: [{ deger: 'gunluk', metin: 'Günlük' }, { deger: 'birikimli', metin: 'Birikimli' }],
       onDegis: function (v) { YU.git(SAYFA, bagKur(d, { mod: v })); }
+    });
+  }
+
+  /* Zaman ölçeği (kullanıcı isteği, 25.08.2026): dokuz aylık kampanyada her
+     günü çizmek okunmuyor; hafta ya da ay seçilince noktalar 7'şer / 30'ar
+     günlük bloklara toplanır ve eğri tek bakışta okunur. */
+  function olcekSecimi(d) {
+    return YU.ui.secimGrubu({
+      deger: d.olcek,
+      secenekler: [
+        { deger: 'gun', metin: 'Gün' },
+        { deger: 'hafta', metin: 'Hafta' },
+        { deger: 'ay', metin: 'Ay' }
+      ],
+      onDegis: function (v) { YU.git(SAYFA, bagKur(d, { olcek: v })); }
     });
   }
 
@@ -292,7 +295,10 @@
         ' · ' + YU.fmt.sayi(d.gunSayisi) + ' gün';
 
     return YU.ui.acilirCip({
-      ikon: '#ic-calendar', metin: metin, hiza: 'sag', enGenis: 230,
+      /* hiza: 'sag' idi — çip sayfanın sağ üstündeyken kutu sağa
+         yaslanıyordu. Çip artık grafiğin denetim satırında, kutu SOLA
+         hizalanır (25.08.2026). */
+      ikon: '#ic-calendar', metin: metin, enGenis: 230,
       baslik: 'Tarih aralığı', genislik: 340, dolgu: '6px 12px 12px',
       govde: function (kapat) { return aralikKutusu(d, kapat); }
     });
@@ -360,6 +366,204 @@
   }
 
   /* ==================================================================
+     2a. Gösterge seçimi — İKİ BOYUT (yeniden tasarım, 25.08.2026)
+
+     Önce üç aşamalı açılır ağaç denendi ve GERİ ALINDI: her seçim üç tık
+     istiyordu ve seçenekler kapalı dalların içinde görünmez kalıyordu.
+
+     Doğrusu: 16 gösterge tek boyutlu bir liste değil, İKİ BOYUTUN çarpımıdır
+     — (hangi malzeme) × (üretim mi satış mı). İki boyut iki ayrı denetime
+     ayrıldı; yaygın gösterge paneli yerleşimi budur:
+
+       SOLDA  malzeme listesi — gruplu ama AÇILIR DEĞİL, hepsi görünür.
+              Grup başlıkları (YAŞ KÜSPE / KURU KÜSPE / DİĞER) kenar
+              çubuğundaki menü grubu diliyle yazılır, tıklanmaz.
+       ÜSTTE  Üretim | Satış segment düğmesi — az sayıda, birbirini dışlayan
+              seçenek için doğru bileşen; hepsi tek bakışta görünür.
+
+     Sonuç: her gösterge en çok 2, çoğu zaman 1 tıkla seçilir. Malzeme
+     değişince seçili kalem (üretim/satış) korunur; o malzemede yoksa ilk
+     kaleme düşülür (çuvallı küspenin üretimi "Çuvallama"dır).
+
+     Ağaç, YU.analiz.gostergeler()'in düz listesinden ADLARI ayrıştırarak
+     kurulur; gösterge kodları ve veri katmanı değişmez. Malzeme adı
+     "Ad (Çeşit)" veya "Ad · Üretim" kalıbındadır (33-analiz-veri.js).
+     ================================================================== */
+
+  /* "Yaş Küspe (Tonluk)" -> {grup:'Yaş Küspe', cesit:'Tonluk'}
+     "Toprak"             -> {grup:'Toprak',    cesit:null}     */
+  function malzemeParcala(ad) {
+    var m = /^(.*?)\s*\(([^)]+)\)\s*$/.exec(ad);
+    if (m) return { grup: m[1].trim(), cesit: m[2].trim() };
+    /* "Dökme Yaş Küspe" / "Atık Kuru Küspe": baştaki sıfat çeşit sayılır. */
+    var one = /^(Dökme|Atık)\s+(.*)$/.exec(ad);
+    if (one) return { grup: one[2].trim(), cesit: one[1].trim() };
+    return { grup: ad, cesit: null };
+  }
+
+  /* Kalem adı: segment düğmesinde yazan söz. Dökme kuru küspede üretim
+     BRÜTTÜR (çuvallamadan önceki toplam); bu ayrım rakamı değiştirdiği için
+     etikette görünür kalır. */
+  function kalemAdi(g) {
+    if (g.tur === 'cuvallama') return 'Çuvallama';
+    if (g.tur === 'satis') return 'Satış';
+    return g.kod === 'dokme-uretim' ? 'Üretim (Brüt)' : 'Üretim';
+  }
+
+  /* Menüde yazan kısa ad: çeşidi olan malzemede yalnız çeşit ("Tonluk"),
+     olmayanda tam ad ("Toprak") — grubun adı zaten üstteki başlıkta yazar. */
+  function menuEtiketi(malzemeAd) {
+    var p = malzemeParcala(malzemeAd);
+    return p.cesit ? p.cesit : p.grup;
+  }
+
+  /* Çeşidi olmayan malzemeler tek başlarına grup açmasın; "Diğer" altında
+     toplanır. */
+  function menuGrubu(malzemeAd) {
+    var p = malzemeParcala(malzemeAd);
+    return p.cesit ? p.grup : 'Diğer';
+  }
+
+  /* Grup sırası kullanıcı kararıdır (25.08.2026): Kuru Küspe en üstte, altında
+     Yaş Küspe, en altta Diğer. Listede olmayan bir grup çıkarsa Diğer'in
+     hemen üstüne düşer. Grup İÇİNDEKİ sıra Malzemeler.Sira'dan gelir. */
+  var GRUP_SIRASI = ['Kuru Küspe', 'Yaş Küspe'];
+
+  function grupSirasi(grup) {
+    var i = GRUP_SIRASI.indexOf(grup);
+    if (i >= 0) return i;
+    return grup === 'Diğer' ? 99 : 50;
+  }
+
+  /* Göstergeleri malzemeye göre toplar: [{ad, sira, kalemler:[gosterge...]}].
+     Sıra Malzemeler.Sira'dan gelir — menü, diğer ekranlardaki malzeme
+     sırasıyla aynı okunsun. */
+  function malzemeDugumleri(gostergeler) {
+    var siraHarita = {}, i;
+    for (i = 0; i < YU.db.malzemeler.length; i++) {
+      siraHarita[YU.db.malzemeler[i].Ad] = Number(YU.db.malzemeler[i].Sira) || 99;
+    }
+    var harita = {}, liste = [];
+    for (i = 0; i < gostergeler.length; i++) {
+      var g = gostergeler[i];
+      var ad = g.malzemeAd || g.ad;
+      if (!harita[ad]) {
+        harita[ad] = { ad: ad, sira: siraHarita[ad] || 99, kalemler: [] };
+        liste.push(harita[ad]);
+      }
+      harita[ad].kalemler.push(g);
+    }
+    /* Önce grup sırası (Kuru Küspe → Yaş Küspe → Diğer), sonra grup içinde
+       Malzemeler.Sira. */
+    liste.sort(function (a, b) {
+      return grupSirasi(menuGrubu(a.ad)) - grupSirasi(menuGrubu(b.ad)) || a.sira - b.sira;
+    });
+    return liste;
+  }
+
+  function seciliMalzeme(d) { return d.gosterge.malzemeAd || d.gosterge.ad; }
+
+  /* Malzeme değişince aynı kalemde kalınır: Satış'tayken başka malzemeye
+     geçilirse yine satış açılır; o malzemede o kalem yoksa ilkine düşülür
+     (çuvallı küspenin üretimi "Çuvallama"dır). */
+  function esKalem(dugum, tur) {
+    var i;
+    for (i = 0; i < dugum.kalemler.length; i++) if (dugum.kalemler[i].tur === tur) return dugum.kalemler[i];
+    return dugum.kalemler[0];
+  }
+
+  function dugumBul(d) {
+    var liste = malzemeDugumleri(d.gostergeler), secili = seciliMalzeme(d), i;
+    for (i = 0; i < liste.length; i++) if (liste[i].ad === secili) return liste[i];
+    return null;
+  }
+
+  /* SOL: malzeme listesi — gruplu, ama açılır kapanır DEĞİL; hepsi görünür.
+     Grup başlıkları kenar çubuğundaki menü grubu diliyle yazılır. */
+  function solMenuKur(d) {
+    var kap = YU.h('div', {
+      stil: {
+        /* Liste büyütüldü (kullanıcı isteği, 25.08.2026): veri tipi adları
+           küçük kalıyordu. Genişlik 178 -> 208, satır arası 1 -> 3 px. */
+        display: 'flex', flexDirection: 'column', gap: '3px', flex: 'none',
+        width: '208px', paddingRight: '14px', borderRight: '1px solid var(--ayrac)'
+      }
+    });
+
+    var liste = malzemeDugumleri(d.gostergeler);
+    var secili = seciliMalzeme(d), sonGrup = null, i;
+
+    for (i = 0; i < liste.length; i++) {
+      (function (dugum) {
+        var grup = menuGrubu(dugum.ad);
+        if (grup !== sonGrup) {
+          kap.appendChild(YU.h('div', {
+            sinif: 'yu-menu-grup-bas',
+            metin: grup,
+            stil: { marginTop: sonGrup === null ? '0' : '12px' }
+          }));
+          sonGrup = grup;
+        }
+        var aktif = dugum.ad === secili;
+        /* Seçim işareti (kullanıcı isteği, 25.08.2026): satırın tıklanabilir
+           olduğu tek başına hover'dan anlaşılmıyordu. Seçilide dolu daire
+           içinde tik, diğerlerinde boş daire — Kampanya Toplamları tablosunda
+           denenip beğenilen dilin aynısı. */
+        var isaret = YU.h('span', {
+          'aria-hidden': 'true',
+          stil: {
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: '17px', height: '17px', borderRadius: '50%', flex: 'none',
+            border: aktif ? 'none' : '1.5px solid var(--kenar-3)',
+            /* Dolu dairenin içi tema başına ayrı (kullanıcı isteği, 25.08.2026):
+               koyu temada beyaz daire + koyu tik, açık temada mavi daire +
+               beyaz tik — seçili satır iki temada da göze çarpsın. */
+            background: aktif ? 'var(--tik-zemin)' : 'transparent',
+            color: 'var(--tik-uzeri)', font: '700 10px/1 var(--font)'
+          }
+        }, aktif ? YU.h('span', { metin: '✓' }) : null);
+
+        kap.appendChild(YU.h('button', {
+          tip: 'button',
+          sinif: 'yu-menu-oge' + (aktif ? ' aktif' : ''),
+          title: aktif ? dugum.ad + ' · grafikte gösteriliyor' : 'Grafikte göster: ' + dugum.ad,
+          stil: {
+            textAlign: 'left', border: 'none', width: '100%', cursor: 'pointer',
+            background: aktif ? 'var(--vurgu-zemin)' : 'transparent',
+            display: 'flex', alignItems: 'center', gap: '10px',
+            /* Yazı bir kademe büyük ve seçili olan kalın (25.08.2026). */
+            font: (aktif ? '600 ' : '500 ') + '15.5px/1.35 var(--font)',
+            padding: '9px 10px'
+          },
+          onClick: function () {
+            YU.git(SAYFA, bagKur(d, { gosterge: esKalem(dugum, d.gosterge.tur).kod }));
+          }
+        },
+          isaret,
+          YU.h('span', { metin: menuEtiketi(dugum.ad), stil: { flex: '1', minWidth: '0' } })
+        ));
+      })(liste[i]);
+    }
+    return kap;
+  }
+
+  /* ÜST: seçili malzemenin kalemleri — Üretim | Satış segment düğmesi.
+     Tek kalemli malzemede segment çizilmez (seçecek bir şey yok). */
+  function kalemSecimi(d) {
+    var dugum = dugumBul(d), i;
+    if (!dugum || dugum.kalemler.length < 2) return null;
+    var secenekler = [];
+    for (i = 0; i < dugum.kalemler.length; i++) {
+      secenekler.push({ deger: dugum.kalemler[i].kod, metin: kalemAdi(dugum.kalemler[i]) });
+    }
+    return YU.ui.secimGrubu({
+      secenekler: secenekler,
+      deger: d.gosterge.kod,
+      onDegis: function (kod) { YU.git(SAYFA, bagKur(d, { gosterge: kod })); }
+    });
+  }
+
+  /* ==================================================================
      2. Grafik paneli
      ================================================================== */
 
@@ -369,10 +573,26 @@
     var kampanyalar = tumKampanyalar(d);
     var i, j;
 
-    /* Gün etiketleri seçili aralıktan gelir; her kampanya AYNI gün
-       sıralarında karşılaştırılır (1. gün = kendi devir günü). */
+    /* Zaman ölçeği: gün / hafta (7 gün) / ay (30 gün). Bloklar KAMPANYA GÜNÜ
+       üzerinden kurulur; kampanyalar zaten gün sırasına göre karşılaştırıldığı
+       için her kampanyanın aynı numaralı bloğu karşı karşıya gelir. */
+    var blokGun = OLCEK_BLOK[d.olcek] || 1;
+    var bloklar = [];
+    for (i = bas; i <= bit; i += blokGun) {
+      bloklar.push({ bas: i, bit: Math.min(i + blokGun - 1, bit) });
+    }
+
+    /* Etiket: günde gün numarası, hafta/ayda gün aralığı ("8–14"). */
     var noktalar = [];
-    for (i = bas; i <= bit; i++) noktalar.push({ etiket: String(i), baslik: gunMetni(i) });
+    for (i = 0; i < bloklar.length; i++) {
+      var bl = bloklar[i];
+      noktalar.push({
+        etiket: blokGun === 1 ? String(bl.bas) : (bl.bas + '–' + bl.bit),
+        baslik: blokGun === 1
+          ? gunMetni(bl.bas)
+          : (OLCEK_ADI[d.olcek] + ' ' + YU.fmt.sayi(i + 1) + ' · ' + bl.bas + '–' + bl.bit + '. gün')
+      });
+    }
 
     /* Bütün kampanyalar için seri kurulur — işaretsizler de listede durur
        ki efsaneden geri açılabilsinler. Birikimli görünüm SEÇİLEN aralığın
@@ -382,13 +602,27 @@
       var kmp = kampanyalar[i];
       var veri = YU.analiz.kampanyaVerisi(YU.db, kmp.donem);
       var pencere = YU.analiz.pencere(veri, g, bas, bit);
-      var degerler = [], altlar = [], toplam = 0;
-      for (j = 0; j < pencere.gunler.length; j++) {
-        var v = pencere.gunler[j].deger;
-        if (v !== null) toplam = YU.yuvarla(toplam + v);
-        degerler.push(birikimli ? (v === null ? null : toplam) : v);
-        altlar.push(YU.fmt.tarih(pencere.gunler[j].tarih));
+      var degerler = [], altlar = [], toplam = 0, b;
+
+      for (b = 0; b < bloklar.length; b++) {
+        /* Blok toplamı: içindeki günlerin toplamı. Bloğun HİÇBİR gününde
+           kayıt yoksa değer null kalır (çizgi kopar); en az bir gün kayıtlıysa
+           blok o kadarını taşır — yarım hafta sıfır gibi görünmesin. */
+        var blokToplam = null, ilkTarih = null, sonTarih = null;
+        for (j = bloklar[b].bas - bas; j <= bloklar[b].bit - bas; j++) {
+          var gn = pencere.gunler[j];
+          if (!gn) continue;
+          if (gn.deger !== null) blokToplam = YU.yuvarla((blokToplam || 0) + gn.deger);
+          if (gn.tarih) { if (!ilkTarih) ilkTarih = gn.tarih; sonTarih = gn.tarih; }
+        }
+        if (blokToplam !== null) toplam = YU.yuvarla(toplam + blokToplam);
+        degerler.push(birikimli ? (blokToplam === null ? null : toplam) : blokToplam);
+        altlar.push(!ilkTarih ? null
+          : (blokGun === 1 || ilkTarih === sonTarih
+              ? YU.fmt.tarih(ilkTarih)
+              : YU.fmt.tarih(ilkTarih) + ' – ' + YU.fmt.tarih(sonTarih)));
       }
+
       seriler.push({
         ad: 'Kampanya ' + kmp.donem.ad,
         renk: kmp.renk,
@@ -402,6 +636,15 @@
       noktalar: noktalar,
       seriler: seriler,
       yukseklik: GRAFIK_YUKSEKLIK,
+      /* GÜNLÜK görünümde pencerede sabit sayıda nokta durur (kullanıcı isteği,
+         25.08.2026): gün ölçeğinde 30 gün baştan sona görünür, öncesine ve
+         sonrasına iki yandaki oklarla kaydırılarak gidilir. Hafta ve ay
+         ölçeğinde nokta zaten azaldığı için pencere de kısalır — grafik
+         seyrelmez.
+         BİRİKİMLİ görünümde kaydırma YOKTUR (gorunenNokta verilmez): hangi
+         ölçek seçilirse seçilsin kampanyanın 1. gününden son gününe kadar
+         tamamı tek ekranda görünür. */
+      gorunenNokta: birikimli ? 0 : (blokGun === 1 ? 30 : (blokGun === 7 ? 16 : 12)),
       bicim: function (v) { return miktar(v, g.birim); },
       eksenBicim: eksenMetni(g.birim),
       /* Efsane aynı zamanda seçicidir: işaret kalkınca çizgi grafikten
@@ -411,11 +654,35 @@
       }
     });
 
+    /* Grafiğin üstündeki denetim satırı: solda Üretim/Satış, hemen sağında
+       Günlük/Birikimli (kullanıcı isteği, 25.08.2026 — ikincisi eskiden
+       sayfanın en üstünde ayrı bir paneldeydi). "Hangi malzeme" sol menüde,
+       "hangi kalem" ve "nasıl çizilsin" bu satırda okunur. */
+    var kalem = kalemSecimi(d);
+    var sagSutun = YU.h('div', { stil: { flex: '1', minWidth: '0' } });
+    sagSutun.appendChild(YU.h('div', {
+      stil: { display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', marginBottom: '12px' }
+    },
+      kalem,
+      kalem ? YU.h('span', { sinif: 'yu-arac-ayrac' }) : null,
+      gorunumSecimi(d),
+      YU.h('span', { sinif: 'yu-arac-ayrac' }),
+      olcekSecimi(d),
+      /* Tarih aralığı çipi sayfanın sağ üstünden BURAYA taşındı
+         (kullanıcı isteği, 25.08.2026): grafiğin ayarları tek satırda. */
+      YU.h('span', { sinif: 'yu-arac-ayrac' }),
+      aralikCipi(d)
+    ));
+    sagSutun.appendChild(grafik);
+
     return YU.ui.panel({
       baslik: (birikimli ? 'Birikimli Karşılaştırma · ' : 'Günlük Karşılaştırma · ') + g.ad,
       ikon: '#ic-chart',
       sag: aralikMetni(d),
-      govde: grafik
+      govde: YU.h('div', { stil: { display: 'flex', gap: '18px', alignItems: 'stretch' } },
+        solMenuKur(d),
+        sagSutun
+      )
     });
   }
 
@@ -442,24 +709,11 @@
         var g = k.gosterge;
         var aktif = g.kod === d.gosterge.kod;
         var bugune = YU.analiz.karsilastir(d, g, bugunAralik);
-        /* Satırın tıklanabilir olduğu anlaşılmıyordu (kullanıcı isteği,
-           24.08.2026): her satırın solunda seçim işareti durur — seçili
-           göstergede dolu daire içinde tik, diğerlerinde boş daire. Grafik
-           tek gösterge çizdiği için aynı anda yalnız BİR tik açıktır;
-           başka satıra tıklamak tiki oraya taşır. */
-        var isaret = YU.h('span', {
-          'aria-hidden': 'true',
-          stil: {
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: '17px', height: '17px', borderRadius: '50%', flex: 'none',
-            border: aktif ? 'none' : '1.5px solid var(--kenar-3)',
-            background: aktif ? 'var(--vurgu)' : 'transparent',
-            color: '#fff', font: '700 11px/1 var(--font)'
-          }
-        }, aktif ? YU.h('span', { metin: '✓' }) : null);
-        var hucreler = [YU.h('div', {
-          stil: { display: 'flex', alignItems: 'center', gap: '10px', minWidth: '0' }
-        }, isaret, YU.h('span', { sinif: aktif ? 'yu-guclu' : '', metin: g.ad, stil: { minWidth: '0' } }))];
+        /* Seçim işareti ve satır tıklaması KALDIRILDI (kullanıcı kararı,
+           25.08.2026): gösterge seçimi artık grafiğin solundaki listeden
+           yapılır; bu tablo yalnız rakamları gösterir. Seçili gösterge
+           satırı vurgu şeridiyle işaretli kalır. */
+        var hucreler = [YU.h('span', { sinif: aktif ? 'yu-guclu' : '', metin: g.ad, stil: { minWidth: '0' } })];
         /* Seçili her kampanya için bir sütun; fark sütunları en yeni iki
            kampanyayı karşılaştırır (grafikteki mavi ve kırmızı çizgi). */
         var sirali = gosterimSirasi(d);
@@ -483,8 +737,6 @@
              24.08.2026): üretim ile satış zıt kalemlerdir, art arda aynı
              görünmesin. Üretim ve Çuvallama satırları düz kalır. */
           zemin: /-satis$/.test(g.kod),
-          ipucu: aktif ? 'Grafikte gösteriliyor' : 'Grafikte göstermek için tıklayın',
-          onClick: function () { YU.git(SAYFA, bagKur(d, { gosterge: g.kod })); },
           hucreler: hucreler
         });
       })(hepsi[i]);
@@ -498,12 +750,14 @@
        arkasından gelir. Programı ilk kez açan biri "Kampanya 2025/2026"
        yazısından hangisinin geçen sezon olduğunu çıkaramıyordu
        (kullanıcı geri bildirimi, 23.08.2026). */
-    var sutunlar = [{ baslik: 'Gösterge' }];
+    /* Kolon adı "Gösterge" JARGONDU; "Ürünler" oldu (kullanıcı kararı,
+       25.08.2026). */
+    var sutunlar = [{ baslik: 'Ürünler' }];
     var sutunSirasi = gosterimSirasi(d);
     for (i = 0; i < sutunSirasi.length; i++) {
       sutunlar.push({
         baslik: sezonEtiketi(d, sutunSirasi[i]) + sutunSirasi[i].donem.ad,
-        hiza: 'sag', mono: true, genislik: 180
+        hiza: 'sag', mono: true, genislik: 205
       });
     }
     if (!d.tamAralikMi) {
@@ -513,11 +767,19 @@
     /* Başlıkta gün sayısı YOK (kullanıcı tercihi, 23.08.2026): '30. gün Farkı'
        tek bir günün farkı gibi okunuyordu. Kaçıncı günde olunduğu sayfa alt
        başlığında, aralık çipinde ve tablo üstü açıklamada zaten yazıyor. */
-    sutunlar.push({ baslik: 'Sezon Başından Bugüne', hiza: 'sag', genislik: 210 });
+    sutunlar.push({ baslik: 'Sezon Başından Bugüne Toplam', hiza: 'sag', genislik: 250 });
 
     var tablo = YU.ui.tablo({
       sutunlar: sutunlar,
       satirlar: satirlar,
+      /* Kolonlar birbirine yapışık duruyordu (kullanıcı isteği, 25.08.2026):
+         yalnız bu tabloda yatay hücre dolgusu 14px yerine 22px.
+         yu-tablo-yazi-buyuk: satır yazıları bir kademe büyür (kullanıcı
+         isteği, 25.08.2026 — "biraz ufak gibi geldi"). yu-tablo-iri
+         kullanılmadı: o varyant satır dolgusunu da artırıp satırı 58px'ten
+         104px'e çıkarıyordu, istenen yalnız yazı boyutuydu. */
+      sinif: 'yu-tablo-yazi-buyuk',
+      dolgu: '8px 22px',
       bos: 'Karşılaştırılacak gösterge yok.'
     });
 
@@ -546,6 +808,14 @@
         })
       );
     }
+
+    /* İade bu ekranda YOK (M30, kullanıcı kararı 25.08.2026): üretim
+       serileri GunlukHareket.Uretim anlamını korur, iade seriye katılmaz.
+       Aylık Özet grafiği iadeyi üretime kattığı için fark tek cümleyle
+       burada söylenir — sessiz tutarsızlık kalmasın. */
+    /* İade notu KALDIRILDI (kullanıcı isteği, 25.08.2026 · KURAL 8): davranış
+       değişmedi — üretim serileri GunlukHareket.Uretim'i taşır, iade seriye
+       katılmaz; yalnız tablo altındaki açıklama ekrandan alındı. */
 
     return YU.ui.panel({
       baslik: d.tamAralikMi ? 'Kampanya Toplamları' : 'Seçili Aralık Toplamları',
@@ -579,7 +849,6 @@
       return;
     }
 
-    kap.appendChild(ayarPaneli(d));
 
     if (!d.gecmis) {
       kap.appendChild(YU.ui.serit({
@@ -588,13 +857,64 @@
       }));
     }
 
-    kap.appendChild(grafikPaneli(d));
-    kap.appendChild(tabloPaneli(d));
+    /* Grafik ve toplam tablosu TEK PANELDE (kullanıcı isteği, 25.08.2026):
+       ikisi aynı seçimi anlatıyor, iki ayrı kutu gereksiz kesinti yapıyordu.
+       Aralarına silik bir ayraç çizgisi konur; tablonun kendi başlığı ve sağ
+       bilgisi ayracın altında panel içi bir alt başlık olarak durur. */
+    var gPanel = grafikPaneli(d);
+    var tPanel = tabloPaneli(d);
+    /* Panelin İKİ başlığı da aynı ölçüde (kullanıcı isteği, 25.08.2026):
+       grafik başlığı ile toplam tablosunun başlığı eşit ağırlıkta okunur.
+       Ölçü burada veriliyor; ortak .yu-panel-baslik sınıfına dokunulmuyor
+       ki diğer ekranların başlıkları değişmesin. */
+    var gBaslikYazi = gPanel.querySelector('.yu-panel-baslik');
+    if (gBaslikYazi) gBaslikYazi.style.font = '700 22px/1.25 var(--font)';
+    var gIkon = gPanel.querySelector('.yu-panel-bas svg');
+    if (gIkon) { gIkon.setAttribute('width', '24'); gIkon.setAttribute('height', '24'); }
+
+    var gGovde = gPanel.querySelector('.yu-panel-govde');
+    var tBas = tPanel.querySelector('.yu-panel-bas');
+    var tGovde = tPanel.querySelector('.yu-panel-govde');
+
+    if (gGovde && tGovde) {
+      gGovde.appendChild(YU.h('div', {
+        stil: {
+          borderTop: '1px solid var(--ayrac)',
+          /* Panel dolgusu 16px: ayraç tam kenardan kenara uzansın diye
+             o kadar dışarı taşar (ölçüldü 25.08.2026). */
+          margin: '4px -16px 0'    /* ayraç ile başlık arası daraltıldı
+                                       (kullanıcı isteği, 25.08.2026) */
+        }
+      }));
+      if (tBas) {
+        tBas.style.margin = '6px 0 2px';
+        /* Panel başlığı normalde 15px dikey dolgu taşır; birleşik panelde
+           bu, ayraç ile tablo arasını gereksiz açıyordu (ölçüldü: başlık
+           bloğu 59px). Yatay dolgu KALIR — başlık tablo hücreleriyle
+           hizalı dursun (kullanıcı isteği, 25.08.2026). */
+        tBas.style.padding = '4px 18px';
+        /* Alt başlık, panel başlığıyla aynı ağırlıkta okunsun (kullanıcı
+           isteği, 25.08.2026): yazı ve ikon bir boy büyütülür. */
+        var tBaslikYazi = tBas.querySelector('.yu-panel-baslik');
+        if (tBaslikYazi) tBaslikYazi.style.font = '700 22px/1.25 var(--font)';
+        var tIkon = tBas.querySelector('svg');
+        if (tIkon) { tIkon.setAttribute('width', '24'); tIkon.setAttribute('height', '24'); }
+        gGovde.appendChild(tBas);
+      }
+      /* Tablo gövdesi de panel dolgusunun dışına taşar: satırlar panelin
+         kenarına otursun (dolgusuz tablo görünümü korunur). */
+      tGovde.style.margin = '0 -16px -16px';
+      gGovde.appendChild(tGovde);
+      kap.appendChild(gPanel);
+    } else {
+      kap.appendChild(gPanel);
+      kap.appendChild(tPanel);
+    }
   }
 
   YU.sayfaTanimla({
     kod: SAYFA,
-    baslik: 'Analizler',
+    baslik: 'Genel Analiz',
     ikon: '#ic-bars-up',
     grup: 'Yönetim',
     rol: 'Yonetici',

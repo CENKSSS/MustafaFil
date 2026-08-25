@@ -204,8 +204,12 @@
     var solKol = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "10px", minWidth: "0", paddingRight: "22px" } }, altEtiket(solBaslik), sol);
     var sagKol = YU.h("div", {
       stil: {
+        /* Kutu dikeyde 8'er px uzatıldı (kullanıcı isteği, 25.08.2026):
+           11/12 -> 19/20. Bu yardımcıyı "Silolara Dağıt" ve "Silolardan Çek"
+           kutuları ortak kullanıyor; ikisi de aynı ölçüde uzar, yan yana
+           duran kutular arasında fark oluşmaz. */
         display: "flex", flexDirection: "column", gap: "9px", minWidth: "0",
-        padding: "11px 16px 12px", background: "var(--yuzey)",
+        padding: "19px 16px 20px", background: "var(--yuzey)",
         border: "1px solid var(--kenar)", borderRadius: "var(--r)"
       }
     }, altEtiket(sagBaslik), sag);
@@ -338,7 +342,7 @@
         metin: kim + ", " + YU.fmt.tarih(tarih) + " " + YU.fmt.saat(damga) +
           "'da girmiş. Kaydet'e basınca eski veriler gösterilir ve onayını ister; onaylarsan eskiler silinip yerine girdiklerin yazılır.",
         eylem: {
-          metin: "Günlük Rapor", ikon: "#ic-doc",
+          metin: "Program Hareketleri", ikon: "#ic-doc",
           onClick: function () { YU.git("gunluk-rapor", { tarih: tarih }); }
         }
       }));
@@ -397,12 +401,24 @@
           tarihAlan.ayarla(tarih);
           return;
         }
-        YU.git(KOD, { tarih: v });
+        /* M22: kaydedilmemiş değişiklik varsa sorulur; vazgeçilirse alan geri döner. */
+        onaylaVeGit(
+          function () { YU.git(KOD, { tarih: v }); },
+          function () { tarihAlan.ayarla(tarih); }
+        );
       }
     });
+    /* D18'in ekran ayağı (M14): takvimden kampanya başlangıcından (en eski
+       devirden) önceki gün seçilemez. Devir yoksa alt sınır konmaz; servis
+       kuralı her durumda ayrıca denetler. */
+    var enEskiDevirK = YU.dogrula.enEskiDevir(db);
+    if (enEskiDevirK) tarihAlan.girdi.min = enEskiDevirK;
 
     function gunGit(fark) {
-      YU.git(KOD, { tarih: fark === 0 ? YU.tarih.bugun() : YU.tarih.ekle(tarih, fark) });
+      /* M22: kaydedilmemiş değişiklik varsa önce sorulur. */
+      onaylaVeGit(function () {
+        YU.git(KOD, { tarih: fark === 0 ? YU.tarih.bugun() : YU.tarih.ekle(tarih, fark) });
+      });
     }
 
     var tarihSatiri = YU.h("div", {
@@ -432,12 +448,12 @@
       ),
       YU.h("span", { stil: { flex: "1" } }),
       YU.ui.dugme({
-        metin: "Günlük Rapor", ikon: "#ic-doc", tur: "ikincil", kucuk: true,
-        onClick: function () { YU.git("gunluk-rapor", { tarih: tarih }); }
+        metin: "Program Hareketleri", ikon: "#ic-doc", tur: "ikincil", kucuk: true,
+        onClick: function () { onaylaVeGit(function () { YU.git("gunluk-rapor", { tarih: tarih }); }); }
       }),
       YU.ui.dugme({
-        metin: "Geçmiş Girişler", ikon: "#ic-calendar", tur: "ikincil", kucuk: true,
-        onClick: function () { YU.git("gecmis-girisler"); }
+        metin: "Geçmiş İşlemler", ikon: "#ic-calendar", tur: "ikincil", kucuk: true,
+        onClick: function () { onaylaVeGit(function () { YU.git("gecmis-girisler"); }); }
       }),
       YU.ui.rozet(kayit ? "Kayıtlı Gün" : "Kayıt Yok", kayit ? "bekleyen" : "notr")
     );
@@ -450,7 +466,6 @@
     var uretilenAlan = buyukAlan(YU.ui.alan({
       etiket: "Bugün Üretilen Dökme Kuru Küspe", tip: "sayi", sag: "kg",
       deger: kayit ? Number(kayit.UretilenDokme) : null,
-      yardim: "İşletme raporundaki rakam, olduğu gibi yazılır.",
       onInput: guncelle
     }));
 
@@ -466,7 +481,6 @@
     var satilanAlan = buyukAlan(YU.ui.alan({
       etiket: "Bugün Satılan Dökme Kuru Küspe", tip: "sayi", sag: "kg",
       deger: kayit ? Number(kayit.SatilanDokme) : null,
-      yardim: "Silodan doğrudan yapılan dökme satış.",
       onInput: guncelle
     }));
 
@@ -501,7 +515,10 @@
       );
       var aciklama = YU.h("div", { stil: { display: "none", font: "400 13.5px/1.5 var(--font)", color: "var(--metin-3)" } });
 
-      var kutuIzgara = YU.h("div", { stil: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "10px" } });
+      /* Silo kutuları ve Temizle düğmesi biraz aşağıda başlar (kullanıcı
+         isteği, 25.08.2026): başlık ile kutular arasındaki 9px akış boşluğuna
+         24px eklenir. Blok tek parça indiği için Temizle de birlikte iner. */
+      var kutuIzgara = YU.h("div", { stil: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "10px", marginTop: "24px" } });
       for (r = 0; r < silolar.length; r++) {
         (function (silo) {
           var a = YU.ui.alan({ tip: "sayi", sag: "kg", onInput: guncelle });
@@ -580,9 +597,16 @@
 
         buyuk.textContent = YU.fmt.kgU(gereken);
         buyuk.style.color = etkin ? renk : "var(--metin-4)";
-        var metin = etkin ? aciklamaMetni : bosMetin;
+        /* Açıklama düz yazı ya da { metin, uyari:true } olabilir. Uyarı olan
+           satır silik kırmızıyla yazılır (kullanıcı isteği, 25.08.2026):
+           --olumsuz korkutucu geldiği için --olumsuz-silik kullanılır, yazı
+           ağırlığı da normalde bırakılır. */
+        var ham = etkin ? aciklamaMetni : bosMetin;
+        var uyariMi = !!(ham && ham.uyari);
+        var metin = (ham && typeof ham === "object") ? ham.metin : ham;
         aciklama.textContent = metin || "";
         aciklama.style.display = metin ? "block" : "none";
+        aciklama.style.color = uyariMi ? "var(--olumsuz-silik)" : "var(--metin-3)";
 
         if (!etkin) {
           sayac.textContent = "";
@@ -662,6 +686,35 @@
       kalemUretim.yaz(gunHareketleri(db, tarih, "DokmeUretim"));
       kalemCuvallama.yaz(gunHareketleri(db, tarih, "Cuvallama"));
       kalemSatis.yaz(gunHareketleri(db, tarih, "DokmeSatis"));
+    }
+
+    /* Kaydedilmemiş girdi bekçisi (DUZELTME-PLANI M22): form kurulduğu andaki
+       imza saklanır; gün gezinmesi ve ekran-terk düğmeleri fark varsa önce
+       sorar (22-malzeme-girisi'ndeki ayrilmaOnayi ile aynı dil). Kaydet
+       başarısı YU.git -> yenile ile ekranı yeniden kurar, imza tazelenir. */
+    var baslangicImza = JSON.stringify(girdiTopla());
+
+    function kaydedilmemisVarMi() {
+      try {
+        return JSON.stringify(girdiTopla()) !== baslangicImza;
+      } catch (e) {
+        return true; /* imza alınamıyorsa güvenli taraf: sor */
+      }
+    }
+
+    function onaylaVeGit(devamEt, vazgecilince) {
+      if (!kaydedilmemisVarMi()) { devamEt(); return; }
+      YU.ui.onay({
+        baslik: "Kaydedilmemiş Değişiklik Var",
+        metin: YU.fmt.tarih(tarih) + " günü için girilen değerler henüz kaydedilmedi. " +
+          "Devam ederseniz bu değişiklikler kaybolur.",
+        onayMetni: "Kaydetmeden çık",
+        iptalMetni: "Sayfada kal",
+        tehlike: true
+      }).then(function (evet) {
+        if (evet) devamEt();
+        else if (vazgecilince) vazgecilince();
+      });
     }
 
     /* ---------- 6. Adım 3: Gün sonu silo durumu + kayıt (tek panel) ---------- */
@@ -979,13 +1032,26 @@
       var girisVar = girisVarMi(girdi);
 
       /* Engelleyen kural varken Kaydet BASILAMAZ (kullanıcı kararı,
-         21.08.2026); hiç giriş yokken de yeni gün için basılamaz. */
-      dugmeKaydet.disabled = h > 0 || (!girisVar && !kayit);
-      dugmeKaydet.title = h > 0 ? "Önce yukarıdaki noktaları düzelt." : (!girisVar && !kayit ? "Önce bir rakam gir." : "Ctrl + Enter");
+         21.08.2026); hiç giriş yokken de yeni gün için basılamaz.
+         İSTİSNA (M32): tek engel kapasite aşımıysa düğme AÇIK kalır —
+         basınca gerekçe penceresi açılır, gerekçesiz yine kaydedilmez.
+         Şartname §8'in "sert engel operatörü kilitler" uyarısının karşılığı. */
+      var yalnizKapasite = h > 0 && yalnizD15(d.hatalar);
+      dugmeKaydet.disabled = (h > 0 && !yalnizKapasite) || (!girisVar && !kayit);
+      dugmeKaydet.title = yalnizKapasite
+        ? "Kapasite aşılıyor — basınca gerekçe istenir."
+        : (h > 0 ? "Önce yukarıdaki noktaları düzelt." : (!girisVar && !kayit ? "Önce bir rakam gir." : "Ctrl + Enter"));
 
-      if (h) {
+      if (yalnizKapasite) {
         durumYaz("#ic-alert", "var(--olumsuz)",
-          "Kaydetmeden önce düzeltilmesi gereken " + (h === 1 ? "bir nokta" : h + " nokta") + " var:", d.hatalar);
+          "Silo kapasitesi aşılıyor. Rakam doğruysa Kaydet'e basıp gerekçe yazabilirsin:", d.hatalar);
+      } else if (h) {
+        durumYaz("#ic-alert", "var(--olumsuz)",
+          /* "düzeltilmesi gereken" suçlayıcı bulundu (kullanıcı isteği,
+             25.08.2026): engelleyen maddelerin çoğu yanlış girilmiş bir
+             rakam değil, henüz doldurulmamış bir adım. Kaydet yine kapalı
+             kalır, yalnız cümle bilgilendirici olur. */
+          "Kaydetmek için tamamlanması gereken " + (h === 1 ? "bir nokta" : h + " nokta") + " var:", d.hatalar);
       } else if (u) {
         durumYaz("#ic-bell", "var(--bekleyen)", "Kaydedilebilir; yine de şuna dikkat:", d.uyarilar);
       } else if (!girisVar) {
@@ -999,6 +1065,14 @@
 
     function guncelle() {
       boyalariSil();
+      /* Kaydedilmemiş değeri olan ekrandan çıkış kilitlenir (kullanıcı isteği,
+         25.08.2026): sekme/pencere kapatmada tarayıcı, menüden geçişte
+         uygulama sorar. Kilit kabukta ortak (YU.cikisKilidi) ve her sayfa
+         çiziminde kendiliğinden düşer. */
+      if (YU.cikisKilidi) {
+        YU.cikisKilidi(kaydedilmemisVarMi(),
+          YU.fmt.tarih(tarih) + ' günü için girilen değerler henüz kaydedilmedi.');
+      }
       var ilk = girdiTopla();
       var h = YU.hesap.kuruKuspe(ilk.uretilenDokme, ilk.cuvalAdet, ilk.satilanDokme);
       var uretim = ilk.uretilenDokme, adet = ilk.cuvalAdet;
@@ -1011,7 +1085,7 @@
          23.08.2026); yalnız gerçekten bilgi taşıyan iki durum yazılır. */
       var girenBos = null;
       if (!(h.netDokmeUretim > tol) && (uretim > 0 || h.cuvalKg > 0)) {
-        if (h.cuvalKg > uretim + tol) girenBos = "Bugün üretilenden fazla çuvallanmış; siloya giriş yok. Aradaki fark aşağıda silodan çıkar.";
+        if (h.cuvalKg > uretim + tol) girenBos = { uyari: true, metin: "Bugün üretilenden fazla çuvallanmış; siloya giriş yok. Aradaki fark aşağıda silodan çıkar." };
         else girenBos = "Üretimin tamamı çuvallanmış; siloya giriş yok.";
       }
       kalemUretim.tazele(h.netDokmeUretim, girenBos, null);
@@ -1021,9 +1095,9 @@
       kalemSatis.tazele(h.satilanDokme, null, null);
       kalemCuvallama.tazele(h.silodanCekilecek, null,
         h.silodanCekilecek > tol
-          ? "Bugün " + YU.fmt.kgU(uretim) + " üretilmiş ama " + YU.fmt.kgU(h.cuvalKg) + " (" + YU.fmt.sayi(adet) +
-            " çuval) çuvallanmış. Aradaki " + YU.fmt.kgU(h.silodanCekilecek) +
-            " önceki günlerden kalan silo stoğundan çıkar. Girdiğin üretim rakamı raporda ayrıca görünür."
+          /* Kısaltıldı (kullanıcı isteği, 25.08.2026): rakamlar zaten üstteki
+             büyük sayıda ve girdi alanlarında duruyor, cümlede tekrarlanmaz. */
+          ? "Fazlası önceki günlerin silo stoğundan çıkar."
           : null);
 
       /* Kalemler gereksiz alanları boşaltmış olabilir; özet güncel değerle kurulur. */
@@ -1042,6 +1116,63 @@
        §4 yeniden kaydetme Demirbaş — davranış değiştirilemez, yalnız
        anlatılır). Tarih bugünden eskiyse ek geçmiş uyarısı ve tehlike
        renkli düğme. Günü görüntüleme bağlantıları pencerede durur. */
+    /* --- Kapasite aşımı: gerekçeli kabul (M32) ---
+       Şartname §8 D15'i uyarı sayar ve gerekçesini de yazar: "sert engel
+       operatörü kilitler". Engel korunur ama kapı açılır: aşım gerçekse
+       operatör gerekçe yazıp kaydeder; gerekçe denetim izine düşer ve
+       yöneticinin zilindeki kapasite uyarısı zaten durumu bildirir. */
+    var kapasiteGerekcesi = null;
+
+    function yalnizD15(hatalar) {
+      if (!hatalar || !hatalar.length) return false;
+      for (var i = 0; i < hatalar.length; i++) if (hatalar[i].kod !== "D15") return false;
+      return true;
+    }
+
+    function kapasiteOnayiAc(hatalar) {
+      var enAz = (YU.dogrula && YU.dogrula.GEREKCE_ENAZ) || 10;
+      var hataKap = YU.h("div");
+      var serit = YU.ui.serit({
+        tur: "hata", ikon: "#ic-alert",
+        baslik: "Silo Kapasitesi Aşılıyor",
+        metin: "Bu kayıt siloyu kapasitesinin üstüne çıkarıyor. Rakam yanlışsa ekrana dönüp " +
+          "düzeltin. Aşım gerçekse (fiili taşma, konik tepe, ölçüm sapması) gerekçesini yazın — " +
+          "kayıt geçer, gerekçe denetim izine yazılır ve yönetici uyarılır."
+      });
+      serit.className += " yu-cetin";
+      var liste = YU.ui.hataListesi(hatalar, "uyari");
+      var gerekceAlan = YU.ui.alan({
+        etiket: "Aşımın Gerekçesi (Zorunlu)", tip: "metin",
+        yardim: "En az " + enAz + " karakter. Denetim izinde bu cümle görünecek."
+      });
+      var m = YU.ui.modal({
+        baslik: "Kapasite Aşımını Kabul Et",
+        genislik: 620,
+        govde: [serit, liste, gerekceAlan.kok, hataKap],
+        dugmeler: [
+          { metin: "Vazgeç · Rakamı Düzelt", tur: "sade", onClick: function () { m.kapat(); } },
+          {
+            metin: "Aşımı Kabul Et ve Kaydet", ikon: "#ic-alert", tur: "tehlike",
+            onClick: function () {
+              var g = String(gerekceAlan.deger() || "").trim();
+              if (g.length < enAz) {
+                gerekceAlan.hataGoster("Gerekçe en az " + enAz + " karakter olmalı. Şu an " + g.length + ".");
+                return;
+              }
+              m.kapat();
+              /* Gerekçe kaydetme akışı BİTENE kadar durur: kaydet() önce
+                 asenkron "üzerine yazıyorsun" onayını açar, gerçek yazma o
+                 pencerenin geri çağrısında olur. Burada sıfırlansaydı gerekçe
+                 servise hiç ulaşmazdı. kaydetUygula() tükettikten sonra siler. */
+              kapasiteGerekcesi = g;
+              kaydet();
+            }
+          }
+        ]
+      });
+      gerekceAlan.odakla();
+    }
+
     function kaydet() {
       /* Ctrl+Enter da buradan geçer: düğme pasifken (hata ya da boş gün) kayıt yok. */
       if (dugmeKaydet.disabled) return;
@@ -1136,9 +1267,10 @@
       var m;
       var baglantilar = YU.h("div", { stil: { display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" } },
         YU.h("span", { sinif: "yu-yardim", metin: "Bu günü görüntüle:" }),
-        baglanti("Günlük Rapor", "gunluk-rapor", { tarih: tarih }));
+        baglanti("Program Hareketleri", "gunluk-rapor", { tarih: tarih }));
       /* Son değişiklikler ekranı yönetici yetkisindedir; operatöre gösterilmez. */
-      if (YU.yonetici()) baglantilar.appendChild(baglanti("Değişiklik Geçmişi", "degisiklik-gecmisi", { tarih: tarih }));   /* o günle filtreli açılır */
+      /* Değişiklik Geçmişi bağlantısı kaldırıldı (kullanıcı kararı,
+         24.08.2026): işlem geçmişi artık Program Hareketleri panelinde. */
 
       var gvd = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "10px" } },
         YU.h("div", {
@@ -1178,10 +1310,18 @@
       boyalariSil();
 
       var girdi = girdiTopla();
+      /* Gerekçe TEK kayıt denemesinde geçerlidir: okunur okunmaz silinir ki
+         sonraki kayıtlar sessizce aynı gerekçeyle kapasite aşmasın. */
+      if (kapasiteGerekcesi) girdi.kapasiteGerekcesi = kapasiteGerekcesi;
+      kapasiteGerekcesi = null;
       var s = YU.servis.kuruKuspeKaydet(db, girdi, YU.oturum.kullanici);
 
       if (!s.ok) {
         if (YU.ui.kilitYakala(s)) return;   /* kilitli kampanya: pencere + bağlantı */
+        /* Kayıt YALNIZ kapasite aşımı yüzünden reddedildiyse operatöre çıkış
+           yolu verilir (M32): sert uyarı penceresi + zorunlu gerekçe. Başka
+           hata da varsa pencere açılmaz — önce gerçek hatalar düzeltilir. */
+        if (yalnizD15(s.hatalar)) { kapasiteOnayiAc(s.hatalar); return; }
         sonucGoster();
         sonucKap.appendChild(YU.ui.hataListesi(s.hatalar, "hata"));
         if (s.uyarilar.length) sonucKap.appendChild(YU.ui.hataListesi(s.uyarilar, "uyari"));

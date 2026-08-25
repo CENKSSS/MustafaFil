@@ -4,18 +4,25 @@
    YU.servis.* üzerinden geçer. Sebebi: tohum verisi de D1–D16'dan geçsin,
    ekranlardaki rakamlar kuralların ürettiği rakam olsun.
 
-     2025/2026 · devir 10.06.2026 ·  5 gün — Şartname §5'teki "en son devir"
-                                             kuralı ancak iki devir satırı
-                                             varken gerçekten sınanır.
-     2026/2027 · devir 22.07.2026 · 30 gün — ekranların dolu olduğu kampanya;
-                                             son günü bugüne denk gelir.
+     2025/2026 · devir 15.09.2025 · 122 gün — geçen yılın TAMAMLANMIŞ sezonu
+     (kullanıcı isteği, 24.08.2026: "geçen yıla da bir kampanya koy, veriyi
+     tek yılla sınırlama"); Analizler'in dönem karşılaştırması da ancak iki
+     kampanya varken çalışır.
+     2026/2027 · devir 22.07.2026 · devirden BUGÜNE kadar her gün — gün sayısı
+     açılışta hesaplanır ki son kayıt her zaman bugüne denk gelsin; kampanya
+     bitiş günü diye bir sınır YOK.
 
-   Tohumlamanın sonunda ayrıca küçük bir denetim izi üretilir (denetimIzi):
-   birkaç düzeltme, bir ekleme ve bir silme DegisiklikLog'a yazılır ki
-   Değişiklik Geçmişi ekranı boş kalmasın.
+   Kapsam garantileri (kullanıcı isteği, 24.08.2026):
+   - her gün HER SİLOYA en az bir hareket düşer (giren ya da çıkan),
+   - her gün HER MALZEMENİN günlük satırı oluşur (dökme ve çuvallı üretim
+     Kuru Küspe Günlük Giriş'ten otomatik; kalanlar malzeme planından),
+   - denetim izi (düzeltme, ekleme, silme) kampanyanın son iki haftasına
+     dağılır — Değişiklik Geçmişi ve arşiv tabloları boş kalmaz.
 
    Rakamların tamamı YU.rastgele(TOHUM) ile üretilir: aynı tohum aynı veri
-   (SOZLESME §2 "PRNG kuralı"). Math.random() hiçbir yerde yok. */
+   (SOZLESME §2 "PRNG kuralı"). Math.random() hiçbir yerde yok. Gün sayısı
+   bugüne bağlı olduğu için veri "gün başına" deterministiktir: aynı gün
+   içinde her tohumlama aynı veriyi üretir. */
 (function () {
   "use strict";
 
@@ -33,6 +40,7 @@
   var MALZEME_PLANI = [
     { ad: "Yaş Küspe (Tonluk)", uretim: [18000, 26000], adim: 10, satisOrani: [0.75, 1.00] },
     { ad: "Yaş Küspe (25'lik)", uretim: [800, 1500], adim: 10, satisOrani: [0.75, 1.00] },
+    { ad: "Dökme Yaş Küspe", uretim: [9000, 16000], adim: 10, satisOrani: [0.70, 1.00] },
     { ad: "Atık Kuru Küspe", uretim: [50, 250], adim: 10, satisSeyrek: 0.34, satisAralik: [200, 600] },
     { ad: "Kuyruk", uretim: [2000, 4500], adim: 10, satisAralik: [1500, 4000] },
     { ad: "Toprak", uretim: [6000, 12000], adim: 10, satisAralik: [0, 3000] }
@@ -57,9 +65,8 @@
     {
       /* Geçen sezon TAMAMLANMIŞ bir kampanyadır: eylül ortasında açılır,
          ocak ortasında kapanır (Şartname §2 — kampanya eylülde başlar,
-         aylarca sürer). Kısa tutulursa Analizler ekranı karşılaştırmayı
-         geçmişin bittiği güne sıkıştırmak zorunda kalıyor ve ekran birkaç
-         günlük bir pencereye hapsoluyordu (kullanıcı düzeltmesi, 23.08.2026). */
+         aylarca sürer). Gün sayısı sabittir çünkü sezon bitmiştir; süren
+         kampanyada ise sınır yok (aşağıda gunSayisi: null). */
       ad: "2025/2026",
       devirTarihi: "2025-09-15",
       gunSayisi: 122,
@@ -67,6 +74,7 @@
       malzemeDevir: {
         "Yaş Küspe (Tonluk)": 12000,
         "Yaş Küspe (25'lik)": 1800,
+        "Dökme Yaş Küspe": 7000,
         "Kuru Küspe (50 Kg)": 4200,
         "Atık Kuru Küspe": 600,
         "Kuyruk": 2400,
@@ -82,11 +90,20 @@
     {
       ad: "2026/2027",
       devirTarihi: "2026-07-22",
-      gunSayisi: 30,
+      /* null = açılışta hesaplanır: devirden bugüne kadar HER GÜN girilir
+         (kullanıcı isteği, 24.08.2026 — son kayıt hep bugüne denk gelsin). */
+      gunSayisi: null,
+      /* Satış rampası bu SABİT ufka bölünür (DUZELTME-PLANI M8): eskiden
+         gunSayisi'ne bölünüyordu ve gün sayısı bugüne bağlı olduğu için
+         yeniden tohumlama başka bir günde yapılınca GEÇMİŞ günlerin satış
+         rakamları da değişiyordu. 122 = tam sezon uzunluğu (2025/2026 ile
+         aynı ölçek); artık her günün rakamı yalnız gün sırasına bağlıdır. */
+      rampaUfku: 122,
       siloDevir: [420000, 380000, 260000],
       malzemeDevir: {
         "Yaş Küspe (Tonluk)": 18000,
         "Yaş Küspe (25'lik)": 2500,
+        "Dökme Yaş Küspe": 9500,
         "Kuru Küspe (50 Kg)": 6000,
         "Atık Kuru Küspe": 900,
         "Kuyruk": 3200,
@@ -169,12 +186,13 @@
     return { pay: pay, kalan: kalan };
   }
 
-  /* Değişken oranlı ağırlık: bazı günlerde bir silo hiç kullanılmaz.
-     "Hep eşit böl" davranışı tasarım referansındaki tabloyu ölü gösterir. */
-  function agirlikUret(taban, rnd, sifirOlasilik) {
+  /* Değişken oranlı ağırlık: paylar gün gün dalgalansın ama hiçbir silo
+     sıfırlanmasın — "her silo her gün hareket görür" (kullanıcı isteği,
+     24.08.2026); eski sifirOlasilik davranışı bu yüzden kaldırıldı. */
+  function agirlikUret(taban, rnd) {
     var w = [], i, doluVar = false;
     for (i = 0; i < taban.length; i++) {
-      if (taban[i] <= 0 || rnd() < sifirOlasilik) { w.push(0); continue; }
+      if (taban[i] <= 0) { w.push(0); continue; }
       w.push(taban[i] * (0.35 + 1.3 * rnd()));
       doluVar = true;
     }
@@ -182,6 +200,37 @@
       for (i = 0; i < taban.length; i++) if (taban[i] > 0) { w[i] = 1; break; }
     }
     return w;
+  }
+
+  /* Günün üç payından (yerleştirme/çekiş/satış) HİÇBİRİNE girmeyen siloya
+     10 kg'lık bir kaydırma yapılır: önce satıştan, olmuyorsa yerleştirmeden.
+     Toplamlar birebir korunur — D3/D5/D13 ±0,01 toleransı bozulmaz. */
+  function herSiloyaDokun(yerPay, cekisPay, satisPay, bakiye, bosluk) {
+    var n = yerPay.length, i, j, kaynak;
+    for (i = 0; i < n; i++) {
+      if (yerPay[i] + cekisPay[i] + satisPay[i] > 0) continue;
+
+      /* satıştan aktar: kaynağın 10 kg'ı kalmalı, hedefin bakiyesi yetmeli */
+      kaynak = -1;
+      for (j = 0; j < n; j++) {
+        if (j !== i && satisPay[j] >= 20 && (kaynak < 0 || satisPay[j] > satisPay[kaynak])) kaynak = j;
+      }
+      if (kaynak >= 0 && bakiye[i] >= 10) {
+        satisPay[kaynak] -= 10;
+        satisPay[i] += 10;
+        continue;
+      }
+
+      /* yerleştirmeden aktar: hedef siloda 10 kg boşluk olmalı */
+      kaynak = -1;
+      for (j = 0; j < n; j++) {
+        if (j !== i && yerPay[j] >= 20 && (kaynak < 0 || yerPay[j] > yerPay[kaynak])) kaynak = j;
+      }
+      if (kaynak >= 0 && bosluk[i] >= 10) {
+        yerPay[kaynak] -= 10;
+        yerPay[i] += 10;
+      }
+    }
   }
 
   /* Çuvallama çekişi tek silodan yapılır; hangisi olduğu bakiyeye orantılı seçilir. */
@@ -384,8 +433,10 @@
       var cekilecek = hesap.silodanCekilecek;
       var toplamBakiye = toplamDizi(bakiye);
 
-      /* Satılan dökme: hedef doluluğu tutturacak miktar + günlük dalgalanma. */
-      var oran = plan.gunSayisi > 1 ? g / (plan.gunSayisi - 1) : 0;
+      /* Satılan dökme: hedef doluluğu tutturacak miktar + günlük dalgalanma.
+         Ufuk sabittir (rampaUfku, M8); kapalı kampanyada gunSayisi zaten sabit. */
+      var ufukGun = plan.rampaUfku || plan.gunSayisi;
+      var oran = ufukGun > 1 ? Math.min(1, g / (ufukGun - 1)) : 0;
       var hedef = egri(plan.hedefEgrisi, oran) * toplamKapasite;
       var satisTavan = toplamBakiye - cekilecek;
       if (satisTavan < 0) satisTavan = 0;
@@ -397,6 +448,15 @@
       satis = adimla(satis, 10);
       if (satis > satisTavan) satis = Math.floor(satisTavan);
       if (plan.satisSifirGunleri.indexOf(g) >= 0) satis = 0;
+
+      /* Durum B gününde net üretim 0'dır, yerleştirme olmaz; her siloya yine
+         de hareket düşebilsin diye o gün makul bir sevkiyat zorunludur
+         (kullanıcı isteği, 24.08.2026 — her silo her gün hareket görür). */
+      if (durumB && satis < 9000) {
+        satis = adimla(Math.min(9000, satisTavan), 10);
+        if (satis > satisTavan) satis = Math.floor(satisTavan);
+        if (satis < 0) satis = 0;
+      }
 
       /* Çıkışlar önce: yerleştirme tavanı ancak çıkışlar bilinince hesaplanır. */
       var tavan = bakiye.slice();
@@ -414,7 +474,7 @@
       }
 
       if (satis > 0) {
-        bolum = dagit(satis, agirlikUret(tavan, rnd, 0.35), tavan);
+        bolum = dagit(satis, agirlikUret(tavan, rnd), tavan);
         satisPay = bolum.pay;
         if (bolum.kalan > 0) calistir(durum, "dökme satış dağıtılamadı", tarih, null);
         for (i = 0; i < silolar.length; i++) tavan[i] -= satisPay[i];
@@ -426,10 +486,18 @@
         for (i = 0; i < silolar.length; i++) {
           bosluk.push(kapasiteler[i] - (bakiye[i] - cekisPay[i] - satisPay[i]));
         }
-        bolum = dagit(net, agirlikUret(bosluk, rnd, 0.25), bosluk);
+        bolum = dagit(net, agirlikUret(bosluk, rnd), bosluk);
         yerPay = bolum.pay;
         if (bolum.kalan > 0) calistir(durum, "net dökme üretim dağıtılamadı", tarih, null);
       }
+
+      /* Her siloya günlük dokunuş garantisi (kullanıcı isteği, 24.08.2026):
+         floor'lu dağıtım küçük toplamlarda bir siloyu 0'da bırakabilir. */
+      var sonBosluk = [];
+      for (i = 0; i < silolar.length; i++) {
+        sonBosluk.push(kapasiteler[i] - (bakiye[i] - cekisPay[i] - satisPay[i]) - yerPay[i]);
+      }
+      herSiloyaDokun(yerPay, cekisPay, satisPay, bakiye, sonBosluk);
 
       var sonuc = YU.servis.kuruKuspeKaydet(depo, {
         tarih: tarih,
@@ -477,9 +545,14 @@
         var cuvalSatis = rnd.tamsayi(10, 45) * YU.hesap.CUVAL_KG;
         if (cuvalSatis > cuvalStok) cuvalSatis = Math.floor(cuvalStok / YU.hesap.CUVAL_KG) * YU.hesap.CUVAL_KG;
         if (cuvalSatis < 0) cuvalSatis = 0;
+        /* Satır az önce kuruKuspeKaydet'in upsert'iyle oluştu; kontrat gereği
+           güncelleme OKUNAN RowVersion ile yapılır (M7 — null artık "yeni
+           kayıt iddiası"dır ve mevcut satırda D16'ya takılır). */
+        var cuvalSatiri = hareketBul(depo, tarih, cuvalMalzeme.Id);
         var cr = YU.servis.malzemeHareketKaydet(depo, {
           tarih: tarih, malzemeId: cuvalMalzeme.Id,
-          uretim: null, satis: cuvalSatis, rowVersion: null
+          uretim: null, satis: cuvalSatis,
+          rowVersion: cuvalSatiri ? cuvalSatiri.RowVersion : null
         }, kullanici);
         calistir(durum, CUVAL_AD, tarih, cr);
         malzemeStok[CUVAL_AD] = cuvalStok - (cr && cr.ok ? cuvalSatis : 0);
@@ -685,6 +758,22 @@
       }
     }
 
+    /* 2d — iade örneği (kullanıcı isteği, 24.08.2026): bugün 100 kg dökme yaş
+       küspe iadesi girildi. Stokta üretim gibi artar, kayıtta İade alanında
+       ayrı durur; Değişiklik Geçmişi'nde "İade" satırı görünür. */
+    m = malzemeler["Dökme Yaş Küspe"];
+    if (m) {
+      var iadeH = hareketBul(depo, sonGun, m.Id);
+      if (iadeH) {
+        calistir(durum, "iade · Dökme Yaş Küspe", sonGun,
+          izle(depo, sonGun + "T13:05:00", function () {
+            return YU.servis.malzemeHareketKaydet(depo, {
+              tarih: sonGun, malzemeId: m.Id, iade: 100, rowVersion: iadeH.RowVersion
+            }, operator);
+          }));
+      }
+    }
+
     /* 3 — malzeme devri düzeltmesi: kampanya başı sayımı sonradan revize edildi */
     m = malzemeler["Kuyruk"];
     d = m ? devirBul(depo, m.Id, plan.devirTarihi) : null;
@@ -779,38 +868,10 @@
       }
     }
 
-    /* 8 — akşam İKİNCİ kuru küspe düzeltmesi: bir çuval geri sayıldı
-       (36 -> 35). 15:20'nin silo hareketleri silinip yeniden yazılır ve
-       çuval alanları yeniden değişir — Günün İşlem Geçmişi'nde "Silindi"
-       ve "Değiştirildi" örnekleri (kullanıcı isteği, 21.08.2026). */
-    kayit = kuruKuspeBul(depo, sonGun);
-    if (kayit) {
-      yeniAdet = (Number(kayit.CuvalAdet) || 0) - 1;
-      var oncekiHesap8 = YU.hesap.kuruKuspe(kayit.UretilenDokme, kayit.CuvalAdet, kayit.SatilanDokme);
-      var sonrakiHesap8 = YU.hesap.kuruKuspe(kayit.UretilenDokme, yeniAdet, kayit.SatilanDokme);
-      fark = YU.yuvarla(sonrakiHesap8.netDokmeUretim - oncekiHesap8.netDokmeUretim);
-      girdi = gunSiloSatirlari(depo, sonGun);
-      enBuyuk = -1;
-      for (i = 0; i < girdi.yerlestirmeler.length; i++) {
-        if (enBuyuk < 0 || girdi.yerlestirmeler[i].miktar > girdi.yerlestirmeler[enBuyuk].miktar) enBuyuk = i;
-      }
-      if (yeniAdet >= 0 && oncekiHesap8.silodanCekilecek === 0 && sonrakiHesap8.silodanCekilecek === 0 && enBuyuk >= 0) {
-        girdi.yerlestirmeler[enBuyuk].miktar = YU.yuvarla(girdi.yerlestirmeler[enBuyuk].miktar + fark);
-        calistir(durum, "kuru küspe düzeltmesi 2", sonGun,
-          izle(depo, sonGun + "T17:30:00", function () {
-            return YU.servis.kuruKuspeKaydet(depo, {
-              tarih: sonGun,
-              uretilenDokme: kayit.UretilenDokme,
-              cuvalAdet: yeniAdet,
-              satilanDokme: kayit.SatilanDokme,
-              yerlestirmeler: girdi.yerlestirmeler,
-              cekisler: girdi.cekisler,
-              satisCekisleri: girdi.satisCekisleri,
-              rowVersion: kayit.RowVersion
-            }, operator);
-          }));
-      }
-    }
+    /* (Eski 8. adım — akşamki İKİNCİ kuru küspe düzeltmesi — kaldırıldı:
+       bugünün işlem geçmişi kalabalıklaşıyordu; ~36 satırın 3/5'i kalsın
+       istendi (kullanıcı isteği, 24.08.2026). "Silindi" ve "Değiştirildi"
+       örneklerini 7. adımın yeniden kaydı zaten üretiyor.) */
 
     kayitDamgalari(depo, logBasi);
     return depo.degisiklikLog.length - logBasi;
@@ -834,6 +895,12 @@
     depo.kaydet = function () {};
     try {
       for (i = 0; i < KAMPANYALAR.length; i++) {
+        /* gunSayisi null = devirden bugüne kadar her gün (bugün dahil).
+           Devir gelecekteyse tek günlük emniyet değeri kullanılır. */
+        if (KAMPANYALAR[i].gunSayisi === null) {
+          var kacGun = YU.tarih.fark(KAMPANYALAR[i].devirTarihi, YU.tarih.bugun()) + 1;
+          KAMPANYALAR[i].gunSayisi = isFinite(kacGun) && kacGun > 0 ? kacGun : 1;
+        }
         kampanyaUret(depo, KAMPANYALAR[i], rnd, durum);
       }
       depo.degisiklikLog.length = logKok;   // devir kayıtlarının log satırları da tohum verisidir

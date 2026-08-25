@@ -178,6 +178,131 @@ geçerlidir:
 
 ---
 
+## KURAL 7 — Gün listesi ≠ işlem geçmişi (kullanıcı direktifi, 24.08.2026)
+
+* **Geçmiş Girişler** = gün listesi ve gün yönetimi. Satır = bir gün.
+  "Hangi günler girilmiş, günü kim açmış / en son kim kaydetmiş,
+  değiştirilmiş mi" burada okunur; günü düzeltme ve **günü silme** buradan
+  yapılır. Ayrıntı için satır Program Hareketleri'ni açar.
+* **İşlem geçmişinin (denetim izi) TEK sunum yeri, Program Hareketleri
+  sayfasındaki "İşlem Geçmişi" panelidir** (kullanıcı kararı, 24.08.2026):
+  gün bazlı seçilir, varsayılan bugündür; kim/neyi/ne zaman/hangi değerden
+  hangi değere bilgisi satırda tam görünür, ek tıklama gerekmez. Güne
+  bağlanamayan işlemler (kullanıcı, malzeme, devir yönetimi) yapıldıkları
+  günün panelinde listelenir — hiçbir denetim kaydı görünmez kalmaz.
+* **Değişiklik Geçmişi ekranı menüden kaldırılmıştır**; kodu yedek olarak
+  durur ve yalnız doğrudan adresle açılır. Yeni işlem-geçmişi özellikleri
+  panele eklenir, bu ekrana değil.
+
+Kısacası: biri **günleri**, öbürü **dokunuşları** listeler. Birine eklenecek
+özellik öbürünün alanına giriyorsa önce kullanıcıya sorulur.
+
+---
+
+## KURAL 8 — Dipnot yasağı: bilgi başlıkta, kolonda, etikette (kullanıcı direktifi, 25.08.2026)
+
+Kullanıcının sözü: *"illa notları mı okumalıyım? direkt kolonda ne olduğunu
+belli et, panel başlığından vs."*
+
+Bir rakamın ne anlama geldiği, hangi dönemi kapsadığı veya nasıl hesaplandığı
+**tablonun altına açıklama yazarak anlatılmaz**. Bilgi, okunduğu yere konur:
+
+* **Panel başlığı** ne karşılaştırdığını söyler — `Önceki Aya Göre Ürün Grubu
+  Karşılaştırması`, `Aylık Malzeme Özeti`.
+* **Panel başlığının sağı** dönemi söyler — `1–25 Temmuz · 1–25 Ağustos`.
+* **Kolon başlığı** kalemi ve birimini söyler — `Aylık Üretim`, `Ay Başı Stok`.
+* **Satır etiketi** kapsamı söyler — `Kuru Küspe (Ham)`, `Diğer Ürünler`.
+* **Hücre** gerekiyorsa ikinci satırla durumu söyler — `▲ +%114,1`, `devir ayı`.
+* Ayrıntı **ipucuna** (`title`) konur; ekranda yer kaplamaz, isteyen görür.
+
+Yalnız şu durumda dipnot yazılabilir: bilgi hiçbir başlığa/etikete sığmıyorsa
+**ve** olmadan rakam yanlış okunuyorsa. O zaman da tek cümledir ve kullanıcıya
+"buraya dipnot koydum, çünkü…" diye söylenir.
+
+Bu kural, KURAL 5.3 (sade ve yalın anlatım) ile birlikte uygulanır: ekranın
+kalabalığı da anlatımın kalabalığı kadar kusurdur.
+
+---
+
+## KURAL 9 — Kısa cümle, az satır (kullanıcı direktifi, 25.08.2026)
+
+Kullanıcının sözü: *"daha kısa, sade, minik cümlelerle anlat."*
+
+* Cümleler kısa olur. Bir cümle bir iş anlatır.
+* Yanıt, işi anlatmaya yeten en az satırdır.
+* Süreç dökümü yazılmaz. Yalnız: ne yapıldı, ne değişti, nerede.
+* Test edildiyse tek satırda söylenir: ne denendi, ne çıktı.
+* Tablo, başlık, madde ancak gerçekten kısaltıyorsa kullanılır.
+* Uzun gerekçe koda yorum olarak girer; sohbete değil.
+
+KURAL 5.3 ile birlikte uygulanır: 5.3 dili sadeleştirir, 9 uzunluğu keser.
+
+---
+
+
+## KURAL 10 — Estetik sorumluluk: söylenmeden yap (kullanıcı direktifi, 25.08.2026)
+
+Kullanıcının sözü: *"bu tür mini dokunuşları hep manuel yapıyoruz… biraz
+estetikliğini de kullanman lazım."*
+
+Sen bu projede hem **frontend** hem **backend** tarafını taşıyan kişisin.
+Ekran kurarken görsel kararları kullanıcıya sormadan, doğru olanı yaparak
+verirsin. "İstemedi, ben de yapmadım" bir gerekçe değildir. Bir tablo, panel
+veya grafik yazarken aşağıdakiler **varsayılan davranıştır**:
+
+### 10.1 — Tablo
+
+* **TOPLAM satırı veri satırlarından ayrışır**: koyu/dolgulu zemin, üstünde
+  belirgin çizgi, kalın yazı. Sıradan bir satır gibi görünmez.
+* **Sayısal hücre tek satırda kalır** (`nowrap`); yazı büyütülünce satır
+  yüksekliği iki katına çıkmaz.
+* **Kolon başlığı kalemi ve birimini söyler** (KURAL 8), hücre içeriği
+  kolonuyla hizalıdır: sayı sağa, metin sola.
+* **Boş hücre `—` ile yazılır**, boş bırakılmaz.
+* Yön taşıyan rakam **renk ve işaret alır**: giren `+` yeşil, çıkan `−` kırmızı.
+
+### 10.2 — Panel ve başlık
+
+* Aynı düzeydeki başlıklar **aynı ölçüde** olur; alt başlık üst başlıktan
+  rastgele küçük kalmaz.
+* İki panel aynı soruyu yanıtlıyorsa **tek panelde birleşir**, aralarına
+  silik ayraç konur — ekran gereksiz kutuya bölünmez.
+* Panel içi boşluk ritmi korunur: başlık ile içerik arası, ayraç ile başlık
+  arası ölçülür; "uzun boşluk" bırakılmaz.
+
+### 10.3 — Grafik
+
+* Kaydırılabilir alan **kaydırılabilir olduğunu belli eder** (iki yanda ok,
+  sürükleme imleci); kullanıcı keşfetmek zorunda kalmaz.
+* Eksen etiketleri **yuvarlak sayılara oturur** (5, 10, 15…), pencerenin
+  başladığı yere göre kaymaz.
+* Grafik kabı boş kalmaz: veri azsa genişler, çoksa pencereye sığar.
+
+### 10.4 — Nerede cesur, nerede değil (kullanıcı direktifi, 25.08.2026)
+
+Kullanıcının sözü: *"css olarak daha çok değiştirebilirsin, orada cesur
+olabilirsin; ama ekstra kısımlarda bu kadar cesur ve yürekli olma."*
+
+* **Görünüşte CESUR ol.** Renk, ölçü, boşluk, hizalama, kenarlık, gölge,
+  hover, ikon boyu, yazı ağırlığı, satır yüksekliği, kolon genişliği — hepsi
+  sorulmadan düzeltilir. Ekran daha iyi görünüyorsa doğrudur.
+* **İçerikte CESUR OLMA.** Kolon eklemek/çıkarmak, satır veya panel kaldırmak,
+  alan adını değiştirmek, bir bilgiyi gizlemek ya da başka yere taşımak
+  **ekstra iştir**; önce sorulur. "Zaten başlıkta yazıyor" gerekçesi tek
+  başına yetmez.
+* **Ölçü tek cümle:** görünüşü değiştiriyorsan serbestsin, ekranda okunan
+  BİLGİYİ değiştiriyorsan izin al.
+
+### 10.5 — Sınır
+
+Bu kural KURAL 5.1'i (X dediysem Y'ye dokunma) **geçersiz kılmaz**:
+estetik karar, **dokunulan ekranın içinde** serbesttir. Başka bir ekrana
+yaymak, ortak bileşeni değiştirmek veya kullanıcının daha önce verdiği bir
+karara aykırı davranmak için yine izin alınır. Ortak CSS'e dokunmak
+gerekiyorsa yeni bir varyant sınıfı eklenir, mevcut sınıf ezilmez.
+
+---
+
 ## Klasör düzeni
 
 ```

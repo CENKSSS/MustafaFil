@@ -11,7 +11,6 @@
 
   var YU = window.YU;
 
-  var PENCERE_GUN = 30;      /* KPI karşılaştırma penceresi (§7 "son 30 gün") */
   var GRAFIK_GUN = 14;
   var HAREKET_SATIR = 6;
   var LOG_SATIR = 4;         /* son hareketlerin en fazla bu kadarı denetim izinden */
@@ -66,15 +65,6 @@
     return Math.max(1, Math.floor(f / 365)) + ' yıl önce';
   }
 
-  /* Karşılaştırma tabanı 0 ise yüzde tanımsızdır; uydurma oran yazmak yerine
-     null döner ve çağıran alt satırı başka bir bağlamla doldurur. */
-  function degisim(yeni, eski) {
-    if (!isFinite(yeni) || !isFinite(eski) || eski === 0) return null;
-    var oran = ((yeni - eski) / Math.abs(eski)) * 100;
-    if (Math.abs(oran) < 0.05) return 'değişim yok';
-    return (oran > 0 ? '+' : '−') + YU.fmt.yuzde(Math.abs(oran), 1);
-  }
-
   function kisaAd(ad) {
     var m = /\(([^)]+)\)/.exec(String(ad || ''));
     return m ? m[1] : String(ad || '');
@@ -94,20 +84,6 @@
       if (satirlar[i].malzeme && satirlar[i].malzeme.OzelTip === tip) return satirlar[i];
     }
     return null;
-  }
-
-  /* Dökme kuru küspenin net üretimi ve satışı GunlukHareket'e yazılır
-     (04-servis kuruKuspeKaydet 6. adım); pencere toplamları oradan okunur. */
-  function dokmePencere(depo, dokmeId, bas, bit) {
-    var uretim = 0, satis = 0, i, h;
-    if (dokmeId === null || !bas || !bit) return { uretim: 0, satis: 0 };
-    for (i = 0; i < depo.gunlukHareket.length; i++) {
-      h = depo.gunlukHareket[i];
-      if (h.MalzemeId !== dokmeId || h.Tarih < bas || h.Tarih > bit) continue;
-      uretim += Number(h.Uretim) || 0;
-      satis += Number(h.Satis) || 0;
-    }
-    return { uretim: YU.yuvarla(uretim), satis: YU.yuvarla(satis) };
   }
 
   /* Tek günün üretim/satış toplamı — günlük kartlar son kayıtlı günü gösterir.
@@ -164,12 +140,6 @@
 
     var dokmeToplam = YU.stok.dokmeToplam(depo, bugun);
 
-    var p1bas = sonGun ? YU.tarih.ekle(sonGun, -(PENCERE_GUN - 1)) : null;
-    var p0bit = sonGun ? YU.tarih.ekle(sonGun, -PENCERE_GUN) : null;
-    var p0bas = sonGun ? YU.tarih.ekle(sonGun, -(PENCERE_GUN * 2 - 1)) : null;
-    var pencere = dokmePencere(depo, dokmeId, p1bas, sonGun);
-    var oncekiPencere = dokmePencere(depo, dokmeId, p0bas, p0bit);
-
     return {
       bugun: bugun,
       donem: donem,
@@ -185,9 +155,6 @@
       yasTonluk: YU.yuvarla(yasTonlukToplam),
       yasPoset: YU.yuvarla(yasPosetToplam),
       kapasite: kapasite,
-      pencereBas: p1bas,
-      pencere: pencere,
-      oncekiPencere: oncekiPencere,
       gunluk: {
         dokme: gunToplami(depo, dokmeId === null ? [] : [dokmeId], sonGun),
         cuval: gunToplami(depo, cuvalSatir ? [cuvalSatir.malzeme.Id] : [], sonGun),
@@ -258,14 +225,8 @@
   /* yasDetayi kaldırıldı: tonluk ve 25'lik artık ayrı kartlarda, birleşik
      kırılım satırı yok (kullanıcı isteği, 21.08.2026). */
 
-  function pencereFarki(o, alan) {
-    var fark = degisim(o.pencere[alan], o.oncekiPencere[alan]);
-    return fark ? 'önceki 30 güne göre ' + fark : 'karşılaştırılacak önceki dönem yok';
-  }
-
-  function pencereAraligi(o) {
-    return YU.fmt.tarih(o.pencereBas) + ' – ' + YU.fmt.tarih(o.sonGun);
-  }
+  /* pencereFarki/pencereAraligi kaldırıldı — 30 günlük kartlarla birlikte
+     (kullanıcı isteği, 24.08.2026). */
 
   /* ------------------------------------------------------------------
      Kart üreticileri — her biri katalogdaki tek bir kartı çizer.
@@ -323,24 +284,10 @@
     });
   }
 
-  function kartUretim30(o) {
-    return YU.ui.kpi({
-      etiket: 'Son 30 Günün Dökme Üretimi', ikon: '#ic-bars-up',
-      deger: YU.fmt.kgU(o.pencere.uretim),
-      alt: o.sonGun ? (pencereAraligi(o) + ' · ' + pencereFarki(o, 'uretim')) : 'Kayıtlı gün yok.'
-    });
-  }
-
-  function kartSatis30(o) {
-    var satisOrani = o.pencere.uretim > 0 ? (o.pencere.satis / o.pencere.uretim) * 100 : null;
-    return YU.ui.kpi({
-      etiket: 'Son 30 Günün Dökme Satışı', ikon: '#ic-basket',
-      deger: YU.fmt.kgU(o.pencere.satis),
-      alt: !o.sonGun ? 'Kayıtlı gün yok.'
-        : ((satisOrani === null ? '' : 'Üretime oranı ' + YU.fmt.yuzde(satisOrani, 1) + ' · ') +
-           pencereFarki(o, 'satis'))
-    });
-  }
+  /* kartUretim30 / kartSatis30 (Son 30 Günün Dökme Üretimi/Satışı) kaldırıldı
+     (kullanıcı isteği, 24.08.2026) — pencereFarki/pencereAraligi/dokmePencere
+     yardımcıları ve o.pencere hesapları da yalnız bu iki karta hizmet ettiği
+     için birlikte silindi. */
 
   /* Pasif malzeme yeni hareket almaz ama stoğu duruyorsa toplamdan düşmez —
      Stok Durumu ekranındaki "Toplam Stok" kartıyla aynı kural. */
@@ -431,11 +378,12 @@
       aciklama: 'Aynı dört ürünün günlük üretim ve satışı; dördü birlikte eklenir.',
       ciz: function (o) { return [kartGunlukDokme(o), kartGunlukCuval(o), kartGunlukYas(o), kartGunlukPoset(o)]; }
     },
-    { kod: 'uretim30', ad: 'Son 30 Günün Dökme Üretimi', aciklama: 'Pencere toplamı ve önceki döneme göre fark.', ciz: kartUretim30 },
-    { kod: 'satis30', ad: 'Son 30 Günün Dökme Satışı', aciklama: 'Pencere toplamı ve üretime oranı.', ciz: kartSatis30 }
+    /* 'uretim30' ve 'satis30' (Son 30 Günün Dökme Üretimi/Satışı) kaldırıldı
+       (kullanıcı isteği, 24.08.2026). Kayıtlı kart seçimlerindeki eski kodlar
+       kartlariOku'nun katalog süzgeciyle kendiliğinden elenir. */
   ];
 
-  var VARSAYILAN_KARTLAR = ['uretim-satis', 'uretim30', 'satis30'];
+  var VARSAYILAN_KARTLAR = ['uretim-satis'];
 
   function kartBul(kod) {
     for (var i = 0; i < KART_KATALOG.length; i++) if (KART_KATALOG[i].kod === kod) return KART_KATALOG[i];
@@ -548,18 +496,29 @@
       });
     }
 
-    var govde = veri.length
-      ? YU.ui.sutunGrafik({
-          veri: veri, yukseklik: 210, renk2: 'var(--grafik-ikincil)',
-          efsane: ['Dökme Üretim', 'Dökme Satış']
-        })
-      : YU.h('div', { sinif: 'yu-bos-metin', metin: 'Grafik için kayıtlı gün yok.' });
+    /* Grafik penceresi: aynı anda EN ÇOK 7 gün görünür, kalan günlere fareyle
+       sürükleyerek gidilir (kullanıcı isteği, 25.08.2026). SVG'nin genişliği
+       YÜZDE olarak verilir — 7 gün tam kaba sığar, gün sayısı arttıkça SVG
+       taşar ve kap yatay kaydırır. Yüzde olduğu için panel dar da olsa geniş
+       de olsa pencere hep 7 gün kalır. */
+    /* Kaydırma, sürükleme ve oklar ortak bileşende (10-kabuk
+       YU.ui.kaydirmaliGrafik) — Aylık Özet'in gün gün grafiği de aynısını
+       kullanıyor, davranış tek yerde tanımlı (25.08.2026). */
+    var g = YU.ui.kaydirmaliGrafik({
+      veri: veri, yukseklik: 210, renk2: 'var(--grafik-ikincil)',
+      efsane: ['Dökme Üretim', 'Dökme Satış']
+    });
+    var grafikGovde = g.govde, notEl = g.notEl;
 
     return YU.ui.panel({
       baslik: 'Dökme Üretim – Dökme Satış',
       ikon: '#ic-chart',
-      sag: son.length ? (YU.fmt.tarih(son[0].tarih) + ' – ' + YU.fmt.tarih(son[son.length - 1].tarih)) : null,
-      govde: govde
+      sag: son.length
+        ? YU.h('span', null,
+            YU.h('span', { metin: YU.fmt.tarih(son[0].tarih) + ' – ' + YU.fmt.tarih(son[son.length - 1].tarih) }),
+            notEl)
+        : null,
+      govde: grafikGovde
     });
   }
 
@@ -741,7 +700,9 @@
     /* Eski düz görünüm (SILO_GORSELI=false): değer + çubuk + kapasite satırı. */
     var govde = SILO_GORSELI
       ? YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '14px' } },
-          YU.ui.siloSekli(oran, tur),
+          /* Hunili küspe silosu biçimi yalnız Ana Sayfa'da (kullanıcı isteği,
+             24.08.2026); Silo Durumu düz tabanlı biçimi kullanmayı sürdürür. */
+          YU.ui.siloSekli(oran, tur, true),
           YU.h('div', {
             stil: { display: 'flex', flexDirection: 'column', gap: '10px', flex: '1', minWidth: '0' }
           },
@@ -826,6 +787,9 @@
           malzemeAdi(s.malzeme),
           YU.fmt.kg(s.devir),
           YU.fmt.kg(s.uretim),
+          /* İade kolonu (M26): mevcut = devir + üretim + iade − satış;
+             kolon yokken iadeli satır ekranda kendi içinde tutmuyordu. */
+          YU.fmt.kg(s.iade),
           YU.fmt.kg(s.satis),
           YU.h('span', { sinif: 'yu-guclu', metin: YU.fmt.kg(s.mevcut) })
         ],
@@ -841,10 +805,11 @@
         /* Üretim ve satış, kampanya başı devirden bugüne BİRİKİMLİ toplamdır
            (YU.stok.tumMalzemeler, Şartname §5); başlık bunu açıkça söyler
            (kullanıcı isteği, 23.08.2026). */
-        { baslik: 'Devir (Kg)', hiza: 'sag', mono: true, genislik: 132 },
-        { baslik: 'Toplam Üretim (Kg)', hiza: 'sag', mono: true, genislik: 160 },
-        { baslik: 'Toplam Satış (Kg)', hiza: 'sag', mono: true, genislik: 150 },
-        { baslik: 'Mevcut (Kg)', hiza: 'sag', mono: true, genislik: 170 }
+        { baslik: 'Devir (Kg)', hiza: 'sag', mono: true, genislik: 120 },
+        { baslik: 'Toplam Üretim (Kg)', hiza: 'sag', mono: true, genislik: 150 },
+        { baslik: 'Toplam İade (Kg)', hiza: 'sag', mono: true, genislik: 130 },
+        { baslik: 'Toplam Satış (Kg)', hiza: 'sag', mono: true, genislik: 140 },
+        { baslik: 'Mevcut (Kg)', hiza: 'sag', mono: true, genislik: 150 }
       ],
       satirlar: satirlar,
       bos: 'Aktif malzeme bulunamadı.',

@@ -16,7 +16,9 @@
     DevirStok: 'Devir Stok',
     SiloDevirStok: 'Silo Devir Stok',
     Kullanicilar: 'Kullanıcılar',
-    Malzemeler: 'Malzemeler'
+    Malzemeler: 'Malzemeler',
+    Silolar: 'Silolar',                    /* M23: yalnız Kapasite değişimi loglanır */
+    KampanyaKilitleri: 'Kampanya Kilidi'   /* M23: kilitle/aç izleri */
   };
 
   var ISLEM_ADI = { Ekle: 'Ekle', Guncelle: 'Güncelle', Sil: 'Sil' };
@@ -687,7 +689,10 @@
       return YU.fmt.sayi(d.degisiklikLog.length) + ' değişiklik kaydı · alan bazında eski ve yeni değer';
     },
     ikon: '#ic-log-clock',
-    grup: 'Yönetim',
+    /* Menüden kaldırıldı (kullanıcı kararı, 24.08.2026): TEK işlem geçmişi
+       Program Hareketleri'ndeki panel. Bu sayfa yalnız doğrudan adresle
+       (#/degisiklik-gecmisi) açılabilir; kod yedek olarak duruyor. */
+    grup: null,
     rol: 'Yonetici',
 
     ciz: function (kap, param) {
@@ -702,6 +707,30 @@
         }));
         return;
       }
+
+      /* CSV dışa aktarma (M17): süzgeçlerin O ANKİ hâline uyan liste indirilir. */
+      YU.ui.sayfaEylemleri(YU.ui.dugme({
+        metin: 'CSV İndir', ikon: '#ic-download', tur: 'ikincil',
+        baslik: 'Süzülmüş değişiklik listesini Excel uyumlu CSV olarak indirir',
+        onClick: function () {
+          var liste = suzulmus(durum), i, s, ad, j;
+          var adlar = {};
+          for (j = 0; j < db().kullanicilar.length; j++) adlar[db().kullanicilar[j].Id] = db().kullanicilar[j].AdSoyad;
+          var satirlar = [['Tarih', 'Saat', 'Kullanıcı', 'İşlem', 'Tablo', 'Kayıt No', 'Alan', 'Eski Değer', 'Yeni Değer']];
+          for (i = 0; i < liste.length; i++) {
+            s = liste[i];
+            ad = s.KullaniciId !== null && s.KullaniciId !== undefined ? (adlar[s.KullaniciId] || 'Kullanıcı #' + s.KullaniciId) : '';
+            satirlar.push([
+              YU.fmt.tarih(s.Tarih), YU.fmt.saat(s.Tarih), ad,
+              s.Islem || '', s.Tablo || '',
+              s.KayitId === null || s.KayitId === undefined ? '' : '#' + s.KayitId,
+              s.Alan || '', s.EskiDeger === null || s.EskiDeger === undefined ? '' : String(s.EskiDeger),
+              s.YeniDeger === null || s.YeniDeger === undefined ? '' : String(s.YeniDeger)
+            ]);
+          }
+          YU.csvIndir('degisiklik-gecmisi-' + YU.tarih.bugun() + '.csv', satirlar);
+        }
+      }));
 
       if (!db().degisiklikLog.length) {
         kap.appendChild(YU.ui.bosDurum({
@@ -905,6 +934,7 @@
        isteği, 21.08.2026). Diğer filtreler (tablo, kullanıcı, tarih, arama)
        sayaçlara işlemeye devam eder. */
     var islemsiz = { tablo: durum.tablo, kullanici: durum.kullanici, islem: '',
+                     silo: durum.silo,   /* M12: silo süzgeci sayaçlara da işlesin */
                      bas: durum.bas, bit: durum.bit, arama: durum.arama, sayfa: 0 };
     var taban = suzulmus(islemsiz);
     var sayaclar = { Ekle: 0, Guncelle: 0, Sil: 0 }, i;
@@ -980,8 +1010,10 @@
 
     var bas = durum.sayfa * SAYFA_BOYU;
     var dilim = duz.slice(bas, bas + SAYFA_BOYU);
-    /* Sayfa bir grubun ortasından başlıyorsa künye yeniden yazılır. */
-    if (dilim.length) dilim[0] = { satir: dilim[0].satir, ilk: true, boyut: dilim[0].boyut };
+    /* Sayfa bir grubun ortasından başlıyorsa künye yeniden yazılır. grup
+       alanı KORUNUR (DUZELTME-PLANI M12): düşerse detay penceresi çok alanlı
+       işlemi tek kalem gösterir. */
+    if (dilim.length) dilim[0] = { satir: dilim[0].satir, ilk: true, boyut: dilim[0].boyut, grup: dilim[0].grup };
 
     var satirlar = [];
     for (i = 0; i < dilim.length; i++) satirlar.push(tabloSatiri(dilim[i]));

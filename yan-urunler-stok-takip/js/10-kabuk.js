@@ -395,17 +395,29 @@
       else gruplar.push({ ad: ad, bas: liste[i] });
     }
 
+    /* Kampanya, kayıt girilmeyi bıraktığı gün BİTMEZ — yeni kampanya
+       açılana kadar sürer (kullanıcı kararı, 25.08.2026 — M33). Bu yüzden
+       iki ayrı alan tutulur:
+         bit       = DÖNEM sonu — sonraki kampanyanın başından bir gün önce;
+                     sonraki yoksa bugün (kampanya sürüyor).
+         sonKayit  = son KAYITLI gün — rapor varsayılan tarihi, kampanya gün
+                     sırası ve "eksik gün" taraması buna dayanır; boş dönemde
+                     dönem başına düşer.
+       Etiketlerde bit, veri okumalarında sonKayit kullanılır. */
     var kayitlar = kayitTarihleri();
+    var bugunIso = YU.tarih.bugun();
     for (i = 0; i < gruplar.length; i++) {
       var sinir = (i + 1 < gruplar.length) ? gruplar[i + 1].bas : null;
-      var bit = gruplar[i].bas, sayac = 0;
+      var sonKayit = gruplar[i].bas, sayac = 0;
       for (var j = 0; j < kayitlar.length; j++) {
         if (kayitlar[j] < gruplar[i].bas) continue;
         if (sinir && kayitlar[j] >= sinir) break;
-        bit = kayitlar[j];
+        sonKayit = kayitlar[j];
         sayac++;
       }
-      gruplar[i].bit = bit;
+      gruplar[i].sonKayit = sonKayit;
+      gruplar[i].bit = sinir ? YU.tarih.ekle(sinir, -1) : (bugunIso > gruplar[i].bas ? bugunIso : gruplar[i].bas);
+      gruplar[i].suruyor = !sinir;   /* en yeni kampanya: "devam ediyor" */
       gruplar[i].kayitliGun = sayac;
     }
     return gruplar;
@@ -447,7 +459,9 @@
       var l = donemler();
       var d = donemAktif();
       if (!d || !l.length) return YU.tarih.bugun();
-      return l[l.length - 1].ad === d.ad ? YU.tarih.bugun() : d.bit;
+      /* M33: geçmiş kampanyada VERİ olan son güne düşülür (dönem sonuna
+         değil — dönem sonu artık boş bir gün olabilir). */
+      return l[l.length - 1].ad === d.ad ? YU.tarih.bugun() : d.sonKayit;
     },
 
     /* Seçili kampanya geçmiş bir kampanya mı (en yeni değil mi)? */
@@ -470,9 +484,24 @@
 
     /* Ana sayfadaki durum şeritleri buraya taşındı (kullanıcı isteği,
        21.08.2026): uyarı, koşul düzelmeden listeden düşmez. */
+    /* Sezonun bittiğine SİSTEM karar vermez (kullanıcı kararı, 25.08.2026 —
+       M31 revize; 7 gün eşiği kaldırıldı): kullanıcı, Devir Stok & Kampanya
+       Yönetimi'nden kampanyayı KİLİTLEyerek belirtir. Bugünün kampanyası
+       (en yeni dönem) kilitliyse "Bugünün Girişi Yok" üretilmez — kilitli
+       kampanyaya zaten veri yazılamaz, uyarı reddedilecek bir işe çağırırdı.
+       "Kampanya Aralığının Dışındasınız" ise seçili dönem kilitliyken (ya da
+       bugün dönem başlamadan önceyken) görünür. */
+    function kilitliMi(d2) {
+      return !!(d2 && YU.servis && YU.servis.kampanyaKilitDurumu &&
+                YU.servis.kampanyaKilitDurumu(db, d2.ad));
+    }
+    var donem = donemAktif();
+    var donemListe = donemler();
+    var sonDonem = donemListe.length ? donemListe[donemListe.length - 1] : null;   /* bugünün düştüğü dönem */
+
     var bugunKayitli = false, kayitlar = kayitTarihleri();
     for (i = 0; i < kayitlar.length; i++) if (kayitlar[i] === bugun) { bugunKayitli = true; break; }
-    if (!bugunKayitli) {
+    if (!bugunKayitli && !kilitliMi(sonDonem) && !(sonDonem && bugun < sonDonem.bas)) {
       u.push({
         tur: 'bekleyen', ikon: '#ic-plus',
         baslik: 'Bugünün Girişi Yok',
@@ -481,14 +510,14 @@
       });
     }
 
-    var donem = donemAktif();
-    if (donem && (bugun < donem.bas || bugun > donem.bit)) {
+    if (donem && (bugun < donem.bas || (kilitliMi(donem) && bugun > donem.bit))) {
       u.push({
         tur: 'notr', ikon: '#ic-doc',
         baslik: 'Kampanya Aralığının Dışındasınız',
         metin: 'Kampanya ' + donem.ad + ' kayıtları ' + YU.fmt.tarih(donem.bas) + ' – ' +
-          YU.fmt.tarih(donem.bit) + ' aralığında.',
-        git: function () { YU.git('gunluk-rapor', { tarih: donem.bit }); }
+          YU.fmt.tarih(donem.bit) + ' aralığında.' +
+          (kilitliMi(donem) ? ' Kampanya kilitli — yeni kayıt için önce kilidi açın.' : ''),
+        git: function () { YU.git('gunluk-rapor', { tarih: donem.sonKayit }); }   /* M33: veri olan gün */
       });
     }
 
@@ -505,6 +534,27 @@
         metin: 'Kuru küspe toplamı beklenenden ' + YU.fmt.kgU(Math.abs(cift.fark)) +
           (cift.fark > 0 ? ' fazla' : ' eksik') + '. Stok Durumu\'ndaki kontrol paneline bakın.',
         git: function () { YU.git('stok-durumu'); }
+      });
+    }
+
+    /* Denetim izi sınırı (M29): logYaz sınırda en eskiyi düşürür (M10);
+       budama sessiz kalmasın diye zile de düşer. */
+    var logSinir = (YU.log && YU.log.SINIR) || 5000;
+    if (db.degisiklikLog.length >= logSinir) {
+      u.push({
+        tur: 'olumsuz', ikon: '#ic-doc',
+        baslik: 'Denetim İzi Sınırında',
+        metin: 'Değişiklik kaydı ' + YU.fmt.sayi(db.degisiklikLog.length) +
+          ' satır — en eski kayıtlar düşüyor. Yedek İndir ile arşivleyin.',
+        git: function () { YU.git('gunluk-rapor'); }
+      });
+    } else if (db.degisiklikLog.length >= logSinir * 0.9) {
+      u.push({
+        tur: 'bekleyen', ikon: '#ic-doc',
+        baslik: 'Denetim İzi Sınıra Yaklaşıyor',
+        metin: 'Değişiklik kaydı ' + YU.fmt.sayi(db.degisiklikLog.length) + ' / ' +
+          YU.fmt.sayi(logSinir) + ' satır. Yedek İndir ile arşivleyin.',
+        git: function () { YU.git('gunluk-rapor'); }
       });
     }
 
@@ -541,6 +591,26 @@
       }
     }
 
+    /* Veri bütünlük taraması (M19): yetim referans + mükerrer tekil anahtar.
+       Negatif gün ve kapasite aşımı yukarıda zaten listeleniyor. */
+    var butunluk = guvenli(function () { return YU.stok.butunlukRaporu(db); }, []);
+    for (i = 0; i < butunluk.length && i < 6; i++) {
+      u.push({
+        tur: 'olumsuz', ikon: '#ic-alert',
+        baslik: 'Veri Bütünlüğü',
+        metin: butunluk[i],
+        git: function () { YU.git('kabul-testleri'); }
+      });
+    }
+    if (butunluk.length > 6) {
+      u.push({
+        tur: 'olumsuz', ikon: '#ic-alert',
+        baslik: (butunluk.length - 6) + ' Bütünlük Sorunu Daha',
+        metin: 'Tam liste tarayıcı konsolunda (YU.stok.butunlukRaporu).',
+        git: function () { YU.git('kabul-testleri'); }
+      });
+    }
+
     var eksikler = eksikGunler();
     for (i = 0; i < eksikler.length && i < 5; i++) {
       (function (t) {
@@ -556,7 +626,7 @@
       u.push({
         tur: 'notr', ikon: '#ic-calendar',
         baslik: (eksikler.length - 5) + ' Gün Daha Kayıtsız',
-        metin: 'Tümü Geçmiş Girişler ekranında listelenir.',
+        metin: 'Tümü Geçmiş İşlemler ekranında listelenir.',
         git: function () { YU.git('gecmis-girisler'); }
       });
     }
@@ -569,8 +639,10 @@
     if (!d) return [];
     var var_ = {}, kayitlar = kayitTarihleri(), i;
     for (i = 0; i < kayitlar.length; i++) var_[kayitlar[i]] = 1;
+    /* M33: dönem sonuna kadar saymak, kayıt bittikten sonraki her günü
+       "eksik" gösterirdi (geçmiş kampanyada yüzlerce sahte satır). */
     var eksik = [], t = d.bas, guvenlik = 0;
-    while (t <= d.bit && guvenlik < 500) {
+    while (t <= d.sonKayit && guvenlik < 500) {
       if (!var_[t]) eksik.push(t);
       t = YU.tarih.ekle(t, 1);
       guvenlik++;
@@ -669,7 +741,12 @@
       typeof baslik === 'string'
         ? YU.h('div', { metin: baslik, stil: { font: '400 14.5px/1.35 var(--font)', color: 'var(--metin-2)' } })
         : baslik,
-      altMetin ? YU.h('div', { metin: altMetin, stil: { font: '400 13px/1.4 var(--font)', color: 'var(--metin-4)', marginTop: '2px' } }) : null
+      /* altMetin de baslik gibi Element olabilir (dönem listesi: kırmızı "Kilitli"). */
+      altMetin
+        ? (typeof altMetin === 'string'
+          ? YU.h('div', { metin: altMetin, stil: { font: '400 13px/1.4 var(--font)', color: 'var(--metin-4)', marginTop: '2px' } })
+          : YU.h('div', { stil: { font: '400 13px/1.4 var(--font)', color: 'var(--metin-4)', marginTop: '2px' } }, altMetin))
+        : null
     );
     var taban = vurgulu ? 'var(--vurgu-zemin)' : 'transparent';
     var satir = YU.h('div', {
@@ -783,7 +860,10 @@
 
   function donemPaneliAc(tetik) {
     if (acikPopup && acikPopup.tetik === tetik) { popupKapat(); return; }
-    var kutu = popupKutu(268);
+    /* Kutu, tetikleyen kampanya düğmesiyle aynı genişlikte açılır — kenarlar
+       paralel dursun (kullanıcı isteği, 25.08.2026). Düğme ölçülemezse 340. */
+    var tetikGenislik = Math.round(tetik.getBoundingClientRect().width);
+    var kutu = popupKutu(tetikGenislik >= 260 ? tetikGenislik : 340);
     kutu.appendChild(popupBaslik('Kampanya dönemi'));
     var l = donemler();
     if (!l.length) {
@@ -793,12 +873,22 @@
       var s = donemAktif();
       for (var i = l.length - 1; i >= 0; i--) {
         (function (d) {
+          /* Kilitli kampanya KIRMIZI vurgulanır (kullanıcı isteği, 25.08.2026):
+             kırmızı zeminli kilit ikonu + kırmızı "Kilitli" yazısı. Kilit,
+             KampanyaKilitleri'nden okunur; kilit vurgusu aktiflikten önce gelir. */
+          var kilit = !!YU.servis.kampanyaKilitDurumu(YU.db, d.ad);
+          var aktifMi = s && s.ad === d.ad;
+          var altIcerik = donemAraligi(d) + ' · ' + YU.fmt.sayi(d.kayitliGun) + ' gün kayıtlı';
           kutu.appendChild(popupSatir(
-            '#ic-calendar',
-            'Kampanya ' + d.ad + (s && s.ad === d.ad ? '  ✓' : ''),
-            YU.fmt.tarih(d.bas) + ' – ' + YU.fmt.tarih(d.bit) + ' · ' + YU.fmt.sayi(d.kayitliGun) + ' gün kayıtlı',
+            kilit ? '#ic-kilit' : '#ic-calendar',
+            'Kampanya ' + d.ad + (aktifMi ? '  ✓' : ''),
+            kilit
+              ? YU.h('span', null,
+                  YU.h('span', { metin: altIcerik + ' · ' }),
+                  YU.h('span', { metin: 'Kilitli', stil: { color: 'var(--olumsuz)', fontWeight: '500' } }))
+              : altIcerik,
             function () { YU.donem.ayarla(d.ad); },
-            s && s.ad === d.ad ? 'vurgu' : null
+            kilit ? 'olumsuz' : (aktifMi ? 'vurgu' : null)
           ));
         })(l[i]);
       }
@@ -821,73 +911,9 @@
      pencere: üç büyük kart (Stok Durumu, Silo Durumu, Günlük Rapor). Kartta
      üstte ad, altında büyük ikon; üzerine gelince vurgu zemin. Tam ekran
      denendi, pencereye dönüldü — bir tık büyüğü (kullanıcı isteği, 21.08.2026). */
-  var RAPOR_MERKEZI = [
-    { kod: 'stok-durumu', ad: 'Stok Durumu Raporu', ikon: '#ic-chart' },
-    { kod: 'silo-durumu', ad: 'Silo Durumu Raporu', ikon: '#ic-building' },
-    { kod: 'gunluk-rapor', ad: 'Günlük Rapor', ikon: '#ic-doc' }
-  ];
-
-  function raporMerkeziAc() {
-    var m;
-    var izgara = YU.h('div', {
-      stil: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }
-    });
-
-    for (var i = 0; i < RAPOR_MERKEZI.length; i++) {
-      (function (r) {
-        var ikonKap;
-        function git() { m.kapat(); YU.git(r.kod); }
-        var kart = YU.h('div', {
-          role: 'button', tabindex: '0', title: r.ad,
-          stil: {
-            display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', gap: '28px', padding: '51px 18px 44px',
-            border: '1px solid var(--kenar-2)', borderRadius: 'var(--r-l)',
-            background: 'var(--yuzey)', cursor: 'pointer', textAlign: 'center',
-            transition: 'background-color .12s, border-color .12s'
-          },
-          onClick: git,
-          onKeyDown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); git(); } },
-          onMouseEnter: function () {
-            kart.style.background = 'var(--vurgu-zemin)';
-            kart.style.borderColor = 'var(--vurgu)';
-            ikonKap.style.color = 'var(--vurgu)';
-          },
-          onMouseLeave: function () {
-            kart.style.background = 'var(--yuzey)';
-            kart.style.borderColor = 'var(--kenar-2)';
-            ikonKap.style.color = 'var(--metin-2)';
-          }
-        });
-        kart.appendChild(YU.h('div', {
-          metin: r.ad,
-          stil: { font: '600 19px/1.2 var(--font)', letterSpacing: '-.01em', color: 'var(--metin)' }
-        }));
-        ikonKap = YU.h('div', {
-          stil: { color: 'var(--metin-2)', display: 'flex', transition: 'color .12s' }
-        }, YU.svg(r.ikon, 71));
-        kart.appendChild(ikonKap);
-        izgara.appendChild(kart);
-      })(RAPOR_MERKEZI[i]);
-    }
-
-    /* Başlık sol şerit yerine gövdenin üstünde ORTALANIR (kullanıcı isteği,
-       21.08.2026); modalın kendi başlık şeridi bu yüzden kullanılmıyor. */
-    m = YU.ui.modal({
-      genislik: 828,   /* 720'nin %15 büyüğü (kullanıcı isteği, 21.08.2026) */
-      govde: [
-        YU.h('div', {
-          metin: 'Raporlar',
-          stil: {
-            font: '600 20px/1.2 var(--font)', letterSpacing: '-.012em',
-            color: 'var(--metin)', textAlign: 'center', padding: '8px 0 2px'
-          }
-        }),
-        izgara
-      ],
-      dugmeler: [{ metin: 'Kapat', tur: 'sade', onClick: function () { m.kapat(); } }]
-    });
-  }
+  /* RAPOR MERKEZİ (RAPOR_MERKEZI listesi + raporMerkeziAc penceresi)
+     TAMAMEN SİLİNDİ — kullanıcı kararı, 25.08.2026: "direkt sil".
+     Üç rapor ekranı sol menüde Raporlar başlığı altında zaten duruyor. */
 
   function menuKur() {
     var menu = YU.h('div', { sinif: 'yu-menu' });
@@ -905,19 +931,11 @@
         ogeler.push(menuOgesi(t));
       }
       if (!ogeler.length) continue;
-      var grupBas;
-      if (grupAdi === 'Takip') {
-        /* "Raporlar" başlığı tıklanır: rapor merkezi açılır. */
-        grupBas = YU.h('div', {
-          sinif: 'yu-menu-grup-bas', metin: GRUP_BASLIK[grupAdi] || grupAdi,
-          role: 'button', tabindex: '0', title: 'Rapor Merkezini Aç',
-          stil: { cursor: 'pointer' },
-          onClick: raporMerkeziAc,
-          onKeyDown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); raporMerkeziAc(); } }
-        });
-      } else {
-        grupBas = YU.h('div', { sinif: 'yu-menu-grup-bas', metin: GRUP_BASLIK[grupAdi] || grupAdi });
-      }
+      /* Grup başlıkları düz metindir. "Raporlar" başlığına bağlı RAPOR
+         MERKEZİ penceresi KALDIRILDI (kullanıcı kararı, 25.08.2026): üç
+         rapor zaten başlığın hemen altında menüde duruyordu, pencere
+         fazladan bir adımdı. */
+      var grupBas = YU.h('div', { sinif: 'yu-menu-grup-bas', metin: GRUP_BASLIK[grupAdi] || grupAdi });
       menu.appendChild(YU.h('div', { sinif: 'yu-menu-grup' }, grupBas, ogeler));
     }
     return menu;
@@ -959,53 +977,19 @@
     return YU.h('div', { sinif: 'yu-yan-daralt-satir' }, d);
   }
 
+  /* Kampanya dönem etiketi (M33): süren kampanyada bitiş tarihi yerine
+     "devam ediyor" yazılır — kampanya, yeni kampanya açılana kadar sürer. */
+  function donemAraligi(d) {
+    if (!d) return '';
+    return YU.fmt.tarih(d.bas) + ' – ' + (d.suruyor ? 'devam ediyor' : YU.fmt.tarih(d.bit));
+  }
+
   function donemBaslikTazele() {
     var d = donemAktif();
     if (dom.seciciAd) dom.seciciAd.textContent = d ? ('Kampanya ' + d.ad) : 'Kampanya yok';
-    /* Çip kampanyanın ADINI da söyler (kullanıcı isteği, 24.08.2026):
-       hangi kampanyaya bakıldığı yalnız tarihten anlaşılmıyordu. */
-    if (dom.cipMetin) dom.cipMetin.textContent = d
-      ? (d.ad + ' Kampanyası · ' + YU.fmt.tarih(d.bas) + ' – ' + YU.fmt.tarih(d.bit))
-      : YU.fmt.tarih(YU.tarih.bugun());
-    /* Kilitli kampanya çipte kırmızı asma kilitle belirtilir; görüntüleme
-       serbesttir, yalnız veri değişikliği kapalıdır. */
-    if (dom.cipKilit) {
-      YU.bos(dom.cipKilit);
-      var kilitli = d && guvenli(function () {
-        return YU.servis && YU.servis.kampanyaKilitDurumu ? YU.servis.kampanyaKilitDurumu(YU.db, d.ad) : null;
-      }, null);
-      if (kilitli) {
-        dom.cipKilit.style.display = 'inline-flex';
-        dom.cipKilit.appendChild(YU.svg('#ic-kilit', 13));
-        dom.cipKilit.appendChild(YU.h('span', { metin: 'Kilitli' }));
-      } else {
-        dom.cipKilit.style.display = 'none';
-      }
-    }
   }
 
   /* --- dönem çipi, tema düğmesi, zil, kullanıcı kartı --- */
-
-  function cipKutusu() {
-    var metin = YU.h('span', { stil: { whiteSpace: 'nowrap' } });
-    dom.cipMetin = metin;
-    var kilitEl = YU.h('span', {
-      stil: { display: 'none', alignItems: 'center', gap: '5px', color: 'var(--olumsuz)',
-              font: '600 12.5px/1 var(--font)', whiteSpace: 'nowrap' },
-      title: 'Kampanya kilitli — görüntüleme serbest, veri değişikliği kapalı'
-    });
-    dom.cipKilit = kilitEl;
-    var cip = YU.h('div', {
-      sinif: 'yu-cip', role: 'button', tabindex: '0', title: 'Kampanya dönemi',
-      /* Çip üst şeridin ana ögesi (kullanıcı isteği, 24.08.2026): iri yazı,
-         geniş dolgu — hangi kampanyada olunduğu uzaktan okunur. Yalnız bu
-         örnek büyür; .yu-cip sınıfının diğer kullanımları değişmez. */
-      stil: { font: '600 16px/1 var(--font)', padding: '11px 20px', gap: '10px' },
-      onClick: function () { donemPaneliAc(cip); },
-      onKeyDown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); donemPaneliAc(cip); } }
-    }, YU.svg('#ic-calendar', 18), metin, kilitEl);
-    return cip;
-  }
 
   /* Düğme ikonu o anki temayı anlatır: açıkta güneş (#ic-gear), koyuda hilal
      (#ic-moon) — kullanıcı isteği, 23.08.2026. Sistem seçiliyken etkin tema esas. */
@@ -1227,6 +1211,255 @@
     popupAc(tetik, kutu);
   }
 
+  /* --- kaydedilmemiş değişiklik varken çıkış kilidi (kullanıcı isteği,
+     25.08.2026; Devir Stok'ta kurulup Kuru Küspe ve Malzeme Girişi'ne
+     yayıldı) ---
+     İki kapı kapatılır:
+       · beforeunload  — sekme/pencere kapatma, yenileme, dış adres;
+                         tarayıcı kendi "ayrılsın mı?" penceresini gösterir.
+       · menü tıklaması — uygulama içi geçişte bağlantı durdurulur ve
+                         uygulamanın kendi onayı sorulur.
+     Kilit her sayfa çiziminde SIFIRLANIR (yonlendir): ekranı terk eden
+     sayfanın kilidi asılı kalmaz; yeni ekran gerekiyorsa kendisi kurar. */
+  var cikisKilidiAcik = false;
+  var cikisKilidiMesaji = 'Kaydedilmemiş değişiklik var.';
+
+  function cikisUyarisi(e) {
+    if (!cikisKilidiAcik) return;
+    e.preventDefault();
+    e.returnValue = cikisKilidiMesaji;
+    return e.returnValue;
+  }
+
+  function cikisBagDenetimi(e) {
+    if (!cikisKilidiAcik) return;
+    var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+    if (!a) return;
+    var hedef = a.getAttribute('href');
+    if (!hedef || hedef.charAt(0) !== '#' || hedef === location.hash) return;
+    e.preventDefault();
+    e.stopPropagation();
+    YU.ui.onay({
+      baslik: 'Kaydedilmemiş Değişiklik Var',
+      metin: cikisKilidiMesaji + ' Şimdi çıkarsanız kaybolur. Çıkılsın mı?',
+      onayMetni: 'Kaydetmeden Çık',
+      iptalMetni: 'Sayfada Kal',
+      tehlike: true
+    }).then(function (evet) {
+      if (!evet) return;
+      YU.cikisKilidi(false);
+      location.hash = hedef;
+    });
+  }
+
+  /* YU.cikisKilidi(true, 'mesaj') — kilidi kurar; (false) — kaldırır. */
+  YU.cikisKilidi = function (acik, mesaj) {
+    if (mesaj) cikisKilidiMesaji = mesaj;
+    if (cikisKilidiAcik === !!acik) return;
+    cikisKilidiAcik = !!acik;
+    if (cikisKilidiAcik) {
+      window.addEventListener('beforeunload', cikisUyarisi);
+      document.addEventListener('click', cikisBagDenetimi, true);
+    } else {
+      window.removeEventListener('beforeunload', cikisUyarisi);
+      document.removeEventListener('click', cikisBagDenetimi, true);
+    }
+  };
+
+  /* --- depo uyarıları (DUZELTME-PLANI M2/M3/M4) ---
+     01-cekirdek katman gereği UI bilmez; kancayı kabuk bağlar. Şerit içerik
+     alanının EN ÜSTÜNE oturur ve sayfa geçişlerinde durur (yönlendirici yalnız
+     dom.kap'ı boşaltır); aynı tip şerit bir kez gösterilir. */
+
+  var gosterilenSeritler = {};
+
+  /* Diske yazma durdu mu (çakışma ya da kota). Açıkken "kaydedildi" gibi
+     başarı bildirimleri gösterilmez; yerine yazmanın diske ulaşmadığı
+     söylenir (kullanıcı isteği, 25.08.2026 — "hata istemiyorum burada").
+     Servis katmanı depo.kaydet() dönüşünü okumadığı için tek doğru nokta
+     bildirim çıkışıdır. */
+  var yazmaDurdu = false;
+
+  function kabukSeridiDugum(tip, dugum) {
+    if (!kabukKurulu || !dom.icerik) {
+      YU.ui.bildir(dugum.textContent || '', 'hata');
+      return;
+    }
+    if (gosterilenSeritler[tip]) return;
+    gosterilenSeritler[tip] = true;
+    dom.icerik.insertBefore(dugum, dom.icerik.firstChild);
+  }
+
+  function kabukSeridi(tip, ayar) {
+    if (!kabukKurulu || !dom.icerik) {
+      YU.ui.bildir(ayar.baslik + ' — ' + ayar.metin, ayar.tur === 'hata' ? 'hata' : 'uyari');
+      return;
+    }
+    if (gosterilenSeritler[tip]) return;
+    gosterilenSeritler[tip] = true;
+    dom.icerik.insertBefore(YU.ui.serit(ayar), dom.icerik.firstChild);
+  }
+
+  YU.depoUyari = function (tip) {
+    if (tip === 'kota') {
+      yazmaDurdu = true;
+      kabukSeridi('kota', {
+        tur: 'hata',
+        baslik: 'Veriler Diske Yazılamadı',
+        metin: 'Tarayıcı depolaması dolu ya da kapalı. Son değişiklikler yalnız bu sekmenin ' +
+          'belleğinde; sayfayı yenilerseniz kaybolur. Üst şeritten "Yedek İndir" ile veriyi alın.'
+      });
+      return;
+    }
+    if (tip === 'cakisma') {
+      /* KIRMIZI ve sert (kullanıcı isteği, 25.08.2026): sarı "uyarı" şeridi
+         bu durumun ciddiyetini anlatmıyordu — bu sekmeden artık HİÇBİR kayıt
+         diske yazılmıyor. yazmaDurdu bayrağı, "kaydedildi" bildirimlerinin
+         yalan söylemesini engeller (aşağıda YU.ui.bildir). */
+      yazmaDurdu = true;
+      var cs = YU.ui.serit({
+        tur: 'hata', ikon: '#ic-alert',
+        baslik: 'Veriler Başka Bir Sekmede Değişti',
+        metin: 'Bu sekmedeki görünüm eski kaldı; diğer sekmenin verisi korunsun diye bu ' +
+          'sekmeden diske yazma durduruldu. Çalışmaya devam etmek için sayfayı yenileyin.',
+        eylem: { metin: 'Yenile', onClick: function () { location.reload(); } }
+      });
+      cs.className += ' yu-cetin';
+      kabukSeridiDugum('cakisma', cs);
+    }
+  };
+
+  /* Başka sekme kaydettiğinde bu sekme anında haberdar olur (M3). 'storage'
+     yalnız DİĞER sekmelerde tetiklenir; kendi yazmamız şerit üretmez. */
+  window.addEventListener('storage', function (e) {
+    if (e && e.key && e.key !== 'yu.veri.v1' && e.key !== 'yu.veri.sayac') return;
+    if (YU.depoUyari) YU.depoUyari('cakisma');
+  });
+
+  /* --- geçmiş kampanya kilitsiz uyarısı (kullanıcı isteği, 25.08.2026) ---
+     Sezonun bittiğini kullanıcı KİLİTLEyerek belirtir (M31 revize); bunun
+     ters yüzü: geçmiş bir sezonun kilidi AÇIKSA verisi hâlâ değişikliğe
+     açıktır. Şerit içerik alanının EN ÜSTÜNDE her sayfada durur; her sayfa
+     çiziminde tazelenir — kilit kapanınca kendiliğinden kalkar. "Geçmiş"
+     ölçüsü bugünün sezonudur: dönem listesinin sonuncusu bugünün kampanyası,
+     ondan öncekilerin hepsi geçmiştir. */
+  var kilitUyariKap = null;
+
+  /* Geçmiş kampanyaya bakıldığında SERT kırmızı şerit (kullanıcı isteği,
+     25.08.2026 — M34): çipe bakmayan kullanıcı bugünün verisine baktığını
+     sanabiliyordu. yu-cetin sınıfı iri başlık + kalın kırmızı kenar çizgisi
+     verir; yu-tiklanir hover'ı açar. */
+  function gecmisKampanyaSeridi() {
+    var l = donemler(), d = donemAktif();
+    if (!d || l.length < 2 || l[l.length - 1].ad === d.ad) return null;
+    var guncel = l[l.length - 1];
+    /* Metin CÜMLEYLE başlar, tarihle değil (kullanıcı isteği, 25.08.2026):
+       "2025/2026 · 15.09.2025 – 21.07.2026." diye açılan şeritte ilk sözcükler
+       tarih yığınıydı, okunmuyordu. Kampanya aralığı en sona alındı.
+       Kilit cümlesi YALNIZ kampanya gerçekten kilitliyken yazılır: kilidi açık
+       geçmiş kampanyaya "yalnız okunur" demek yanlış olurdu — o durumu ayrı
+       "Kilidi Açık" şeridi anlatır. */
+    var kilitli = !!(YU.db && YU.servis && YU.servis.kampanyaKilitDurumu &&
+                     YU.servis.kampanyaKilitDurumu(YU.db, d.ad));
+    var serit = YU.ui.serit({
+      tur: 'hata', ikon: '#ic-alert',
+      baslik: 'Geçmiş Kampanyaya Bakıyorsunuz',
+      metin: 'Ekrandaki bütün rakamlar ' + d.ad + ' kampanyasına aittir, bugünün değil. ' +
+        (kilitli
+          ? 'Kampanya kilitli — veriler yalnız okunabilir; değişiklik yapmak için kilidi bir yöneticinin açması gerekir. '
+          : '') +
+        'Güncel sezona dönmek için üstteki kampanya çipinden ' + guncel.ad + ' seçin. ' +
+        'Kampanya aralığı: ' + donemAraligi(d) + '.',
+      eylem: {
+        metin: 'Güncel Kampanyaya Dön', ikon: '#ic-calendar',
+        onClick: function () { YU.donem.ayarla(guncel.ad); }
+      }
+    });
+    serit.className += ' yu-cetin yu-tiklanir';
+    serit.title = d.ad + ' kampanyasına bakılıyor' + (kilitli ? ' (kilitli — yalnız okunur)' : '') +
+      ' — güncel sezon ' + guncel.ad + '.';
+    return serit;
+  }
+
+  function kilitUyariTazele() {
+    if (!kabukKurulu || !dom.icerik) return;
+    if (!kilitUyariKap || kilitUyariKap.parentNode !== dom.icerik) {
+      kilitUyariKap = YU.h('div');
+      dom.icerik.insertBefore(kilitUyariKap, dom.icerik.firstChild);
+    }
+    YU.bos(kilitUyariKap);
+    var db = YU.db;
+    if (!db || !YU.servis || !YU.servis.kampanyaKilitDurumu) return;
+    /* Bakış uyarısı önce: hangi sezona bakıldığı, kilit durumundan önce gelir. */
+    var bakis = gecmisKampanyaSeridi();
+    if (bakis) kilitUyariKap.appendChild(bakis);
+    var l = donemler(), acik = [], i;
+    for (i = 0; i < l.length - 1; i++) {
+      if (!YU.servis.kampanyaKilitDurumu(db, l[i].ad)) acik.push(l[i].ad);
+    }
+    if (!acik.length) return;
+    /* BİRDEN FAZLA kilit açıksa uyarı KIRMIZI, tek cümle ve yalnız yöneticiye
+       görünür (kullanıcı isteği, 25.08.2026): kilidi yalnız yönetici
+       kapatabildiği için operatöre gösterilen uyarı iş yaratmıyordu; birden
+       çok açık sezon da tekil durumdan daha ciddidir. Tek kilit açıkken eski
+       sarı bilgi şeridi olduğu gibi kalır (KURAL 5.1). */
+    if (acik.length > 1) {
+      if (!YU.yonetici()) return;
+      var sert = YU.ui.serit({
+        tur: 'hata', ikon: '#ic-kilit-acik',
+        baslik: YU.fmt.sayi(acik.length) + ' Geçmiş Kampanyanın Kilidi Açık',
+        metin: acik.join(', ') + ' kampanyalarının verisi değişikliğe açık; Kampanya Yönetimi ekranından kilitleyin.',
+        eylem: { metin: 'Kampanya Yönetimi', onClick: function () { YU.git('devir-stok'); } }
+      });
+      /* yu-cetin: kalın kırmızı kenar çizgisi + iri başlık — geçmiş kampanya
+         şeridiyle aynı sert kırmızı dil (kullanıcı isteği, 25.08.2026). */
+      sert.className += ' yu-cetin';
+      kilitUyariKap.appendChild(sert);
+      return;
+    }
+    /* Tek kilit uyarısı da KIRMIZI (kullanıcı isteği, 25.08.2026): sarı şerit
+       "bilgi" gibi okunuyordu, oysa geçmiş sezon verisi açık demek. */
+    var ayar = {
+      tur: 'hata', ikon: '#ic-kilit-acik',
+      baslik: acik[0] + ' Kampanyasının Kilidi Açık',
+      metin: 'Geçmiş sezon verileri değişikliğe açık — yanlışlıkla düzeltme olmasın diye işiniz bitince Kampanya Yönetimi ekranından kilitleyin.'
+    };
+    if (YU.yonetici()) {
+      ayar.eylem = { metin: 'Kampanya Yönetimi', onClick: function () { YU.git('devir-stok'); } };
+    }
+    kilitUyariKap.appendChild(YU.ui.serit(ayar));
+  }
+
+  /* --- CSV dışa aktarma (DUZELTME-PLANI M17) ---
+     Türkçe Excel uyumu: ';' ayraç, UTF-8 BOM, CRLF, '"' kaçışı. Sayılar
+     YU.csvSayi ile yazılır: binlik ayraçsız, ondalık VİRGÜL — Excel (TR)
+     hücreyi doğrudan sayı okur; "1.234,56" biçimi metin kalırdı. */
+  YU.csvSayi = function (n) {
+    var v = YU.yuvarla(Number(n) || 0);
+    return String(v).replace('.', ',');
+  };
+
+  YU.csvIndir = function (dosyaAdi, satirlar) {
+    var i, j, h, cikti = [];
+    for (i = 0; i < satirlar.length; i++) {
+      var hucreler = [];
+      for (j = 0; j < satirlar[i].length; j++) {
+        h = satirlar[i][j];
+        h = h === null || h === undefined ? '' : String(h);
+        if (/[";\n\r]/.test(h)) h = '"' + h.replace(/"/g, '""') + '"';
+        hucreler.push(h);
+      }
+      cikti.push(hucreler.join(';'));
+    }
+    var url = URL.createObjectURL(new Blob(['﻿' + cikti.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+    var a = YU.h('a', { href: url, download: dosyaAdi, stil: { display: 'none' } });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+    YU.ui.bildir('CSV indirildi: ' + dosyaAdi, 'basari');
+  };
+
   /* --- test veri düğmeleri (kullanıcı isteği, 21.08.2026) ---
      Prototipe özel: örnek veriyi silip boş sistemle denemek ve sistem boşken
      aynı deterministik veriyi geri yüklemek için. Gerçek uygulamaya girmez. */
@@ -1268,8 +1501,72 @@
         YU.yenile();
       }
     });
+    /* --- yedekleme (DUZELTME-PLANI M5) --- tek kalıcılık localStorage; tarayıcı
+       verisi temizlenince her şey giderdi. Doğrulama ve paket biçimi 01-cekirdek'te
+       (depo.disaAktar / depo.iceAktar); burada yalnız dosya alışverişi var. */
+    var yedekIndir = YU.ui.dugme({
+      metin: 'Yedek İndir', ikon: '#ic-download', tur: 'ikincil', kucuk: true,
+      baslik: 'Tüm veriyi JSON dosyası olarak indirir',
+      onClick: function () {
+        var ad = 'yan-urunler-yedek-' + YU.tarih.bugun() + '.json';
+        var url = URL.createObjectURL(new Blob([YU.db.disaAktar()], { type: 'application/json' }));
+        var a = YU.h('a', { href: url, download: ad, stil: { display: 'none' } });
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+        YU.ui.bildir('Yedek indirildi: ' + ad, 'basari');
+      }
+    });
+
+    var dosyaGirdisi = YU.h('input', {
+      tip: 'file', accept: '.json,application/json', stil: { display: 'none' },
+      onChange: function () {
+        var dosya = dosyaGirdisi.files && dosyaGirdisi.files[0];
+        if (!dosya) return;
+        var okuyucu = new FileReader();
+        okuyucu.onload = function () {
+          var metin = okuyucu.result;
+          dosyaGirdisi.value = ''; // aynı dosya yeniden seçilebilsin
+          /* Önce KURU DENEME: paket doğrulanır, bütünlüğü taranır, özet çıkar.
+             Bozuk paket burada reddedilir — mevcut veriye hiç dokunulmaz. */
+          var inceleme = YU.db.iceAktar(metin, { kuruDeneme: true });
+          if (!inceleme.ok) { YU.ui.bildir('Yedek yüklenemedi: ' + inceleme.hata, 'hata'); return; }
+          var oz = inceleme.ozet || {};
+          var aralik = oz.ilkGun && oz.sonGun
+            ? ' (' + YU.fmt.tarih(oz.ilkGun) + ' – ' + YU.fmt.tarih(oz.sonGun) + ')' : '';
+          YU.ui.onay({
+            baslik: 'Yedeği Geri Yükle',
+            metin: 'İçeride ' + YU.fmt.sayi(oz.mevcutGunSayisi || 0) + ' gün kayıtlı; "' + dosya.name +
+              '" paketinde ' + YU.fmt.sayi(oz.gunSayisi || 0) + ' gün' + aralik + ' ve ' +
+              YU.fmt.sayi(oz.hareketSayisi || 0) + ' hareket var' +
+              (oz.donusum ? ' · şema dönüştürüldü: ' + oz.donusum : '') +
+              '. Paket buradaki TÜM verinin üzerine yazılacak; bu işlem geri alınamaz. Emin misiniz?',
+            onayMetni: 'Üzerine Yaz', tehlike: true
+          }).then(function (evet) {
+            if (!evet) return;
+            var s = YU.db.iceAktar(metin);
+            if (!s.ok) { YU.ui.bildir('Yedek yüklenemedi: ' + s.hata, 'hata'); return; }
+            YU.ui.bildir('Yedek geri yüklendi — sayfa yenileniyor.', 'basari');
+            setTimeout(function () { location.reload(); }, 600);
+          });
+        };
+        okuyucu.onerror = function () {
+          dosyaGirdisi.value = '';
+          YU.ui.bildir('Dosya okunamadı.', 'hata');
+        };
+        okuyucu.readAsText(dosya);
+      }
+    });
+
+    var yedekYukle = YU.ui.dugme({
+      metin: 'Yedek Yükle', ikon: '#ic-up', tur: 'ikincil', kucuk: true,
+      baslik: 'Daha önce indirilen JSON yedeğini geri yükler (mevcut verinin üzerine yazar)',
+      onClick: function () { dosyaGirdisi.click(); }
+    });
+
     return YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '8px', flex: 'none' } },
-      sifirla, yukle);
+      sifirla, yukle, yedekIndir, yedekYukle, dosyaGirdisi);
   }
 
   /* --- kabuk kurulumu --- */
@@ -1284,15 +1581,11 @@
        24.08.2026): kampanya artık yalnız üst şeritteki iri çipten seçilir. */
     var yan = YU.h('div', { sinif: 'yu-yan' }, markaBlogu(true, true), menuKur());
 
-    /* Arama kutusu ve Son Hareketler zili kaldırıldı (kullanıcı istekleri,
-       24.08.2026); denetimler sağa yaslanır (.yu-ust justify-content).
-       Kampanya çipi ADIYLA geri geldi (kullanıcı isteği, 24.08.2026):
-       "2025/2026 Kampanyası · aralık" yazar, kampanya kilitliyse kırmızı
-       asma kilitle belirtir. */
-    /* İri kampanya çipi SOL kenarda (kullanıcı isteği, 24.08.2026); kalan
-       denetimler sağa yaslanır. */
+    /* Arama kutusu, Son Hareketler zili ve KAMPANYA ÇİPİ kaldırıldı (kullanıcı
+       istekleri, 24.08.2026 · çip 25.08.2026); denetimler sağa yaslanır.
+       Kampanya, sol kenar çubuğundaki seçiciden ve Devir Stok ekranındaki
+       Kampanya Yönetimi listesinden değiştirilir. */
     var ust = YU.h('div', { sinif: 'yu-ust' },
-      cipKutusu(),
       YU.h('div', {
         stil: { flex: '1 1 0', minWidth: '0', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px' }
       },
@@ -1306,15 +1599,20 @@
     var baslik = YU.h('div', { sinif: 'yu-sayfa-baslik' });
     var alt = YU.h('div', { sinif: 'yu-sayfa-alt' });
     var eylemler = YU.h('div', { sinif: 'yu-eylemler' });
+    /* Geri bağlantısı başlığın ÜSTÜNDE, sol üstte durur (kullanıcı isteği,
+       25.08.2026): ayrıntı ekranından geldiği listeye dönüş. Sayfa tanımı
+       "geri" vermezse yuva boş kalır ve gizlenir — diğer ekranlar değişmez. */
+    var geri = YU.h('div', { sinif: 'yu-sayfa-geri yu-baski-yok' });
     var sayfaBas = YU.h('div', { sinif: 'yu-sayfa-bas' },
-      YU.h('div', { stil: { flex: '1', minWidth: '0' } }, baslik, alt),
+      YU.h('div', { stil: { flex: '1', minWidth: '0' } }, geri, baslik, alt),
       eylemler
     );
     var kap = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '12px' } });
     var icerik = YU.h('div', { sinif: 'yu-icerik' }, sayfaBas, kap);
 
     dom.yan = yan; dom.menu = yan.querySelector('.yu-menu');
-    dom.baslik = baslik; dom.alt = alt; dom.eylemler = eylemler;
+    dom.baslik = baslik; dom.alt = alt; dom.eylemler = eylemler; dom.geri = geri;
+    dom.sayfaBas = sayfaBas;
     dom.kap = kap; dom.icerik = icerik;
 
     /* Daralt düğmesi kenar çubuğunun dış kenarına oturur; bu yüzden kabuk
@@ -1325,8 +1623,25 @@
     yanDaraltUygula(yanDaralikMi());
 
     kabukKurulu = true;
+    gosterilenSeritler = {};   /* yeni DOM — depo uyarı şeritleri baştan */
     kullaniciTazele();
     donemBaslikTazele();
+
+    /* Açılışta eski paket okunamadıysa 01-cekirdek not bırakır (M4): veri
+       silinmedi, yu.veri.yedek anahtarına kopyalandı — kullanıcı bilsin. */
+    if (YU.depoKurtarmaNotu) {
+      kabukSeridi('kurtarma', {
+        tur: 'bilgi',
+        baslik: YU.depoKurtarmaNotu.sebep === 'surum'
+          ? 'Veri Şeması Güncellendi'
+          : 'Önceki Veri Okunamadı',
+        metin: (YU.depoKurtarmaNotu.sebep === 'surum'
+          ? 'Eski sürümdeki veriniz olduğu gibi "' + YU.depoKurtarmaNotu.anahtar + '" anahtarına yedeklendi; '
+          : 'Bozuk görünen eski içerik "' + YU.depoKurtarmaNotu.anahtar + '" anahtarına yedeklendi; ') +
+          'uygulama örnek veriyle açıldı. Yedeğe tarayıcı geliştirici araçlarından ulaşabilirsiniz.'
+      });
+      YU.depoKurtarmaNotu = null;
+    }
   }
 
   function menuIsaretle(kod) {
@@ -1364,11 +1679,13 @@
     donemOnbellek = null;
     donemBaslikTazele();
     ustSayaclariTazele();
+    kilitUyariTazele();     /* geçmiş sezon kilitsizse üstte kalıcı şerit */
     menuIsaretle(kod);
     YU.bos(dom.eylemler);
     var kap = YU.bos(dom.kap);
 
     var tanim = YU.sayfalar[kod];
+    geriYaz(tanim, aktif.param);   /* sol üstteki geri bağlantısı (varsa) */
 
     /* İçerik zemini: varsayılan 'gri' (gri zemin + beyaz panel, tema.css
        .yu-zemin-gri — kullanıcı isteği, 23.08.2026). Sayfa tanımı zemin: 'duz'
@@ -1403,8 +1720,14 @@
     var altMetin = typeof tanim.altBaslik === 'function'
       ? guvenli(function () { return tanim.altBaslik(yol.param); }, '')
       : (tanim.altBaslik || '');
-    basligiYaz(tanim.baslik, altMetin);
+    /* baslikGizle: sayfa kendi panelinde zaten aynı başlığı taşıyorsa üstteki
+       sayfa başlığı çizilmez ve şerit tümden kapanır — içerik yukarı kayar
+       (kullanıcı isteği, 25.08.2026). Sekme başlığı ve menü adı etkilenmez;
+       tanım "baslik" alanını korur. */
+    basligiYaz(tanim.baslikGizle ? '' : tanim.baslik, tanim.baslikGizle ? '' : altMetin, tanim.baslik);
 
+    /* Yeni ekran çiziliyor: bir önceki ekranın çıkış kilidi burada düşer. */
+    YU.cikisKilidi(false);
     try {
       tanim.ciz(kap, yol.param);
     } catch (e) {
@@ -1417,11 +1740,42 @@
     if (dom.icerik) dom.icerik.scrollTop = 0;
   }
 
-  function basligiYaz(baslik, alt) {
+  /* Sayfa tanımındaki "geri" — {metin, kod, param} ya da param alan bir
+     fonksiyon. Ok, mevcut #ic-chevron ikonunun 180° döndürülmüşüdür; yeni
+     ikon çizilmez (CLAUDE.md KURAL 1). */
+  function geriYaz(tanim, param) {
+    if (!dom.geri) return;
+    YU.bos(dom.geri);
+    var g = tanim && typeof tanim.geri === 'function' ? tanim.geri(param) : (tanim ? tanim.geri : null);
+    if (!g || !g.kod) return;
+    /* İpucu, düğmenin YAZISINDAN değil HEDEF EKRANIN adından üretilir:
+       yazı "Geri" olduğunda "Geri ekranına dön" anlamsız kalıyordu
+       (kullanıcı isteği, 25.08.2026). Hedefin başlığı sayfa kaydından
+       okunur; kayıt yoksa sade "Geri dön". */
+    var hedef = YU.sayfalar[g.kod];
+    dom.geri.appendChild(YU.h('a', {
+      sinif: 'yu-geri-bag',
+      href: '#/' + g.kod,
+      title: hedef && hedef.baslik ? hedef.baslik + ' ekranına dön' : 'Geri dön',
+      onClick: function (e) { e.preventDefault(); YU.git(g.kod, g.param || null); }
+    },
+      YU.h('span', { sinif: 'yu-geri-ok', 'aria-hidden': 'true' }, YU.svg('#ic-chevron', 22)),
+      YU.h('span', { metin: g.metin })
+    ));
+  }
+
+  function basligiYaz(baslik, alt, sekmeAdi) {
     dom.baslik.textContent = baslik || '';
+    dom.baslik.style.display = baslik ? '' : 'none';
     dom.alt.textContent = alt || '';
     dom.alt.style.display = alt ? '' : 'none';
-    sekmeBasligi(baslik);
+    /* Başlık, alt başlık ve geri bağlantısının üçü de boşsa şerit hiç yer
+       kaplamasın: .yu-icerik satırları arasındaki 12px boşluk da düşsün. */
+    if (dom.sayfaBas) {
+      var bosMu = !baslik && !alt && !(dom.geri && dom.geri.firstChild);
+      dom.sayfaBas.style.display = bosMu && !dom.eylemler.firstChild ? 'none' : '';
+    }
+    sekmeBasligi(sekmeAdi || baslik);
   }
 
   /* Tarayıcı sekmesi açık ekranın adını gösterir (kullanıcı isteği, 24.08.2026):
@@ -1562,7 +1916,11 @@
     if (s.baslik || s.sag || s.ikon) {
       bas = YU.h('div', { sinif: 'yu-panel-bas' },
         s.ikon ? YU.h('span', { stil: { display: 'flex', color: 'var(--vurgu)' } }, YU.svg(s.ikon, 18)) : null,   /* 15 -> 18 (kullanıcı isteği) */
-        YU.h('div', { sinif: 'yu-panel-baslik', metin: s.baslik || '', stil: { flex: '1' } }),
+        /* baslik metin YA DA düğüm olabilir (25.08.2026): bazı panellerde
+           başlığın yanına silik bir ek konuyor (örn. karşılaştırılan aylar). */
+        (s.baslik && s.baslik.nodeType)
+          ? YU.h('div', { sinif: 'yu-panel-baslik', stil: { flex: '1' } }, s.baslik)
+          : YU.h('div', { sinif: 'yu-panel-baslik', metin: s.baslik || '', stil: { flex: '1' } }),
         s.sag ? YU.h('div', { sinif: 'yu-panel-sag' }, s.sag) : null
       );
     }
@@ -1755,7 +2113,10 @@
      renkleri tema değişkenlerinden alır (çubukla aynı eşikler). */
   var siloKirpSayac = 0;
 
-  YU.ui.siloSekli = function (oran, tur) {
+  /* hunili (isteğe bağlı): küspe silosu görünümü — silindir gövde altta konik
+     huniyle kısa bir boşaltma ağzına iner (kullanıcı isteği, 24.08.2026).
+     Verilmezse eski düz tabanlı silindir çizilir; Silo Durumu öyle kalır. */
+  YU.ui.siloSekli = function (oran, tur, hunili) {
     var G = 104, Y = 151;               /* viewBox */
     var rx = 36, ry = 13;               /* gövde yarı genişliği, kapak basıklığı */
     var cx = G / 2;
@@ -1766,10 +2127,26 @@
     var o = Math.max(0, Math.min(1, Number(oran) || 0));
     var kirpId = 'yu-silo-kirp-' + (++siloKirpSayac);
 
-    var siluet = 'M ' + (cx - rx) + ' ' + ust +
-      ' A ' + rx + ' ' + ry + ' 0 0 1 ' + (cx + rx) + ' ' + ust +
-      ' L ' + (cx + rx) + ' ' + alt +
-      ' A ' + rx + ' ' + ry + ' 0 0 1 ' + (cx - rx) + ' ' + alt + ' Z';
+    var govdeAlt = null, siluet;
+    if (hunili) {
+      govdeAlt = 103;                   /* silindirin bittiği, huninin başladığı yer */
+      var agz = 9, huniAlt = 136;       /* ağız yarı genişliği, huninin ağza indiği yer */
+      alt = govdeAlt;                   /* dolum seviyesi de bu eksene kenetlenir */
+      taban = Y - 4;
+      siluet = 'M ' + (cx - rx) + ' ' + ust +
+        ' A ' + rx + ' ' + ry + ' 0 0 1 ' + (cx + rx) + ' ' + ust +
+        ' L ' + (cx + rx) + ' ' + govdeAlt +
+        ' L ' + (cx + agz) + ' ' + huniAlt +
+        ' L ' + (cx + agz) + ' ' + taban +
+        ' L ' + (cx - agz) + ' ' + taban +
+        ' L ' + (cx - agz) + ' ' + huniAlt +
+        ' L ' + (cx - rx) + ' ' + govdeAlt + ' Z';
+    } else {
+      siluet = 'M ' + (cx - rx) + ' ' + ust +
+        ' A ' + rx + ' ' + ry + ' 0 0 1 ' + (cx + rx) + ' ' + ust +
+        ' L ' + (cx + rx) + ' ' + alt +
+        ' A ' + rx + ' ' + ry + ' 0 0 1 ' + (cx - rx) + ' ' + alt + ' Z';
+    }
 
     var svg = svgOge('svg', {
       width: G, height: Y, viewBox: '0 0 ' + G + ' ' + Y, 'aria-hidden': 'true'
@@ -1787,10 +2164,11 @@
     svg.appendChild(svgOge('path', { d: siluet, fill: 'var(--silo-govde)' }));
 
     /* Dolu kısım — alttan oran kadar. Seviye gövde eksenine (ust..alt)
-       kenetlenir: dolum alt kapağın dışına sarkmaz, üst kapağa taşmaz. */
+       kenetlenir: dolum alt kapağın dışına sarkmaz, üst kapağa taşmaz.
+       Hunili biçimde alt kapak yok; dolum huninin ucuna kadar inebilir. */
     if (o > 0) {
       var seviye = taban - o * (taban - tepe);
-      seviye = Math.max(ust, Math.min(alt, seviye));
+      seviye = Math.max(ust, Math.min(hunili ? taban : alt, seviye));
       var dolu = svgOge('rect', {
         x: cx - rx, y: seviye, width: rx * 2, height: Y - seviye,
         fill: renk, 'clip-path': 'url(#' + kirpId + ')'
@@ -1815,6 +2193,17 @@
     svg.appendChild(svgOge('path', {
       d: siluet, fill: 'none', stroke: 'var(--silo-cizgi)', 'stroke-width': 1.7
     }));
+
+    /* Hunili biçimde gövde–huni birleşimine ön yay: kuşak izlenimi. */
+    if (hunili) {
+      var kusak = svgOge('path', {
+        d: 'M ' + (cx - rx) + ' ' + govdeAlt +
+           ' A ' + rx + ' ' + ry + ' 0 0 0 ' + (cx + rx) + ' ' + govdeAlt,
+        fill: 'none', stroke: 'var(--silo-cizgi)', 'stroke-width': 1.2
+      });
+      kusak.style.opacity = '.6';
+      svg.appendChild(kusak);
+    }
 
     /* Doluluk oranı silonun ortasında — açık temada siyah, koyu temada beyaz
        (--metin). Kart başlığında ayrıca yüzde rozeti gösterilmez. */
@@ -1857,6 +2246,178 @@
     );
   };
 
+  /* ------------------------------------------------------------------
+     Kaydırmalı sütun grafiği (kullanıcı isteği, 25.08.2026)
+     sutunGrafik'i yatay kaydırılan bir kaba alır: sütunlar DOĞAL
+     genişliğinde çizilir, panele kaç gün sığıyorsa o kadarı görünür.
+     En yeni günler sağdadır; eskiye fareyle sürükleyerek ya da iki yandaki
+     oklarla gidilir (oka basılı tutulursa sürekli kayar).
+     Ayarlar: sutunGrafik'in tüm alanları + enFazlaGun (görünür pencere üst
+     sınırı; verilmezse sınır yok).
+     Döner: { govde, notEl } — notEl panel başlığına konur, gerçekten taşma
+     yoksa içeriği temizlenir.
+     Hem Silo Durumu'ndaki dökme grafiği hem Aylık Özet'in gün gün grafiği
+     bunu kullanır; davranış tek yerde tanımlı kalsın diye ortaklaştırıldı.
+     ------------------------------------------------------------------ */
+
+  /* HATA DÜZELTMESİ (25.08.2026): bu fonksiyonun adı aşağıdaki dört
+     parametreli 'grafikOku' ile ÇAKIŞIYORDU. Aynı kapsamdaki ikinci tanım
+     birinciyi ezdiği için kaydırmalı grafiğin okları 'kaydirKap' almadan
+     çalışıyor ve tıklamada "Cannot read properties of undefined (reading
+     'scrollLeft')" hatası veriyordu. Ad ayrıldı; kaydırma mantığı zaten
+     çağıranda (okBagla). Ölçü de küçültüldü (kullanıcı isteği). */
+  function grafikOkuSade(yon) {
+    return YU.h('button', {
+      tip: 'button',
+      'aria-label': yon === 'sol' ? 'Grafiği sola kaydır' : 'Grafiği sağa kaydır',
+      title: (yon === 'sol' ? 'Sola' : 'Sağa') + ' kaydır · basılı tutarsan sürekli kayar',
+      stil: {
+        flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        width: '24px', height: '44px', padding: '0',
+        border: '1px solid var(--kenar)', borderRadius: 'var(--r-s)',
+        background: 'var(--yuzey-2)', color: 'var(--metin-3)', cursor: 'pointer'
+      }
+    }, YU.h('span', {
+      stil: { display: 'flex', transform: yon === 'sol' ? 'rotate(180deg)' : 'none' }
+    }, YU.svg('#ic-chevron', 14)));
+  }
+
+  YU.ui.kaydirmaliGrafik = function (s) {
+    s = s || {};
+    var veri = s.veri || [];
+    var notEl = YU.h('span', { metin: ' · sürükleyerek gezin' });
+    var govde = veri.length
+      ? YU.ui.sutunGrafik(s)
+      : YU.h('div', { sinif: 'yu-bos-metin', metin: s.bos || 'Grafik için kayıtlı gün yok.' });
+
+    var svgEl = veri.length && govde.querySelector ? govde.querySelector('svg') : null;
+    if (!svgEl) { notEl.textContent = ''; return { govde: govde, notEl: notEl }; }
+
+    /* Doğal genişlik sutunGrafik'in viewBox'ından okunur; yüzde verilseydi
+       sütunlar esner ve gün sayısı panele göre sabitlenirdi. */
+    var kutu = String(svgEl.getAttribute('viewBox') || '').split(/\s+/);
+    var dogalEn = Number(kutu[2]) || 0;
+    if (!dogalEn) { notEl.textContent = ''; return { govde: govde, notEl: notEl }; }
+    svgEl.style.width = dogalEn + 'px';
+    svgEl.style.minWidth = dogalEn + 'px';
+    svgEl.style.maxWidth = 'none';
+
+    var kaydirKap = YU.h('div', {
+      sinif: 'yu-grafik-kaydir',            /* kaydırma çubuğu gizli (tema.css) */
+      stil: {
+        overflowX: 'auto', overflowY: 'hidden', cursor: 'grab',
+        userSelect: 'none', WebkitUserSelect: 'none'   /* sürüklerken metin seçilmesin */
+      }
+    });
+    /* Görünür pencere üst sınırı: panel çok genişse bile en fazla bu kadar
+       gün gösterilir, kalanı kaydırmada kalır. */
+    if (s.enFazlaGun > 0 && veri.length > s.enFazlaGun) {
+      kaydirKap.style.maxWidth = Math.round(dogalEn / veri.length * s.enFazlaGun) + 'px';
+    }
+    svgEl.parentNode.insertBefore(kaydirKap, svgEl);
+    kaydirKap.appendChild(svgEl);
+
+    var solOk = grafikOkuSade('sol'), sagOk = grafikOkuSade('sag');
+    govde.appendChild(YU.h('div', {
+      stil: { display: 'flex', alignItems: 'center', gap: '4px', minWidth: '0' }
+    }, solOk, YU.h('div', { stil: { flex: '0 1 auto', minWidth: '0' } }, kaydirKap), sagOk));
+
+    function uclariTazele() {
+      var solda = kaydirKap.scrollLeft <= 1;
+      var sagda = kaydirKap.scrollLeft >= kaydirKap.scrollWidth - kaydirKap.clientWidth - 1;
+      solOk.disabled = solda;
+      sagOk.disabled = sagda;
+      solOk.style.opacity = solda ? '.3' : '';
+      sagOk.style.opacity = sagda ? '.3' : '';
+    }
+    kaydirKap.addEventListener('scroll', uclariTazele);
+    /* Pencere boyutu değişince görünen gün sayısı ve uçlar değişir. */
+    window.addEventListener('resize', uclariTazele);
+
+    /* Fareyle sürükle-kaydır; dokunmatikte tarayıcının kendi kaydırması var.
+       Tarayıcının SVG'yi "görsel" olarak sürüklemesi kapatılır: aksi hâlde
+       basılı tutup çekince kaydırma yerine sürükleme hayaleti başlıyor ve
+       kullanıcı "kaymıyor" diye görüyor. */
+    kaydirKap.addEventListener('dragstart', function (e) { e.preventDefault(); });
+    if (svgEl.setAttribute) svgEl.setAttribute('draggable', 'false');
+    svgEl.style.webkitUserDrag = 'none';
+
+    /* Tekerlekle de yatay gezinme: grafiğin üstünde tekerlek çevrilince
+       sayfa kaymak yerine grafik sağa-sola gider (taşma varsa). */
+    kaydirKap.addEventListener('wheel', function (e) {
+      if (kaydirKap.scrollWidth <= kaydirKap.clientWidth + 1) return;
+      var d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      if (!d) return;
+      kaydirKap.scrollLeft += d;
+      uclariTazele();
+      e.preventDefault();
+    }, { passive: false });
+
+    var suruklaAktif = false, baslangicX = 0, baslangicKaydir = 0;
+    kaydirKap.addEventListener('mousedown', function (e) {
+      if (e.button !== 0) return;                 /* yalnız sol tuş */
+      suruklaAktif = true;
+      baslangicX = e.pageX;
+      baslangicKaydir = kaydirKap.scrollLeft;
+      kaydirKap.style.cursor = 'grabbing';
+      e.preventDefault();
+    });
+    window.addEventListener('mousemove', function (e) {
+      if (!suruklaAktif) return;
+      kaydirKap.scrollLeft = baslangicKaydir - (e.pageX - baslangicX);
+      uclariTazele();
+    });
+    window.addEventListener('mouseup', function () {
+      if (!suruklaAktif) return;
+      suruklaAktif = false;
+      kaydirKap.style.cursor = 'grab';
+    });
+
+    /* Oka basılı tutunca sürekli kaydırma. Uçlar adımın hemen ardından
+       DOĞRUDAN tazelenir: programatik kaydırmada 'scroll' olayı gecikmeli
+       gelebiliyor ve okun pasif durumu bir adım geride kalıyordu. */
+    function okBagla(dugme, yon) {
+      var zamanlayici = null, gecikme = null;
+      function adim() { kaydirKap.scrollLeft += yon * 60; uclariTazele(); }
+      function basla(e) {
+        e.preventDefault();
+        if (dugme.disabled) return;
+        adim();
+        gecikme = setTimeout(function () {
+          zamanlayici = setInterval(function () {
+            if (dugme.disabled) { dur(); return; }
+            adim();
+          }, 40);
+        }, 300);
+      }
+      function dur() {
+        if (gecikme) { clearTimeout(gecikme); gecikme = null; }
+        if (zamanlayici) { clearInterval(zamanlayici); zamanlayici = null; }
+      }
+      dugme.addEventListener('mousedown', basla);
+      dugme.addEventListener('mouseup', dur);
+      dugme.addEventListener('mouseleave', dur);
+      window.addEventListener('mouseup', dur);
+    }
+    okBagla(solOk, -1);
+    okBagla(sagOk, 1);
+
+    /* En yeni günler sağda: açılışta sağ uca kaydırılır. Oklar ve not
+       yalnız GERÇEKTEN taşma varsa görünür. */
+    setTimeout(function () {
+      kaydirKap.scrollLeft = kaydirKap.scrollWidth;
+      if (kaydirKap.scrollWidth <= kaydirKap.clientWidth + 1) {
+        kaydirKap.style.cursor = 'default';
+        solOk.style.display = 'none';
+        sagOk.style.display = 'none';
+        notEl.textContent = '';
+      }
+      uclariTazele();
+    }, 0);
+
+    return { govde: govde, notEl: notEl };
+  };
+
   YU.ui.tablo = function (s) {
     s = s || {};
     var sutunlar = s.sutunlar || [];
@@ -1868,8 +2429,10 @@
     /* yapiskan: kolon başlıkları sayfa kaydıkça üst şeridin altına yapışır.
        Sticky, kaydırma kabının içinde hapsolduğu için bu varyantta sarıcı
        yatay kaydırma kabı olmaktan çıkar (tema.css .yu-yapiskan). */
+    /* s.sinif: sarıcıya ek sınıf (örn. yu-tablo-iri) — tek bir tablonun
+       ölçüsünü diğerlerine dokunmadan değiştirmek için. */
     var sar = YU.h('div', {
-      sinif: 'yu-tablo-sar' + (s.yapiskan ? ' yu-yapiskan' : ''),
+      sinif: 'yu-tablo-sar' + (s.yapiskan ? ' yu-yapiskan' : '') + (s.sinif ? ' ' + s.sinif : ''),
       stil: { overflowX: s.yapiskan ? 'visible' : 'auto' }
     });
 
@@ -1880,6 +2443,10 @@
       return sar;
     }
 
+    /* dolgu: yalnız çağıran isterse hücre dolgusunu değiştirir (kullanıcı
+       isteği, 25.08.2026 — Analizler'de kolonlar birbirine yapışıktı).
+       Geçilmezse eski davranış birebir korunur. */
+    var hucreDolgu = s.dolgu || ((s.kompakt || sikMi) ? '8px 14px' : null);
     var tablo = YU.h('table', { sinif: 'yu-tablo' });
     var colgroup = YU.h('colgroup');
     var thead = YU.h('thead');
@@ -1891,7 +2458,7 @@
       colgroup.appendChild(col);
       var sinif = su.hiza === 'sag' ? 'yu-sag' : (su.hiza === 'orta' ? 'yu-orta' : '');
       var th = YU.h('th', { sinif: sinif, metin: su.baslik || '' });
-      if (s.kompakt || sikMi) th.style.padding = '8px 14px';
+      if (hucreDolgu) th.style.padding = hucreDolgu;
       trBas.appendChild(th);
     }
     thead.appendChild(trBas);
@@ -1923,6 +2490,9 @@
            anlamca zıt satırları ayırmak için seçimli; tıklanır satırın
            hover/odak vurgusu CSS'te bu sınıfı ezer. */
         if (ham.zemin) tr.className = tr.className ? tr.className + ' yu-satir-zemin' : 'yu-satir-zemin';
+        /* toplam: TOPLAM satırı için koyu zemin + üst çizgi (kullanıcı
+           isteği, 25.08.2026) — veri satırlarından açıkça ayrılsın. */
+        if (ham.toplam) tr.className = tr.className ? tr.className + ' yu-satir-toplam' : 'yu-satir-toplam';
       }
       for (var c = 0; c < hucreler.length; c++) {
         var sut = sutunlar[c] || {};
@@ -1931,7 +2501,7 @@
         else if (sut.hiza === 'orta') siniflar.push('yu-orta');
         if (sut.mono) siniflar.push('yu-mono');
         var td = YU.h('td', { sinif: siniflar.join(' ') });
-        if (s.kompakt || sikMi) td.style.padding = '8px 14px';
+        if (hucreDolgu) td.style.padding = hucreDolgu;
         cocukEkle(td, hucreler[c]);
         tr.appendChild(td);
       }
@@ -2147,6 +2717,12 @@
   };
 
   YU.ui.bildir = function (mesaj, tur) {
+    /* Yazma durduysa "kaydedildi" demek yanlış olur: değişiklik yalnız bu
+       sekmenin belleğinde kaldı (kullanıcı isteği, 25.08.2026). */
+    if (yazmaDurdu && tur === 'basari') {
+      mesaj = 'Diske YAZILAMADI — değişiklik yalnız bu sekmenin belleğinde. Sayfayı yenileyin. (' + String(mesaj) + ')';
+      tur = 'hata';
+    }
     var kap = document.getElementById('yu-bildirimler');
     if (!kap) {
       kap = YU.h('div', { sinif: 'yu-bildirimler', id: 'yu-bildirimler' });
@@ -2257,7 +2833,11 @@
       var m = YU.ui.modal({
         baslik: s.baslik || 'Onay',
         genislik: s.genislik || 440,
-        govde: YU.h('div', { metin: s.metin || '', stil: { font: '400 15px/1.6 var(--font)', color: 'var(--metin-3)' } }),
+        /* ayrinti (M28): ciddi işlem onaylarında metnin altına "neyin neye
+           döndüğü" listesi eklenir; verilmezse pencere eskisi gibidir. */
+        govde: YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '12px' } },
+          YU.h('div', { metin: s.metin || '', stil: { font: '400 15px/1.6 var(--font)', color: 'var(--metin-3)' } }),
+          s.ayrinti || null),
         dugmeler: [
           { metin: s.iptalMetni || 'Vazgeç', tur: 'sade', onClick: function () { sonuc(false); } },
           { metin: s.onayMetni || 'Onayla', tur: s.tehlike ? 'tehlike' : 'birincil', onClick: function () { sonuc(true); } }
@@ -2265,6 +2845,34 @@
         onKapat: function () { if (!bitti) { bitti = true; coz(false); } }
       });
     });
+  };
+
+  /* Ciddi işlem onaylarının ayrıntı listesi (M28): satır = {etiket, eski,
+     yeni} (değişiklik — eski çizili kırmızı, yeni yeşil; İşlem Geçmişi
+     panelinin renk dili) ya da {etiket, deger} (yeni kaydın künyesi). */
+  YU.ui.farkListesi = function (maddeler) {
+    var kap = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '7px' } });
+    for (var i = 0; i < maddeler.length; i++) {
+      var md = maddeler[i];
+      var satir = YU.h('div', { stil: { display: 'flex', alignItems: 'baseline', gap: '9px', flexWrap: 'wrap' } },
+        YU.h('span', { sinif: 'yu-etiket', metin: md.etiket, stil: { flex: 'none', minWidth: '96px' } }));
+      if (md.deger !== undefined) {
+        satir.appendChild(YU.h('span', { sinif: 'yu-guclu', metin: String(md.deger) }));
+      } else {
+        satir.appendChild(YU.h('span', {
+          metin: String(md.eski),
+          stil: { fontFamily: 'var(--sayi)', textDecoration: 'line-through',
+                  textDecorationColor: 'var(--metin-4)', color: 'var(--olumsuz)' }
+        }));
+        satir.appendChild(YU.h('span', { sinif: 'yu-zayif', metin: '→', 'aria-hidden': 'true' }));
+        satir.appendChild(YU.h('span', {
+          metin: String(md.yeni),
+          stil: { fontFamily: 'var(--sayi)', fontWeight: '700', color: 'var(--olumlu)' }
+        }));
+      }
+      kap.appendChild(satir);
+    }
+    return kap;
   };
 
   YU.ui.hataListesi = function (hatalar, tur) {
@@ -2300,6 +2908,10 @@
   YU.ui.sayfaEylemleri = function () {
     if (!dom.eylemler) return null;
     for (var i = 0; i < arguments.length; i++) cocukEkle(dom.eylemler, arguments[i]);
+    /* Ekranlar bunu ciz() içinde, yani basligiYaz'dan SONRA çağırır. Başlığı
+       gizli bir sayfaya eylem eklendiyse şerit geri açılmalı — yoksa düğmeler
+       gizli kapta kalırdı. */
+    if (dom.sayfaBas && dom.eylemler.firstChild) dom.sayfaBas.style.display = '';
     return dom.eylemler;
   };
 
@@ -2331,8 +2943,10 @@
            genişletildi (280px'te satırlar kutunun dışına taşıyordu —
            kullanıcı bildirimi, 23.08.2026). Üst sınır yine var ki uzun
            metin ekranı boydan boya kaplamasın; sığmayan etiket sarar. */
-        pointerEvents: 'none', maxWidth: '360px',
-        padding: '9px 11px', borderRadius: 'var(--r)',
+        /* Ölçüler büyütüldü (kullanıcı isteği, 25.08.2026 — "çok küçük
+           gözüküyor"): dolgu 9/11 -> 13/16, üst genişlik 360 -> 420. */
+        pointerEvents: 'none', maxWidth: '420px',
+        padding: '13px 16px', borderRadius: 'var(--r)',
         background: 'var(--yuzey)', border: '1px solid var(--kenar-3)',
         boxShadow: 'var(--golge-2)', display: 'none'
       }
@@ -2377,10 +2991,13 @@
   }
 
   function ipucuIcerik(baslik, satirlar, ek) {
-    var kap = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '6px' } });
+    /* Yazı ölçüleri bir kademe büyütüldü (kullanıcı isteği, 25.08.2026):
+       başlık 14 -> 16px, satır etiketi ve sayısı 13,5 -> 15px, renk kutusu
+       8 -> 10px, satır arası 6 -> 8px. */
+    var kap = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '8px' } });
     kap.appendChild(YU.h('div', {
       metin: baslik,
-      stil: { font: '500 14px/1.2 var(--font)', color: 'var(--metin)', whiteSpace: 'nowrap' }
+      stil: { font: '600 16px/1.25 var(--font)', color: 'var(--metin)', whiteSpace: 'nowrap' }
     }));
     /* Satırda ETİKET sarar, MİKTAR sarmaz. Önce satırın tamamı `nowrap`
        idi: uzun kampanya adı + tarih + miktar kutunun genişliğini aşıyor,
@@ -2393,22 +3010,22 @@
       },
         YU.h('span', {
           stil: {
-            width: '8px', height: '8px', borderRadius: '2px', flex: 'none',
-            background: r.renk, marginTop: '4px'
+            width: '10px', height: '10px', borderRadius: '3px', flex: 'none',
+            background: r.renk, marginTop: '5px'
           }
         }),
         YU.h('span', {
           metin: r.ad,
           stil: {
-            flex: '1 1 auto', minWidth: '0', font: '400 13.5px/1.3 var(--font)',
-            color: 'var(--metin-4)', overflowWrap: 'anywhere'
+            flex: '1 1 auto', minWidth: '0', font: '400 15px/1.35 var(--font)',
+            color: 'var(--metin-3)', overflowWrap: 'anywhere'
           }
         }),
         YU.h('span', {
           metin: r.deger,
           stil: {
             flex: 'none', whiteSpace: 'nowrap', marginLeft: 'auto',
-            font: '600 13.5px/1.3 var(--sayi)', color: 'var(--metin)',
+            font: '700 15px/1.35 var(--sayi)', color: 'var(--metin)',
             fontVariantNumeric: 'tabular-nums'
           }
         })
@@ -2418,8 +3035,8 @@
       kap.appendChild(YU.h('div', {
         metin: ek.metin,
         stil: {
-          font: '600 13.5px/1.3 var(--sayi)', color: ek.renk || 'var(--metin-4)',
-          borderTop: '1px solid var(--ayrac)', paddingTop: '6px',
+          font: '700 15px/1.35 var(--sayi)', color: ek.renk || 'var(--metin-3)',
+          borderTop: '1px solid var(--ayrac)', paddingTop: '8px',
           whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums'
         }
       }));
@@ -2809,6 +3426,64 @@
     return kap;
   }
 
+  /* Kaydırmalı grafiğin yanındaki ok düğmesi (kullanıcı isteği, 25.08.2026).
+     Tıklama bir adım kaydırır; BASILI TUTMAK sürekli kaydırır (mousedown ile
+     başlar, mouseup/mouseleave/blur ile durur). Klavye için de çalışır:
+     düğme olduğu için Enter/Space tıklama sayılır. */
+  function grafikOku(yon, kaydirKap, yukseklik, tazele) {
+    var ADIM = 90;
+    var zamanlayici = null;
+
+    function kaydir() {
+      kaydirKap.scrollLeft += (yon === 'sag' ? ADIM : -ADIM);
+      /* Ok durumu doğrudan burada tazelenir: yalnız 'scroll' olayına
+         güvenmek yetmiyor (programatik kaydırmada olay her ortamda
+         tetiklenmiyor; ölçüldü 25.08.2026). Olay dinleyicisi fare tekerleği
+         ve dokunmatik kaydırma için ayrıca duruyor. */
+      if (typeof tazele === 'function') tazele();
+    }
+    function basla() {
+      dur();
+      kaydir();
+      zamanlayici = setInterval(kaydir, 90);
+    }
+    function dur() {
+      if (zamanlayici) { clearInterval(zamanlayici); zamanlayici = null; }
+    }
+
+    var ok = YU.h('button', {
+      tip: 'button',
+      /* Yön sınıfı: ok simgesini CSS döndürür (JS'te inline transform
+         güvenilmez çıktı — ölçüldü 25.08.2026, simge aşağı bakıyordu). */
+      sinif: 'yu-grafik-ok ' + yon,
+      title: yon === 'sag'
+        ? 'Sonraki günlere git — basılı tutunca hızlı kayar'
+        : 'Önceki günlere git — basılı tutunca hızlı kayar',
+      'aria-label': yon === 'sag' ? 'Grafiği sağa kaydır' : 'Grafiği sola kaydır',
+      onClick: function () { kaydir(); }
+    },
+      /* Ok SVG değil METİN (kullanıcı bildirimi, 25.08.2026: chevron simgesi
+         döndürülmesine rağmen ekranda aşağı bakıyordu). Metin oku hangi
+         tarayıcıda olursa olsun doğru yöne bakar. */
+      YU.h('span', {
+        metin: yon === 'sag' ? '→' : '←',
+        'aria-hidden': 'true',
+        /* 32px -> 22px (kullanıcı isteği, 25.08.2026): ok grafiğin önüne
+           geçiyordu. */
+        stil: { font: '700 22px/1 var(--font)', letterSpacing: '0' }
+      })
+    );
+
+    ok.addEventListener('mousedown', function (e) { e.preventDefault(); basla(); });
+    ok.addEventListener('mouseup', dur);
+    ok.addEventListener('mouseleave', dur);
+    ok.addEventListener('blur', dur);
+    ok.addEventListener('touchstart', function (e) { e.preventDefault(); basla(); });
+    ok.addEventListener('touchend', dur);
+    ok.addEventListener('touchcancel', dur);
+    return ok;
+  }
+
   /* Kampanya karşılaştırma grafiği — N SERİ.
 
      İki kullanım vardır:
@@ -2829,8 +3504,21 @@
        eksende "0 kg" ile "1 ton" yan yana düşüyordu. */
     var eksenBicim = typeof s.eksenBicim === 'function' ? s.eksenBicim : function (v) { return YU.fmt.sayi(v); };
     var H = s.yukseklik || 220;
-    var W = 600, i, j, n = noktalar.length;
+    var i, j, n = noktalar.length;
     var ustBosluk = 8, altBosluk = 6;
+
+    /* gorunenNokta (kullanıcı isteği, 25.08.2026): pencerede KAÇ NOKTA
+       görüneceğini söyler — ör. 30 gün. Veri bundan uzunsa çizim o oranda
+       genişler ve yatay kaydırılır; pencerede hep aynı sayıda gün durur,
+       kalanına oklarla gidilir. Veri daha kısaysa kaydırma olmaz, grafik
+       kabı doldurur. Verilmezse eski davranış: her şey kaba sığdırılır
+       (birikimli görünümde kampanyanın tamamı tek ekranda kalsın diye). */
+    var pencereNokta = Number(s.gorunenNokta) > 0 ? Number(s.gorunenNokta) : 0;
+    var kaydirmali = pencereNokta > 0 && n > pencereNokta;
+    /* Çizim oranı: 310 günü 30'luk pencerede göstermek = %1033 genişlik.
+       viewBox sabit 600 kalır; genişleme CSS yüzdesiyle olur. */
+    var cizimOrani = kaydirmali ? (n / pencereNokta) : 1;
+    var W = 600;
 
     function sayi(v) { return (v === null || v === undefined || isNaN(Number(v))) ? null : Number(v); }
 
@@ -2911,6 +3599,10 @@
     function yKoord(v) { return H - altBosluk - (v / tavan) * (H - ustBosluk - altBosluk); }
 
     var svg = svgOge('svg', {
+      /* Genişlik HER ZAMAN %100; kaydırmalı grafikte iç kap `min-width: W`
+         taşır. Böylece grafik dar kapta W'ye kadar açılıp kaydırılır, GENİŞ
+         kapta ise kabı DOLDURUR (kullanıcı bildirimi, 25.08.2026: 35 günlük
+         kampanyada çizim 910px'te kalıp sağ yarı boş duruyordu). */
       width: '100%', height: H, viewBox: '0 0 ' + W + ' ' + H,
       preserveAspectRatio: 'none', role: 'group'
     });
@@ -3023,7 +3715,11 @@
     var altEksen = YU.h('div', { stil: { position: 'relative', height: '14px', marginTop: '8px' } });
     var araliklar = [1, 2, 5, 10, 20, 25, 50, 100];
     var xAdim = araliklar[araliklar.length - 1];
-    for (i = 0; i < araliklar.length; i++) if (Math.ceil(n / araliklar[i]) <= 10) { xAdim = araliklar[i]; break; }
+    /* Etiket sıklığı GÖRÜNEN pencereye göre seçilir: kaydırmalı grafikte
+       tüm veriye göre seçilirse (ör. 310 gün → 50 günde bir) 30 günlük
+       pencerede tek etiket bile düşmeyebiliyordu. */
+    var etiketTaban = kaydirmali ? Math.min(n, pencereNokta) : n;
+    for (i = 0; i < araliklar.length; i++) if (Math.ceil(etiketTaban / araliklar[i]) <= 8) { xAdim = araliklar[i]; break; }
     function altEtiket(i2) {
       var kaydir = i2 === 0 ? '0' : (i2 === n - 1 ? '-100%' : '-50%');
       altEksen.appendChild(YU.h('span', {
@@ -3034,12 +3730,129 @@
         }
       }));
     }
-    var sonEtiket = 0;
-    for (i = 0; i < n; i += xAdim) { altEtiket(i); sonEtiket = i; }
-    /* Son gün de yazılır; bir öncekine yapışacak kadar yakınsa atlanır. */
+    /* Etiketler ETİKET DEĞERİNİN katlarına oturur (kullanıcı isteği,
+       25.08.2026): 5, 10, 15, 20 … — pencerenin nerede başladığına göre
+       6, 11, 16 diye kaymaz. Etiket sayısal değilse (hafta/ay ölçeğinde
+       "1–7" gibi) indeks adımına düşülür. */
+    var sonEtiket = -1, sayisalEtiket = true;
+    for (i = 0; i < n; i++) {
+      if (!isFinite(parseInt(noktalar[i].etiket, 10))) { sayisalEtiket = false; break; }
+    }
+    if (sayisalEtiket) {
+      for (i = 0; i < n; i++) {
+        var deger = parseInt(noktalar[i].etiket, 10);
+        if (deger % xAdim === 0) { altEtiket(i); sonEtiket = i; }
+      }
+      /* Hiç kat düşmediyse (çok kısa aralık) ilk noktayı yaz. */
+      if (sonEtiket < 0) { altEtiket(0); sonEtiket = 0; }
+    } else {
+      for (i = 0; i < n; i += xAdim) { altEtiket(i); sonEtiket = i; }
+    }
+    /* Son nokta da yazılır; bir öncekine yapışacak kadar yakınsa atlanır. */
     if (n > 1 && sonEtiket !== n - 1 && (n - 1 - sonEtiket) * 2 >= xAdim) altEtiket(n - 1);
 
-    var cizim = YU.h('div', { stil: { flex: '1', minWidth: '0' } }, svg, altEksen);
+    /* Kaydırmalı grafikte çizim sabit genişlikte bir iç kapta durur ve dış
+       kap yatay kayar; SOL EKSEN kaymaz, ölçek her zaman görünür.
+       İki yanda ok düğmeleri (kullanıcı isteği, 25.08.2026): tıklayınca bir
+       adım, BASILI TUTUNCA sürekli kayar — kaydırılabildiği düğmeden anlaşılsın. */
+    var cizim;
+    if (kaydirmali) {
+      /* Genişlik YÜZDEYLE: pencerede sabit sayıda nokta kalsın diye çizim
+         kabın (n / pencereNokta) katı kadar açılır. Kap ne kadar genişse
+         pencere de o kadar geniş olur ama içinde hep aynı gün sayısı durur. */
+      var icKap = YU.h('div', {
+        stil: { width: (cizimOrani * 100) + '%', flex: 'none' }
+      }, svg, altEksen);
+      var kaydirKap = YU.h('div', {
+        sinif: 'yu-grafik-kaydir',
+        stil: { flex: '1', minWidth: '0', overflowX: 'auto', overflowY: 'hidden' }
+      }, icKap);
+      /* Kaydıracak yer kalmayınca düğme GİZLENİR (yarı saydam düğme
+         "basılabilir mi" belirsizliği yaratıyordu). */
+      function oklariTazele() {
+        if (!solOk || !sagOk) return;
+        var sol = kaydirKap.scrollLeft;
+        var enFazla = kaydirKap.scrollWidth - kaydirKap.clientWidth;
+        solOk.hidden = sol <= 1;
+        sagOk.hidden = sol >= enFazla - 1;
+      }
+      var solOk = grafikOku('sol', kaydirKap, H, oklariTazele);
+      var sagOk = grafikOku('sag', kaydirKap, H, oklariTazele);
+      kaydirKap.addEventListener('scroll', oklariTazele);
+
+      /* FAREYLE SÜRÜKLEME (kullanıcı isteği, 25.08.2026): grafiğe basıp
+         sağa sola çekince pencere kayar. Kaydırma çubuğu gizli olduğu için
+         (yine kullanıcı isteği) gezinmenin iki yolu bu ve ok düğmeleridir.
+         Sürükleme 3 pikseli geçtiğinde "tık" sayılmaz — ipucu bantlarının
+         tıklaması bozulmasın diye. */
+      var surukluyor = false, basX = 0, basScroll = 0, hareketVar = false;
+      kaydirKap.style.cursor = 'grab';
+      kaydirKap.addEventListener('mousedown', function (e) {
+        if (e.button !== 0) return;
+        surukluyor = true; hareketVar = false;
+        basX = e.clientX; basScroll = kaydirKap.scrollLeft;
+        kaydirKap.style.cursor = 'grabbing';
+      });
+      document.addEventListener('mousemove', function (e) {
+        if (!surukluyor) return;
+        var fark = e.clientX - basX;
+        if (Math.abs(fark) > 3) hareketVar = true;
+        kaydirKap.scrollLeft = basScroll - fark;
+        oklariTazele();
+        if (hareketVar) e.preventDefault();
+      });
+      document.addEventListener('mouseup', function () {
+        if (!surukluyor) return;
+        surukluyor = false;
+        kaydirKap.style.cursor = 'grab';
+      });
+      /* Sürükleme sırasında metin/SVG seçimi başlamasın. */
+      kaydirKap.addEventListener('dragstart', function (e) { e.preventDefault(); });
+
+      /* FARE TEKERLEĞİ: grafiğin üzerindeyken dikey tekerlek YATAY kaydırır.
+         Yalnız kaydırılacak yer varken sayfayı tutar; uçlarda tekerlek yine
+         sayfayı kaydırır, kullanıcı grafiğe "takılmaz". */
+      kaydirKap.addEventListener('wheel', function (e) {
+        var enFazla = kaydirKap.scrollWidth - kaydirKap.clientWidth;
+        if (enFazla <= 0) return;
+        var yon = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+        var yeni = kaydirKap.scrollLeft + yon;
+        if ((yon < 0 && kaydirKap.scrollLeft <= 0) ||
+            (yon > 0 && kaydirKap.scrollLeft >= enFazla)) return;
+        e.preventDefault();
+        kaydirKap.scrollLeft = yeni;
+        oklariTazele();
+      }, { passive: false });
+
+      /* Açılışta pencere EN SONA yaslanır (kullanıcı isteği, 25.08.2026):
+         önemli olan en güncel veridir — 35 günlük kampanyada 6–35 görünür,
+         ilk günlere sola kaydırarak gidilir. */
+      setTimeout(function () {
+        kaydirKap.scrollLeft = kaydirKap.scrollWidth;
+        oklariTazele();
+      }, 0);
+      /* Dizilim: OK · GRAFİK · OK (kullanıcı isteği, 25.08.2026).
+         Oklar çizimin üstünde yüzmez, iki YANINDA durur ve grafiğin
+         dikey ortasına hizalanır — grafik tam ortada kalır. Hizada
+         alt eksen sayılmaz: okun merkezi çizimin merkezine oturur. */
+      cizim = YU.h('div', {
+        stil: { display: 'flex', alignItems: 'flex-start', gap: '2px', flex: '1', minWidth: '0' }
+      },
+        YU.h('div', {
+          /* paddingBottom: okun merkezini çizim merkezinden bir tık YUKARI
+             taşır (kullanıcı isteği, 25.08.2026). */
+          stil: { display: 'flex', alignItems: 'center', height: H + 'px',
+                  paddingBottom: '64px', flex: 'none' }
+        }, solOk),
+        kaydirKap,
+        YU.h('div', {
+          stil: { display: 'flex', alignItems: 'center', height: H + 'px',
+                  paddingBottom: '64px', flex: 'none' }
+        }, sagOk)
+      );
+    } else {
+      cizim = YU.h('div', { stil: { flex: '1', minWidth: '0' } }, svg, altEksen);
+    }
     return sar(YU.h('div', { stil: { display: 'flex', gap: '10px', alignItems: 'flex-start' } }, eksen, cizim));
   };
 
@@ -3095,13 +3908,9 @@
      pencere açılıyor: kullanıcı bulunduğu listeden kopmuyor.
      ================================================================== */
 
-  var HAREKET_ADI = {
-    DokmeUretim: 'Dökme üretim', Cuvallama: 'Çuvallama',
-    DokmeSatis: 'Dökme satış', Manuel: 'Manuel'
-  };
-  var HAREKET_RENGI = {
-    DokmeUretim: 'olumlu', Cuvallama: 'notr', DokmeSatis: 'vurgu', Manuel: 'bekleyen'
-  };
+  /* HAREKET_ADI / HAREKET_RENGI kaldırıldı: yalnız pencerenin silo hareket
+     tablosunda kullanılıyordu, o bölüm de kalktı (25.08.2026). Aynı eşleme
+     32-tum-hareketler ve 25-gunluk-rapor içinde kendi kopyalarıyla duruyor. */
 
   function gunBolumu(baslik, sag, icerik) {
     return YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '9px' } },
@@ -3156,44 +3965,11 @@
       ));
     }
 
-    /* Malzeme hareketleri */
-    if (ozet.malzemeSatirlari.length) {
-      var mSatirlar = ozet.malzemeSatirlari.map(function (s) {
-        return [
-          YU.h('span', { metin: s.malzeme ? s.malzeme.Ad : '—' }),
-          YU.h('span', { sinif: 'yu-mono', metin: YU.fmt.kg(s.uretim) }),
-          YU.h('span', { sinif: 'yu-mono', metin: YU.fmt.kg(s.satis) })
-        ];
-      });
-      bolumler.push(gunBolumu('Malzeme hareketleri', ozet.malzemeSatirlari.length + ' satır',
-        YU.ui.tablo({
-          sutunlar: [{ baslik: 'Malzeme' }, { baslik: 'Üretim', hiza: 'sag', genislik: 120 }, { baslik: 'Satış', hiza: 'sag', genislik: 120 }],
-          satirlar: mSatirlar, kompakt: true, sik: false
-        })
-      ));
-    }
-
-    /* Silo hareketleri */
-    if (ozet.siloHareketleri.length) {
-      var sSatirlar = ozet.siloHareketleri.map(function (s) {
-        var hr = s.hareket;
-        return [
-          YU.h('span', { metin: s.silo ? s.silo.Ad : '—' }),
-          YU.ui.rozet(HAREKET_ADI[hr.HareketTipi] || hr.HareketTipi, HAREKET_RENGI[hr.HareketTipi] || 'notr'),
-          YU.h('span', { sinif: 'yu-mono', metin: Number(hr.GirenKg) > 0 ? YU.fmt.kg(hr.GirenKg) : '—' }),
-          YU.h('span', { sinif: 'yu-mono', metin: Number(hr.CikanKg) > 0 ? YU.fmt.kg(hr.CikanKg) : '—' })
-        ];
-      });
-      bolumler.push(gunBolumu('Silo hareketleri', ozet.siloHareketleri.length + ' hareket',
-        YU.ui.tablo({
-          sutunlar: [
-            { baslik: 'Silo', genislik: 110 }, { baslik: 'Hareket', genislik: 140 },
-            { baslik: 'Giren', hiza: 'sag', genislik: 110 }, { baslik: 'Çıkan', hiza: 'sag', genislik: 110 }
-          ],
-          satirlar: sSatirlar, kompakt: true, sik: false
-        })
-      ));
-    }
+    /* "Malzeme hareketleri" ve "Silo hareketleri" bölümleri KALDIRILDI
+       (kullanıcı isteği, 25.08.2026): pencere günün kuru küspe özetini
+       gösterir; satır satır döküm zaten Program Hareketleri'nde ve listenin
+       kendisinde duruyordu, pencerede üçüncü kez tekrar ediyordu.
+       Tam döküm için penceredeki "Tam raporu aç" düğmesi durur. */
 
     if (!bolumler.length) {
       bolumler.push(YU.h('div', {

@@ -178,6 +178,13 @@
 
     d.kaydetDugmesi.disabled = degisen === 0;
     d.geriDugmesi.disabled = degisen === 0;
+    /* Kaydedilmemiş satır varken ekrandan çıkış kilitlenir (kullanıcı isteği,
+       25.08.2026): sekme/pencere kapatmada tarayıcı, menüden geçişte uygulama
+       sorar. Kilit kabukta ortak (YU.cikisKilidi), her sayfa çiziminde düşer. */
+    if (YU.cikisKilidi) {
+      YU.cikisKilidi(degisen > 0,
+        YU.fmt.tarih(d.tarih) + ' günü için ' + YU.fmt.sayi(degisen) + ' satır kaydedilmedi.');
+    }
     d.ozetMetin.textContent = degisen === 0
       ? 'Kaydedilmemiş değişiklik yok.'
       : YU.fmt.sayi(degisen) + ' satır değiştirildi, henüz kaydedilmedi.' +
@@ -477,6 +484,10 @@
       tip: 'tarih', deger: d.tarih, genislik: '158px',
       onChange: function () { tarihIste(d, d.tarihAlan.girdi.value); }
     });
+    /* D18'in ekran ayağı (M14): en eski devirden önceki gün takvimden
+       seçilemez; servis kuralı ayrıca denetler. */
+    var enEskiDevirM = YU.dogrula.enEskiDevir(YU.db);
+    if (enEskiDevirM) d.tarihAlan.girdi.min = enEskiDevirM;
 
     var gezinme = satirKap('center', 6);
     gezinme.appendChild(YU.ui.dugme({
