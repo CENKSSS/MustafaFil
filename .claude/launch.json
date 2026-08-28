@@ -5,11 +5,7 @@
       "name": "yan-urunler",
       "runtimeExecutable": "py",
       "runtimeArgs": [
-        "-m",
-        "http.server",
-        "8155",
-        "--directory",
-        "yan-urunler-stok-takip"
+        "yan-urunler-sunucu.py"
       ],
       "port": 8155
     }

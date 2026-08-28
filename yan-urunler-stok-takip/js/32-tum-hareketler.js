@@ -51,10 +51,26 @@
     return YU.h('span', { sinif: 'yu-zayif', metin: '—' });
   }
 
-  function miktarHucresi(deger, silinmis) {
+  /* yon ('giren' | 'cikan'): yön taşıyan rakam işaret ve renk alır
+     (KURAL 10.1 · kullanıcı isteği, 25.08.2026) — giren "+" yeşil, çıkan
+     "−" kırmızı. SİLİNMİŞ satırlar renklenmez: çizili gri kalırlar, yoksa
+     iptal edilmiş hareket hâlâ sayılıyormuş gibi okunur. */
+  /* Tek gün görünümünde rakam 15px/600; liste görünümünde ortak ölçü kalır. */
+  function tekGunGorumu() { return tekGunGorunumu; }
+  function iriRakam() {
+    return tekGunGorumu() ? { font: '600 15px/1.3 var(--sayi)' } : {};
+  }
+
+  function miktarHucresi(deger, silinmis, yon) {
     var n = Number(deger) || 0;
     if (n <= 0) return bosHucre();
-    return silinmis ? cizili(YU.fmt.kg(n)) : YU.h('span', { metin: YU.fmt.kg(n) });
+    if (silinmis) return cizili(YU.fmt.kg(n));
+    if (!yon) return YU.h('span', { metin: YU.fmt.kg(n), stil: iriRakam() });
+    var giren = yon === 'giren';
+    var stil = iriRakam();
+    stil.color = giren ? 'var(--olumlu)' : 'var(--olumsuz)';
+    stil.whiteSpace = 'nowrap';
+    return YU.h('span', { stil: stil, metin: (giren ? '+' : '−') + YU.fmt.kg(n) });
   }
 
   /* Değiştirilen malzeme satırında ESKİ değer de okunur (kullanıcı isteği,
@@ -71,8 +87,55 @@
     return null;
   }
 
-  function miktarVeEskisi(depo, deger, kayitId, alan) {
-    var simdiki = miktarHucresi(deger, false);
+  /* DEĞİŞTİRİLMİŞ KALEMDE ESKİ DEĞER YAN YANA, ÜSTÜ ÇİZİLİ (kullanıcı
+     isteği, 27.08.2026: "mesela 50 kg'dı ilk giren, onun üstünü çiz, 100
+     yazılsın"). Eski gösterim rakamın ALTINA küçük bir satır koyuyordu ve
+     satırı büyütüyordu; aynı bilgi artık tek satırda, solda soluk ve çizili
+     eski değer + sağda güncel değer olarak durur. Yalnız tek gün
+     görünümünde kullanılır. */
+  function eskisiyleHucre(depo, kayitId, alanAdi, deger, yon, guncellendi) {
+    var simdiki = miktarHucresi(deger, false, yon);
+    if (!guncellendi) return simdiki;
+    var eski = eskiDegerVarsa(depo, kayitId, alanAdi, deger);
+    if (eski === null) return simdiki;
+    return YU.h('span', {
+      stil: {
+        display: 'inline-flex', alignItems: 'baseline', gap: '8px',
+        justifyContent: 'flex-end', whiteSpace: 'nowrap'
+      },
+      title: 'Önceki değer ' + eski + ' kg — sonradan değiştirildi.'
+    },
+      YU.h('span', {
+        metin: eski,
+        stil: {
+          /* Güncel rakamla AYNI ölçüde (15px); ayrımı kalınlık, soluk renk
+             ve üstü çizili olması taşır (kullanıcı isteği, 27.08.2026:
+             "0 yazıyor ya, büyütsene onu"). Önce 13px'ti, okunmuyordu. */
+          font: '500 15px/1.3 var(--sayi)', textDecoration: 'line-through',
+          textDecorationColor: 'var(--metin-4)', color: 'var(--metin-4)'
+        }
+      }),
+      /* Eski ile yeni arasına ok (kullanıcı isteği, 27.08.2026): "0 → +100"
+         okuması yönü de söyler. Devir önizlemesindeki okluDeger diliyle aynı. */
+      YU.h('span', {
+        metin: '→', 'aria-hidden': 'true',
+        stil: { color: 'var(--metin-5)', font: '400 14px/1.3 var(--font)' }
+      }),
+      simdiki
+    );
+  }
+
+  /* Eski değer güncelinden farklıysa döner, değilse null. */
+  function eskiDegerVarsa(depo, kayitId, alanAdi, deger) {
+    var eski = ilkEskiDeger(depo, kayitId, alanAdi);
+    if (eski === null || eski === undefined || eski === '') return null;
+    if (eski === YU.fmt.kg(Number(deger) || 0)) return null;
+    return eski;
+  }
+
+  function miktarVeEskisi(depo, deger, kayitId, alan, yon) {
+    var simdiki = miktarHucresi(deger, false, yon);
+    if (tekGunGorumu()) return simdiki;
     var eski = ilkEskiDeger(depo, kayitId, alan);
     if (eski === null || eski === undefined || eski === '' ||
         eski === YU.fmt.kg(Number(deger) || 0)) return simdiki;
@@ -90,13 +153,28 @@
     );
   }
 
-  function kaydedenHucresi(depo, kullaniciId, damga, ek) {
+  /* Kaydeden hücresinde TARİH de yazar (kullanıcı isteği, 26.08.2026):
+     24.08'in verisi 26.08'de değiştirilebiliyor, yalnız saat yazınca dokunuşun
+     hangi GÜN yapıldığı görünmüyordu. Satır bölünmesin diye nowrap. */
+  /* gunu: panelin günü (ISO). Verilirse ve dokunuş AYNI güne düşüyorsa
+     yalnız SAAT yazılır — tarih zaten panelin başlığında ve raporun kendi
+     gün seçiminde duruyor (kullanıcı isteği, 27.08.2026: "rapora gün seçerek
+     girdiğin için hangi tarih olduğu belli"). Dokunuş BAŞKA bir gündeyse
+     (geriye dönük düzeltme) tarih yazılmaya devam eder — yoksa "12:34" hangi
+     güne ait belli olmazdı. */
+  /* 'girdi' / 'değiştirdi' / 'sildi' EKİ YAZILMIYOR (kullanıcı isteği,
+     27.08.2026: "sadece isim ve saat"). Bilgi kaybolmuyor: satırın ne
+     olduğunu Hareket kolonundaki rozet zaten söylüyor — "Değiştirildi",
+     "Silindi". Kolon yalnız KİMİ ve SAAT KAÇTA'yı taşır. */
+  function kaydedenHucresi(depo, kullaniciId, damga, gunu) {
     var ad = kullaniciAdi(depo, kullaniciId);
-    var saat = damga ? YU.fmt.saat(damga) : null;
-    if (!ad && !saat) return bosHucre();
+    var ayniGun = !!(gunu && damga && String(damga).slice(0, 10) === gunu);
+    var an = damga ? (ayniGun ? YU.fmt.saat(damga) : YU.fmt.tarihSaat(damga)) : null;
+    if (!ad && (!an || an === '—')) return bosHucre();
     return YU.h('span', {
       sinif: 'yu-zayif',
-      metin: (ad || '—') + (saat && saat !== '—' ? ' · ' + saat : '') + (ek ? ' ' + ek : '')
+      stil: { whiteSpace: 'nowrap' },
+      metin: (ad || '—') + (an && an !== '—' ? ' · ' + an : '')
     });
   }
 
@@ -105,18 +183,35 @@
      "Sıfırlandı" görünüyordu). */
   function malzemeHareketRozeti(uretim, satis, iade) {
     var par = [];
-    if (uretim > 0) par.push('Üretim');
-    if (iade > 0) par.push('İade');
-    if (satis > 0) par.push('Satış');
+    if (uretim > 0) par.push({ metin: 'Üretim', renk: 'var(--olumlu)', tur: 'olumlu' });
+    if (iade > 0) par.push({ metin: 'İade', renk: null, tur: 'notr' });
+    /* Tekil satış SARI değil KIRMIZI (kullanıcı isteği, 26.08.2026):
+       "bekleyen" sarısı satışı bekleyen bir iş gibi gösteriyordu. */
+    if (satis > 0) par.push({ metin: 'Satış', renk: 'var(--olumsuz)', tur: 'olumsuz' });
     if (!par.length) return YU.ui.rozet('Sıfırlandı', 'notr');
-    if (par.length > 1) return YU.ui.rozet(par.join(' + '), 'vurgu');
-    return YU.ui.rozet(par[0], uretim > 0 ? 'olumlu' : (iade > 0 ? 'notr' : 'bekleyen'));
+    /* TEK GÜN görünümünde kalemler BİRLEŞTİRİLMEZ (kullanıcı isteği,
+       27.08.2026: "iadeyi başka bir etiketle birleştirme, iade direkt iade
+       olarak kalsın"): her kalem kendi rozetiyle durur. Liste görünümü
+       (Tüm Hareketler) parçalı rozeti korur — orada satır çok, yer dar. */
+    if (par.length > 1 && tekGunGorumu()) {
+      var kap = YU.h('span', {
+        stil: { display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }
+      });
+      for (var r = 0; r < par.length; r++) kap.appendChild(YU.ui.rozet(par[r].metin, par[r].tur));
+      return kap;
+    }
+    if (par.length > 1) return parcaliRozet(par);
+    return YU.ui.rozet(par[0].metin, par[0].tur);
   }
 
   /* Giren hücresi (M25): iade stoğu artırdığı için Giren kolonuna düşer.
      Üretimle birlikteyse üretim üstte, altında küçük "İade X" satırı;
      güncellenmişse iadenin ilk eski değeri çizili okunur. */
-  function iadeSatiri(depo, h, guncellendi) {
+  /* etiketsiz: iade GİREN hücresinde tek başınaysa "İade" ön eki yazılmaz —
+     satırın Hareket kolonunda zaten "İade" rozeti duruyor, rakam iki kez
+     etiketleniyordu (kullanıcı isteği, 27.08.2026). Üretimle ÜST ÜSTE
+     düştüğünde etiket KALIR: iki çıplak sayı hangisi hangisi belli olmaz. */
+  function iadeSatiri(depo, h, guncellendi, etiketsiz) {
     var iade = Number(h.Iade) || 0;
     if (iade <= 0) return null;
     var eski = guncellendi ? ilkEskiDeger(depo, h.Id, 'İade') : null;
@@ -125,9 +220,11 @@
     }, YU.h('span', {
       sinif: 'yu-zayif',
       stil: { font: '400 11px/1.3 var(--sayi)', whiteSpace: 'nowrap' },
-      metin: 'İade ' + YU.fmt.kg(iade)
+      metin: (etiketsiz ? '' : 'İade ') + YU.fmt.kg(iade)
     }));
-    if (eski !== null && eski !== undefined && eski !== '' && eski !== YU.fmt.kg(iade)) {
+    /* Tek gün görünümünde çizili eski değer çizilmez — miktarVeEskisi ile
+       aynı gerekçe (kullanıcı isteği, 27.08.2026). */
+    if (!tekGunGorumu() && eski !== null && eski !== undefined && eski !== '' && eski !== YU.fmt.kg(iade)) {
       kap.title = 'Önceki iade ' + eski + ' — sonradan değiştirildi.';
       kap.appendChild(YU.h('span', {
         metin: eski,
@@ -141,8 +238,8 @@
 
   function girenHucresi(depo, h, guncellendi) {
     var u = Number(h.Uretim) || 0;
-    var iade = iadeSatiri(depo, h, guncellendi);
-    var ust = guncellendi ? miktarVeEskisi(depo, u, h.Id, 'Üretim') : miktarHucresi(u, false);
+    var iade = iadeSatiri(depo, h, guncellendi, u <= 0);
+    var ust = guncellendi ? miktarVeEskisi(depo, u, h.Id, 'Üretim', 'giren') : miktarHucresi(u, false, 'giren');
     if (!iade) return ust;
     if (u <= 0) return iade;
     return YU.h('div', {
@@ -232,17 +329,164 @@
      ekranında rozet DURUYOR: orada sayfa sayfa çok gün listeleniyor ve rozet
      hangi günün ne kadar dolu olduğunu söylüyor (KURAL 5.1 — istenmeyen
      ekrana dokunulmaz). */
+  /* Aynı kaydın silo hareketleri TEK SATIRDA (kullanıcı isteği, 26.08.2026).
+     Eskiden "Silo 1 · Dökme Üretim · +4.043" ile "Silo 1 · Dökme Satış ·
+     −6.498" iki ayrı satırdı; oysa Giren ve Çıkan zaten AYRI KOLON — aynı
+     silonun aynı kaydından gelen iki hareket tek satırda okunur. Rozet dili
+     malzeme satırıyla aynı: "Dökme Üretim + Dökme Satış".
+
+     Gruplama anahtarı KaynakKayitId'dir (Şartname §6: silo hareketi kaynağı
+     olan günlük kayda referansla bağlanır) — tek kaydetme işleminden doğan
+     satırlar birleşir. Kaynağı OLMAYAN hareket (elle Manuel düzeltme)
+     birleşmez, kendi satırında kalır: sayım farkı üretim/satışla aynı satıra
+     karışmamalı. Kaydeden de anahtara girer; başka biri sonradan eklediyse
+     ayrı satır olur ve denetim izi bozulmaz. */
+  /* Birleşik rozette PARÇALAR kendi rengini taşır (kullanıcı isteği,
+     26.08.2026): zemin mavi kalır, içindeki "Üretim" yeşil, "Satış" kırmızı
+     okunur. YU.ui.rozet yalnız düz metin aldığı için kutu burada elle
+     kurulur — sınıf aynı (.yu-rozet.vurgu), yalnız içine renkli parçalar
+     konur. Ayraç '+' rozetin kendi rengini (mavi) korur; .yu-rozet zaten
+     inline-flex + gap olduğu için boşluk elle konmaz. */
+  function parcaliRozet(parcalar) {
+    var kutu = YU.h('span', { sinif: 'yu-rozet vurgu' }), i;
+    for (i = 0; i < parcalar.length; i++) {
+      if (i > 0) kutu.appendChild(YU.h('span', { metin: '+' }));
+      kutu.appendChild(YU.h('span', {
+        stil: parcalar[i].renk ? { color: parcalar[i].renk } : null,
+        metin: parcalar[i].metin
+      }));
+    }
+    return kutu;
+  }
+
+  /* Yön rengi: giren yeşil, satış kırmızı, çuvallama çekişi sarı (satış
+     değil), gerisi rozetin kendi rengi. */
+  function siloTipRengi(tip) {
+    if (tip === 'DokmeUretim') return 'var(--olumlu)';
+    if (tip === 'DokmeSatis') return 'var(--olumsuz)';
+    if (tip === 'Cuvallama') return 'var(--bekleyen)';
+    return null;
+  }
+
+  function siloTipTuru(tip) {
+    if (tip === 'DokmeUretim') return 'olumlu';
+    if (tip === 'DokmeSatis') return 'olumsuz';
+    return 'bekleyen';
+  }
+
+  function siloHareketRozeti(tipler) {
+    var i, parcalar;
+    if (tipler.length > 1) {
+      parcalar = [];
+      for (i = 0; i < tipler.length; i++) {
+        parcalar.push({ metin: TIP_ADI[tipler[i]] || tipler[i], renk: siloTipRengi(tipler[i]) });
+      }
+      return parcaliRozet(parcalar);
+    }
+    return YU.ui.rozet(TIP_ADI[tipler[0]] || tipler[0], siloTipTuru(tipler[0]));
+  }
+
+  function siloSatiri(h) {
+    return {
+      siloId: h.SiloId, tipler: [h.HareketTipi],
+      giren: Number(h.GirenKg) || 0, cikan: Number(h.CikanKg) || 0,
+      kullaniciId: h.OlusturanKullaniciId, an: h.OlusturmaTarihi
+    };
+  }
+
+  function siloSatirlariniTopla(hareketler) {
+    var gruplar = [], dizin = {}, i, j, h, anahtar, grup;
+
+    for (i = 0; i < hareketler.length; i++) {
+      h = hareketler[i];
+      anahtar = (h.KaynakKayitId === null || h.KaynakKayitId === undefined)
+        ? null
+        : h.SiloId + '|' + h.KaynakKayitId + '|' + h.OlusturanKullaniciId;
+      grup = anahtar === null ? null : dizin[anahtar];
+      if (!grup) {
+        grup = { hareketler: [] };
+        gruplar.push(grup);
+        if (anahtar !== null) dizin[anahtar] = grup;
+      }
+      grup.hareketler.push(h);
+    }
+
+    var satirlar = [], girenler, cikanlar, gi, ci, an;
+    for (i = 0; i < gruplar.length; i++) {
+      girenler = []; cikanlar = [];
+      for (j = 0; j < gruplar[i].hareketler.length; j++) {
+        h = gruplar[i].hareketler[j];
+        if ((Number(h.GirenKg) || 0) > 0) girenler.push(h);
+        else cikanlar.push(h);
+      }
+
+      /* AYNI YÖNDE iki hareket varsa BİRLEŞMEZ (ölçüldü 26.08.2026: 15.08'de
+         Silo 1'in Çuvallama −1.320 ile Dökme Satış −1.951 hareketi tek hücrede
+         −3.271 oluyor, iki miktar da okunmaz hâle geliyordu). Şartname §7
+         "tüm silo hareketleri" Demirbaş: hiçbir hareketin miktarı gizlenemez.
+         Birleşme yalnız Giren ve Çıkan AYRI KOLONLARA düştüğünde olur —
+         kullanıcının istediği "Dökme Üretim + Dökme Satış" tam olarak budur. */
+      if (girenler.length > 1 || cikanlar.length > 1) {
+        for (j = 0; j < gruplar[i].hareketler.length; j++) {
+          satirlar.push(siloSatiri(gruplar[i].hareketler[j]));
+        }
+        continue;
+      }
+
+      gi = girenler[0] || null;
+      ci = cikanlar[0] || null;
+      if (!gi || !ci) { satirlar.push(siloSatiri(gi || ci)); continue; }
+
+      /* Damga satır satır atıldığı için saniye kayabilir; en erken an alınır. */
+      an = gi.OlusturmaTarihi;
+      if (ci.OlusturmaTarihi && (!an || ci.OlusturmaTarihi < an)) an = ci.OlusturmaTarihi;
+
+      satirlar.push({
+        siloId: gi.SiloId,
+        tipler: [gi.HareketTipi, ci.HareketTipi],   /* giren önce okunur */
+        giren: Number(gi.GirenKg) || 0,
+        cikan: Number(ci.CikanKg) || 0,
+        kullaniciId: gi.OlusturanKullaniciId,
+        an: an
+      });
+    }
+    return satirlar;
+  }
+
+  /* TEK GÜN görünümünde (Program Hareketleri) satır rakamları büyür ve
+     "eski değer" çizili alt satırı çizilmez (kullanıcı isteği, 27.08.2026:
+     "giren çıkanların sayı değerleri çok minik… -200'ün altındaki yazıyı da
+     kaldır"). Tüm Hareketler ekranı DEĞİŞMEZ: orası denetim listesi, eski
+     değer orada bilerek duruyor (KURAL 5.1). */
+  var tekGunGorunumu = false;
+
   function gunPaneli(depo, tarih, g, sayacGizle) {
     var satirlar = [], i, h, u, s;
+    /* KRONOLOJİK AKIŞ (kullanıcı direktifi, 28.08.2026: "günlük işlemlerin
+       sıralaması eskiden yeniye olsun, en eski saat 1. sırada"). Eskiden
+       bölüm sırası sabitti (silolar → malzemeler → devirler → silinenler)
+       ve 15:03'te silinen bir hareket 16:40'lık malzeme satırının ALTINDA
+       kalabiliyordu. Artık her satır işlem damgasıyla toplanır ve panel
+       basılmadan önce eskiden yeniye dizilir; damgası eş satırlar bölüm
+       sırasını korur (kararlı sıralama). */
+    var zamanli = [];
+    function ekle(an, satir) {
+      zamanli.push({ an: String(an || ''), sira: zamanli.length, satir: satir });
+    }
+    /* Rozet GERÇEK hareket sayısını söyler, satır sayısını değil: silo
+       satırları birleştiği için ikisi artık aynı sayı değil. */
+    var hareketSayisi = g.silo.length + g.malzeme.length +
+      (g.devir || []).length + (g.silinen || []).length;
 
-    for (i = 0; i < g.silo.length; i++) {
-      h = g.silo[i];
-      satirlar.push([
-        YU.h('span', { sinif: 'yu-guclu', metin: siloAdi(depo, h.SiloId) }),
-        YU.ui.rozet(TIP_ADI[h.HareketTipi] || h.HareketTipi, h.HareketTipi === 'DokmeUretim' ? 'olumlu' : 'bekleyen'),
-        miktarHucresi(h.GirenKg, false),
-        miktarHucresi(h.CikanKg, false),
-        kaydedenHucresi(depo, h.OlusturanKullaniciId, h.OlusturmaTarihi, null)
+    var siloGruplari = siloSatirlariniTopla(g.silo);
+    for (i = 0; i < siloGruplari.length; i++) {
+      h = siloGruplari[i];
+      ekle(h.an, [
+        YU.h('span', { sinif: 'yu-guclu', metin: siloAdi(depo, h.siloId) }),
+        siloHareketRozeti(h.tipler),
+        miktarHucresi(h.giren, false, 'giren'),
+        miktarHucresi(h.cikan, false, 'cikan'),
+        kaydedenHucresi(depo, h.kullaniciId, h.an, tarih)
       ]);
     }
 
@@ -252,21 +496,105 @@
       s = Number(h.Satis) || 0;
       var guncellendi = !!h.GuncellemeTarihi;
       var iadeH = Number(h.Iade) || 0;   /* M25 */
-      satirlar.push([
+      var hareketAni = guncellendi ? h.GuncellemeTarihi : h.OlusturmaTarihi;
+      var kaydedenH = guncellendi
+        ? kaydedenHucresi(depo, h.GuncelleyenKullaniciId, h.GuncellemeTarihi, tarih)
+        : kaydedenHucresi(depo, h.OlusturanKullaniciId, h.OlusturmaTarihi, tarih);
+
+      /* DÖKME KURU KÜSPE TEK SATIRDA (kullanıcı isteği, 28.08.2026:
+         "Dökme Kuru Küspe'yi de aynı satıra al, Silo 1 gibi; üretim ve
+         satışı aynı satırda yaz"). Bu malzemenin üretimi de satışı da TEK
+         ekrandan (Kuru Küspe Günlük Giriş) gelir ve silo satırının malzeme
+         karşılığıdır — silo satırı "Dökme Üretim + Dökme Satış" diye tek
+         satırda okunurken bunun iki satıra bölünmesi aynı kaydı iki kez
+         gösteriyordu. 27.08'deki "her kalem kendi satırında" kararı ÖBÜR
+         malzemelerde aynen sürer (KURAL 5.1). İade ayrı satırda kalır:
+         üretimle aynı Giren kolonunu paylaşamaz. */
+      var mlzTanim = null;
+      for (var mt = 0; mt < depo.malzemeler.length; mt++) {
+        if (depo.malzemeler[mt].Id === h.MalzemeId) { mlzTanim = depo.malzemeler[mt]; break; }
+      }
+      if (tekGunGorumu() && mlzTanim && mlzTanim.OzelTip === 'DokmeKuruKuspe' && (u > 0 || s > 0)) {
+        var dkRozet = YU.h('span', { stil: { display: 'inline-flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' } });
+        if (u > 0) dkRozet.appendChild(YU.ui.rozet('Üretim', 'olumlu'));
+        if (s > 0) dkRozet.appendChild(YU.ui.rozet('Satış', 'olumsuz'));
+        if (guncellendi) dkRozet.appendChild(YU.ui.rozet('Değiştirildi', 'bekleyen'));
+        ekle(hareketAni, [
+          YU.h('span', { sinif: 'yu-guclu', metin: malzemeAdi(depo, h.MalzemeId) }),
+          dkRozet,
+          u > 0 ? eskisiyleHucre(depo, h.Id, 'Üretim', u, 'giren', guncellendi) : bosHucre(),
+          s > 0 ? eskisiyleHucre(depo, h.Id, 'Satış', s, 'cikan', guncellendi) : bosHucre(),
+          kaydedenH
+        ]);
+        /* İade varsa kendi satırında — Giren kolonu üretimde dolu. */
+        if (iadeH > 0) {
+          ekle(hareketAni, [
+            YU.h('span', { sinif: 'yu-guclu', metin: malzemeAdi(depo, h.MalzemeId) }),
+            YU.ui.rozet('İade', 'notr'),
+            eskisiyleHucre(depo, h.Id, 'İade', iadeH, 'giren', guncellendi),
+            bosHucre(),
+            kaydedenH.cloneNode(true)
+          ]);
+        }
+        continue;
+      }
+
+      if (tekGunGorumu()) {
+        /* TEK GÜN görünümünde HER KALEM KENDİ SATIRINDA (kullanıcı isteği,
+           27.08.2026: "iade ile sadece Değiştirildi yan yana olmalı,
+           değerleriyle; iade + satış olmamalı"). Bir malzemenin üretimi,
+           iadesi ve satışı tek hücrede üç rozet olarak yığılıyordu; artık
+           satır başına tek kalem, tek rozet ve o kalemin kendi rakamı düşer.
+           "Değiştirildi" rozeti kaydın tamamına aittir, her satırda durur.
+           Tüm Hareketler listesi DEĞİŞMEZ — orada satır çok, yer dar
+           (KURAL 5.1). */
+        var kalemler = [];
+        /* Kalem, RAKAMI VARSA ya da sonradan SIFIRLANMIŞSA satır açar:
+           50 kg satış silinip 0'a çekildiyse satır yine görünür ve eski
+           değer üstü çizili okunur — yoksa değişiklik büsbütün kaybolurdu. */
+        function kalemEkle(ad, tur, alanAdi, deger, yon) {
+          if (!(deger > 0) && !(guncellendi && eskiDegerVarsa(depo, h.Id, alanAdi, deger))) return;
+          kalemler.push({ ad: ad, tur: tur, alan: alanAdi, deger: deger, yon: yon });
+        }
+        kalemEkle('Üretim', 'olumlu', 'Üretim', u, 'giren');
+        kalemEkle('İade', 'notr', 'İade', iadeH, 'giren');
+        kalemEkle('Satış', 'olumsuz', 'Satış', s, 'cikan');
+        if (!kalemler.length) kalemler.push({ ad: 'Sıfırlandı', tur: 'notr', alan: null, deger: 0, yon: null });
+
+        for (var kk = 0; kk < kalemler.length; kk++) {
+          (function (kalem) {
+            var rozetKap = guncellendi
+              ? YU.h('span', { stil: { display: 'inline-flex', alignItems: 'center', gap: '8px', minWidth: '0' } },
+                  YU.ui.rozet(kalem.ad, kalem.tur), YU.ui.rozet('Değiştirildi', 'bekleyen'))
+              : YU.ui.rozet(kalem.ad, kalem.tur);
+            var hucre = kalem.alan
+              ? eskisiyleHucre(depo, h.Id, kalem.alan, kalem.deger, kalem.yon, guncellendi)
+              : bosHucre();
+            ekle(hareketAni, [
+              YU.h('span', { sinif: 'yu-guclu', metin: malzemeAdi(depo, h.MalzemeId) }),
+              rozetKap,
+              kalem.yon === 'giren' ? hucre : bosHucre(),
+              kalem.yon === 'cikan' ? hucre : bosHucre(),
+              kaydedenH.cloneNode(true)
+            ]);
+          })(kalemler[kk]);
+        }
+        continue;
+      }
+
+      ekle(hareketAni, [
         YU.h('span', { sinif: 'yu-guclu', metin: malzemeAdi(depo, h.MalzemeId) }),
         guncellendi
           ? YU.h('span', { stil: { display: 'inline-flex', alignItems: 'center', gap: '8px', minWidth: '0' } },
               malzemeHareketRozeti(u, s, iadeH), YU.ui.rozet('Değiştirildi', 'bekleyen'))
           : malzemeHareketRozeti(u, s, iadeH),
         girenHucresi(depo, h, guncellendi),
-        guncellendi ? miktarVeEskisi(depo, s, h.Id, 'Satış') : miktarHucresi(s, false),
-        guncellendi
-          ? kaydedenHucresi(depo, h.GuncelleyenKullaniciId, h.GuncellemeTarihi, 'değiştirdi')
-          : kaydedenHucresi(depo, h.OlusturanKullaniciId, h.OlusturmaTarihi, null)
+        guncellendi ? miktarVeEskisi(depo, s, h.Id, 'Satış', 'cikan') : miktarHucresi(s, false, 'cikan'),
+        kaydedenH
       ]);
     }
 
-    /* Devir değişiklikleri: gün hareketlerinden sonra, yapılış sırasıyla.
+    /* Devir değişiklikleri: kronolojik akışta yapılış anına otururlar.
        Giren/Çıkan boş kalır — devir bir hareket değil, hesabın TABANIDIR;
        değişimi "eski → yeni" olarak Hareket kolonunda okunur. */
     (g.devir || []).sort(function (a, b) { return String(a.Tarih).localeCompare(String(b.Tarih)); });
@@ -292,31 +620,40 @@
             YU.h('span', { sinif: 'yu-zayif', metin: ' kg' })
           );
         } else {
-          degisim = YU.h('span', { sinif: 'yu-zayif', metin: String(l.YeniDeger || l.EskiDeger || '') });
+          /* AYNI TARİH İKİ KEZ YAZILMASIN (kullanıcı isteği, 27.08.2026):
+             sol kolonda "Kampanya devri · 27.08.2026" zaten duruyor; log
+             değeri de "27.08.2026 · 1.000 kg" diye başlıyordu. Ön ek yalnız
+             SOLDAKİYLE AYNI tarihse atılır — farklı bir tarihse (devir başka
+             bir güne taşınmışsa) yazıda kalır, bilgi kaybolmaz. */
+          var deger = String(l.YeniDeger || l.EskiDeger || '');
+          if (sahip.devirTarihi) {
+            var onEk = YU.fmt.tarih(sahip.devirTarihi) + ' · ';
+            if (deger.indexOf(onEk) === 0) deger = deger.slice(onEk.length);
+          }
+          degisim = YU.h('span', { sinif: 'yu-zayif', metin: deger });
         }
-        satirlar.push([
+        ekle(l.Tarih, [
           adKutu,
           YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' } },
             YU.ui.rozet(rozetAdi, tur), degisim),
           bosHucre(),
           bosHucre(),
-          kaydedenHucresi(depo, l.KullaniciId, l.Tarih,
-            l.Islem === 'Ekle' ? 'girdi' : (l.Islem === 'Sil' ? 'sildi' : 'değiştirdi'))
+          kaydedenHucresi(depo, l.KullaniciId, l.Tarih, tarih)
         ]);
       })(g.devir[i]);
     }
 
-    /* Silinenler günün sonunda, silinme sırasıyla. */
+    /* Silinenler de kronolojik akışta silinme anına otururlar. */
     g.silinen.sort(function (a, b) { return String(a.SilmeTarihi).localeCompare(String(b.SilmeTarihi)); });
     for (i = 0; i < g.silinen.length; i++) {
       var sk = g.silinen[i], k = sk.Kayit;
       if (sk.Tablo === 'SiloHareket') {
-        satirlar.push([
+        ekle(sk.SilmeTarihi, [
           cizili(siloAdi(depo, k.SiloId)),
           hareketVeSilindi(cizili(TIP_ADI[k.HareketTipi] || k.HareketTipi)),
           miktarHucresi(k.GirenKg, true),
           miktarHucresi(k.CikanKg, true),
-          kaydedenHucresi(depo, sk.KullaniciId, sk.SilmeTarihi, 'sildi')
+          kaydedenHucresi(depo, sk.KullaniciId, sk.SilmeTarihi, tarih)
         ]);
       } else {
         u = Number(k.Uretim) || 0;
@@ -326,7 +663,7 @@
         if (u > 0) parS.push('Üretim');
         if (iadeS > 0) parS.push('İade');
         if (s > 0) parS.push('Satış');
-        satirlar.push([
+        ekle(sk.SilmeTarihi, [
           cizili(malzemeAdi(depo, k.MalzemeId)),
           hareketVeSilindi(cizili(parS.length ? parS.join(' + ') : 'Sıfırlandı')),
           iadeS > 0 && u <= 0
@@ -336,29 +673,55 @@
                     miktarHucresi(u, true), cizili('İade ' + YU.fmt.kg(iadeS)))
                 : miktarHucresi(u, true)),
           miktarHucresi(s, true),
-          kaydedenHucresi(depo, sk.KullaniciId, sk.SilmeTarihi, 'sildi')
+          kaydedenHucresi(depo, sk.KullaniciId, sk.SilmeTarihi, tarih)
         ]);
       }
     }
 
-    return YU.ui.panel({
+    /* Eskiden yeniye: damga eşitse toplanma (bölüm) sırası korunur. */
+    zamanli.sort(function (a, b) {
+      if (a.an !== b.an) return a.an < b.an ? -1 : 1;
+      return a.sira - b.sira;
+    });
+    for (i = 0; i < zamanli.length; i++) satirlar.push(zamanli[i].satir);
+
+    var panel = YU.ui.panel({
       baslik: YU.fmt.tarih(tarih) + ' · ' + YU.fmt.gunAdi(tarih),
       ikon: '#ic-calendar',
-      sag: sayacGizle ? null : YU.ui.rozet(YU.fmt.sayi(satirlar.length) + ' hareket', 'notr'),
+      sag: sayacGizle ? null : YU.ui.rozet(YU.fmt.sayi(hareketSayisi) + ' hareket', 'notr'),
       dolgusuz: true,
       govde: YU.ui.tablo({
+        /* Giren/Çıkan SOLA çekildi ve araları açıldı (kullanıcı isteği,
+           27.08.2026). Ölçü şu kurguyla değişti: ilk üç kolon sabitlendi,
+           artan yeri EN SAĞDAKİ Kaydeden emiyor — böylece sayı çifti sağ
+           kenardan uzaklaşıp ortaya doğru geliyor. Çıkan kolonu Giren'den
+           geniş: iki rakam arasındaki boşluk oradan doğuyor. Aralarındaki
+           ince çizgi 'yu-kolon-ayrac' ile gelir (tema.css). */
         sutunlar: [
-          { baslik: 'Silo / Malzeme' },
-          { baslik: 'Hareket' },
-          { baslik: 'Giren', hiza: 'sag', mono: true, genislik: 120 },
-          { baslik: 'Çıkan', hiza: 'sag', mono: true, genislik: 120 },
-          { baslik: 'Kaydeden', hiza: 'sag', genislik: 250 }
+          /* 260/240 -> 320/300: Giren/Çıkan bir kademe SAĞA alındı
+             (kullanıcı isteği, 27.08.2026). Sayı çifti kolonların genişliği
+             kadar kayar; Kaydeden yine artan yeri emer. */
+          { baslik: 'Silo / Malzeme', genislik: 380 },
+          { baslik: 'Hareket', genislik: 360 },
+          { baslik: 'Giren', hiza: 'sag', mono: true, genislik: 140 },
+          { baslik: 'Çıkan', hiza: 'sag', mono: true, genislik: 170, sinif: 'yu-kolon-ayrac' },
+          { baslik: 'Kaydeden', hiza: 'sag' }
         ],
         satirlar: satirlar,
         kompakt: true,
+        /* Satır ve kolon çizgileri bir ton sert (27.08.2026) — bkz. tema.css. */
+        sinif: 'yu-tablo-sert-ayrac',
         bos: 'Bu güne ait hareket yok.'
       })
     });
+
+    /* Kolon ölçüleri ancak tablo sıkışmazsa tutar: dar pencerede tarayıcı
+       sabit genişlikleri de kısıyor ve Çıkan, Giren'den dar kalıyordu
+       (ölçüldü: 981px kapta 127px'e indi). Alt sınır konur, kap gerekirse
+       yatay kaydırır — .yu-tablo-sar zaten overflow-x: auto. */
+    var tabloEl = panel.querySelector('table');
+    if (tabloEl) tabloEl.style.minWidth = '1350px';   /* 380+360+140+170+300 */
+    return panel;
   }
 
   /* Program Hareketleri bu paneli TEK GÜN için kullanır (kullanıcı isteği,
@@ -385,7 +748,27 @@
     for (i = 0; i < dl2.length; i++) {
       if (logGunuIso(dl2[i]) === tarih) g.devir.push(dl2[i]);
     }
-    return gunPaneli(depo, tarih, g, true);   /* tek gün: sayaç rozeti yok */
+    tekGunGorunumu = true;
+    try {
+      return gunPaneli(depo, tarih, g, true);   /* tek gün: sayaç rozeti yok */
+    } finally {
+      tekGunGorunumu = false;
+    }
+  };
+
+  /* Program Hareketleri "bu gün boş mu" kararını bu panelin kuralıyla verir.
+     Devir satırları DEĞİŞİKLİĞİN YAPILDIĞI güne düşer, devir tarihine değil
+     (yukarıdaki logGunuIso). Kural iki ekrana kopyalanırsa zamanla ayrışır;
+     tek yerde durup buradan dışa veriliyor (kullanıcı bildirimi, 27.08.2026:
+     "devir girdim ama Program Hareketleri'nde gözükmüyor"). */
+  YU.gunDevirLoglari = function (depo, tarih) {
+    var dl = devirLoglari(depo), liste = [], i;
+    for (i = 0; i < dl.length; i++) if (logGunuIso(dl[i]) === tarih) liste.push(dl[i]);
+    return liste;
+  };
+
+  YU.gunDevirLogSayisi = function (depo, tarih) {
+    return YU.gunDevirLoglari(depo, tarih).length;
   };
 
   /* ------------------------------------------------------------------

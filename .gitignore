@@ -1,3 +1,26 @@
+# ---------------------------------------------------------------------------
+# MustafaFil — depoya girmeyecekler
+# Ölçü: KAYNAK depoya girer; üretilen, indirilen ve makineye ait olan girmez.
+# ---------------------------------------------------------------------------
+
+# .NET yapı çıktısı — "dotnet build" her seferinde yeniden üretir.
+# wwwroot kopyası da bunun içinde (sunucu/bin/Debug/net8.0/wwwroot).
+bin/
+obj/
+*.user
+
+# UYGULAMA VERİSİ — makineye aittir, paylaşılmaz.
+# gunluk-veriler: günlük JSON yedekleri (fabrikanın gerçek rakamları).
+# veri/ + *.db: SQLite veritabanı ve yan dosyaları.
+# mail-hesaplari.json: DPAPI ile şifreli SMTP parolası — asla depoya girmez.
+gunluk-veriler/
+veri/
+yedek/
+mail-hesaplari.json
+*.db
+*.db-shm
+*.db-wal
+
 # Windows
 Thumbs.db
 desktop.ini
@@ -6,7 +29,7 @@ $RECYCLE.BIN/
 # macOS
 .DS_Store
 
-# Editor / IDE
+# Editör / IDE
 .vscode/
 .idea/
 *.swp
@@ -15,7 +38,10 @@ $RECYCLE.BIN/
 node_modules/
 npm-debug.log*
 
-# Claude Code yerel ayarlar
+# Araç meta verisi (Serena) — proje dosyası değil, yerel indeks.
+.serena/
+
+# Claude Code yerel ayarlar (makineye özel izinler)
 .claude/settings.local.json
 
 # Geçici dosyalar

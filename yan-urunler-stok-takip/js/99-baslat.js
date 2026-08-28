@@ -107,6 +107,10 @@
 
       YU.db = YU.Depo({ kaynak: 'local', tohumla: true });
 
+      /* Günlük yedek klasörü (GUNLUK-YEDEK-PLANI, 27.08.2026): saklı klasör
+         tutamacı varsa sessizce bağlanır ve kaçan günleri tamamlar. */
+      if (YU.yedekci) YU.yedekci.baslat();
+
       /* index.html yalnızca açık/koyu seçimini uygular; 'sistem' modunda da
          düğme etiketinin doğru başlaması için tema burada tazelenir. */
       YU.tema.ayarla(YU.tema.al());
@@ -117,11 +121,20 @@
         console.log('Yan Ürünler Stok Takip · prototip');
         console.log('Depo:', depoOzeti(YU.db));
         console.log('Oturum:', kullanici ? (kullanici.AdSoyad + ' · ' + kullanici.Rol) : 'yok (giriş perdesi)');
+        /* Saat kaynağı, eşitleme bitince yazılır (YU.zaman · 26.08.2026):
+           "internet" mi "bilgisayar" mı, kayma kaç saniye — tek satırda. */
+        YU.zaman.esitle().then(function () {
+          var z = YU.zaman.durum();
+          console.log('Saat:', YU.zaman.damga() + ' İstanbul · kaynak: ' +
+            (z.kaynak === 'internet' ? 'internet (' + z.sunucu + ')' : 'bilgisayar saati — internete ulaşılamadı') +
+            ' · makine sapması: ' + (z.kayma / 1000).toFixed(1) + ' sn');
+        });
       }
 
-      if (!kullanici) { YU.girisGoster(); return; }
-
-      if (!location.hash) YU.git('anasayfa');
+      /* Oturum yoksa giriş EKRANINI doğrudan çizmek yerine giriş ADRESİNE
+         gidilir (26.08.2026): adres ile ekran birbirini tutsun. Yönlendirmeyi
+         ve gidilmek istenen sayfayı hatırlamayı 10-kabuk · ciz() yapar. */
+      if (!location.hash) YU.git(kullanici ? 'anasayfa' : 'giris');
       else YU.yenile();
     } catch (e) {
       hataKutusu('Uygulama başlatılamadı', e);

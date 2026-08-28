@@ -167,12 +167,473 @@
     return s === "—" ? t : t + " " + s;
   };
 
+  /* ---------------------------------------------------------------
+     Zaman — İstanbul saati, kaynağı internet (kullanıcı isteği, 26.08.2026)
+
+     Uygulamanın "şimdi"si bilgisayarın saatinden değil, İNTERNETTEN alınan
+     zamandan türer: yanlış kurulmuş bir makine saati kayıt damgalarını,
+     rapor tarihlerini ve gün dönümünü kaydırmasın.
+
+       kayma  — güvenilen UTC ile Date.now() arasındaki fark (ms)
+       kaynak — 'internet' (eşitleme tuttu) · 'bilgisayar' (tutmadı)
+
+     Gün ve saat HER ZAMAN Europe/Istanbul'a çevrilerek okunur; makinenin saat
+     dilimi ne olursa olsun fabrikanın günü değişmez.
+
+     Erişim yoksa (Şartname §9 karar kaydı: "uygulama fabrika ağında çalışıyor
+     ve internete açık değil") kayma 0 kalır ve an makineden okunur — yalnız
+     kaynağı değişir, uygulama çalışmayı sürdürür. Hiçbir ekran eşitlemeyi
+     BEKLEMEZ; eşitleme arka planda döner, tutunca gün değiştiyse dinleyiciler
+     uyanır.
+
+     Kaynaklar 26.08.2026'da tarayıcıdan denendi: timeapi.io (108–360 ms) ve
+     Cloudflare cdn-cgi/trace (229 ms) CORS'a açık ve yanıt veriyor;
+     worldtimeapi.org ile worldclockapi.com yanıt vermedi, listeye alınmadı.
+     --------------------------------------------------------------- */
+
+  var ZAMAN_KAYNAKLARI = [
+    {
+      ad: "timeapi.io",
+      url: "https://timeapi.io/api/Time/current/zone?timeZone=UTC",
+      oku: function (metin) {
+        var j = JSON.parse(metin);
+        return Date.UTC(j.year, j.month - 1, j.day, j.hour, j.minute, j.seconds, j.milliSeconds || 0);
+      }
+    },
+    {
+      ad: "cloudflare",
+      url: "https://www.cloudflare.com/cdn-cgi/trace",
+      oku: function (metin) {
+        var m = /(?:^|\n)ts=([0-9.]+)/.exec(metin);
+        return m ? Math.round(parseFloat(m[1]) * 1000) : NaN;
+      }
+    }
+  ];
+
+  var ZAMAN_ARALIK = 30 * 60 * 1000;   /* düzenli tazeleme */
+  var ZAMAN_ZAMANASIMI = 5000;         /* tek istek için üst sınır */
+  var ZAMAN_GUN_YOKLAMA = 20000;       /* gün dönümü yoklama sıklığı */
+
+  var zKayma = 0;
+  var zKaynak = "bilgisayar";
+  var zSunucu = null;
+  var zSonEsitleme = null;             /* ms — Date.now() ölçeğinde */
+  var zIstek = null;                   /* süren eşitleme sözü */
+  var zDinleyiciler = [];
+  var zSonGun = null;
+  var zBicimci;                        /* undefined: denenmedi · false: yok */
+
+  /* Europe/Istanbul çevrimi Intl'in saat dilimi tablosundan okunur. Sayı
+     biçimlendirmede Intl'e güvenilmiyor (tr-TR yereli olmayabilir) ama saat
+     dilimi tablosu yerelden bağımsızdır. Bulunmazsa yedek yol var: Türkiye
+     8 Eylül 2016'dan beri kalıcı UTC+03, yaz saati uygulamıyor. */
+  function zamanBicimci() {
+    if (zBicimci !== undefined) return zBicimci;
+    zBicimci = false;
+    try {
+      if (typeof Intl !== "undefined" && Intl.DateTimeFormat) {
+        var f = new Intl.DateTimeFormat("en-GB", {
+          timeZone: "Europe/Istanbul", hour12: false,
+          year: "numeric", month: "2-digit", day: "2-digit",
+          hour: "2-digit", minute: "2-digit", second: "2-digit"
+        });
+        if (typeof f.formatToParts === "function") zBicimci = f;
+      }
+    } catch (e) { zBicimci = false; }
+    return zBicimci;
+  }
+
+  function istanbulParcalari(ms) {
+    var f = zamanBicimci(), p, o, i, s;
+    if (f) {
+      try {
+        p = f.formatToParts(new Date(ms));
+        o = {};
+        for (i = 0; i < p.length; i++) if (p[i].type !== "literal") o[p[i].type] = p[i].value;
+        s = Number(o.hour);
+        if (s === 24) s = 0;           /* bazı sürümler gece yarısını 24 yazar */
+        return {
+          y: Number(o.year), a: Number(o.month), g: Number(o.day),
+          s: s, dk: Number(o.minute), sn: Number(o.second)
+        };
+      } catch (e) { zBicimci = false; }
+    }
+    var d = new Date(ms + 3 * 3600000);
+    return {
+      y: d.getUTCFullYear(), a: d.getUTCMonth() + 1, g: d.getUTCDate(),
+      s: d.getUTCHours(), dk: d.getUTCMinutes(), sn: d.getUTCSeconds()
+    };
+  }
+
+  function zamanMs(ms) { return ms === undefined || ms === null ? Date.now() + zKayma : ms; }
+
+  /* Tek kaynağı dener; gidiş-dönüş süresinin yarısı düşülerek kayma bulunur
+     (sunucunun yazdığı an, isteğin ortasına denk gelir). */
+  function zamanKaynaginiOku(kaynak) {
+    return new Promise(function (coz, red) {
+      if (typeof fetch !== "function") { red(new Error("fetch yok")); return; }
+      var kes = null, saat = null;
+      try { kes = new AbortController(); } catch (e) { kes = null; }
+      if (kes) saat = setTimeout(function () { try { kes.abort(); } catch (e2) { /* yoksay */ } }, ZAMAN_ZAMANASIMI);
+      var t0 = Date.now();
+      fetch(kaynak.url, { cache: "no-store", signal: kes ? kes.signal : undefined })
+        .then(function (yanit) {
+          if (!yanit.ok) throw new Error("HTTP " + yanit.status);
+          return yanit.text();
+        })
+        .then(function (metin) {
+          if (saat) clearTimeout(saat);
+          var sunucuMs = kaynak.oku(metin);
+          if (!isFinite(sunucuMs)) throw new Error("zaman okunamadı");
+          var t1 = Date.now();
+          coz({ ad: kaynak.ad, kayma: sunucuMs - (t0 + t1) / 2 });
+        })
+        .catch(function (e) { if (saat) clearTimeout(saat); red(e); });
+    });
+  }
+
+  function zamanEsitle() {
+    if (zIstek) return zIstek;
+    var i = 0;
+    function dene() {
+      if (i >= ZAMAN_KAYNAKLARI.length) return Promise.resolve(false);
+      return zamanKaynaginiOku(ZAMAN_KAYNAKLARI[i++]).then(function (s) {
+        zKayma = Math.round(s.kayma);
+        zKaynak = "internet";
+        zSunucu = s.ad;
+        zSonEsitleme = Date.now();
+        return true;
+      }, function () { return dene(); });
+    }
+    zIstek = dene().then(function (tuttu) {
+      zIstek = null;
+      zamanGunKontrol();
+      return tuttu;
+    }, function () { zIstek = null; return false; });
+    return zIstek;
+  }
+
+  function zamanGunKontrol() {
+    var g = YU.zaman.isoGun(), eski = zSonGun, i;
+    if (eski === null) { zSonGun = g; return; }
+    if (g === eski) return;
+    zSonGun = g;
+    for (i = 0; i < zDinleyiciler.length; i++) {
+      try { zDinleyiciler[i](g, eski); }
+      catch (e) { if (window.console) console.error("[zaman] gün dinleyicisi", e); }
+    }
+  }
+
+  YU.zaman = {
+    /* Güvenilen "şimdi" — Date.now() ile aynı ölçekte ms. */
+    ms: function () { return Date.now() + zKayma; },
+
+    /* İstanbul saat parçaları: { y, a, g, s, dk, sn }. */
+    parcalar: function (ms) { return istanbulParcalari(zamanMs(ms)); },
+
+    /* 'YYYY-MM-DD' — İstanbul günü. */
+    isoGun: function (ms) {
+      var p = istanbulParcalari(zamanMs(ms));
+      return isoYaz(p.y, p.a, p.g);
+    },
+
+    /* 'YYYY-MM-DDTHH:MM:SS' — denetim damgası. Sonda 'Z' YOK: new Date(metin)
+       bunu yerel saat olarak okusun, saat kaymasın. */
+    damga: function (ms) {
+      var p = istanbulParcalari(zamanMs(ms));
+      return isoYaz(p.y, p.a, p.g) + "T" + iki(p.s) + ":" + iki(p.dk) + ":" + iki(p.sn);
+    },
+
+    /* 'YYYY-MM-DD HH:MM:SS' — kullanıcı yönetimi damgası. */
+    damgaBosluklu: function (ms) { return YU.zaman.damga(ms).replace("T", " "); },
+
+    /* 'HH:MM:SS' */
+    saat: function (ms) {
+      var p = istanbulParcalari(zamanMs(ms));
+      return iki(p.s) + ":" + iki(p.dk) + ":" + iki(p.sn);
+    },
+
+    esitle: zamanEsitle,
+
+    /* "Saat nereden geliyor" sorusunun tek yanıt yeri. */
+    durum: function () {
+      return {
+        kaynak: zKaynak,
+        sunucu: zSunucu,
+        kayma: zKayma,
+        sonEsitleme: zSonEsitleme === null ? null : YU.zaman.damga(zSonEsitleme + zKayma)
+      };
+    },
+
+    /* Gece yarısı (İstanbul) geçilince çağrılır: fn(yeniGun, eskiGun). */
+    gunDegisince: function (fn) { if (typeof fn === "function") zDinleyiciler.push(fn); }
+  };
+
+  /* ---------------------------------------------------------------
+     E-posta — giriş kimliği (kullanıcı kararı, 26.08.2026)
+
+     Giriş adı artık ROL değil KİŞİ gösterir ve e-posta adresidir. Veri modeli
+     DEĞİŞMEDİ: alan hâlâ Kullanicilar.KullaniciAdi, tekillik kısıtı ve D11
+     aynen duruyor (Şartname §6: "Alan adlarını değiştirebilirsin ama
+     ilişkileri ve tekillik kısıtlarını koru"). Değişen, alanın İÇERİĞİ ve
+     ekrandaki etiketi.
+
+     Alan adı 'fabrika.com': projede zaten örnek adres olarak geçiyordu
+     (35-mail-gonder.js "ad@fabrika.com"). GERÇEK alan adı bilinmiyor —
+     tohum ve dönüştürme bu yer tutucuyu kullanır, kullanıcı kendi adresini
+     Kullanıcı Yönetimi'nden yazar.
+     --------------------------------------------------------------- */
+
+  var EPOSTA_KALIP = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  var EPOSTA_ALAN = "fabrika.com";
+
+  var TR_HARF = { "ç": "c", "ğ": "g", "ı": "i", "İ": "i", "ö": "o", "ş": "s", "ü": "u",
+                  "Ç": "c", "Ğ": "g", "I": "i", "Ö": "o", "Ş": "s", "Ü": "u" };
+
+  function sadeHarf(metin) {
+    var s = String(metin === null || metin === undefined ? "" : metin), c = "", i, h;
+    for (i = 0; i < s.length; i++) {
+      h = s.charAt(i);
+      c += Object.prototype.hasOwnProperty.call(TR_HARF, h) ? TR_HARF[h] : h;
+    }
+    /* toLowerCase (toLocaleLowerCase DEĞİL): adres ASCII'dir, Türkçe kuralı
+       "I" harfini noktasız "ı" yapıp adresi bozardı. */
+    return c.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  }
+
+  YU.ePosta = {
+    alanAdi: EPOSTA_ALAN,
+
+    gecerliMi: function (adres) {
+      return EPOSTA_KALIP.test(String(adres === null || adres === undefined ? "" : adres).trim());
+    },
+
+    /* Saklama biçimi: boşluksuz ve küçük harf — "Ahmet@..." ile "ahmet@..."
+       iki ayrı hesap sayılmasın. */
+    duzelt: function (adres) {
+      return String(adres === null || adres === undefined ? "" : adres).trim().toLowerCase();
+    },
+
+    /* "Cenk Sefer ÇOĞALMIŞ" -> "cenk.cogalmis@fabrika.com".
+       İlk ve SON kelime alınır; ortadaki adlar adresi uzatmasın. */
+    adres: function (adSoyad, alan) {
+      var parcalar = String(adSoyad === null || adSoyad === undefined ? "" : adSoyad).trim().split(/\s+/);
+      var temiz = [], i, p;
+      for (i = 0; i < parcalar.length; i++) {
+        p = sadeHarf(parcalar[i]);
+        if (p) temiz.push(p);
+      }
+      if (!temiz.length) return "";
+      var yerel = temiz.length === 1 ? temiz[0] : temiz[0] + "." + temiz[temiz.length - 1];
+      return yerel + "@" + (alan || EPOSTA_ALAN);
+    }
+  };
+
+  /* Eski veride giriş adı e-posta değil ("yonetici", "operator"): AD SOYAD'dan
+     adres türetilir. Şema sürümü BİLEREK artırılmadı — sürüm artınca yerel veri
+     atılıp tohum yeniden kuruluyor (bkz. oku() "surum" kusuru) ve kullanıcının
+     kampanya verisi silinirdi. Alan, tekillik kısıtı ve D11 aynı; değişen
+     yalnız içerik. Aynı ada iki kişi düşerse ikincisine sayı eklenir. */
+  function ePostaOnarimi(depo) {
+    var liste = (depo && depo.kullanicilar) || [];
+    var degisti = false, kullanilan = {}, i, k, temel, yerel, alan, aday, sayac;
+
+    for (i = 0; i < liste.length; i++) {
+      if (YU.ePosta.gecerliMi(liste[i].KullaniciAdi)) {
+        kullanilan[YU.ePosta.duzelt(liste[i].KullaniciAdi)] = 1;
+      }
+    }
+
+    for (i = 0; i < liste.length; i++) {
+      k = liste[i];
+      if (YU.ePosta.gecerliMi(k.KullaniciAdi)) continue;
+      temel = YU.ePosta.adres(k.AdSoyad) || ("kullanici" + k.Id + "@" + YU.ePosta.alanAdi);
+      yerel = temel.split("@")[0];
+      alan = temel.split("@")[1];
+      aday = temel;
+      sayac = 2;
+      while (kullanilan[aday]) { aday = yerel + sayac + "@" + alan; sayac++; }
+      kullanilan[aday] = 1;
+      k.KullaniciAdi = aday;
+      degisti = true;
+    }
+    return degisti;
+  }
+
+  /* ---------------------------------------------------------------
+     Parola — kurma ve doğrulama (kullanıcı isteği, 26.08.2026)
+
+     Şartname §3 (Demirbaş): "Uygulamaya giriş kullanıcı adı ve parola ile
+     yapılır. Parolalar veritabanında düz metin tutulmaz, hash'lenir (BCrypt
+     gibi bir algoritma kullan)."  §10: "Varsayılan parola ilk girişte
+     değiştirilmeli."  Bu modül ikisinin tarayıcı karşılığıdır.
+
+     ALGORİTMA · PBKDF2-HMAC-SHA256, 600.000 tur, 16 baytlık rastgele tuz,
+     32 baytlık çıktı. 600.000 sayısı OWASP Password Storage Cheat Sheet'ten
+     alındı ve 26.08.2026'da okundu; aynı gün bu tarayıcıda ölçüldü: 89 ms —
+     girişte hissedilmez, deneme-yanılmada pahalıdır. BCrypt tarayıcıda yok;
+     sunucuya geçilirken ParolaHash yeniden üretilir (kullanıcı parolasını
+     bir kez daha kurar), alanın tipi değişmez.
+
+     SAKLANAN BİÇİM tek satır metindir, sekiz tablo şeması değişmez:
+        pbkdf2$sha256$<tur>$<tuz-b64>$<hash-b64>
+
+     KURAL DENETİMİ · OWASP Authentication Cheat Sheet (26.08.2026): bileşim
+     zorunluluğu (büyük harf + rakam + simge) YOKTUR — kullanıcıyı tahmin
+     edilebilir kalıplara iter. Uzunluk ve bilinen-kötü listesi vardır.
+
+     crypto.subtle yalnız GÜVENLİ BAĞLAMDA bulunur (https ya da localhost);
+     uygulama file:// ile açılırsa yoktur. O durumda parola KURULMAZ ve bu
+     açıkça söylenir — zayıf bir yedek hash uydurmak, güvenlik yokken var
+     sanmaktan kötüdür.
+     --------------------------------------------------------------- */
+
+  var PAROLA_ONEK = "pbkdf2$sha256$";
+  var PAROLA_TUR = 600000;
+  var PAROLA_TUZ_BAYT = 16;
+  var PAROLA_BIT = 256;
+  /* TEK ÖLÇÜT UZUNLUK (kullanıcı kararı, 26.08.2026: "en az 6 olsun, zayıflık
+     falan bir kriter olmasın"). Önceki sürümde 12 karakter, yaygın-parola
+     kara listesi ve "parola e-postanla aynı olamaz" denetimi vardı; üçü de
+     kaldırıldı. Şartname §3 yalnız "hash'lenir" der, uzunluk ya da güç kuralı
+     koymaz — bu yüzden Demirbaş bir maddeyle çelişmez. Hash'leme aynen duruyor
+     (PBKDF2-SHA256); düz metin hiçbir yere yazılmaz. */
+  var PAROLA_ENAZ = 6;
+  var PAROLA_ENCOK = 128;
+
+  function parolaAltYapi() {
+    return !!(window.crypto && window.crypto.subtle &&
+              typeof window.TextEncoder === "function" &&
+              typeof window.btoa === "function" &&
+              typeof window.Promise === "function");
+  }
+
+  function b64Yaz(bayt) {
+    var s = "", i;
+    for (i = 0; i < bayt.length; i++) s += String.fromCharCode(bayt[i]);
+    return btoa(s);
+  }
+
+  function b64Oku(metin) {
+    var s = atob(String(metin)), b = new Uint8Array(s.length), i;
+    for (i = 0; i < s.length; i++) b[i] = s.charCodeAt(i);
+    return b;
+  }
+
+  function parolaTuret(metin, tuz, tur) {
+    var ham = new TextEncoder().encode(String(metin));
+    return crypto.subtle.importKey("raw", ham, "PBKDF2", false, ["deriveBits"])
+      .then(function (anahtar) {
+        return crypto.subtle.deriveBits(
+          { name: "PBKDF2", salt: tuz, iterations: tur, hash: "SHA-256" },
+          anahtar, PAROLA_BIT);
+      })
+      .then(function (bit) { return new Uint8Array(bit); });
+  }
+
+  /* Sabit süreli karşılaştırma: erken çıkış, doğru baytların sayısını
+     zamanlamayla sızdırır. */
+  function baytEsit(a, b) {
+    if (!a || !b || a.length !== b.length) return false;
+    var fark = 0, i;
+    for (i = 0; i < a.length; i++) fark |= a[i] ^ b[i];
+    return fark === 0;
+  }
+
+  YU.parola = {
+    /* Bu tarayıcıda/bağlamda parola kurulabilir mi? */
+    kurulabilirMi: parolaAltYapi,
+
+    enAz: PAROLA_ENAZ,
+    enCok: PAROLA_ENCOK,
+
+    /* Metin gerçek bir hash mi — prototip notu ya da boş değer değil mi? */
+    gecerliHashMi: function (metin) {
+      return typeof metin === "string" && metin.indexOf(PAROLA_ONEK) === 0 &&
+             metin.split("$").length === 5;
+    },
+
+    /* Kullanıcının kurulmuş bir parolası var mı? Eski prototip notları
+       ("(prototip — …") ve boş değer "yok" demektir. */
+    varMi: function (kullanici) {
+      return YU.parola.gecerliHashMi(kullanici && kullanici.ParolaHash);
+    },
+
+    /* Kural denetimi. Dönen: { ok, hata, tekrarHata }.
+       hata -> birinci alanın altına, tekrarHata -> ikinci alanın altına.
+       kullaniciAdi parametresi çağrılarda duruyor ama artık kullanılmıyor. */
+    denetle: function (metin, tekrar) {
+      var p = metin === undefined || metin === null ? "" : String(metin);
+      var t = tekrar === undefined || tekrar === null ? "" : String(tekrar);
+      var hata = null, tekrarHata = null;
+
+      if (p === "") {
+        hata = "Parola boş olamaz.";
+      } else if (p.length < PAROLA_ENAZ) {
+        hata = "Parola en az " + PAROLA_ENAZ + " karakter olmalı.";
+      } else if (p.length > PAROLA_ENCOK) {
+        hata = "Parola en çok " + PAROLA_ENCOK + " karakter olabilir.";
+      }
+
+      if (!hata) {
+        if (t === "") tekrarHata = "Parolayı bir kez daha yazın.";
+        else if (t !== p) tekrarHata = "İki parola aynı değil.";
+      }
+
+      return { ok: !hata && !tekrarHata, hata: hata, tekrarHata: tekrarHata };
+    },
+
+    /* Parolayı hash'ler. Söz, saklanacak tek satır metinle çözülür. */
+    olustur: function (metin) {
+      if (!parolaAltYapi()) {
+        return Promise.reject(new Error("Bu tarayıcıda parola kurulamıyor (güvenli bağlam yok)."));
+      }
+      var tuz = crypto.getRandomValues(new Uint8Array(PAROLA_TUZ_BAYT));
+      return parolaTuret(metin, tuz, PAROLA_TUR).then(function (hash) {
+        return PAROLA_ONEK + PAROLA_TUR + "$" + b64Yaz(tuz) + "$" + b64Yaz(hash);
+      });
+    },
+
+    /* Girilen parola saklanan hash'e uyuyor mu? Tur sayısı SAKLANAN değerden
+       okunur: ileride tur artırılsa bile eski parolalar doğrulanmaya devam
+       eder. */
+    dogrula: function (metin, saklanan) {
+      if (!parolaAltYapi() || !YU.parola.gecerliHashMi(saklanan)) return Promise.resolve(false);
+      var p = String(saklanan).split("$");
+      var tur = Number(p[2]);
+      if (!isFinite(tur) || tur < 1) return Promise.resolve(false);
+      var tuz, beklenen;
+      try { tuz = b64Oku(p[3]); beklenen = b64Oku(p[4]); }
+      catch (e) { return Promise.resolve(false); }
+      return parolaTuret(metin, tuz, tur)
+        .then(function (hash) { return baytEsit(hash, beklenen); })
+        .catch(function () { return false; });
+    }
+  };
+
   YU.tarih = {};
 
-  YU.tarih.bugun = function () {
-    var d = new Date(); // gerçek sistem tarihi, yerel gün
-    return isoYaz(d.getFullYear(), d.getMonth() + 1, d.getDate());
-  };
+  YU.tarih.bugun = function () { return YU.zaman.isoGun(); };
+
+  zSonGun = YU.zaman.isoGun();
+
+  /* Eşitleme arka planda: açılışta bir kez, sonra düzenli; ağ geri gelince ve
+     sekme öne çıkınca da denenir. Gün dönümü YOKLAMAYLA bulunur — tek bir
+     "gece yarısına kadar bekle" zamanlayıcısı, makine uykuya dalıp uyandığında
+     kayar; 20 saniyelik yoklama kaymaz. */
+  if (typeof setTimeout === "function") {
+    setTimeout(zamanEsitle, 0);
+    setInterval(zamanEsitle, ZAMAN_ARALIK);
+    setInterval(zamanGunKontrol, ZAMAN_GUN_YOKLAMA);
+  }
+  if (window.addEventListener) {
+    window.addEventListener("online", function () { zamanEsitle(); });
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) return;
+      zamanGunKontrol();
+      if (zSonEsitleme === null || Date.now() - zSonEsitleme > 5 * 60 * 1000) zamanEsitle();
+    });
+  }
 
   YU.tarih.ekle = function (iso, gun) {
     var p = tarihAl(iso);
@@ -326,7 +787,13 @@
   //   DegisiklikLog/arşiv yanlış kayda bağlanmaz (DUZELTME-PLANI M1). Tohum
   //   satış rampası sabit ufka bağlandı (M8); iki değişiklik de tohum
   //   çıktısını değiştirdiği için sürüm yükseltildi.
-  var SEMA_SURUM = 10;
+  // 11 (25.08.2026): dökme kuru küspenin MALZEME devri artık silo
+  //   devirlerinin toplamına kenetli (Şartname §5 KRİTİK). Eski veride bu
+  //   iki rakam 2.000 kg ayrışmıştı: denetim izi silo devrini düzeltiyor,
+  //   malzeme satırı eski değerinde kalıyordu. Aynı tazeleme, devir
+  //   satırlarındaki eksik GuncelleyenKullaniciId alanını da doldurur —
+  //   eski kayıtlarda "düzeltildi" yazıp kimin yaptığı görünmüyordu.
+  var SEMA_SURUM = 11;
   var YAZMA_SAYAC_ANAHTAR = "yu.veri.sayac"; // sekmeler arası ezme bekçisi (M3)
   var YEDEK_ANAHTAR = "yu.veri.yedek";       // okunamayan eski paketin kopyası (M4)
   var PAROLA_NOTU = "(prototip — gerçek uygulamada BCrypt)";
@@ -379,10 +846,13 @@
     ["Toprak", null]
   ];
 
+  /* Giriş kimliği e-posta (kullanıcı kararı, 26.08.2026): eski adlar rolü
+     söylüyordu ("operator", "operator2"), kişiyi değil. Alan adı yer tutucudur
+     — bkz. YU.ePosta. */
   var KULLANICI_TANIMI = [
-    ["yonetici", "Cenk Sefer ÇOĞALMIŞ", "Yonetici"],
-    ["operator", "Ahmet Yılmaz", "Operator"],
-    ["operator2", "Hatice Demir", "Operator"]
+    ["cenk.cogalmis@fabrika.com", "Cenk Sefer ÇOĞALMIŞ", "Yonetici"],
+    ["ahmet.yilmaz@fabrika.com", "Ahmet Yılmaz", "Operator"],
+    ["hatice.demir@fabrika.com", "Hatice Demir", "Operator"]
   ];
 
   var SILO_TANIMI = ["Silo 1", "Silo 2", "Silo 3"];
@@ -432,15 +902,10 @@
     var kaynak = secenek.kaynak === "bellek" ? "bellek" : "local";
     var tohumIstenir = secenek.tohumla !== false;
     var depo = { kaynak: kaynak }, i;
+    /* Surum tazelemesinde kurtarilacak kampanya kilitleri (26.08.2026). */
+    var tasinanKilitler = null;
 
     for (i = 0; i < TABLOLAR.length; i++) depo[TABLOLAR[i][1]] = [];
-
-    function tablo(ad) {
-      for (var j = 0; j < TABLOLAR.length; j++) {
-        if (TABLOLAR[j][0] === ad || TABLOLAR[j][1] === ad) return depo[TABLOLAR[j][1]];
-      }
-      return null;
-    }
 
     // Diziler yerinde değiştirilir: servis katmanı depo.malzemeler gibi
     // referansları elinde tutabilsin diye yeni dizi atanmaz.
@@ -495,7 +960,14 @@
         return null;
       }
       var kusur = paketGecerliMi(veri);
+      var kusur = paketGecerliMi(veri);
       if (kusur) {
+        /* Yalniz SURUM eskiyse veri atilir ama kullanicinin kilit karari
+           saklanir; sifirla() bittikten sonra geri konur. Bozuk paketten
+           hicbir sey tasinmaz. */
+        if (kusur === "surum" && veri && Object.prototype.toString.call(veri.kampanyaKilitleri) === "[object Array]") {
+          tasinanKilitler = veri.kampanyaKilitleri;
+        }
         yedekleVeNotDus(ham, kusur);
         return null;
       }
@@ -585,6 +1057,10 @@
           beklenenSayac += 1;
           window.localStorage.setItem(YAZMA_SAYAC_ANAHTAR, String(beklenenSayac));
         }
+        /* Günlük yedek klasörü (GUNLUK-YEDEK-PLANI, 27.08.2026): asıl kayıt
+           bitti, yedekçi eşzamansız yazar — kaydet'i bekletmez, hatası
+           kaydet'i etkilemez. */
+        if (YU.yedekci) YU.yedekci.tetikle();
         return true;
       } catch (e) {
         kancayiCagir("kota");
@@ -628,13 +1104,73 @@
        4) yazım ancak bu üçü geçtikten sonra; kabuk onay penceresinde
           buradan dönen ÖZETİ gösterir.
        kuruDeneme:true yalnız inceler, depoya DOKUNMAZ. */
+    /* Eski yedeği bugünkü şemaya taşır. Basamaklar ZİNCİRLENİR: 9'dan gelen
+       paket önce 10 olur, sonra 11 basamağından da geçer. */
     function paketiDonustur(veri) {
-      if (veri && typeof veri === "object" && veri.surum === 9) {
+      if (!veri || typeof veri !== "object") return null;
+      var adimlar = [];
+      if (veri.surum === 9) {
         veri.surum = 10;
         veri.sayaclar = {};
-        return "9 → 10 (Id sayaçları eklendi)";
+        adimlar.push("9 → 10 (Id sayaçları eklendi)");
       }
-      return null;
+      /* 10 → 11 (25.08.2026): iki onarım birden.
+         a) Dökme kuru küspenin MALZEME devri silo devirlerinin toplamına
+            eşitlenir — eski pakette ikisi 2.000 kg ayrışmıştı (Şartname §5).
+         b) Devir satırlarındaki eksik GuncelleyenKullaniciId denetim izinden
+            geri doldurulur — "düzeltildi" yazıp kimin yaptığı görünmeyen
+            satır kalmasın. */
+      if (veri.surum === 10) {
+        onarim11(veri);
+        veri.surum = 11;
+        adimlar.push("10 → 11 (dökme devri silo toplamına eşitlendi, eksik güncelleyen dolduruldu)");
+      }
+      return adimlar.length ? adimlar.join(" · ") : null;
+    }
+
+    /* 11. sürümün onarımı. Ham paket üzerinde çalışır: servis katmanı
+       burada henüz yok, o yüzden hesap elle yapılır. */
+    function onarim11(veri) {
+      var i, j, r;
+      var malzemeler = veri.malzemeler || [], devir = veri.devirStok || [];
+      var siloDevir = veri.siloDevirStok || [], log = veri.degisiklikLog || [];
+
+      /* a) dökme devri = aynı tarihli silo devirlerinin toplamı */
+      var dokme = null;
+      for (i = 0; i < malzemeler.length; i++) {
+        if (malzemeler[i].OzelTip === "DokmeKuruKuspe") { dokme = malzemeler[i]; break; }
+      }
+      if (dokme) {
+        var toplamlar = {};
+        for (i = 0; i < siloDevir.length; i++) {
+          r = siloDevir[i];
+          toplamlar[r.DevirTarihi] = (toplamlar[r.DevirTarihi] || 0) + (Number(r.Miktar) || 0);
+        }
+        for (i = devir.length - 1; i >= 0; i--) {
+          r = devir[i];
+          if (r.MalzemeId !== dokme.Id) continue;
+          if (toplamlar[r.DevirTarihi] === undefined) { devir.splice(i, 1); continue; }
+          r.Miktar = YU.yuvarla(toplamlar[r.DevirTarihi]);
+        }
+      }
+
+      /* b) eksik güncelleyen kullanıcıyı denetim izinden geri doldur */
+      var tablolar = [["DevirStok", devir], ["SiloDevirStok", siloDevir]];
+      for (i = 0; i < tablolar.length; i++) {
+        var ad = tablolar[i][0], satirlar = tablolar[i][1];
+        for (j = 0; j < satirlar.length; j++) {
+          r = satirlar[j];
+          if (!r.GuncellemeTarihi) continue;
+          if (r.GuncelleyenKullaniciId !== undefined && r.GuncelleyenKullaniciId !== null) continue;
+          var kim = null, k;
+          for (k = log.length - 1; k >= 0; k--) {
+            if (log[k].Tablo === ad && log[k].KayitId === r.Id && log[k].Islem === "Guncelle") {
+              kim = log[k].KullaniciId; break;
+            }
+          }
+          r.GuncelleyenKullaniciId = kim === undefined ? null : kim;
+        }
+      }
     }
 
     function paketOzeti(veri) {
@@ -667,7 +1203,7 @@
       }
       if (kusur === "surum") {
         return { ok: false, hata: "Yedek desteklenmeyen bir şema sürümünden (" +
-          (veri && veri.surum) + "); beklenen " + SEMA_SURUM + " (9'dan dönüştürme yapılabilir)." };
+          (veri && veri.surum) + "); beklenen " + SEMA_SURUM + " (9 ve 10'dan dönüştürme yapılabilir)." };
       }
       if (kusur) return { ok: false, hata: "Yedek paketi eksik ya da bozuk — mevcut veriye dokunulmadı." };
 
@@ -688,6 +1224,7 @@
 
       tablolariDoldur(veri);
       depo.sayaclar = veri.sayaclar && typeof veri.sayaclar === "object" ? veri.sayaclar : {};
+      ePostaOnarimi(depo);   /* eski yedekteki rol adları e-postaya çevrilir */
       if (!depo.kaydet()) return { ok: false, hata: "Veri geri yüklendi ama diske yazılamadı." };
       return { ok: true, hata: null, ozet: ozet };
     };
@@ -696,8 +1233,19 @@
     if (kayitli) {
       tablolariDoldur(kayitli);
       depo.sayaclar = kayitli.sayaclar && typeof kayitli.sayaclar === "object" ? kayitli.sayaclar : {};
+      if (ePostaOnarimi(depo)) depo.kaydet();
     } else {
+      /* Sema surumu degisince tohum verisi tazelenir; ama KAMPANYA KILITLERI
+         kullanicinin kendi karari, tohum verisi degil (kullanici bildirimi,
+         26.08.2026: "en son birakildigi gibi olmali"). Tazelemeden sonra
+         geri konur, boylece kilitledigi sezon acilmis gorunmez. */
       depo.sifirla();
+      if (tasinanKilitler && tasinanKilitler.length) {
+        depo.kampanyaKilitleri.length = 0;
+        for (i = 0; i < tasinanKilitler.length; i++) depo.kampanyaKilitleri.push(tasinanKilitler[i]);
+        tasinanKilitler = null;
+        depo.kaydet();
+      }
     }
 
     return depo;

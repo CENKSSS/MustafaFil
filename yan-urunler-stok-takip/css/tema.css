@@ -40,12 +40,6 @@
   --vurgu-zemin:    #eef2fb;
   --vurgu-uzeri:    #ffffff;
 
-  /* Seçim tiki (Analizler sol menüsü) — kullanıcı isteği, 25.08.2026:
-     dolu dairenin İÇİ koyu temada beyaz, açık temada mavi olsun ki hangi
-     satırın seçili olduğu iki temada da göz ucuyla ayrılsın. */
-  --tik-zemin:      var(--vurgu);
-  --tik-uzeri:      #ffffff;
-
   --olumlu:         #0f7b4f;
   --olumlu-zemin:   #e7f4ed;
   --olumsuz:        #d94a4a;
@@ -100,7 +94,16 @@
 
   /* Yapışkan tablo başlığının zemini OPAK olmalı: yuzey-2 koyu temada yarı
      saydamdır ve kayan satırlar başlığın altından görünür. */
-  --tablo-bas-zemin: #d2dfee;   /* mavi panel üstünde bir ton koyu şerit (23.08.2026) */
+  --tablo-bas-zemin: #f1f3f6;   /* beyaz panel üstünde nötr gri şerit (25.08.2026) */
+
+  /* PANEL VE KART ZEMİNİ — kullanıcı isteği, 25.08.2026: "beyaz ekranda
+     panellerin rengi bembeyaz olsun, mavilik olmasın". Açık temada zemin saf
+     beyaz, kenar nötr gri; ayrımı fonun mavisi değil kenar çizgisi taşır.
+     Koyu tema bu adları aşağıda mavi karışımla yeniden değerler — oradaki
+     katman tonu ve derinlik dili korunur. */
+  --panel-zemin:      #ffffff;
+  --panel-kenar:      #d7dbe2;
+  --panel-kenar-koyu: #b9c0cb;   /* kart :hover */
   /* Gri zemin + beyaz panel düzeni (.yu-zemin-gri) */
   --gri-zemin:      #e8ebf0;   /* #eef0f4 -> bir tık koyu (kullanıcı isteği, 23.08.2026) */
   --gri-panel:      #ffffff;
@@ -144,8 +147,6 @@
 
     /* Koyu temada tik dairesi BEYAZ, tikin kendisi koyu (kullanıcı isteği,
        25.08.2026): koyu zeminde en yüksek kontrast beyaz dairededir. */
-    --tik-zemin:      #ffffff;
-    --tik-uzeri:      #0a1120;
 
     --olumlu:         #6ee7a0;
     --olumlu-zemin:   rgba(110,231,160,.12);
@@ -181,6 +182,9 @@
     --silo-yazi:      #171a1f;
 
     --tablo-bas-zemin: #1d2a44;   /* mavi panel üstünde bir ton koyu şerit (23.08.2026) */
+    --panel-zemin:      color-mix(in srgb, var(--vurgu) 15%, var(--yuzey));
+    --panel-kenar:      color-mix(in srgb, var(--vurgu) 45%, var(--kenar));
+    --panel-kenar-koyu: color-mix(in srgb, var(--vurgu) 60%, var(--kenar));
     --gri-zemin:      #0e1627;
     --gri-panel:      #16223a;
     --gri-kenar:      rgba(148,170,210,.20);
@@ -220,8 +224,6 @@ html[data-tema="koyu"] {
 
   /* Koyu temada tik dairesi BEYAZ, tikin kendisi koyu (kullanıcı isteği,
      25.08.2026). */
-  --tik-zemin:      #ffffff;
-  --tik-uzeri:      #0a1120;
 
   --olumlu:         #6ee7a0;
   --olumlu-zemin:   rgba(110,231,160,.12);
@@ -256,6 +258,9 @@ html[data-tema="koyu"] {
   --silo-yazi:      #171a1f;
 
   --tablo-bas-zemin: #1d2a44;   /* mavi panel üstünde bir ton koyu şerit (23.08.2026) */
+  --panel-zemin:      color-mix(in srgb, var(--vurgu) 15%, var(--yuzey));
+  --panel-kenar:      color-mix(in srgb, var(--vurgu) 45%, var(--kenar));
+  --panel-kenar-koyu: color-mix(in srgb, var(--vurgu) 60%, var(--kenar));
   --gri-zemin:      #0e1627;
   --gri-panel:      #16223a;
   --gri-kenar:      rgba(148,170,210,.20);
@@ -425,57 +430,7 @@ html[data-tema="koyu"] .yu-marka-logo.koyu { display: block; }
 /* Kuru küspe giriş — silo dağıtım kartları.
    Silo başına dikey blok: gün başı, giren/çıkan alanları, gün sonu ve doluluk
    tek kartta durur. Yatay tabloda bunlar satır boyunca dağılıyordu. */
-.yu-silo-kart {
-  display: flex;
-  flex-direction: column;
-  gap: 11px;
-  padding: 16px 18px;
-  min-width: 0;
-}
 
-/* Üç silo aynı panelin içinde; kutu değil, aralarında tek çizgi. */
-.yu-silo-kart + .yu-silo-kart { border-left: 1px solid var(--kenar); }
-
-.yu-silo-kart-bas {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.yu-silo-kart-ad {
-  font: 600 15.5px/1.1 var(--font);
-  letter-spacing: -.01em;
-  /* Çizgi yalnız adın altında: flex öğesi olduğu için genişliği metin kadar. */
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--kenar-3);
-}
-
-.yu-silo-giris { display: flex; flex-direction: column; gap: 9px; }
-
-.yu-silo-satir {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  min-width: 0;
-}
-
-.yu-silo-alan { align-items: center; }
-
-.yu-silo-etiket { font: 500 14px/1.3 var(--font); color: var(--metin-3); }
-
-.yu-silo-deger {
-  font: 600 14.5px/1 var(--sayi);
-  letter-spacing: -.01em;
-  font-variant-numeric: tabular-nums;
-}
-
-.yu-silo-sonu {
-  font: 600 20px/1 var(--sayi);
-  letter-spacing: -.02em;
-  font-variant-numeric: tabular-nums;
-}
 
 /* Tarih kutusu içeriğine göre sınırlanıyor: geniş bir kolonda uzayınca metinle
    simge arasında kocaman bir boşluk kalıyordu. */
@@ -504,33 +459,9 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 html[data-tema="koyu"] input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); }
 html[data-tema="acik"] input[type="date"]::-webkit-calendar-picker-indicator { filter: none; }
 
-/* Kampanya / şirket seçici kutusu */
-.yu-secici {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 10px;
-  border: 1px solid var(--kenar-2);
-  border-radius: var(--r);
-  background: var(--yuzey);
-  color: var(--metin-4);
-  font: 400 14.5px/1 var(--font);
-  cursor: pointer;
-  flex: none;
-  transition: border-color .12s, background-color .12s;
-}
-.yu-secici > div { color: var(--metin-2); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Ok kendi ölçüsünde kalır: flex:1 verilirse kutuyu doldurur, 90° dönünce
    görsel kutusu satırın dışına taşar ve kutunun üstünde tek başına görünür. */
-.yu-secici-ok {
-  flex: none;
-  display: flex;
-  align-items: center;
-  color: var(--metin-4);
-  transform: rotate(90deg);
-}
-.yu-secici:hover { border-color: var(--kenar-3); }
 
 .yu-menu {
   display: flex;
@@ -743,93 +674,20 @@ html[data-tema="acik"] input[type="date"]::-webkit-calendar-picker-indicator { f
   flex-wrap: wrap;
   gap: 8px;
 }
-.yu-arac-sag { margin-left: auto; }
-.yu-arac-ayrac {
-  width: 1px;
-  height: 20px;
-  background: var(--kenar-2);
-  flex: none;
-}
 
 /* Segment düğmesi — iki üç seçenekli tercihler için. Açılır liste açmaya
    değmeyecek kadar az seçenek varsa hepsi görünür durur.
    Seçili öge vurgu zeminiyle işaretlenir: koyu temada gölge kullanılamaz
    (CLAUDE.md KURAL 1), zemin tonu iki temada da çalışır. */
-.yu-secim-grubu {
-  display: inline-flex;
-  padding: 2px;
-  gap: 2px;
-  background: var(--yuzey-3);
-  border: 1px solid var(--kenar-2);
-  border-radius: var(--r);
-  flex: none;
-}
-.yu-secim-oge {
-  padding: 7px 14px;   /* 5px 11px -> 7px 14px (kullanıcı isteği, 24.08.2026) */
-  border: 0;
-  background: transparent;
-  border-radius: 5px;
-  font: 400 16px/1 var(--font);   /* 14.5 -> 16 */
-  color: var(--metin-4);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background-color .12s, color .12s;
-}
-.yu-secim-oge:hover { color: var(--metin-2); }
-.yu-secim-oge.aktif {
-  background: var(--vurgu-zemin);
-  color: var(--vurgu);
-  font-weight: 500;
-}
 
 /* Efsane ögesi — grafiğin üstündeki seri listesi. Düğme hâlindeyken aynı
    zamanda SERİ SEÇİCİDİR: işaret kalkınca çizgi grafikten çıkar.
    İşaretsiz öge silinmez, soluklaşır — geri açılabileceği belli olsun. */
-.yu-efsane-oge {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  padding: 8px 15px;   /* kademeli büyütme (kullanıcı isteği, 24.08.2026) */
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: transparent;
-  font: 400 16px/1 var(--font);   /* 13.5 -> 15 -> 16 (kullanıcı isteği, 24.08.2026) */
-  color: var(--metin-4);
-  white-space: nowrap;
-  transition: background-color .12s, border-color .12s, color .12s;
-}
-button.yu-efsane-oge { cursor: pointer; }
-button.yu-efsane-oge:hover { background: var(--yuzey-3); border-color: var(--kenar-2); }
-.yu-efsane-oge.secili { color: var(--metin-2); font-weight: 500; }
 
 /* Efsane işareti — gerçek onay kutusu (kullanıcı isteği, 23.08.2026).
    Renkli kare tek başına "tıklanabilir" demiyordu; işaretli durumda içine
    tik konur. Tik ayrı bir ikon değil, iki kenarlıktan çizilir — tasarım
    referansındaki 20 ikonun dışına çıkılmaz (CLAUDE.md KURAL 1). */
-.yu-efsane-kutu {
-  width: 19px;   /* öge yazısıyla birlikte büyüdü (24.08.2026) */
-  height: 19px;
-  border-radius: 4px;
-  border: 1.5px solid currentColor;
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color .12s;
-}
-.yu-efsane-kutu::after {
-  content: '';
-  width: 5px;
-  height: 10px;
-  margin-top: -2px;
-  border: solid var(--vurgu-uzeri);
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-  opacity: 0;
-  transition: opacity .12s;
-}
-.yu-efsane-oge.secili .yu-efsane-kutu::after { opacity: 1; }
-
 
 
 /* Ünlem (Uyarılar) ve zil (Son Hareketler) düğmeleri bu sınıfı paylaşır.
@@ -944,6 +802,23 @@ button.yu-efsane-oge:hover { background: var(--yuzey-3); border-color: var(--ken
 }
 .yu-tablo-iri .yu-tablo td .yu-rozet { font-size: 13px; }
 
+/* BAŞLIK ŞERİDİ VURGULU — kullanıcı isteği, 27.08.2026 (Devir Stok).
+   O ekranın satırları iri olduğu için ortak başlık (12,5px · --metin-4)
+   değer hücreleriyle aynı ağırlıkta okunuyor, başlık olduğu anlaşılmıyordu.
+   Bu VARYANTTA başlık koyulaşır, kalınlaşır, zemini bir ton belirginleşir ve
+   altına 2px ayırıcı gelir. Ortak .yu-tablo başlığına DOKUNULMAZ — öbür
+   ekranlar aynen kalır (KURAL 10.5: mevcut sınıf ezilmez, varyant eklenir). */
+.yu-tablo-baslik-guclu .yu-tablo thead th {
+  background: var(--yuzey-3);
+  border-bottom: 2px solid var(--kenar-3);
+  /* Dolgu burada verilmez: bu tablo kendi 'dolgu' ayarını satır içi
+     yazıyor ve bu kuralı ezerdi (ölçüldü: 8px). */
+  font-size: 14px;          /* 12 -> 14: kullanıcı isteği, 27.08.2026 */
+  font-weight: 700;
+  letter-spacing: .06em;    /* 14px'te .08em fazla açıyordu */
+  color: var(--metin-2);
+}
+
 .yu-grafik-kaydir {
   scrollbar-width: none;        /* Firefox */
   -ms-overflow-style: none;     /* eski Edge */
@@ -1053,12 +928,48 @@ html[data-tema="koyu"] .yu-geri-bag { color: #ffffff; }
 }
 .yu-dugme.birincil:hover { background: var(--vurgu-koyu); }
 
+/* İKİNCİL DÜĞME — programın grisi + mavi yazı (kullanıcı isteği, 26.08.2026:
+   "tüm butonların rengini aynı şekilde yap"). Renkler DEĞİŞKENDEN DEĞİL sabit
+   değerden gelir: kutu iki temada da aynı gri kalsın, koyu temanın açık mavisi
+   bu gri üstünde soluk kalmasın diye. Birincil (mavi dolgulu) ve tehlike
+   (kırmızı) düğmeler DOKUNULMADI — renkleri anlam taşır. */
 .yu-dugme.ikincil {
-  background: var(--yuzey);
-  border-color: var(--kenar-3);
-  color: var(--metin-2);
+  background: #e8ebf0;
+  /* Kenar bilerek koyu: bazı düğmeler (Ana Sayfa "Veriyi Aç", Günlük Rapor
+     kısayolları, "CSV İndir") panelin içinde değil, AYNI grideki içerik
+     zemininin üstünde duruyor. Soluk kenarla gri-üstüne-gri kayboluyordu;
+     bu ton düğmenin sınırını iki durumda da çizer (ölçüldü, 26.08.2026). */
+  border-color: #c2cad8;
+  color: oklch(0.55 0.14 250);
 }
-.yu-dugme.ikincil:hover { background: var(--yuzey-3); }
+.yu-dugme.ikincil:hover:not(:disabled) {
+  background: #eef2fb;
+  border-color: oklch(0.55 0.14 250);
+}
+.yu-dugme.ikincil:disabled { color: #59616d; }
+
+/* GERİ AL DÜĞMESİ — kullanıcı isteği, 27.08.2026: "Kaydet'in yanında sönük
+   kalıyor, daha göze çarpan yap". Kaydet mavi/dolu; bu da DOLU ama nötr-koyu
+   zeminli ve kalın yazılı: yan yana durduklarında ikisi de düğme gibi okunur,
+   yine de birincil olan Kaydet'tir. Ortak .ikincil sınıfı DEĞİŞMEZ; yalnız bu
+   varyantı taşıyan düğmeler etkilenir (KURAL 10.5). */
+.yu-dugme.yu-dugme-vurgulu {
+  background: var(--yuzey-4);
+  border-color: var(--kenar-3);
+  color: var(--metin);
+  font-weight: 600;
+  /* color GEÇİŞ LİSTESİNDEN ÇIKARILDI — DUZELTME-PLANI M36 REVİZE 2'deki
+     aynı tuzak: değeri var() ile temadan gelen bir özellik transition
+     listesindeyken Chrome custom property değişiminde eski hesaplanmış
+     rengi donduruyor (ölçüldü: yazı rgb(89,97,109)'da kaldı, --metin
+     #ecf0f3 iken). Zemin ve kenar geçişi kalır. */
+  transition: background-color .12s, border-color .12s;
+}
+.yu-dugme.yu-dugme-vurgulu:hover:not(:disabled) {
+  background: var(--olumsuz-zemin);
+  border-color: var(--olumsuz);
+  color: var(--olumsuz);
+}
 
 .yu-dugme.tehlike {
   background: var(--olumsuz-zemin);
@@ -1088,6 +999,182 @@ html[data-tema="koyu"] .yu-geri-bag { color: #ffffff; }
   cursor: not-allowed;
 }
 
+/* TARİH ROZETİ — düğme kılıklı ama tıklanmaz (kullanıcı isteği, 25.08.2026).
+   Tarihin SEÇİLMEDİĞİ panellerde hangi güne bakıldığını söyler (Ana Sayfa'daki
+   Malzeme/Silo Bazında Stok). Ölçü, kenar ve köşe .yu-dugme.ikincil.kucuk ile
+   aynıdır ki yanındaki gerçek düğmelerle aynı aileden görünsün; ayrımı imleç ve
+   hover'ın olmaması taşır. Mevcut .yu-dugme kuralları EZİLMEZ, bu ayrı sınıftır. */
+.yu-tarih-rozeti {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 11px;
+  border: 1px solid var(--kenar-3);
+  border-radius: var(--r-s);
+  background: var(--yuzey);
+  font: 400 13.5px/1 var(--font);
+  color: var(--metin-3);
+  white-space: nowrap;
+  cursor: default;
+  flex: none;
+}
+.yu-tarih-rozeti > svg { color: var(--vurgu); flex: none; }
+
+/* ONAY KUTUSU — iki durumlu süzgeç (kullanıcı isteği, 26.08.2026:
+   "tıklanabilir değil de tikli"). Metni değişen düğme, süzgecin AÇIK mı KAPALI
+   mı olduğunu ancak okunarak söylüyordu; tik bakınca belli eder.
+
+   ZEMİNSİZ: düğme kılığı yok (kullanıcı isteği, 26.08.2026) — kutu, çerçeve ve
+   dolgu kalktı, geriye tik + yazı kaldı. Yanındaki düğmelerle hizası kabın
+   align-items: center değerinden gelir, kendi yüksekliğinden değil. Tik 12px:
+   yazıdan bir tık küçük durur, satırı şişirmez. */
+.yu-onay-cip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: none;
+  font: 400 13.5px/1 var(--font);
+  color: var(--metin-3);
+  white-space: nowrap;
+  cursor: pointer;
+  flex: none;
+  transition: color .12s;
+}
+.yu-onay-cip:hover { color: var(--metin); }
+.yu-onay-cip > input {
+  width: 12px;
+  height: 12px;
+  margin: 0;
+  flex: none;
+}
+
+/* TAKVİM — tarih rozetine tıklayınca açılan ay ızgarası (25.08.2026).
+   Ölçüler panel diliyle aynı: 6px köşe, --ayrac çizgi, --vurgu seçim.
+   Bugün HALKA ile, seçili gün DOLU zeminle işaretlenir; ikisi aynı gün olsa
+   bile ayrı okunur (dolu zemin + halka birlikte durur). */
+.yu-takvim { padding: 4px 4px 2px; }
+
+.yu-takvim-bas {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 2px 8px;
+}
+.yu-takvim-ad {
+  flex: 1;
+  text-align: center;
+  font: 600 14.5px/1 var(--font);
+  color: var(--metin);
+  letter-spacing: -.01em;
+}
+.yu-takvim-ok {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border: 1px solid var(--kenar-3);
+  border-radius: var(--r-s);
+  background: var(--yuzey);
+  color: var(--metin-2);
+  font: 600 18px/1 var(--font);
+  cursor: pointer;
+}
+.yu-takvim-ok:hover:not(:disabled) { background: var(--yuzey-3); }
+.yu-takvim-ok:disabled { opacity: .35; cursor: not-allowed; }
+
+.yu-takvim-hafta,
+.yu-takvim-izgara {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.yu-takvim-hafta {
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--ayrac);
+  margin-bottom: 4px;
+}
+.yu-takvim-hafta span {
+  text-align: center;
+  font: 600 11.5px/1 var(--font);
+  letter-spacing: .04em;
+  color: var(--metin-5);
+}
+
+.yu-takvim-gun {
+  height: 30px;
+  border: 1px solid transparent;
+  border-radius: var(--r-s);
+  background: none;
+  color: var(--metin-2);
+  font: 500 13.5px/1 var(--sayi);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.yu-takvim-gun:hover:not(:disabled) { background: var(--yuzey-3); }
+.yu-takvim-gun.disari { color: var(--metin-5); opacity: .5; }
+.yu-takvim-gun.bugun { border-color: var(--vurgu); }
+.yu-takvim-gun.secili {
+  background: var(--vurgu);
+  border-color: var(--vurgu);
+  color: var(--vurgu-uzeri);
+  font-weight: 700;
+}
+.yu-takvim-gun.secili:hover { background: var(--vurgu-koyu); }
+.yu-takvim-gun:disabled { opacity: .28; cursor: not-allowed; }
+
+.yu-takvim-alt {
+  display: flex;
+  justify-content: center;
+  padding: 8px 2px 4px;
+  margin-top: 4px;
+  border-top: 1px solid var(--ayrac);
+}
+
+/* Rozet tıklanabilir olduğunda (takvim açar) düğme gibi davranır. */
+.yu-tarih-rozeti.acilir { cursor: pointer; }
+.yu-tarih-rozeti.acilir:hover { background: var(--yuzey-3); }
+.yu-tarih-rozeti.acilir.acik { border-color: var(--vurgu); }
+
+/* Gün gezinme üçlüsü — rozetin hemen sağında, tek satır (25.08.2026). */
+.yu-gun-gezinme {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex: none;
+}
+
+/* BEYAZ ZEMİN · MAVİ YAZI (kullanıcı isteği, 26.08.2026) — tarih rozeti ve
+   yanındaki gün gezinme üçlüsü. Yalnız bu ikisini kapsar: .yu-dugme'nin genel
+   kuralı ezilmez, başka ekrandaki düğmeler etkilenmez (KURAL 10.5).
+
+   Zemin İKİ TEMADA DA GRİ (kullanıcı isteği, 26.08.2026): projenin kendi
+   grisi — --gri-zemin (#e8ebf0), Ana Sayfa'nın içerik zemininde kullanılan
+   ton. Kenar da onun eşi --gri-kenar (#d2d8e1). Değişkenden değil sabit
+   değerden gelir, koyu temada da aynı gri kalsın diye. Kutu açık renkli
+   olduğu için yazı da sabittir: koyu temanın açık mavisi bu gri üstünde
+   soluk kalırdı, açık temanın koyu mavisi kullanılır. */
+/* Tarih rozeti düğme DEĞİLDİR (.yu-dugme sınıfı yok), ölçüsünü ve rengini
+   ikincil düğmeden ayrı taşır — yanındaki gün düğmeleriyle aynı görünsün. */
+.yu-tarih-rozeti {
+  background: #e8ebf0;
+  border-color: #c2cad8;
+  color: oklch(0.55 0.14 250);
+}
+.yu-tarih-rozeti > svg,
+.yu-tarih-rozeti b { color: oklch(0.55 0.14 250); }
+.yu-tarih-rozeti.acilir:hover {
+  background: #eef2fb;
+  border-color: oklch(0.55 0.14 250);
+}
+.yu-tarih-rozeti.acilir.acik { border-color: oklch(0.55 0.14 250); }
+.yu-tarih-rozeti b {
+  font: 600 14px/1 var(--sayi);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.01em;
+  color: oklch(0.55 0.14 250);   /* rozetin tamamı mavi; kutu iki temada da gri */
+}
+
 
 /* ==========================================================================
    KART — ızgara ve KPI
@@ -1099,8 +1186,6 @@ html[data-tema="koyu"] .yu-geri-bag { color: #ffffff; }
 .yu-iz-2 { grid-template-columns: repeat(2, 1fr); }
 .yu-iz-3 { grid-template-columns: repeat(3, 1fr); }
 .yu-iz-4 { grid-template-columns: repeat(4, 1fr); }
-.yu-iz-yan      { grid-template-columns: 1.55fr 1fr; }
-.yu-iz-yan-ters { grid-template-columns: 1fr 1.55fr; }
 
 /* Tüm gözler aynı boyda: satır sayısı ne olursa olsun her kart aynı yüksekliği
    alır, eksik kalan gözler komşularını genişletmez. */
@@ -1109,9 +1194,9 @@ html[data-tema="koyu"] .yu-geri-bag { color: #ffffff; }
 
 .yu-kpi {
   padding: 13px 15px;
-  border: 1px solid color-mix(in srgb, var(--vurgu) 45%, var(--kenar));   /* panelle aynı mavi (23.08.2026) */
+  border: 1px solid var(--panel-kenar);   /* panelle aynı (23.08.2026 → 25.08.2026) */
   border-radius: var(--r-l);
-  background: color-mix(in srgb, var(--vurgu) 15%, var(--yuzey));
+  background: var(--panel-zemin);
   display: flex;
   flex-direction: column;
   gap: 11px;
@@ -1119,7 +1204,7 @@ html[data-tema="koyu"] .yu-geri-bag { color: #ffffff; }
   transition: border-color .12s, box-shadow .12s;
 }
 .yu-kpi:hover {
-  border-color: color-mix(in srgb, var(--vurgu) 60%, var(--kenar));
+  border-color: var(--panel-kenar-koyu);
   box-shadow: var(--golge-2);   /* koyu temada --golge-2 = none */
 }
 
@@ -1163,15 +1248,15 @@ html[data-tema="koyu"] .yu-geri-bag { color: #ffffff; }
    PANEL
    ========================================================================== */
 
-/* Panel zemini soluk mavi (kullanıcı isteği, 23.08.2026 — tüm sayfalar):
-   yüzeye %15 vurgu mavisi, sınır %45. Tema ne olursa olsun karışım vurgudan
-   türediği için üç tema bloğunda ayrı tanım gerekmez. İçerideki kutular
-   (girdi, beyaz kart) var(--yuzey) ile beyaz kalır ve ayrım okunur. */
+/* Panel zemini AÇIK temada bembeyaz, KOYU temada soluk mavi katman tonu —
+   renkler --panel-zemin / --panel-kenar değişkenlerinden gelir (kullanıcı
+   isteği, 25.08.2026). Açık temada paneli fonun mavisi değil kenar çizgisi
+   ayırır; koyu temada 23.08.2026'da kurulan mavi karışım aynen sürer. */
 .yu-panel {
   padding: 14px 16px;
-  border: 1px solid color-mix(in srgb, var(--vurgu) 45%, var(--kenar));
+  border: 1px solid var(--panel-kenar);
   border-radius: var(--r-l);
-  background: color-mix(in srgb, var(--vurgu) 15%, var(--yuzey));
+  background: var(--panel-zemin);
   min-width: 0;
 }
 
@@ -1259,39 +1344,56 @@ html[data-tema="koyu"] .yu-geri-bag { color: #ffffff; }
   color: var(--metin-4);
   text-align: left;
   white-space: nowrap;
-  /* Tasarım referansında (2a:71) tablo başlığı statiktir. Yapışkan davranış
-     yalnız .yu-yapiskan varyantında, aşağıdaki kurallarla açılır. */
+  /* Tasarım referansında (2a:71) tablo başlığı statiktir; burada da öyle
+     kalır — yapışkan varyant 26.08.2026'da kaldırıldı, bkz. aşağısı. */
 }
 
-/* Yapışkan kolon başlığı (YU.ui.tablo {yapiskan}) — sayfa kaydıkça başlık
-   satırı üst şeridin (64px) altına yapışır (kullanıcı isteği, 21.08.2026).
-   İki eski engel burada çözülür: (1) sarıcı yatay kaydırma kabı olmaktan
-   çıkar (inline overflowX: visible, 10-kabuk) — sticky sayfaya tutunur;
-   (2) zemin --tablo-bas-zemin ile opaktır, koyu temada altından satır
-   görünmez. border-collapse ile kenarlık yapışmadığı için tablo separate'e
-   alınır; border-spacing 0 olduğundan görünüm birebir aynıdır. */
-.yu-tablo-sar.yu-yapiskan .yu-tablo { border-collapse: separate; border-spacing: 0; }
-.yu-tablo-sar.yu-yapiskan thead th {
-  position: sticky;
-  top: 64px;                 /* .yu-ust yüksekliği */
-  z-index: 5;                /* satırların üstünde, üst şeridin (z 20) altında */
-  background: var(--tablo-bas-zemin);
-}
-@media (max-width: 700px) {
-  .yu-tablo-sar.yu-yapiskan thead th { top: 58px; }   /* daralan üst şerit */
+/* BAŞLIK ALT ALTA SARAR — seçimli (kullanıcı isteği, 28.08.2026:
+   "Kampanya Toplam" başlıkları mail'deki PDF'te zaten alt alta yazıyordu,
+   ekranda da böyle olsun). Yukarıdaki genel kural TÜM tablolarda
+   white-space:nowrap'tir (uygulama genelini etkiler); bu kural yalnız
+   sinif:'yu-baslik-sarar' taşıyan sütun başlıklarını gevşetir — Silo ve
+   Malzeme Bazında Stok'taki beş "Kampanya Toplam …" kolonu. Kolon
+   genişliği (colgroup) sabit kaldığı için metin doğal olarak sarar,
+   sütun büyümez. */
+.yu-tablo thead th.yu-baslik-sarar {
+  white-space: normal;
+  line-height: 1.35;
 }
 
-/* Yapışkan tablonun İÇİNE gömülü tablo yapışmaz (Stok Durumu silo kırılımı):
-   üstteki torun seçici iç tablonun başlığını da yakalayıp kendi satırlarının
-   üstüne bindiriyordu (kullanıcı bildirimi, 23.08.2026). Daha özgül seçici
-   sıradan bağımsız kazanır. */
-.yu-tablo-sar.yu-yapiskan .yu-tablo-sar thead th { position: static; top: auto; }
+/* YAPIŞKAN KOLON BAŞLIĞI KALDIRILDI — kullanıcı kararı, 26.08.2026.
 
-/* Dar ekranda geniş tablolar yatay kaymak zorunda; kaydırma kabı sticky'yi
-   bozduğu için yapışkanlıktan vazgeçilir, kayan tabloya geri dönülür.
-   !important: 10-kabuk'un inline overflowX: visible değerini ezmek için. */
-@media (max-width: 900px) {
-  .yu-tablo-sar.yu-yapiskan { overflow-x: auto !important; }
+   21.08.2026'da "sayfa kaydıkça başlık üst şeridin altına yapışsın" istenmişti.
+   Sticky ancak kaydırma kabı OLMAYAN bir sarıcıda sayfaya tutunduğu için
+   .yu-tablo-sar yatay kaydırma kabı olmaktan çıkarılmıştı; bunun bedeli dar
+   ekranda ölçüldü (26.08.2026, 1185px pencere): 1.448px'lik Malzeme tablosu
+   899px'lik kabından taşıyor, üst atası kırpıyor ve sağdaki kolonlara HİÇ
+   ulaşılamıyordu. 785px'te ise sarıcı kaydırma kabına dönüyor, top:64px
+   içeride geçerli kalıp başlığı ilk satırın 32px üstüne bindiriyordu.
+
+   Karar: başlık da içerikle kaysın. Sarıcı her ölçüde yatay kaydırma kabıdır
+   (.yu-tablo-sar overflow-x: auto), tablo kendi kabında sağa sola kayar,
+   sayfa yerinden oynamaz. */
+
+/* Yatay kaydırma çubuğu GÖRÜNÜR durur (KURAL 10.3): tablonun devamı olduğu
+   keşfedilmek zorunda kalınmadan belli olsun. Ölçü ve renk .yu-ay-liste ile
+   aynı — uygulamada tek kaydırma çubuğu dili. */
+.yu-tablo-sar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--kenar-3) transparent;
+  overscroll-behavior-x: contain;
+}
+.yu-tablo-sar::-webkit-scrollbar { height: 10px; }
+.yu-tablo-sar::-webkit-scrollbar-track { background: transparent; }
+.yu-tablo-sar::-webkit-scrollbar-thumb {
+  background: var(--kenar-3);
+  border-radius: 5px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+.yu-tablo-sar::-webkit-scrollbar-thumb:hover {
+  background: var(--metin-5);
+  background-clip: content-box;
 }
 
 .yu-tablo tbody td {
@@ -1306,6 +1408,88 @@ html[data-tema="koyu"] .yu-geri-bag { color: #ffffff; }
    ayırır — Analizler'de satış satırları üretimden böyle ayrışır. Tıklanır
    satırın hover/odak vurgusu (aşağıda) bu zemini ezer. */
 .yu-tablo tbody tr.yu-satir-zemin { background: var(--yuzey-2); }
+
+/* ŞERİT SATIR (kullanıcı isteği, 26.08.2026): uzun tablolarda göz satırı
+   kaybetmesin diye satırlar bir zeminli bir zeminsiz okunur. Sınıfları ortak
+   tablo bileşeni takar (YU.ui.tablo · 10-kabuk.js) — projedeki BÜTÜN tablolar
+   şeritlidir; istemeyen tablo serit:false geçer.
+
+   Kendi zemini olan satırlar (TOPLAM, `zemin` bayraklı satır, yavru satır)
+   şerit almaz; rengi ezilmez. Kâğıtta şerit yoktur: baskı bloğu zaten tüm
+   satır zeminlerini beyaza çeker.
+
+   Kendi tonları var, --yuzey-* değil: açık temada --yuzey-2 (#fafbfc) parlak
+   ekranda görünmüyordu (kullanıcı bildirimi, 26.08.2026 — "biraz daha
+   koyulaştır"). Şerit okunur bir gri, hover ondan bir tık daha koyu; hover
+   şeritli/şeritsiz FARK ETMEZ, imleç hangi satırdaysa o satır koyulaşır. */
+.yu-tablo-serit { --serit-zemin: #f1f3f7; --serit-hover: #e2e7ef; }
+@media (prefers-color-scheme: dark) {
+  html:not([data-tema="acik"]) .yu-tablo-serit {
+    --serit-zemin: rgba(255,255,255,.05);
+    --serit-hover: rgba(255,255,255,.11);
+  }
+}
+html[data-tema="koyu"] .yu-tablo-serit {
+  --serit-zemin: rgba(255,255,255,.05);
+  --serit-hover: rgba(255,255,255,.11);
+}
+.yu-tablo-serit .yu-tablo tbody tr.yu-satir-serit { background: var(--serit-zemin); }
+.yu-tablo-serit .yu-tablo tbody tr:hover { background: var(--serit-hover); }
+
+/* Yavru satır şerit kipinde ebeveyninin zeminini kendiliğinden sürdürür:
+   kabuk şerit sınıfını ebeveynden kopyalar, tr zemini tr kuralından gelir.
+   (Yamuk katmanları kalkınca buradaki --yavru-dolgu düzeneği de kalktı —
+   kullanıcı seçimi, 28.08.2026: "muhasebe kontra satırı, yalnız tipografi".) */
+
+/* Eş hover: ebeveyn ve yavru birlikte koyulaşır (sınıfı 10-kabuk.js takar). */
+.yu-tablo-serit .yu-tablo tbody tr.yu-satir-es-hover { background: var(--serit-hover); }
+
+/* YAVRU SATIR — MUHASEBE KONTRA SATIRI (kullanıcı seçimi, 28.08.2026;
+   6 örnek arasından 5 numara): ayrımı yalnız TİPOGRAFİ taşır — girinti +
+   italik + soluk ton + parantezli eksi. Yamuk çerçeve, zemin ve kesikli üst
+   çizgi kalktı; mali tablolardaki indirim kalemi dili bu (kaynak:
+   YAVRU-SATIR.md araştırması + mali tablo biçim gelenekleri).
+     · ebeveynin alt çizgisi yok, ikisi tek blok okunur,
+     · yavru satırın alt çizgisi sıradan satır ayracı — blok orada biter,
+     · rakam italik DEĞİL (cikisHucresi satır içinde düzeltir): (500) kg
+       parantezi eksiyi muhasebe diliyle söyler. */
+.yu-tablo tbody tr.yu-satir-yavrulu td { border-bottom: 0; }
+
+/* Satır yüksekliği 42 -> 27px (kullanıcı isteği, 26.08.2026: "%35 küçült").
+   !important şart: YU.ui.tablo "sık" kipte her tr'ye SATIR İÇİ height:42px
+   yazıyor (10-kabuk.js). Yalnız yavru satırı etkiler. */
+.yu-tablo tbody tr.yu-satir-yavru { height: 27px !important; }
+.yu-tablo tbody tr.yu-satir-yavru td {
+  border-top: 0;
+  /* !important şart: YU.ui.tablo hücre dolgusunu SATIR İÇİ stil olarak
+     yazıyor (8px 14px), sınıf kuralı onu yenemiyordu. */
+  padding-top: 1px !important;
+  padding-bottom: 3px !important;
+  line-height: 1.15;
+  font-size: 13.5px;
+  font-style: italic;
+  font-weight: 400;
+  color: var(--metin-5);
+}
+/* Girinti artık düz boşluk değil, AĞAÇ BAĞI (└) taşıyor — aşağıya bak.
+   Hücrenin kendi dolgusu normal kalır (14px), bağın kendi margin'i
+   görsel indent'i verir. */
+.yu-tablo tbody tr.yu-satir-yavru td:first-child { padding-left: 14px !important; }
+
+/* AĞAÇ BAĞI — köşe çizgisi └ (kullanıcı isteği, 28.08.2026; kaynak:
+   yavru-satir-ornekleri.html örnek 2, AWS Cloudscape ilhamlı). Ebeveyn
+   satırdan bu satıra inen bağı gösterir: sol + alt kenar, yuvarlak köşe.
+   Satır 27px yüksekliğinde olduğu için bağ da küçük tutulur. */
+.yu-satir-yavru-bag {
+  display: inline-block;
+  flex: none;
+  width: 16px;
+  height: 12px;
+  border-left: 1.5px solid var(--kenar-3);
+  border-bottom: 1.5px solid var(--kenar-3);
+  border-bottom-left-radius: 5px;
+  margin: 0 7px 0 1px;
+}
 
 /* Tıklanabilir satır: sönük zemin değişimi "buraya tıklanır" demiyordu.
    Vurgu zemini + sol kenar şeridi hem farede hem klavye odağında görünür. */
@@ -1334,6 +1518,22 @@ html[data-tema="koyu"] .yu-geri-bag { color: #ffffff; }
 /* Başlık hücresindeki hiza sınıfı genel thead kuralını yenmeli. Aksi hâlde
    .yu-tablo thead th (0,1,2) .yu-sag (0,1,0) sınıfını eziyor ve sayısal
    kolonlarda başlık solda, değerler sağda kalıyor. */
+/* SERT AYRAÇ — kullanıcı isteği, 27.08.2026 (Program Hareketleri:
+   "buradaki çizikleri biraz daha sertleştirir misin"). Ortak tabloda satır
+   çizgisi --ayrac-2 ile neredeyse görünmez; bu varyantta bir ton koyulaşır,
+   başlık altı ve kolon ayracı da belirginleşir. Yalnız sınıfı taşıyan
+   tablolar etkilenir; öbür ekranların çizgileri aynı kalır (KURAL 10.5). */
+.yu-tablo-sert-ayrac .yu-tablo tbody td { border-bottom-color: var(--kenar-2); }
+.yu-tablo-sert-ayrac .yu-tablo thead th { border-bottom: 2px solid var(--kenar-3); }
+.yu-tablo-sert-ayrac .yu-tablo tbody td.yu-kolon-ayrac { border-left-color: var(--kenar-2); }
+.yu-tablo-sert-ayrac .yu-tablo thead th.yu-kolon-ayrac { border-left-color: var(--kenar-3); }
+
+/* KOLON AYRACI — kullanıcı isteği, 27.08.2026 (Program Hareketleri:
+   "giren çıkan arasına çizgi koy"). Yalnız bu sınıfı taşıyan kolonun
+   SOLUNA ince bir çizgi çizer; başlıkta bir ton belirgin. */
+.yu-tablo thead th.yu-kolon-ayrac { border-left: 1px solid var(--kenar-2); }
+.yu-tablo tbody td.yu-kolon-ayrac { border-left: 1px solid var(--ayrac); }
+
 .yu-tablo thead th.yu-sag  { text-align: right; }
 .yu-tablo thead th.yu-orta { text-align: center; }
 .yu-tablo tfoot td.yu-sag  { text-align: right; }
@@ -1349,6 +1549,19 @@ html[data-tema="koyu"] .yu-geri-bag { color: #ffffff; }
 }
 .yu-tablo td.yu-mono,
 .yu-tablo th.yu-mono { text-align: right; white-space: nowrap; }
+
+/* ORTA HİZA, mono kuralını YENER (kullanıcı isteği, 28.08.2026 — Ana Sayfa:
+   "değerler kolonun en sağında kalıyor, ortaya çek"). Yukarıdaki td.yu-mono
+   (0,2,1) kuralı, hücreye konan .yu-orta (0,1,0) sınıfını eziyordu; bu seçici
+   aynı ağırlıkta olduğu için sonda gelerek kazanır. text-align ortalama
+   HANE SAYISINDAN BAĞIMSIZDIR: rakam uzayınca da ortalı kalır, sabit bir
+   başlangıç noktasına yapışmaz. Yalnız .yu-orta taşıyan kolonlar etkilenir —
+   öbür ekranlar sağa yaslı kalır (KURAL 10.5). */
+.yu-tablo td.yu-mono.yu-orta,
+.yu-tablo th.yu-mono.yu-orta { text-align: center; }
+/* Hücre içindeki esnek kutular (YU.ui.olcu: "1.000 kg" + "40 adet") kendi
+   içinde sağa yaslıydı; orta hizada onlar da ortalanır. */
+.yu-tablo td.yu-orta > span { justify-content: center; }
 
 .yu-zayif { color: var(--metin-4); }
 .yu-guclu { color: var(--metin); font-weight: 500; }
@@ -1366,6 +1579,28 @@ html[data-tema="koyu"] .yu-geri-bag { color: #ffffff; }
 }
 .yu-satir-eylem:hover { background: var(--ayrac); color: var(--metin-2); }
 .yu-satir-eylem.tehlike:hover { background: var(--olumsuz-zemin); color: var(--olumsuz); }
+
+/* KISAYOL İKONU — kullanıcı isteği, 27.08.2026: "arkasını biraz hover'lı yap,
+   tıklanabilir olduğu anlaşılsın". Ortak satır ikonu duruşta ZEMİNSİZ ve
+   soluk; kilitli hücrenin içinde metin gibi okunuyordu. Bu varyant duruşta
+   da hafif vurgu zemini ve ince çerçeve taşır — düğme olduğu bakışta belli;
+   üstüne gelince dolu vurgu rengine döner.
+   transition YOK: değeri var() ile temadan gelen bir özellik geçiş listesine
+   girince Chrome tema değişiminde eski rengi donduruyor (DUZELTME-PLANI
+   M36 REVİZE 2'de ölçülmüştü). Ortak .yu-satir-eylem DEĞİŞMEZ. */
+.yu-satir-eylem.yu-kisayol {
+  padding: 6px;
+  background: var(--vurgu-zemin);
+  color: var(--vurgu);
+  box-shadow: inset 0 0 0 1px var(--kenar-2);
+  transition: none;
+}
+.yu-satir-eylem.yu-kisayol:hover,
+.yu-satir-eylem.yu-kisayol:focus-visible {
+  background: var(--vurgu);
+  color: var(--vurgu-uzeri);
+  box-shadow: inset 0 0 0 1px var(--vurgu);
+}
 
 /* İri satır eylemi — Devir Stok'un silme düğmesi (kullanıcı isteği, 25.08.2026).
    Yalnız bu sınıfı taşıyan düğmeleri büyütür; diğer ekranların satır eylemleri
@@ -1429,7 +1664,7 @@ html[data-tema="koyu"] .yu-geri-bag { color: #ffffff; }
    Seçilen taraf tıklandığı ANLAŞILSIN diye üç işaret birden taşır (kullanıcı
    isteği, 25.08.2026): dolu zemin + kalın kenarlık + tik. Seçili olmayan taraf
    yine renkli zeminde durur, yalnız soluktur — kırmızı hiç sönmez.
-   Yapı, projenin .yu-secim-grubu kalıbıyla aynı dildedir; erişilebilirlik
+   Yapı, projenin segment düğmesi kalıbıyla aynı dildedir; erişilebilirlik
    W3C APG radio-group kalıbıdır (role=radiogroup / role=radio / aria-checked,
    ok tuşlarıyla geçiş). */
 .yu-eh-grup { display: inline-flex; gap: 10px; flex: none; }
@@ -1548,7 +1783,37 @@ html[data-tema="koyu"] .yu-geri-bag { color: #ffffff; }
   color: var(--metin-4);
   cursor: not-allowed;
 }
-.yu-girdi.hatali { border-color: var(--olumsuz); }
+/* HATALI ALAN — kullanıcı isteği, 27.08.2026: "kaydet'e basınca sorun
+   çıkınca slotların içini kırmızı yap, sönükten parlak sonra yine söndür;
+   sonra border kalıcı olarak kırmızı kalsın, biraz kalın".
+
+   İki parça:
+   1) KALICI İŞARET — kenar 1px'ten 2px'e çıkar ve kırmızı kalır. Alan
+      düzeltilene kadar durur (sınıfı boya() ekleyip kaldırıyor).
+      Kutunun ölçüsü kaymasın diye kalınlık artışı iç gölgeyle verilir;
+      border-width büyütmek 1px'lik kayma yapıyordu.
+   2) ANLIK PARLAMA — yalnız KAYDET denemesinden sonra eklenen ayrı sınıf.
+      Zemin sönükten parlağa gidip sönerek dikkati çeker, iki kez tekrarlar
+      ve kendini siler (JS animationend). Yazarken tetiklenmez; her tuşta
+      yanıp sönen bir alan okunamaz hâle gelirdi. */
+.yu-girdi.hatali {
+  border-color: var(--olumsuz);
+  box-shadow: inset 0 0 0 1px var(--olumsuz);
+}
+
+@keyframes yu-alan-parla {
+  0%   { background-color: var(--yuzey); }
+  30%  { background-color: var(--olumsuz-zemin); }
+  55%  { background-color: var(--olumsuz-zemin); }
+  100% { background-color: var(--yuzey); }
+}
+.yu-girdi.hatali.yu-parla { animation: yu-alan-parla .55s ease-in-out 2; }
+
+/* Hareket duyarlılığı olan kullanıcıda animasyon çalışmaz; kalıcı kırmızı
+   kenar tek başına yeter. */
+@media (prefers-reduced-motion: reduce) {
+  .yu-girdi.hatali.yu-parla { animation: none; }
+}
 
 /* Miktar ve tarih alanları sayısal dilde yazılır. */
 .yu-girdi[type="number"],
@@ -1575,6 +1840,25 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
   pointer-events: none;
 }
 .yu-girdi-sar:has(.yu-girdi-sag) .yu-girdi { padding-right: 46px; }
+
+/* Alanın sağ ucundaki TIKLANIR öğe (parola Göster/Gizle, 26.08.2026).
+   .yu-girdi-sag pointer-events: none taşıdığı için tıklanabilirlik burada
+   geri açılır; yazı düğmesi olduğu için alan da daha çok sağ dolgu ister. */
+.yu-girdi-sag-eylem { pointer-events: auto; }
+.yu-girdi-sar:has(.yu-girdi-sag-eylem) .yu-girdi { padding-right: 68px; }
+
+.yu-girdi-goz {
+  padding: 3px 7px;
+  border: 1px solid var(--kenar-2);
+  border-radius: var(--r-s);
+  background: var(--yuzey-2);
+  font: 500 12.5px/1.2 var(--font);
+  color: var(--metin-3);
+  cursor: pointer;
+  transition: background-color .12s, color .12s, border-color .12s;
+}
+.yu-girdi-goz:hover { background: var(--yuzey-4); color: var(--metin); border-color: var(--kenar-3); }
+.yu-girdi-goz:focus-visible { outline: 2px solid var(--vurgu); outline-offset: 1px; }
 
 .yu-yardim { font: 400 13px/1.4 var(--font); color: var(--metin-4); }
 
@@ -1632,14 +1916,18 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
    vurgu çizgisi dili — koyu temada da geçerli (CLAUDE.md KURAL 1).
    Yalnız bu sınıfı taşıyan şeride etki eder; diğer şeritler değişmez. */
 .yu-serit.yu-cetin {
-  padding: 16px 18px;
+  /* Ölçüler bir kademe KÜÇÜLDÜ (kullanıcı isteği, 27.08.2026: "bu tarz
+     uyarılar çok büyük, biraz küçültür müsün"). Sertliği taşıyan şey ölçü
+     değil renk ve sol vurgu çizgisi; ikisi de duruyor.
+     Dolgu 16/18 -> 12/14, başlık 20px -> 16px, vurgu çizgisi 4px -> 3px. */
+  padding: 12px 14px;
   border-color: var(--olumsuz);
-  box-shadow: inset 4px 0 0 var(--olumsuz);
+  box-shadow: inset 3px 0 0 var(--olumsuz);
 }
 .yu-serit.yu-cetin .yu-serit-baslik {
-  font: 700 20px/1.25 var(--font);
-  letter-spacing: -.012em;
-  margin-bottom: 6px;
+  font: 700 16px/1.3 var(--font);
+  letter-spacing: -.01em;
+  margin-bottom: 4px;
 }
 .yu-serit.yu-cetin .yu-serit-ikon { align-items: flex-start; margin-top: 2px; }
 
@@ -1649,7 +1937,7 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
    şeride etki eder; diğer şeritler değişmez (CLAUDE.md KURAL 1). */
 .yu-serit.yu-cetin.yu-tiklanir { transition: box-shadow .15s ease, border-color .15s ease; }
 .yu-serit.yu-cetin.yu-tiklanir:hover {
-  box-shadow: inset 6px 0 0 var(--olumsuz);
+  box-shadow: inset 5px 0 0 var(--olumsuz);
   border-color: var(--olumsuz);
 }
 .yu-serit.yu-cetin.yu-tiklanir:hover .yu-serit-baslik { text-decoration: underline; text-underline-offset: 3px; }
@@ -1809,7 +2097,6 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
 /* Ayraçlar */
 .yu-ayrac { background: var(--ayrac); border: 0; flex: none; }
 .yu-yatay { height: 1px; width: 100%; }
-.yu-dikey { width: 1px; align-self: stretch; min-height: 18px; background: var(--kenar); }
 
 
 /* ==========================================================================
@@ -1828,9 +2115,40 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
 }
 .yu-giris .yu-tema-dugme { position: fixed; top: 18px; right: 18px; }
 
+/* GİRİŞ ZEMİNİ — LOGO deseni (kullanıcı isteği, 26.08.2026: "her tarafa logo
+   koy, kaydırmalı düzende, aralarında boşluk olsun, baya büyük olsun,
+   silik olmasın — net olsun, hafif saydamlık olmasın").
+
+   NEDEN CSS TEKRARI DEĞİL: background-repeat'te çizilen görselin boyu ile
+   tekrar adımı AYNI şeydir — araya boşluk koymak için görseli esnetmek
+   gerekirdi (logo 2:3, esnerse bozulur). Bu yüzden desen gerçek <img>
+   öğeleriyle kurulur (10-kabuk · girisDeseni): boy, yatay adım, dikey adım ve
+   satır kaydırması birbirinden bağımsız ayarlanır.
+
+   OPAKLIK YOK, MASKE YOK: kullanıcı kararıyla logolar tam görünür. Form
+   okunur kalır çünkü kart kendi zeminini taşır ve desenin üstündedir. */
+.yu-giris-desen {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+.yu-giris-desen img {
+  position: absolute;
+  display: block;
+  user-select: none;
+}
+.yu-giris > *:not(.yu-giris-desen) { position: relative; z-index: 1; }
+/* Kart desenin üstünde okunur dursun: kenar bir tık belirginleşir. */
+.yu-giris .yu-giris-kart { border-color: var(--kenar-2); }
+
 .yu-giris-kart {
   width: 100%;
-  max-width: 720px;
+  /* Rol kartları kalkıp yerini kullanıcı adı + parola formuna bıraktı
+     (26.08.2026); 720px iki kart içindi, tek sütunluk form için dar kap
+     daha okunur. */
+  max-width: 420px;
   padding: 34px 32px;
   border: 1px solid var(--kenar);
   border-radius: var(--r-l);
@@ -1846,35 +2164,19 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
 .yu-giris-kart .yu-sayfa-baslik { font-size: 24px; }
 .yu-giris-kart .yu-sayfa-alt { margin-top: 6px; }
 
-.yu-giris-roller {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  width: 100%;
-}
-
-.yu-giris-rol {
+/* GİRİŞ FORMU — kullanıcı adı + parola (26.08.2026). Rol kartlarının
+   (.yu-giris-roller / .yu-giris-rol) kuralları buradan kaldırıldı: giriş
+   artık Şartname §3'ün istediği gibi kimlikle yapılıyor, kartlar kalmadı.
+   Kart ortalanmışken form SOLA hizalıdır; etiket ile alanı aynı eksende
+   okumak gerekir. */
+.yu-giris-form {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 20px 18px;
-  border: 1px solid var(--kenar-2);
-  border-radius: var(--r-l);
-  background: var(--yuzey);
-  color: var(--metin);
+  gap: 14px;
+  width: 100%;
   text-align: left;
-  cursor: pointer;
-  min-width: 0;
-  transition: border-color .12s, background-color .12s, box-shadow .12s;
 }
-.yu-giris-rol:hover {
-  border-color: var(--vurgu);
-  box-shadow: var(--golge-2);   /* koyu temada none */
-}
-.yu-giris-rol:hover .yu-kpi-ikon { background: var(--vurgu); color: var(--vurgu-uzeri); }
-.yu-giris-rol strong { font: 600 16.5px/1.2 var(--font); color: var(--metin); }
-.yu-giris-rol span   { font: 400 14px/1.55 var(--font); color: var(--metin-4); }
+.yu-giris-form .yu-dugme { justify-content: center; margin-top: 4px; }
 
 .yu-giris-not {
   font: 400 13.5px/1.6 var(--font);
@@ -1902,13 +2204,6 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
   overflow: hidden;
 }
 
-.yu-hesap-ust {
-  padding: 11px 16px;
-  font: 400 14px/1.45 var(--font);
-  color: var(--metin-4);
-  border-bottom: 1px solid var(--ayrac);
-  background: var(--yuzey-2);
-}
 
 .yu-hesap-satir {
   display: flex;
@@ -1918,30 +2213,7 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
   padding: 15px 16px;
 }
 
-.yu-hesap-toplam {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 16px;
-  border-top: 1px solid var(--kenar);
-  background: var(--yuzey-2);
-}
 
-.yu-hesap-toplam-etiket {
-  font: 500 14.5px/1.3 var(--font);
-  color: var(--metin-2);
-}
-
-.yu-hesap-toplam-deger {
-  font: 600 24px/1 var(--sayi);
-  letter-spacing: -.02em;
-  font-variant-numeric: tabular-nums;
-  color: var(--metin);
-  white-space: nowrap;
-}
-.yu-hesap-toplam-deger.olumlu  { color: var(--olumlu); }
-.yu-hesap-toplam-deger.olumsuz { color: var(--olumsuz); }
 .yu-hesap-oge {
   display: flex;
   flex-direction: column;
@@ -2055,14 +2327,7 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
   }
 
   .yu-iz-3,
-  .yu-iz-yan,
-  .yu-iz-yan-ters { grid-template-columns: 1fr; }
 
-  /* Silolar alt alta düşünce dikey ayırıcı yataya döner. */
-  .yu-silo-kart + .yu-silo-kart {
-    border-left: 0;
-    border-top: 1px solid var(--kenar);
-  }
 }
 
 @media (max-width: 700px) {
@@ -2073,7 +2338,6 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
   .yu-kullanici-rol { display: none; }
   .yu-kullanici { padding-left: 10px; }
   .yu-iz-2, .yu-iz-3, .yu-iz-4 { grid-template-columns: 1fr; }
-  .yu-giris-roller { grid-template-columns: 1fr; }
   .yu-giris-kart { padding: 26px 20px; }
   .yu-tablo thead th { padding: 8px 12px; }
   .yu-tablo tbody td { padding: 10px 12px; }
@@ -2096,12 +2360,79 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
    ekranda aynı bilgiyi tarih kutusu verir, kâğıtta kutu gizlenince bu yazar. */
 .yu-yalniz-baski { display: none; }
 
+/* CHROME'UN KENDİ ÜSTBİLGİSİ KALDIRILDI (kullanıcı isteği, 27.08.2026):
+   kâğıdın sol üstünde "27.08.2026 16:16", ortada belge adı, altta adres ve
+   sayfa numarası Chrome'un baskı üstbilgisidir; sayfanın içeriği değildir.
+   Kenar boşluğu 0 olunca tarayıcının bu yazıları basacak yeri kalmaz. Kâğıt
+   boşluğu aşağıda body dolgusuyla geri verilir — içerik kenara yapışmaz. */
+@page { margin: 0; }
+
 @media print {
   .yu-yalniz-baski { display: inline; }
+
+  /* @page 0 olunca kâğıt boşluğunu sayfa kendisi verir. Tek panel
+     yazdırmada hedef panel mutlak konumlu olduğundan dolguyu o taşır. */
+  body { padding: 11mm 12mm; }
+  html.yu-baski-tek .yu-baski-hedef { padding: 11mm 12mm; box-sizing: border-box; }
+
+  /* RAPOR KÜNYESİ — yalnız kâğıtta (kullanıcı isteği, 26.08.2026).
+     Ekranın "Ana Sayfa · Kampanya … · 35 gün veri girilmiş" şeridi baskıya
+     girmez; yerine iki satırlık kurumsal künye basılır:
+       1. satır  RAPOR ADI (büyük, kalın)            ·  tarih (sağda)
+       2. satır  Kampanya 20xx/20xx                  ·  Hazırlayan (sağda)
+     Altında kalın bir çizgi, raporu içerikten ayırır. */
+  .yu-baski-bas {
+    display: block !important;
+    margin: 0 0 14px;
+    padding: 0 0 8px;
+    border-bottom: 2px solid #000;
+  }
+  .yu-baski-satir {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .yu-baski-ad {
+    font: 700 15px/1.2 var(--font);
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    color: #000 !important;
+  }
+  .yu-baski-tarih {
+    font: 700 12px/1.2 var(--sayi);
+    font-variant-numeric: tabular-nums;
+    color: #000 !important;
+    white-space: nowrap;
+  }
+  /* Kurum adı künyenin en üstünde, rapor adından küçük ve harf aralıklı —
+     antetli kâğıt dili (kullanıcı isteği, 26.08.2026). */
+  .yu-baski-kurum {
+    font: 600 9.5px/1.2 var(--font);
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: #333 !important;
+    margin-bottom: 5px;
+  }
+  .yu-baski-alt {
+    font: 500 10px/1.3 var(--font);
+    color: #333 !important;
+    margin-top: 3px;
+  }
+  .yu-baski-alt:empty { display: none; }
+
+  /* Panel başlıklarındaki "Bugün 26.08.2026" rozeti kâğıda basılmaz: tarih
+     künyede yazıyor, her tablonun başında yinelenince sayfanın üstünde dört
+     tarih birikiyordu (kullanıcı isteği, 26.08.2026). */
+  .yu-tarih-rozeti,
+  .yu-gun-gezinme { display: none !important; }
+  /* Her kâğıdın üstünde yinelenmez: künye yalnız ilk sayfada durur. */
+  .yu-baski-bas { break-after: avoid; break-inside: avoid; }
   .yu-yan,
   .yu-ust,
   .yu-eylemler,
   .yu-dugme,
+  .yu-onay-cip,
   .yu-satir-eylem,
   .yu-tema-dugme,
   .yu-yan-daralt-satir,
@@ -2111,6 +2442,19 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
      24.08.2026): Günlük Rapor > Günün İşlem Geçmişi bu sınıfı taşır. */
   .yu-baski-yok,
   .yu-sekmeler { display: none !important; }
+
+  /* TEK PANEL yazdırma (kullanıcı isteği, 25.08.2026): YU.yazdirPanel kökle
+     .yu-baski-tek, hedef panele .yu-baski-hedef sınıfını koyar; baskıda
+     yalnız o panel görünür. Sayfanın tamamını yazdırma davranışı değişmez. */
+  html.yu-baski-tek body * { visibility: hidden; }
+  html.yu-baski-tek .yu-baski-hedef,
+  html.yu-baski-tek .yu-baski-hedef * { visibility: visible; }
+  html.yu-baski-tek .yu-baski-hedef {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
 
   .yu-kabuk { display: block; min-height: 0; }
   .yu-icerik { padding: 0; gap: 14px; }
@@ -2143,10 +2487,38 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
      etkilenmez. */
   .yu-yazdirmada-kaydedensiz thead th:last-child,
   .yu-yazdirmada-kaydedensiz tbody td:last-child { display: none; }
-  /* Yapışkan varyantın seçicisi üstteki kuraldan daha özgül; yazdırmada da
-     kazanıp başlığı top:64px ile satırların üzerine itiyordu. Kâğıtta
-     kaydırma yok — aynı özgüllükte etkisizleştirilir. */
-  .yu-tablo-sar.yu-yapiskan thead th { position: static; top: auto; }
+
+  /* KOLON ŞERİDİ BASKIDA SERBEST (kullanıcı bildirimi, 28.08.2026: "yazdırdaki
+     pdf hizaları çok kötü").
+
+     İki kusur birlikte hizayı bozuyordu:
+     1) colgroup'taki SABİT px genişlikler (380/360/140/170… ekran ölçüleri)
+        kâğıtta da uygulanıyor, tablo A4'e sığmayınca kolonlar birbirine
+        biniyordu — thead th'ye width:auto verilmişti ama <col> es geçilmişti.
+     2) "Kaydeden" kolonu yalnız th/td olarak gizleniyor; ona ait <col> ise
+        kalıyor ve sağda genişliği olan HAYALET bir kolon açıyordu; kalan
+        kolonlar sola kayıp başlıklarıyla hizasını kaybediyordu.
+
+     Çözüm: baskıda tüm <col> genişlikleri auto'ya döner. Hücresi kalmayan
+     hayalet kolon 0 genişliğe iner, kalan kolonlar içeriğe göre paylaşır.
+     Ekran görünümü değişmez — kural yalnız @media print içinde. */
+  .yu-baski-sig colgroup col,
+  table.yu-baski-sig colgroup col,
+  .yu-yazdirmada-kaydedensiz colgroup col { width: auto !important; }
+
+  /* Sınıf sarmalayıcıda da tabloda da olabiliyor (iki ekran iki yolu
+     kullanıyor); ikisini de yakala ki inline min-width kâğıtta düşsün. */
+  table.yu-baski-sig,
+  .yu-yazdirmada-kaydedensiz table {
+    min-width: 0 !important;
+    width: 100% !important;
+    table-layout: auto !important;
+  }
+
+  /* Sayısal kolonlar kâğıtta da SAĞA yaslı kalır: auto yerleşimde hizanın
+     kaynağı yalnız bu sınıflardır, genişlik değil. */
+  .yu-tablo th.yu-sag, .yu-tablo td.yu-sag { text-align: right !important; }
+  .yu-tablo th.yu-orta, .yu-tablo td.yu-orta { text-align: center !important; }
   .yu-tablo tbody tr:hover { background: none; }
 
   /* Stok Durumu: 9 kolonlu tablo A4'e taşıyordu (kullanıcı isteği,
@@ -2163,14 +2535,176 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
   .yu-baski-bolunur tbody tr { break-inside: avoid; }
   .yu-baski-bolunur thead { display: table-header-group; }
 
+  /* KÂĞITTAN TAŞMA — kullanıcı bildirimi, 26.08.2026 (PDF çıktısında kolon
+     başlıkları kayıyordu). ÖLÇÜLDÜ: A4'te kullanılabilir genişlik 792px iken
+     Malzeme Bazında Stok tablosu 1046px, Silo Bazında Stok 863px, Aylık
+     Malzeme Özeti 1076px çiziliyordu — sağdaki kolonlar kâğıdın dışında
+     kalıyor, başlıklar kaymış gibi okunuyordu.
+     SEBEP başlıkların TEK SATIRA zorlanmasıydı: "Kamp. Toplam Üretim" gibi
+     uzun bir başlık kolonu 142px'e şişiriyor, on kolon toplanınca tablo
+     kâğıda sığmıyordu. Sayısal hücreler nowrap KALIR (rakam bölünmesin);
+     yalnız BAŞLIK satır sarar. col genişlikleri de serbest bırakılır, yoksa
+     ekrandaki sabit ölçüler kâğıtta da dayatılıyor.
+     Ölçüm sonrası: sekiz ekranın hepsinde tablo 792px'e sığıyor. */
+  .yu-tablo { width: 100% !important; min-width: 0 !important; table-layout: auto; }
+  .yu-tablo colgroup col { width: auto !important; }
+  .yu-tablo thead th { white-space: normal !important; }
+
+  /* İri yazılı tablo varyantı (Aylık Özet) kâğıtta normal ölçüye iner —
+     ekranda iri kalmaya devam eder. */
+  .yu-tablo-iri .yu-tablo td,
+  .yu-tablo-iri .yu-tablo th { font-size: 9px !important; padding: 4px 6px !important; }
+  .yu-tablo-iri .yu-tablo td .yu-mono,
+  .yu-tablo-iri .yu-tablo td .yu-guclu { font-size: 9.5px !important; }
+
+  /* KÂĞITTAN TAŞMA SÜRÜYORDU — kullanıcı çıktısı, 26.08.2026: "yazdırmadaki
+     pdfte bozuluyor, hizalı değil". ÖLÇÜLDÜ (baskı kipi ekranda açılıp 792px
+     kâğıda kurularak): Malzeme Bazında Stok tablosu 812px çiziliyor, sağdaki
+     Kamp. Toplam Satış ve Stok kolonları kâğıdın dışında kalıyordu.
+     SEBEP tek bir hücreydi: yavru satırın "Dökmeden Çuvallıya Çevrilen,
+     Üretimden Düşülür" metni nowrap olduğu için Malzeme kolonunu 318px'e
+     şişiriyordu. İLK KOLON kâğıtta satır sarabilir — ölçüm sonrası kolon
+     184px'e iner, tablo 788px olur ve sığar. Sayısal kolonlar nowrap KALIR.
+     Kural yalnız .yu-baski-sig taşıyan tabloda; başka ekranın çıktısı
+     değişmez (KURAL 5.1). */
+  .yu-baski-sig tbody td:first-child,
+  .yu-baski-sig tbody td:first-child * { white-space: normal !important; }
+
+  /* İLK KOLON TARİH OLAN TABLO (Program Hareketleri · Malzeme Günlük
+     Değişimi, 27.08.2026): yukarıdaki kural ilk kolonu sardırıyor — o kolon
+     artık "27.08.2026 / 12:10" olduğu için tarih ikiye bölünüyordu. Bu
+     varyantta sarma hakkı BİR SAĞA kayar: tarih tek satırda kalır, sarabilen
+     kolon malzeme adı olur. Kuralın gerekçesi (kâğıda sığdırmak) korunur. */
+  .yu-baski-ilk-tarih tbody td:first-child,
+  .yu-baski-ilk-tarih tbody td:first-child * { white-space: nowrap !important; }
+  .yu-baski-ilk-tarih tbody td:nth-child(2),
+  .yu-baski-ilk-tarih tbody td:nth-child(2) * { white-space: normal !important; }
+
+  /* YAVRU SATIR KÂĞITTA TEK SATIR (kullanıcı isteği, 28.08.2026): yukarıdaki
+     sarma kuralı "Dökmeden Çuvallıya Çevrilen, Üretimden Düşülür" metnini beş
+     satıra bölüyordu. Metin nowrap'e döner ama kolonu ŞİŞİRMEZ: sarmalayan
+     span width:0 blok olur, yani kolonun min genişliğine 0 katkı verir ve
+     yazı sağdaki hücrelerin üstüne TAŞAR. Taşma zararsız — yavru satırda o
+     hücreler zaten boştur.
+     ÖLÇÜLDÜ (792px kâğıt kurulup): metin tek satır, sağ ucu 261px; satırdaki
+     ilk dolu hücre 539px'te başlıyor, üst üste binme yok. Tablo 788px, sığıyor.
+     Ekran görünümü değişmez — kural yalnız @media print içinde. */
+  .yu-baski-sig tbody tr.yu-satir-yavru td:first-child,
+  .yu-baski-sig tbody tr.yu-satir-yavru td:first-child * { white-space: nowrap !important; }
+  .yu-baski-sig tbody tr.yu-satir-yavru td:first-child > span {
+    display: block !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+  }
+
   .yu-baski-sig table { min-width: 0 !important; width: 100%; table-layout: auto; }
   .yu-baski-sig thead th { width: auto !important; min-width: 0 !important; }
-  .yu-baski-sig thead th,
-  .yu-baski-sig tbody td { padding: 6px 7px !important; font-size: 10px !important; }
-  .yu-baski-sig tbody td .yu-mono { font-size: 10.5px; }
+  /* .yu-baski-sig'in kendi ölçüsü, aşağıdaki genel kuralla AYNI değere
+     çekildi (26.08.2026): iki kural çakışıyordu ve daha özgül olan bu,
+     genel küçültmeyi eziyordu — kâğıtta yazı küçülmüyordu. */
+  /* Değerler bir kademe büyüdü (kullanıcı isteği, 28.08.2026): bu blok daha
+     özgül olduğu için genel kuraldaki büyütmeyi eziyordu. Başlık 9px kalır,
+     hücre ve rakam büyür. */
+  .yu-baski-sig thead th { padding: 4px 6px !important; font-size: 9px !important; }
+  .yu-baski-sig tbody td { padding: 4px 6px !important; font-size: 10px !important; }
+  .yu-baski-sig tbody td .yu-mono { font-size: 10.5px !important; }
+
+  /* KÂĞIT OKUNURLUĞU — kullanıcı isteği, 26.08.2026: "yazı biraz daha küçük
+     olabilir ama satırlar çok silik, kalınlaştır sertleştir".
+     Ekranda satır ayracı --ayrac-2 (#f3f4f7); kâğıtta bu ton neredeyse hiç
+     basılmıyor, tablo çizgisiz bir metin yığınına dönüyordu. Baskıda çizgiler
+     gri tonlarına sertleştirilir, yazı bir kademe küçülür — ikisi birlikte
+     satırların birbirinden ayrılmasını sağlar. Ekran görünümü değişmez. */
+  /* Rakamlar bir kademe büyüdü (kullanıcı isteği, 28.08.2026: "kg'leri
+     büyütsene") — 9px/9.5px'te değerler ekrandaki büyük rakamların
+     yanında küçük kalıyordu. Başlık yazısı (th) aynı kaldı, hücre metni
+     ve rakamlar (yu-mono/yu-guclu) büyüdü. */
+  .yu-tablo td,
+  .yu-tablo th { font-size: 9px !important; padding: 4px 6px !important; }
+  .yu-tablo td { font-size: 10px !important; }
+  .yu-tablo td .yu-mono,
+  .yu-tablo td .yu-guclu { font-size: 10.5px !important; }
+
+  /* YAZI SİLİK KALIYORDU (kullanıcı bildirimi, 26.08.2026). Ekranda hücreler
+     --metin-2/-4/-5 gri tonlarında ve 400 ağırlıkta; kâğıtta bu griler soluk
+     basılıyor, 9px'te iyice okunmaz oluyordu. Baskıda tablo yazısının TAMAMI
+     siyaha çekilir ve bir kademe kalınlaşır — hiyerarşiyi renk değil AĞIRLIK
+     taşır. print-color-adjust: yazıcının "arka planları atla" ayarı zemini
+     yutsa bile yazı ve çizgi basılsın. */
+  /* BASKI TEMADAN BAĞIMSIZDIR (kullanıcı çıktısı, 26.08.2026: "çok koyu oldu,
+     okunmuyor"). print-color-adjust: exact zeminleri de bastırdığı için KOYU
+     TEMADA yazdırınca lacivert başlık şeridi ve TOPLAM satırı kâğıda olduğu
+     gibi çıkıyordu. Artık hangi tema açık olursa olsun: zemin beyaz/açık gri,
+     yazı siyah. Ayrım rengi değil ÇİZGİ ve AĞIRLIK taşır. */
+  .yu-icerik,
+  .yu-icerik * { color: #000 !important; }
+  .yu-icerik,
+  .yu-icerik.yu-zemin-gri,
+  .yu-icerik.yu-zemin-gri-duz,
+  .yu-panel,
+  .yu-panel-bas,
+  .yu-panel-govde,
+  .yu-kpi,
+  .yu-tablo-sar,
+  .yu-tablo,
+  .yu-tablo tbody tr,
+  .yu-tablo tbody td { background: #fff !important; }
+  .yu-tablo thead th { background: #ececec !important; }
+  .yu-tablo tbody tr.yu-satir-toplam td { background: #e2e2e2 !important; }
+  .yu-tablo tbody tr.yu-satir-zemin td { background: #f5f5f5 !important; }
+  /* Yavru satır kâğıtta: zemin beyaz, ayrımı soldaki girinti çubuğu taşır.
+     (Pseudo-eleman katmanları kaldırıldı, 26.08.2026 — kolon kaydırıyordu.) */
+  /* Kontra satır kâğıtta da yalnız tipografiyle ayrışır (28.08.2026). */
+  .yu-tablo tbody tr.yu-satir-yavru td { background: #fff !important; color: #444 !important; }
+
+  .yu-tablo td,
+  .yu-tablo th,
+  .yu-tablo td *,
+  .yu-tablo th * {
+    color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* Ağırlık: sayısal hücrelerin TAMAMI 600'e çıkar. Sınıf HÜCREDE (td.yu-mono),
+     rakamı taşıyan iç span'de değil — iç span'in kendi satır içi stili 400
+     yazıyor, o yüzden torunlara da inilir ve !important ile ezilir. */
+  .yu-tablo tbody td { font-weight: 500 !important; }
+  .yu-tablo tbody td.yu-mono,
+  .yu-tablo tbody td.yu-mono * { font-weight: 600 !important; }
+  .yu-tablo tbody td .yu-guclu { font-weight: 700 !important; }
+  /* Soluk yardımcı metinler (ikinci satır, "—") siyahtan bir tık açık kalır ki
+     asıl rakamla karışmasın; ama gri değil koyu gridir. */
+  .yu-tablo tbody td .yu-zayif,
+  .yu-tablo tbody td .yu-yardim { color: #333 !important; }
+
+  .yu-tablo tbody td { border-bottom: 1px solid #9a9a9a !important; }
+  .yu-tablo tbody tr:last-child td { border-bottom: 1px solid #9a9a9a !important; }
+  .yu-tablo thead th {
+    border-bottom: 1.6px solid #3a3a3a !important;
+    font-weight: 700 !important;
+    color: #000 !important;
+  }
+  /* Tablonun dış çerçevesi de kâğıtta görünür — panel kenarı gri tonda. */
+  .yu-tablo-sar { border: 1px solid #9a9a9a !important; }
+
+  /* TOPLAM satırı: yazıcı zemin basmayabilir, ayrımı ÇİZGİ ve KALINLIK taşır. */
+  .yu-tablo tbody tr.yu-satir-toplam td {
+    border-top: 1.6px solid #3a3a3a !important;
+    border-bottom: 1.6px solid #3a3a3a !important;
+    font-weight: 700 !important;
+    color: #000 !important;
+  }
   /* Hücre içi rozetler ("Silo Toplamı", "Çuvallı") kâğıtta iri kalıyordu
      (kullanıcı isteği, 24.08.2026): hücre yazısıyla aynı boya iner, zemin
      bastırılamadığında da rozet gibi okunsun diye ince çerçeve alır. */
+  /* Rozetler: zemin basılmasa da okunsun diye ince çerçeve + siyah yazı. */
+  .yu-rozet {
+    background: #fff !important;
+    color: #000 !important;
+    border: 1px solid #999 !important;
+  }
+
   .yu-baski-sig .yu-rozet {
     font-size: 9.5px !important;
     padding: 1px 6px !important;
@@ -2203,6 +2737,11 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
 /* gri-duz: zemin gri ama paneller ortak (mavi/turuncu) düzeninde kalır —
    Kuru Küspe Günlük Giriş (kullanıcı isteği, 23.08.2026). */
 .yu-icerik.yu-zemin-gri-duz { background: var(--gri-zemin); }
+/* Üst dolgusu dar varyantı (kullanıcı isteği, 26.08.2026 — "en üstte
+   biraz boşluk var, paneli üst kenara yaklaştır"). Ortak .yu-icerik dolgusu
+   OLDUĞU GİBİ kalır; yalnız bu sınıfı isteyen sayfa daralır (KURAL 10.5).
+   İki sınıflı seçici olduğu için dar ekran medya kuralını da geçer. */
+.yu-icerik.yu-ust-dar { padding-top: 8px; }
 .yu-icerik.yu-zemin-gri .yu-panel,
 .yu-icerik.yu-zemin-gri .yu-kpi { background: var(--gri-panel); border-color: var(--gri-kenar); }
 .yu-icerik.yu-zemin-gri .yu-kpi:hover { border-color: color-mix(in srgb, var(--metin-5) 45%, var(--gri-kenar)); }
@@ -2222,34 +2761,10 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
      2. grafiğe basıp sağa sola sürükleme,
      3. fare tekerleği (grafiğin üzerindeyken yatay kaydırır).
    ------------------------------------------------------------------ */
-.yu-grafik-ok {
-  flex: none;
-  /* 40 -> 30 (kullanıcı isteği, 25.08.2026): ok düğmesi küçüldü. */
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  /* Beyaz ok (kullanıcı isteği, 25.08.2026). Açık temada beyaz zeminde
-     kaybolmasın diye orada koyu metin rengine döner. */
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  border-radius: var(--r-s);
-  transition: color .12s, background .12s;
-}
-html[data-tema="acik"] .yu-grafik-ok { color: var(--metin); }
 @media (prefers-color-scheme: light) {
-  html:not([data-tema="koyu"]) .yu-grafik-ok { color: var(--metin); }
 }
-.yu-grafik-ok:hover,
-.yu-grafik-ok:focus-visible { color: var(--vurgu); background: var(--yuzey-3); }
-.yu-grafik-ok:active { color: var(--vurgu-koyu); }
 /* Kaydıracak yer yoksa düğme yerini KORUR ama görünmez — grafik genişliği
    ok göründü/gizlendi diye oynamasın. */
-.yu-grafik-ok[hidden] { display: flex; visibility: hidden; }
 
 /* Kaydırma çubuğu GİZLİ: gezinme ok düğmeleri, sürükleme ve tekerlekle. */
 .yu-grafik-kaydir {
@@ -2260,18 +2775,6 @@ html[data-tema="acik"] .yu-grafik-ok { color: var(--metin); }
 }
 .yu-grafik-kaydir::-webkit-scrollbar { display: none; height: 0; }
 
-@media print { .yu-grafik-ok { display: none; } }
-
-/* Yalnız YAZIYI büyüten tablo varyantı (kullanıcı isteği, 25.08.2026:
-   "satırların içindeki verileri çok az büyüt"). yu-tablo-iri satır dolgusunu
-   da artırıyor ve satır 58px'ten 104px'e çıkıyordu; bu varyant dolguya
-   dokunmaz, sadece hücre yazısını bir kademe büyütür. */
-.yu-tablo-yazi-buyuk .yu-tablo td { font-size: 15px; }
-.yu-tablo-yazi-buyuk .yu-tablo th { font-size: 12.5px; }
-/* Sayısal hücreler tek satırda kalır: yazı büyüyünce "871.850 kg" alt satıra
-   iniyor ve satır yüksekliği 58px'ten 104px'e fırlıyordu (ölçüldü). */
-.yu-tablo-yazi-buyuk .yu-tablo td.yu-mono,
-.yu-tablo-yazi-buyuk .yu-tablo td.yu-sag { white-space: nowrap; }
 
 /* TOPLAM satırı (kullanıcı isteği, 25.08.2026): veri satırlarından ayrılsın
    diye koyu gece mavisi zemin ve üstünde belirgin bir çizgi taşır. Koyu
@@ -2284,20 +2787,28 @@ html[data-tema="acik"] .yu-grafik-ok { color: var(--metin); }
 }
 .yu-tablo tbody tr.yu-satir-toplam td {
   color: var(--metin);
-  font-weight: 600;
+  /* TOPLAM satırı daha kalın ve bir tık iri (kullanıcı isteği, 25.08.2026):
+     600/normal boy, veri satırlarından yeterince ayrışmıyordu. */
+  font-weight: 700;
+  font-size: 15.5px;
   border-bottom: none;
 }
-.yu-tablo tbody tr.yu-satir-toplam:hover { background: #101a2e; }
+.yu-tablo tbody tr.yu-satir-toplam td .yu-mono,
+.yu-tablo tbody tr.yu-satir-toplam td .yu-guclu { font-weight: 700; font-size: 15.5px; }
+/* HOVER (kullanıcı isteği, 26.08.2026): satır üstüne gelince zemin bir kademe
+   açılır — okuyan, bunun sıradan bir veri satırı değil TOPLAM satırı olduğunu
+   fareyle de anlar. Önceden hover kapalıydı (aynı rengi tekrar yazıyordu).
+   İmleç ok kalır: satır tıklanabilir değildir, yanlış beklenti doğurmasın. */
+.yu-tablo tbody tr.yu-satir-toplam { cursor: default; transition: background-color .12s; }
+.yu-tablo tbody tr.yu-satir-toplam:hover { background: #1b2c4a; }
 
-html[data-tema="acik"] .yu-tablo tbody tr.yu-satir-toplam,
-html[data-tema="acik"] .yu-tablo tbody tr.yu-satir-toplam:hover {
-  background: #e8edf7;
-}
+/* Açık temada zemin bir tık koyulaştırıldı (#e8edf7 → #dde5f4): beyaz veri
+   satırlarından yeterince ayrışmıyordu. Hover onun da bir kademe koyusu. */
+html[data-tema="acik"] .yu-tablo tbody tr.yu-satir-toplam { background: #dde5f4; }
+html[data-tema="acik"] .yu-tablo tbody tr.yu-satir-toplam:hover { background: #cdd9ef; }
 @media (prefers-color-scheme: light) {
-  html:not([data-tema="koyu"]) .yu-tablo tbody tr.yu-satir-toplam,
-  html:not([data-tema="koyu"]) .yu-tablo tbody tr.yu-satir-toplam:hover {
-    background: #e8edf7;
-  }
+  html:not([data-tema="koyu"]) .yu-tablo tbody tr.yu-satir-toplam { background: #dde5f4; }
+  html:not([data-tema="koyu"]) .yu-tablo tbody tr.yu-satir-toplam:hover { background: #cdd9ef; }
 }
 
 /* ------------------------------------------------------------------
@@ -2363,3 +2874,238 @@ html[data-tema="acik"] .yu-tablo tbody tr.yu-satir-toplam:hover {
   font-variant-numeric: tabular-nums;
 }
 .yu-ay-satir.secili .yu-ay-satir-gun { color: var(--vurgu); opacity: .8; }
+
+/* ------------------------------------------------------------------
+   Mail panelindeki mesaj kutusu (kullanıcı isteği, 26.08.2026)
+   BEJ "kâğıt": zemin ve YAZI RENGİ temadan bağımsız açık bej / koyu
+   yazıdır — koyu temada da siyah yazılır (kullanıcı isteği). Önce
+   rgba(...,.07) saydam katman denendi; altındaki lacivert baskın çıkıp
+   kutu maviye çalıyordu, o yüzden düz renk kullanılır.
+   TON: açık temada parlak bej; KOYU TEMADA bir tık kısık — parlak zemin
+   karanlık arayüzde göz alıyordu (kullanıcı isteği: "koyu modda sadece").
+   Yeni sınıf — ortak yüzey değişkenleri ezilmez (KURAL 10.5).
+   ------------------------------------------------------------------ */
+.yu-mesaj-kutusu {
+  background: #f7f2e6;
+  border: 1px solid #ddd4bf;
+  color: #2a2620;
+}
+.yu-mesaj-kutusu::placeholder { color: #9b9280; }
+.yu-mesaj-kutusu:focus {
+  outline: none;
+  border-color: #c9bb9c;
+  box-shadow: 0 0 0 3px rgba(201, 187, 156, .28);
+}
+
+/* Koyu temada kısık ton — yazı rengi değişmez. */
+@media (prefers-color-scheme: dark) {
+  html:not([data-tema="acik"]) .yu-mesaj-kutusu {
+    background: #ddd6c2;
+    border-color: #c6bba0;
+  }
+  html:not([data-tema="acik"]) .yu-mesaj-kutusu::placeholder { color: #8b8270; }
+}
+html[data-tema="koyu"] .yu-mesaj-kutusu {
+  background: #ddd6c2;
+  border-color: #c6bba0;
+}
+html[data-tema="koyu"] .yu-mesaj-kutusu::placeholder { color: #8b8270; }
+html[data-tema="acik"] .yu-mesaj-kutusu {
+  background: #f7f2e6;
+  border-color: #ddd4bf;
+}
+html[data-tema="acik"] .yu-mesaj-kutusu::placeholder { color: #9b9280; }
+
+/* ------------------------------------------------------------------
+   Aylık Özet · 12 aylık takvim ızgarası (kullanıcı isteği, 26.08.2026)
+   Klasik Windows tarih seçicisinin yıl görünümü: üstte ‹ 2026 ›, altında
+   4x3 kutuda OCK ŞBT MRT … ARA. Kaydı olmayan ay pasif ve soluk kalır.
+   Yeni sınıflar — mevcut .yu-ay-liste dili ezilmez (KURAL 10.5).
+   ------------------------------------------------------------------ */
+.yu-ay-yil-satiri {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 2px 9px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--ayrac);
+}
+.yu-ay-yil-baslik {
+  flex: 1;
+  text-align: center;
+  font: 600 14.5px/1 var(--font);
+  color: var(--metin);
+  font-variant-numeric: tabular-nums;
+}
+.yu-ay-yil-ok {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--kenar);
+  border-radius: var(--r-s);
+  background: var(--yuzey-2);
+  color: var(--metin-3);
+  cursor: pointer;
+}
+.yu-ay-yil-ok:hover:not(:disabled) { background: var(--yuzey-3); color: var(--metin); }
+.yu-ay-yil-ok:disabled { opacity: .35; cursor: default; }
+
+.yu-ay-izgara {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+/* Karede yalnız ay kısaltması var (26.08.2026): rakam kaldırıldı, dikey
+   yığın gereksiz kaldı; kutu tek satırın etrafında ortalanır. */
+.yu-ay-kare {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 13px 4px;
+  border: 1px solid transparent;
+  border-radius: var(--r-s);
+  background: var(--yuzey-2);
+  font: 600 12.5px/1 var(--font);
+  letter-spacing: .04em;
+  color: var(--metin-2);
+  cursor: pointer;
+}
+.yu-ay-kare:hover:not(:disabled) { background: var(--yuzey-3); border-color: var(--kenar-3); }
+.yu-ay-kare.secili {
+  background: var(--vurgu-zemin);
+  border-color: var(--vurgu);
+  color: var(--vurgu);
+}
+.yu-ay-kare.bos { background: transparent; color: var(--metin-5); opacity: .45; cursor: default; }
+.yu-ay-kare.bos:hover { background: transparent; border-color: transparent; }
+
+/* ------------------------------------------------------------------
+   İlk kolon ayracı (kullanıcı isteği, 26.08.2026)
+   Malzeme adı ile rakamlar arasına dikey çizgi: göz satırı takip
+   ederken adın nerede bitip sayıların nerede başladığını arar.
+   Yeni sınıf — .yu-tablo ortak dili ezilmez (KURAL 10.5).
+   ------------------------------------------------------------------ */
+.yu-tablo-ilk-ayrac thead th:first-child,
+.yu-tablo-ilk-ayrac tbody td:first-child {
+  border-right: 1px solid var(--kenar-2);
+}
+
+
+/* ==========================================================================
+   ŞERİT PANEL — .yu-adim-serit (Kuru Küspe Günlük Giriş, 1. ve 2. adım)
+   Kullanıcı isteği, 27.08.2026 ("B gibi yap"): adım panellerinin zemini
+   nötr kalır, yön bilgisini yalnız SOL KENARDAKİ 7px'lik şerit taşır —
+   giren yeşil, çıkan kırmızı; rozetin rengiyle aynı. Tek yandan kalın
+   kenarlıkta köşe yuvarlatılmaz, o yüzden sol köşeler düz.
+   Not: .yu-turuncu artık bu ekranda kullanılmıyor, kuralı yedek duruyor.
+   ========================================================================== */
+.yu-panel.yu-adim-serit {
+  border-left-width: 7px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.yu-panel.yu-adim-serit.yu-serit-giren { border-left-color: var(--olumlu); }
+.yu-panel.yu-adim-serit.yu-serit-cikan { border-left-color: var(--olumsuz); }
+
+/* Adım 1 ile adım 2 arasındaki tam genişlik ayracı (kullanıcı isteği,
+   27.08.2026). Izgaranın iki sütununu da geçer; üstünde ve altında eşit
+   boşluk kalsın diye satır aralığı bu çizgi için daraltıldı.
+   1px --kenar-3 ile kondu; kullanıcı "bayağı sert yap, kalınlaştır baya"
+   dedi — 4px ve metin tonunda, iki temada da net görünür. */
+.yu-adim-ayraci {
+  grid-column: 1 / -1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--metin-5);
+}
+@media print { .yu-adim-ayraci { height: 3px; background: #555; } }
+
+/* --------------------------------------------------------------------------
+   ÇİFT PANEL — .yu-cift-sol / .yu-cift-sag (kullanıcı isteği, 27.08.2026)
+   "Siloya Giren ile Silolara Dağıt aynı aileden, bağımlılar ama öyle
+   görünmüyor." Satırın iki paneli TEK KARTIN YARILARI gibi durur: aradaki
+   boşluk kapanır, bakışan köşeler düzleşir, dikişte tek kesik çizgi kalır.
+   Yön okunu taşıyan yuvarlak dikişin üstüne oturur; rengi satırın rengidir.
+   Ok SVG değil "→" karakteridir — ikon setinde yana bakan ok yok, döndürülen
+   chevron ekranda aşağı bakıyor (grafik oklarında da aynı yol izlendi).
+   -------------------------------------------------------------------------- */
+.yu-panel.yu-cift-sol {
+  position: relative;
+  border-radius: 0;
+  border-right: 0;
+}
+.yu-panel.yu-cift-sag {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  /* Dikiş: 1px --kenar-3 silik kalıyordu, iki panelin arasındaki bağ
+     okunmuyordu; 2px'e çıkarıldı (27.08.2026). Sonra "biraz inceltsene"
+     denince kalınlık 1px'e döndü, KOYU renk kaldı — ince ama silik değil. */
+  border-left: 1px dashed var(--metin-5);
+}
+.yu-cift-ok {
+  position: absolute;
+  top: 50%;
+  /* 22 -> 28px (kullanıcı isteği, 27.08.2026: "biraz büyült"). Sağ kayma
+     hep yarıçap kadardır ki yuvarlak dikişin tam ortasına otursun. */
+  right: -14px;
+  z-index: 1;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-50%);
+  font: 700 16px/1 var(--font);
+  color: var(--vurgu-uzeri);
+}
+.yu-serit-giren .yu-cift-ok { background: var(--olumlu); }
+.yu-serit-cikan .yu-cift-ok { background: var(--olumsuz); }
+
+
+/* ==========================================================================
+   KURU KÜSPE GÜNLÜK GİRİŞ — ekrana özel iki dokunuş (kullanıcı isteği,
+   28.08.2026). Ortak sınıflar EZİLMEZ; her ikisi de ekran kabındaki
+   .yu-kk-ekran sınıfının altında yaşar (KURAL 10.5).
+   ========================================================================== */
+
+/* 1) PASİF YAN PANEL — "çizgisinden tut yazısına kadar her şeyi birazcık
+   soluklaştır". Tek opacity, panelin TAMAMINI (kenarlık, başlık, kutular,
+   düğmeler) birlikte soldurur; içeriye tek tek renk basmak gerekmez.
+   Kutular ayrıca bir tık daha soluk: pasifken tıklanmayacakları belli olsun. */
+.yu-panel.yu-sonuk {
+  opacity: .48;
+  transition: opacity .15s ease;
+}
+.yu-panel.yu-sonuk .yu-girdi {
+  background: var(--yuzey-3);
+  border-color: var(--kenar);
+}
+
+/* 2) YAZI GİRİLEN KUTULAR HEP GRİ ZEMİNDE — yalnız AÇIK temada
+   (kullanıcı isteği, 28.08.2026: "hoverlı sadece beyaz ekranda olsun",
+   ardından "hep hover'ı aktif yapar mısın"). Önce yalnız fare üzerindeyken
+   griydi; artık kutular her zaman gri durur, yazı girilecek yerler beyaz
+   panelden tek bakışta ayrışır.
+
+   Koyu tema DIŞARIDA: kutu orada zaten katman tonuyla ayrışıyor, üstüne gri
+   binince parlıyordu. İki kapı da yazılır çünkü koyu tema iki yoldan gelir:
+   sistem tercihi (media) ve elle seçim ([data-tema="koyu"]).
+
+   Odaktaki ve pasif kutu DIŞARIDA: yazarken zemin beyaza döner (hangi
+   kutuda olduğun kaybolmasın), pasifte .yu-sonuk kendi grisini verir. */
+html[data-tema="acik"] .yu-kk-ekran .yu-girdi:not(:disabled):not(:focus) {
+  background: var(--yuzey-3);
+  border-color: var(--kenar-3);
+}
+@media not all and (prefers-color-scheme: dark) {
+  html:not([data-tema="koyu"]) .yu-kk-ekran .yu-girdi:not(:disabled):not(:focus) {
+    background: var(--yuzey-3);
+    border-color: var(--kenar-3);
+  }
+}

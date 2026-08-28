@@ -58,8 +58,8 @@
      ================================================================== */
 
   /* taban = seçilen güne kadarki stok, O GÜNÜN satırı hariç. Gün sonu stok
-     yazdıkça taban + üretim + iade − satış olarak anında hesaplanır (iade
-     stokta üretim gibi davranır — kullanıcı direktifi, 24.08.2026). */
+     yazdıkça taban + üretim − satış olarak anında hesaplanır. İade stoğa
+     GİRMEZ (kullanıcı kararı, 26.08.2026); yalnız kendi kolonunda raporlanır. */
   function satirVerisiKur(satir, stok) {
     var kayit = hareketBul(satir.tarih, satir.malzeme.Id);
     satir.kayit = kayit;
@@ -74,7 +74,7 @@
     satir.baslangicIade = satir.kayitIade;
     satir.taban = satir.sabitTaban
       ? stok.mevcut
-      : YU.yuvarla(stok.mevcut - satir.kayitUretim - satir.kayitIade + satir.kayitSatis);
+      : YU.yuvarla(stok.mevcut - satir.kayitUretim + satir.kayitSatis);
   }
 
   function satirVerisiTazele(satir) {
@@ -127,11 +127,11 @@
     var s = satir.kilitliSatis ? satir.kayitSatis : alanSayisi(satir.satisAlan);
     var iade = satir.kilitliIade ? satir.kayitIade : alanSayisi(satir.iadeAlan);
     var gecerli = isFinite(u) && isFinite(s) && isFinite(iade);
-    /* Dökme (sabitTaban): taban silo toplamıdır ve kayıtlı iadeyi zaten
-       içerir; canlı önizleme yalnız iade FARKINI ekler. */
+    /* İade stoğa girmediği için (26.08.2026) canlı önizlemeye de girmez —
+       dökmede taban zaten silo toplamıdır, basit malzemede üretim/satış yeter. */
     var sonuc = satir.sabitTaban
-      ? YU.yuvarla(satir.taban + (gecerli ? iade - satir.kayitIade : 0))
-      : YU.yuvarla(satir.taban + u + iade - s);
+      ? YU.yuvarla(satir.taban)
+      : YU.yuvarla(satir.taban + u - s);
 
     satir.gecerli = gecerli;
     satir.sonuc = gecerli ? sonuc : NaN;
@@ -176,14 +176,27 @@
       if (satir.negatif) negatif.push(satir);
     }
 
-    d.kaydetDugmesi.disabled = degisen === 0;
+    /* NEGATİF STOKTA KAYDET KAPALI (kullanıcı direktifi, 27.08.2026:
+       "negatif kayıt kesinlikle engellenmeli, kaydet yasak olmalı").
+       Doğrulama katmanı bunu 26.08.2026'dan beri zaten REDDEDİYORDU
+       (03-dogrulama · malzemeIlkNegatifGun, CLAUDE.md KURAL 12); eksik olan
+       ekrandı — düğme açık kalıyor, şerit de "kaydı engellemiyoruz" diyordu.
+       Artık ekran ile kural aynı şeyi söylüyor. */
+    d.kaydetDugmesi.disabled = degisen === 0 || negatif.length > 0;
+    d.kaydetDugmesi.title = negatif.length
+      ? 'Stok eksiye düşüyor — önce rakamları düzeltin.'
+      : '';
     d.geriDugmesi.disabled = degisen === 0;
-    /* Kaydedilmemiş satır varken ekrandan çıkış kilitlenir (kullanıcı isteği,
-       25.08.2026): sekme/pencere kapatmada tarayıcı, menüden geçişte uygulama
-       sorar. Kilit kabukta ortak (YU.cikisKilidi), her sayfa çiziminde düşer. */
+    /* Kaydedilmemiş satır varken ekrandan çıkış kilitlenir. SERT kilit
+       (kullanıcı isteği, 27.08.2026 — Devir Stok'takinin aynısı): menü,
+       marka bloğu, tarayıcının geri/ileri tuşu ve doğrudan adres değişimi
+       dahil her sayfa geçişini UYGULAMA sorar; sekme/pencere kapatmayı ve
+       yenilemeyi TARAYICI sorar. Kilit kabukta ortak (YU.cikisKilidi) ve
+       her sayfa çiziminde kendiliğinden düşer. */
     if (YU.cikisKilidi) {
       YU.cikisKilidi(degisen > 0,
-        YU.fmt.tarih(d.tarih) + ' günü için ' + YU.fmt.sayi(degisen) + ' satır kaydedilmedi.');
+        YU.fmt.tarih(d.tarih) + ' günü için ' + YU.fmt.sayi(degisen) + ' satır kaydedilmedi.',
+        true);
     }
     d.ozetMetin.textContent = degisen === 0
       ? 'Kaydedilmemiş değişiklik yok.'
@@ -193,11 +206,11 @@
     YU.bos(d.uyariKap);
     if (!negatif.length) return;
 
-    /* Şartname §13 Soru 3 AÇIK SORUDUR; şartnamenin önerisi "uyarı", gerekçesi
-       "sert engel, veri giriş sırası bozuk olduğunda operatörü kilitler".
-       Öneri korunuyor: kayıt HÂLÂ ENGELLENMİYOR. Yalnız uyarının şiddeti
-       arttı (kullanıcı isteği, 24.08.2026): kırmızı zemin, iri başlık,
-       eksi bakiye büyük rakamla. Engel eklemek şartnameyi aşmak olurdu. */
+    /* SERT ENGEL (kullanıcı direktifi, 27.08.2026). Şartname §13 Soru 3 için
+       "uyarı" öneriyordu; kullanıcı 26.08.2026'da ENGELLE dedi (KURAL 12) ve
+       27.08.2026'da bunu bir kez daha, ekran tarafı için tekrarladı. Kırmızı
+       zemin, iri başlık ve büyük eksi bakiye kalır; artık Kaydet de kapalıdır
+       ve metin kaydın yapılamayacağını söyler. */
     var liste = YU.h('div', {
       stil: { display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px' }
     });
@@ -226,9 +239,9 @@
       baslik: negatif.length === 1
         ? 'DİKKAT — Stok Eksiye Düşüyor'
         : 'DİKKAT — ' + YU.fmt.sayi(negatif.length) + ' Malzemenin Stoğu Eksiye Düşüyor',
-      metin: 'Elde olandan fazla satış girilmiş görünüyor; bu büyük ihtimalle bir veri hatasıdır. ' +
-        'Kaydı engellemiyoruz — kaydedebilirsiniz. Ama kaydetmeden önce giriş sırasını, ' +
-        'devir stoğu ve önceki günlerin rakamlarını kontrol edin.'
+      metin: 'Elde olandan fazla satış girilmiş. Stok hiçbir gün eksiye inemez — ' +
+        'bu hâliyle KAYDEDİLEMEZ. Giriş sırasını, devir stoğu ve önceki günlerin ' +
+        'rakamlarını kontrol edin.'
     });
     serit.className += ' yu-cetin';
     serit.querySelector('.yu-serit-govde').appendChild(liste);
@@ -335,22 +348,68 @@
     });
   }
 
+  /* Bir satırın doğrulama girdisi — ön kontrol ve asıl kayıt aynı biçimi
+     kullansın diye tek yerde kurulur. Kilitli kolon hiç gönderilmez:
+     gönderilirse doğrulama katmanı kilidi hata olarak döndürür
+     (03-dogrulama, Şartname §7). */
+  function satirGirdisi(d, satir) {
+    var girdi = { tarih: d.tarih, malzemeId: satir.malzeme.Id, rowVersion: satir.rowVersion };
+    if (!satir.kilitliUretim) girdi.uretim = gonderilecek(satir.uretimAlan);
+    if (!satir.kilitliSatis) girdi.satis = gonderilecek(satir.satisAlan);
+    if (!satir.kilitliIade) girdi.iade = gonderilecek(satir.iadeAlan);
+    return girdi;
+  }
+
+  /* ÖN KONTROL (kullanıcı kararı, 26.08.2026): kayıt yazılmadan önce
+     doğrulama bir kez koşturulur. Negatif stok artık UYARI değil HATA
+     (CLAUDE.md KURAL 12) — yani o durumda kayıt zaten reddedilir ve hata
+     listesi görünür. Bu kapı ileride uyarı üreten başka bir kural çıkarsa
+     kullanıcıya kaydetmeden önce sorulması için duruyor; uyarı yoksa hiç
+     görünmez, akışı yavaşlatmaz. */
+  function onUyarilariTopla(d, degisen) {
+    var liste = [], i, s;
+    if (!YU.dogrula || typeof YU.dogrula.malzemeHareketi !== 'function') return liste;
+    for (i = 0; i < degisen.length; i++) {
+      try {
+        s = YU.dogrula.malzemeHareketi(YU.db, satirGirdisi(d, degisen[i]));
+      } catch (e) { continue; }             /* ön kontrol kaydı engellemez */
+      if (s && s.uyarilar && s.uyarilar.length) liste = liste.concat(s.uyarilar);
+    }
+    return liste;
+  }
+
   function kaydetUygula(d) {
-    var degisen = degisenSatirlar(d), hatalar = [], uyarilar = [], basarili = 0, i, satir, girdi, s;
+    var degisen = degisenSatirlar(d);
     YU.bos(d.hataKap);
     if (!degisen.length) {
       YU.ui.bildir('Kaydedilecek değişiklik yok.', 'bilgi');
       return;
     }
 
+    var onUyarilar = onUyarilariTopla(d, degisen);
+    if (!onUyarilar.length) { kaydiYaz(d, degisen); return; }
+
+    var ayrinti = YU.h('ul', { stil: { margin: '0', paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '6px', font: '400 14px/1.5 var(--font)', color: 'var(--metin-2)' } });
+    for (var k = 0; k < onUyarilar.length; k++) {
+      ayrinti.appendChild(YU.h('li', { metin: onUyarilar[k].mesaj || String(onUyarilar[k]) }));
+    }
+    YU.ui.onay({
+      baslik: 'Kaydetmeden Önce',
+      metin: 'Aşağıdaki noktaları görülmeden kaydetme. Yine de kaydedilsin mi?',
+      ayrinti: ayrinti,
+      onayMetni: 'Yine de kaydet',
+      iptalMetni: 'Vazgeç'
+    }).then(function (evet) {
+      if (evet) kaydiYaz(d, degisen);
+    });
+  }
+
+  function kaydiYaz(d, degisen) {
+    var hatalar = [], uyarilar = [], basarili = 0, i, satir, girdi, s;
+
     for (i = 0; i < degisen.length; i++) {
       satir = degisen[i];
-      girdi = { tarih: d.tarih, malzemeId: satir.malzeme.Id, rowVersion: satir.rowVersion };
-      /* Kilitli kolon hiç gönderilmez: gönderilirse doğrulama katmanı kilidi
-         hata olarak döndürür (03-dogrulama, Şartname §7). */
-      if (!satir.kilitliUretim) girdi.uretim = gonderilecek(satir.uretimAlan);
-      if (!satir.kilitliSatis) girdi.satis = gonderilecek(satir.satisAlan);
-      if (!satir.kilitliIade) girdi.iade = gonderilecek(satir.iadeAlan);
+      girdi = satirGirdisi(d, satir);
 
       s = YU.servis.malzemeHareketKaydet(YU.db, girdi, YU.oturum.kullanici);
       if (s.uyarilar && s.uyarilar.length) uyarilar = uyarilar.concat(s.uyarilar);
@@ -378,6 +437,10 @@
     gunDurumuTazele(d);
     ozetTazele(d);
     YU.donem.tazele();          /* kenar çubuğundaki kayıtlı gün sayacı tazelensin */
+    /* Zil rozeti de tazelensin (kullanıcı kararı, 26.08.2026): negatif stok
+       uyarısı kaydettikten SONRA da üst şeritte görünmeli. Bu ekran kayıt
+       sonrası yeniden çizilmediği için sayaç kendiliğinden güncellenmiyordu. */
+    if (typeof YU.ustSayaclariTazele === 'function') YU.ustSayaclariTazele();
 
     if (hatalar.length) d.hataKap.appendChild(YU.ui.hataListesi(hatalar, 'hata'));
     if (uyarilar.length) d.hataKap.appendChild(YU.ui.hataListesi(uyarilar, 'uyari'));
@@ -452,26 +515,27 @@
   function gunDurumuTazele(d) {
     var g = gunKaydi(d.tarih);
 
-    /* Şeridin ucundaki rozet — Kuru Küspe ekranındakiyle birebir aynı. */
-    YU.bos(d.seritRozet).appendChild(
-      YU.ui.rozet(g ? 'Kayıtlı Gün' : 'Kayıt Yok', g ? 'bekleyen' : 'notr'));
+    /* Tarih şeridinin ucundaki rozet KALDIRILDI (kullanıcı isteği,
+       27.08.2026): "Kayıtlı Gün" bilgisi panel başlığına taşındı, iki ayrı
+       yerde iki rozet aynı günü anlatıyordu (KURAL 11). */
+    YU.bos(d.seritRozet);
 
     /* Panel başlığının sağı — Şartname §7 arayüz iyileştirmesi: üzerine
        yazmadan önce o günü kimin ne zaman girdiği görünmeli. */
     var kap = YU.bos(d.durumKap);
-    if (!g) {
-      kap.appendChild(YU.h('span', {
-        metin: YU.fmt.sayi(d.satirlar.length) + ' malzeme · bu güne henüz giriş yapılmamış'
-      }));
-      return;
-    }
+    /* Kayıt yokken hiçbir şey yazılmaz (kullanıcı direktifi, 26.08.2026 ·
+       CLAUDE.md KURAL 11). Buradaki "8 malzeme · bu güne henüz giriş
+       yapılmamış" cümlesi, şeridin ucundaki "Kayıt Yok" rozetini kelimesi
+       kelimesine tekrar ediyordu. */
+    if (!g) return;
     /* "X satır kayıtlı · son giriş · kullanıcı" metni kaldırıldı (kullanıcı
        isteği, 24.08.2026): aynı bilgi Durum kolonu, alt bar ve Değişiklik
        Geçmişi'nde zaten var. Rozet kaldı — kilitli kolonların kaynağını anlatır. */
-    kap.appendChild(YU.ui.rozet(
-      g.kuruKuspeVar ? 'Kuru Küspe Girildi' : 'Kuru Küspe Girilmedi',
-      g.kuruKuspeVar ? 'vurgu' : 'bekleyen'
-    ));
+    /* Panel başlığındaki rozet artık GÜNÜN DURUMUNU söyler (kullanıcı isteği,
+       27.08.2026): "Kuru Küspe Girildi/Girilmedi" yerine "Kayıtlı Gün".
+       Kuru küspe girilip girilmediği zaten kilitli hücrelerin rakamından ve
+       oradaki kalem kısayolundan okunuyordu. */
+    kap.appendChild(YU.ui.rozet('Kayıtlı Gün', 'bekleyen'));
   }
 
   /* Tarih küçük bir kontrol: koca panel bloğu değil, tek satırlık ince şerit —
@@ -541,14 +605,42 @@
      7. Tablo
      ================================================================== */
 
-  function kilitliHucre(deger, otomatik, soluk) {
+  /* Kilitli hücrenin KALEM İKONU (kullanıcı isteği, 27.08.2026): rakamın
+     geldiği ekranı, o günün tarihiyle açar. Kilidin sebebi oradaki ekran;
+     kullanıcı oraya tek tıkla gitsin. Kaydedilmemiş satır varsa kabuğun
+     çıkış kilidi yolu keser ve sorar. */
+  function kuruKuspeKisayolu(tarih) {
+    var el = YU.h('span', {
+      sinif: 'yu-satir-eylem yu-kisayol',
+      role: 'button', tabindex: '0',
+      title: 'Kuru Küspe Günlük Giriş & Çıkış — ' + YU.fmt.tarih(tarih) + ' gününü aç',
+      'aria-label': 'Kuru Küspe Günlük Giriş & Çıkış ekranını aç'
+      /* 14 -> 17 px (kullanıcı isteği, 27.08.2026): kilitli hücrenin içinde
+         küçük kalıyordu. Dolgu da bir tık açılır ki kutu kare kalsın. */
+    }, YU.svg('#ic-pencil', 17));
+    function git() { YU.git('kuru-kuspe', { tarih: tarih }); }
+    el.addEventListener('click', git);
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); git(); }
+    });
+    return el;
+  }
+
+  /* tarih: verilirse kilitli hücreye kalem ikonu eklenir; rakam eskisi gibi
+     sağda kalır. */
+  function kilitliHucre(deger, otomatik, soluk, tarih) {
     var kutu = satirKap('center', 8);
     /* Rozet solda sabit, sayı sağda: rozetler tüm satırlarda aynı kolon
        sınırına oturur — flex-end'de sayının genişliğine göre kayıyordu
        (kullanıcı isteği, 24.08.2026). */
     kutu.style.justifyContent = 'space-between';
     kutu.style.flexWrap = 'nowrap';
-    if (otomatik) kutu.appendChild(YU.ui.rozet('Kilitli', 'vurgu'));
+    if (otomatik) {
+      /* Rozet ESKİSİ GİBİ düz metin (kullanıcı revizesi, 27.08.2026):
+         tıklanabilirlik onun üstünde değil, SAĞINDAKİ kalem ikonunda. */
+      kutu.appendChild(YU.ui.rozet('Kilitli', 'vurgu'));
+      if (tarih) kutu.appendChild(kuruKuspeKisayolu(tarih));
+    }
     kutu.appendChild(YU.h('span', {
       sinif: 'yu-mono' + (soluk ? ' yu-zayif' : ''),
       stil: { marginLeft: 'auto' },
@@ -591,12 +683,6 @@
     return alan.kok;
   }
 
-  function siloAdiBul(id) {
-    var l = YU.db.silolar, i;
-    for (i = 0; i < l.length; i++) if (l[i].Id === id) return l[i].Ad;
-    return id === null ? null : 'Silo #' + id;
-  }
-
   /* İade girilen satırda alan boş başlar (0 yerine) — kolon dolu görünmesin. */
   function iadeHucresi(d, satir) {
     if (satir.kilitliIade) {
@@ -627,10 +713,10 @@
       satir = d.satirlar[i];
 
       uretimHucre = satir.kilitliUretim
-        ? kilitliHucre(satir.kayitUretim, !satir.pasif, satir.pasif)
+        ? kilitliHucre(satir.kayitUretim, !satir.pasif, satir.pasif, d.tarih)
         : girdiHucresi(d, satir, 'uretimAlan', satir.baslangicUretim);
       satisHucre = satir.kilitliSatis
-        ? kilitliHucre(satir.kayitSatis, !satir.pasif, satir.pasif)
+        ? kilitliHucre(satir.kayitSatis, !satir.pasif, satir.pasif, d.tarih)
         : girdiHucresi(d, satir, 'satisAlan', satir.baslangicSatis);
 
       satir.sonucHucre = YU.h('span', { metin: '—' });
@@ -650,6 +736,9 @@
       sutunlar: sutunlar,
       satirlar: satirlar,
       sik: false,        /* giriş alanlı düzenleme tablosu — sık stil daraltmaz */
+      /* Satır yüksekliği kısaldı (kullanıcı isteği, 25.08.2026): dikey dolgu
+         12 -> 7. Giriş kutusunun kendi boyu değişmedi, tıklama alanı korunur. */
+      dolgu: '7px 14px',
       bos: 'Aktif malzeme bulunamadı.',
       yapiskan: true
     });
@@ -671,7 +760,7 @@
      ================================================================== */
 
   function altBar(d) {
-    d.ozetMetin = YU.h('div', { sinif: 'yu-yardim' });
+    d.ozetMetin = YU.h('span', { sinif: 'yu-yardim' });
 
     d.kaydetDugmesi = YU.ui.dugme({
       metin: 'Kaydet', ikon: '#ic-plus', tur: 'birincil',
@@ -682,6 +771,7 @@
     d.kaydetDugmesi.style.fontSize = '15px';
     d.geriDugmesi = YU.ui.dugme({
       metin: 'Değişiklikleri Geri Al', ikon: '#ic-dots', tur: 'ikincil',
+      sinif: 'yu-dugme-vurgulu',
       onClick: function () { geriAl(d); }
     });
 
@@ -689,10 +779,14 @@
     dugmeler.appendChild(d.geriDugmesi);
     dugmeler.appendChild(d.kaydetDugmesi);
 
-    var sol = sutunKap(4);
-    sol.appendChild(YU.h('div', {
-      stil: { font: '500 14.5px/1.4 var(--font)', color: 'var(--metin)' },
-      metin: YU.fmt.tarih(d.tarih) + ' günü için ' + YU.fmt.sayi(d.satirlar.length) + ' satır'
+    /* Tarih ile durum TEK SATIR (kullanıcı isteği, 26.08.2026): tarih
+       cümlenin başı, durum onun devamı — "26.08.2026 Kaydedilmemiş
+       değişiklik yok.". "günü için N satır" kalktı; satır sayısı zaten
+       tablonun kendisinde okunuyor. */
+    var sol = satirKap('baseline', 7);
+    sol.appendChild(YU.h('span', {
+      stil: { font: '500 14.5px/1.4 var(--font)', color: 'var(--metin)', whiteSpace: 'nowrap' },
+      metin: YU.fmt.tarih(d.tarih)
     }));
     sol.appendChild(d.ozetMetin);
 
@@ -727,11 +821,14 @@
         sabitTaban: ozel === 'DokmeKuruKuspe',
         kilitliUretim: m.Aktif === false || ozel === 'DokmeKuruKuspe' || ozel === 'CuvalKuruKuspe',
         kilitliSatis: m.Aktif === false || ozel === 'DokmeKuruKuspe',
-        /* İade yalnız STOKTA görünür, siloya girmez (revize, 24.08.2026).
-           Dökme kuru küspe bu yüzden İADEYE KAPALI: dökme stok siloların
-           toplamıdır (Şartname §5 Demirbaş) — siloya girmeyen iade dökme
-           stoğunda gösterilemez. Diğer malzemelerde iade stoğa işler. */
-        kilitliIade: m.Aktif === false || ozel === 'DokmeKuruKuspe',
+        /* İade artık HİÇBİR malzemede stoğa girmez, yalnız raporlanır
+           (kullanıcı kararı, 26.08.2026 · 04-servis.js "mevcut" hesabı).
+           Dökme kuru küspenin iade kilidi bu yüzden KALKTI (kullanıcı
+           bildirimi, 26.08.2026): kilit "iade stokta görünür ama dökmede
+           görünemez" gerekçesine dayanıyordu, o gerekçe artık yok. İade
+           dökmede de kaydedilir ve raporlanır; silo bakiyesine ve dökme
+           mevcuduna dokunmaz (Şartname §5 Demirbaş korunur). */
+        kilitliIade: m.Aktif === false,
         yardim: null
       };
 
@@ -768,10 +865,11 @@
     /* Sayfa başlığında eylem düğmesi yok. */
     YU.ui.sayfaEylemleri();
 
-    /* Geniş ekranda panel gereksiz büyümesin: Kuru Küspe ekranıyla aynı
-       genişlik sınırı (1478px), sol hizalı. */
+    /* Panel TAM GENİŞLİK (kullanıcı isteği, 25.08.2026): 1478px sınırı sağda
+       boşluk bırakıyordu. Stok Durumu'nda aynı sınır 24.08.2026'da aynı
+       gerekçeyle kaldırılmıştı. */
     var govde = YU.h('div', {
-      stil: { display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '1478px', minWidth: '0' }
+      stil: { display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '0' }
     });
     kap.appendChild(govde);
 

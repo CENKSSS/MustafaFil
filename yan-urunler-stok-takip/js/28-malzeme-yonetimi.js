@@ -13,11 +13,6 @@
   };
   var OZEL_TIPLER = ['DokmeKuruKuspe', 'CuvalKuruKuspe'];
 
-  var SEKME_TANIMI = [
-    { kod: 'malzemeler', metin: 'Malzemeler' },
-    { kod: 'silolar', metin: 'Silolar' }
-  ];
-
   /* ==================================================================
      Ortak yardımcılar
      ================================================================== */
@@ -129,28 +124,6 @@
     }, oturumKullanicisi());
   }
 
-  function siloTasi(liste, indeks, yon) {
-    var t = yeniSiralar(liste, indeks, yon);
-    if (!t) return;
-    var eskiA = Number(t.a.Sira) || 0;
-    var birinci = siloSirasiKaydet(t.a, t.yeniA);
-    if (!birinci.ok) { sonucuBildir(birinci, ''); return; }
-    var ikinci = siloSirasiKaydet(t.b, t.yeniB);
-    if (!ikinci.ok) {
-      siloSirasiKaydet(t.a, eskiA);
-      sonucuBildir(ikinci, '');
-      return;
-    }
-    YU.ui.bildir('“' + t.a.Ad + '” sırası ' + YU.fmt.sayi(t.yeniA) + ' oldu.', 'basari');
-    YU.yenile();
-  }
-
-  function siloSirasiKaydet(s, sira) {
-    return YU.servis.siloKaydet(db(), {
-      Id: s.Id, Ad: s.Ad, Sira: sira, Kapasite: s.Kapasite, Aktif: s.Aktif
-    }, oturumKullanicisi());
-  }
-
   /* ==================================================================
      Malzeme modali
      ================================================================== */
@@ -218,9 +191,27 @@
     });
     var tipAlan = ozelTipAlani(duzenle ? malzeme : null);
 
+    /* Kaydetmeden çıkış kilidi — ortak mekanizma (10-kabuk · YU.ui.modal
+       kirliMi, 27.08.2026): alanlara dokunulmuşsa hem pencereyi kapatmak hem
+       sekme/sayfa değiştirmek onay ister. */
+    function kirliMi() {
+      var ad = String(adAlan.deger() || '').trim();
+      var birim = String(birimAlan.deger() || '').trim();
+      var tip = String(tipAlan.deger() || '');
+      if (duzenle) {
+        return ad !== String(malzeme.Ad || '') ||
+               birim !== String(malzeme.Birim || '') ||
+               tip !== String(malzeme.OzelTip || '');
+      }
+      return ad !== '' || birim !== 'Kg' || tip !== '';
+    }
+
     var m = YU.ui.modal({
       baslik: duzenle ? 'Malzemeyi düzenle' : 'Yeni Malzeme',
       genislik: 520,
+      kirliMi: kirliMi,
+      kilitMesaji: duzenle ? 'Malzeme bilgilerinde kaydedilmemiş değişiklik var.'
+                           : 'Yeni malzeme bilgileri henüz kaydedilmedi.',
       govde: [hataKap, adAlan.kok, birimAlan.kok, tipAlan.kok],
       dugmeler: [
         { metin: 'Vazgeç', tur: 'sade', onClick: function () { m.kapat(); } },
@@ -326,30 +317,30 @@
       etiket: 'Silo Adı', tip: 'metin', deger: silo.Ad,
       yardim: 'Silo adı tekil olmalıdır.'
     });
-    var siraAlan = YU.ui.alan({
-      etiket: 'Sıra', tip: 'sayi', deger: Number(silo.Sira) || 0,
-      yardim: 'Listelerde ve silo dağıtım satırlarında bu sıra kullanılır.'
-    });
+    /* KAPASİTE SABİT (kullanıcı kararı, 28.08.2026: "sabit her seferinde
+       3 bin ton"): alan kilitli, ton karşılığı yardım satırında yazılı.
+       Servis katmanı da farklı değeri reddeder (04-servis · siloKaydet). */
     var kapasiteAlan = YU.ui.alan({
       etiket: 'Kapasite', tip: 'sayi', deger: Number(silo.Kapasite) || 0, sag: 'kg',
-      yardim: 'Ton karşılığı hesaplanıyor…',
-      onInput: function () { tonTazele(); }
+      pasif: true,
+      yardim: 'Sabit: ' + YU.fmt.kgU(Number(silo.Kapasite) || 0) + ' · ' +
+        YU.fmt.ton(Number(silo.Kapasite) || 0) + ' — değiştirilemez.'
     });
-    var tonEl = kapasiteAlan.kok.querySelector('.yu-yardim');
 
-    function tonTazele() {
-      var v = kapasiteAlan.deger();
-      tonEl.textContent = isNaN(v)
-        ? 'Kapasite sayı olmalı (örn. 3.000.000).'
-        : 'Veride kg saklanır: ' + YU.fmt.kgU(v) + ' · ekranda ' + YU.fmt.ton(v) + '.';
+    function kirliMi() {
+      var ad = String(adAlan.deger() || '').trim();
+      var kap = kapasiteAlan.deger();
+      var eskiKap = Number(silo.Kapasite) || 0;
+      return ad !== String(silo.Ad || '') || !(isFinite(kap) && YU.hesap.esit(kap, eskiKap));
     }
-    tonTazele();
 
     var m = YU.ui.modal({
       baslik: 'Siloyu Düzenle',
       genislik: 520,
+      kirliMi: kirliMi,
+      kilitMesaji: 'Silo bilgilerinde kaydedilmemiş değişiklik var.',
       govde: [
-        hataKap, adAlan.kok, siraAlan.kok, kapasiteAlan.kok,
+        hataKap, adAlan.kok, kapasiteAlan.kok,
         YU.h('div', {
           sinif: 'yu-yardim',
           metin: 'Kapasite yalnızca kg olarak saklanır; ton gösterimi ekranda hesaplanır. ' +
@@ -363,14 +354,15 @@
     });
 
     function kaydet() {
-      var sira = siraAlan.deger();
+      /* Sıra artık düzenlenmiyor (26.08.2026): saklanan değer olduğu gibi
+         geri yazılır, yoksa servis 0'a düşürüp sıralamayı bozardı. */
+      var sira = Number(silo.Sira) || 0;
       var kapasite = kapasiteAlan.deger();
 
       /* Servis katmanı sayı olmayan girdiyi 0'a çeviriyor; sessiz sıfırlanma
          olmasın diye geçersiz sayı ekranda durdurulur. */
-      siraAlan.hataGoster(isNaN(sira) ? 'Sıra sayı olmalı.' : '');
       kapasiteAlan.hataGoster(isNaN(kapasite) ? 'Kapasite sayı olmalı (örn. 3.000.000).' : '');
-      if (isNaN(sira) || isNaN(kapasite)) return;
+      if (isNaN(kapasite)) return;
 
       /* Ciddi işlem onayı (M28): ad geçmiş kayıtlarda geriye dönük görünür,
          kapasite D15 uyarılarının eşiğidir. Yalnız sıra değiştiyse onay
@@ -482,7 +474,8 @@
           { baslik: 'Birim', genislik: 76 },
           { baslik: 'Özel Tip', genislik: 170 },
           { baslik: 'Durum', genislik: 92, hiza: 'orta' },
-          { baslik: 'Kayıt Sayısı', genislik: 108, hiza: 'sag', mono: true },
+          /* "Kayıt Sayısı" kolonu kaldırıldı (kullanıcı isteği, 27.08.2026);
+             sayı pasifleştirme onayında söylenmeye devam eder. */
           { baslik: 'İşlem', genislik: 176, hiza: 'sag' }
         ],
         satirlar: satirlar,
@@ -528,7 +521,6 @@
           ? YU.ui.rozet(ozelTipMetni(m.OzelTip), 'vurgu')
           : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
         durumRozeti(m.Aktif),
-        YU.fmt.sayi(malzemeKayitSayisi(m.Id)),
         eylemler
       ]
     };
@@ -552,8 +544,10 @@
         sutunlar: [
           { baslik: 'Sıra', genislik: 62, hiza: 'sag', mono: true },
           { baslik: 'Ad' },
+          /* "Kapasite (Ton)" kolonu kaldırıldı (kullanıcı isteği, 26.08.2026):
+             aynı sayının 1000'e bölünmüş hâliydi. Ton karşılığı panel
+             başlığındaki toplamda ve düzenleme penceresinde duruyor. */
           { baslik: 'Kapasite (Kg)', genislik: 150, hiza: 'sag', mono: true },
-          { baslik: 'Kapasite (Ton)', genislik: 130, hiza: 'sag', mono: true },
           { baslik: 'Durum', genislik: 92, hiza: 'orta' },
           { baslik: 'İşlem', genislik: 176, hiza: 'sag' }
         ],
@@ -563,26 +557,17 @@
       })
     }));
 
-    kap.appendChild(YU.h('div', {
-      sinif: 'yu-yardim',
-      metin: 'Silo tanımları denetim izine yazılmaz: yalnız kritik tablolar loglanır (Şartname §6). ' +
-        'Silo hareketleri ve silo devirleri ise Değişiklik Geçmişi ekranında görünür.'
-    }));
   }
 
+  /* Silo sırası DEĞİŞTİRİLEMEZ (kullanıcı isteği, 26.08.2026):
+     yukarı/aşağı taşıma düğmeleri kaldırıldı, Sıra kolonu da saklanan
+     değeri değil listedeki yeri yazar — klasik 1, 2, 3. Malzemelerde
+     taşıma durmaya devam ediyor; istek yalnız silolar içindi. */
   function siloSatiri(liste, indeks) {
     var s = liste[indeks];
     var pasif = s.Aktif === false;
     var eylemler = eylemKabi();
 
-    eylemler.appendChild(satirEylem({
-      ikon: '#ic-up', baslik: 'Yukarı Taşı', pasif: indeks === 0,
-      onClick: function () { siloTasi(liste, indeks, -1); }
-    }));
-    eylemler.appendChild(satirEylem({
-      ikon: '#ic-down', baslik: 'Aşağı Taşı', pasif: indeks === liste.length - 1,
-      onClick: function () { siloTasi(liste, indeks, 1); }
-    }));
     eylemler.appendChild(satirEylem({
       ikon: '#ic-pencil', baslik: 'Düzenle',
       onClick: function () { siloModali(s); }
@@ -599,10 +584,9 @@
 
     return {
       hucreler: [
-        YU.fmt.sayi(s.Sira),
+        YU.fmt.sayi(indeks + 1),
         YU.h('span', { sinif: 'yu-guclu', metin: s.Ad }),
         YU.fmt.kg(s.Kapasite),
-        YU.fmt.ton(s.Kapasite),
         durumRozeti(s.Aktif),
         eylemler
       ]
@@ -613,23 +597,12 @@
      Sayfa
      ================================================================== */
 
-  function sekmeKodu(param) {
-    var k = param && param.sekme;
-    return k === 'silolar' ? 'silolar' : 'malzemeler';
-  }
-
   YU.sayfaTanimla({
     kod: 'malzeme-yonetimi',
-    baslik: 'Malzeme Yönetimi',
-    altBaslik: function (param) {
-      var d = YU.db;
-      if (!d) return '';
-      var aktif = 0, i;
-      for (i = 0; i < d.malzemeler.length; i++) if (d.malzemeler[i].Aktif !== false) aktif++;
-      return YU.fmt.sayi(d.malzemeler.length) + ' malzeme · ' + YU.fmt.sayi(aktif) + ' aktif · ' +
-        YU.fmt.sayi(d.silolar.length) + ' silo · ' +
-        (sekmeKodu(param) === 'silolar' ? 'Silolar sekmesi' : 'Malzemeler sekmesi');
-    },
+    baslik: 'Malzeme & Silo Yönetimi',   /* sol menü de bu alandan besleniyor (kullanıcı isteği, 25.08.2026) */
+    /* Alt başlıktaki "8 malzeme · 8 aktif · 3 silo · Malzemeler sekmesi"
+       cümlesi kaldırıldı (26.08.2026): sayılar iki tablonun kendisinden
+       okunuyor (KURAL 11) ve sekme kalmadığı için son kısım artık yanlıştı. */
     ikon: '#ic-cube',
     grup: 'Yönetim',
     rol: 'Yonetici',
@@ -648,16 +621,18 @@
         return;
       }
 
-      var aktifSekme = sekmeKodu(param);
+      /* SEKME YOK, İKİ PANEL ALT ALTA (kullanıcı isteği, 26.08.2026):
+         üstte silolar, altında malzemeler. İkisi aynı anda görünür,
+         tıklayıp sekme değiştirme yok. Yan yana iki sütun denenmişti
+         (aynı gün), kullanıcı alt alta olmasını istedi: böylece iki tablo
+         da sayfanın tam genişliğini kullanır, kolonlar sıkışmaz. */
+      var yerlesim = YU.h('div', {
+        stil: { display: 'flex', flexDirection: 'column', gap: '18px', minWidth: '0' }
+      });
+      kap.appendChild(yerlesim);
 
-      kap.appendChild(YU.ui.sekmeler({
-        sekmeler: SEKME_TANIMI,
-        aktif: aktifSekme,
-        onDegis: function (kod) { YU.git('malzeme-yonetimi', { sekme: kod }); }
-      }));
-
-      if (aktifSekme === 'silolar') siloSekmesi(kap);
-      else malzemeSekmesi(kap);
+      siloSekmesi(yerlesim);
+      malzemeSekmesi(yerlesim);
     }
   });
 })();

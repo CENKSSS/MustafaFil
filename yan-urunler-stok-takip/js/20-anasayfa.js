@@ -11,22 +11,14 @@
 
   var YU = window.YU;
 
-  var GRAFIK_GUN = 14;
   var HAREKET_SATIR = 6;
   var LOG_SATIR = 4;         /* son hareketlerin en fazla bu kadarı denetim izinden */
 
-  /* Şartname §2: "Yaş küspe … Tonluk büyük torbada veya 25 kg'lık poşette satılır."
-     Poşetin kg'ı şartnamede yazılıdır, tonluk büyük torbanınki YAZMIYOR — bu yüzden
-     adet yalnızca 25'lik satırı için türetilir, tonluk için gösterilmez. */
-  var POSET_KG = YU.hesap.POSET_KG;   /* 25 kg — Şartname §2, sabit YU.hesap içinde durur */
-  var POSET_DESEN = /25/;    /* "Yaş Küspe (25'lik)" satırı adından ayırt edilir (SOZLESME §1). */
-  var TONLUK_NOTU = 'Tonluk büyük torbanın kaç kg olduğu şartnamede belirtilmemiş; ' +
-    'bu yüzden tonluk için adet gösterilmiyor.';
-  /* DİKKAT — ŞARTNAME DIŞI VARSAYIM (kullanıcı isteği, 21.08.2026): günlük
-     üretim/satış kartında tonluk değerler torba adedi olarak yazılır ve
-     1 torba = 1.000 kg kabul edilir. Bu kg değeri şartnamede YOKTUR; ürün
-     adındaki "1 Tonluk"tan türetildi. Şartname netleşirse burası güncellenir. */
-  var TONLUK_KG = 1000;
+  /* POSET_KG / TONLUK_NOTU / TONLUK_KG kaldırıldı (25.08.2026): torba ve poşet
+     adedi yalnız özet kartlarında yazılıyordu, kartlar kalkınca kullanan kalmadı.
+     POSET_DESEN duruyor — Malzeme Stokları tablosu 25'lik satırını hâlâ adından
+     ayırt ediyor (SOZLESME §1). */
+  var POSET_DESEN = /25/;
 
   var TABLO_ADI = {
     KuruKuspeGunluk: 'Kuru küspe günlük kaydı',
@@ -180,7 +172,7 @@
      (kullanıcı isteği, 21.08.2026). */
 
   /* ==================================================================
-     KPI kartları
+     Kart yardımcıları — silo kartları bu ikisini kullanır
      ================================================================== */
 
   /* Değer satırında sayı ile birim ayrı elemanlara bölünüyor: sayı .yu-kpi-deger'in
@@ -201,282 +193,22 @@
     }, cocuklar);
   }
 
-  function detaySayi(metin) {
-    return YU.h('span', {
-      metin: metin,
-      stil: { fontFamily: 'var(--sayi)', fontWeight: '600', fontVariantNumeric: 'tabular-nums', color: 'var(--metin-2)' }
-    });
-  }
-
-  /* YU.ui.kpi değer ve alt satırı yalnızca düz metin alır; çuvallı ve yaş küspe
-     kartlarında bu satırlar parçalı olduğu için kart burada kuruluyor. Sınıflar
-     sözleşmedeki KPI sınıflarının aynısı (SOZLESME §9). */
-  function kpiKarti(s) {
-    return YU.h('div', { sinif: 'yu-kpi', title: s.ipucu || null },
-      YU.h('div', { sinif: 'yu-kpi-bas' },
-        YU.h('div', { sinif: 'yu-kpi-ikon' }, s.ikon ? YU.svg(s.ikon, 15) : null),
-        YU.h('div', { sinif: 'yu-kpi-etiket', metin: s.etiket || '' })
-      ),
-      s.deger,
-      s.alt || null
-    );
-  }
-
-  /* yasDetayi kaldırıldı: tonluk ve 25'lik artık ayrı kartlarda, birleşik
-     kırılım satırı yok (kullanıcı isteği, 21.08.2026). */
-
-  /* pencereFarki/pencereAraligi kaldırıldı — 30 günlük kartlarla birlikte
-     (kullanıcı isteği, 24.08.2026). */
-
-  /* ------------------------------------------------------------------
-     Kart üreticileri — her biri katalogdaki tek bir kartı çizer.
-     ------------------------------------------------------------------ */
-
-  /* Alt açıklama satırı kaldırıldı (kullanıcı isteği, 21.08.2026). */
-  function kartDokme(o) {
-    return YU.ui.kpi({
-      etiket: '3 Toplam Dökme Kuru Küspe', ikon: '#ic-silos',
-      deger: YU.fmt.kgU(o.dokmeToplam)
-    });
-  }
-
-  /* Çuval adedi sabit değil, kg / YU.hesap.CUVAL_KG ile türetilir. */
-  function kartCuval(o) {
-    var cuvalAdet = Math.round(o.cuvalMevcut / YU.hesap.CUVAL_KG);
-    return kpiKarti({
-      etiket: '50 KG Çuvallı Kuru Küspe', ikon: '#ic-sack',
-      /* Sade gösterim (kullanıcı isteği, 21.08.2026): "adet" kelimesi ve
-         çuval kilosu alt satırı yok. */
-      deger: degerSatiri([
-        YU.h('span', { metin: YU.fmt.kg(o.cuvalMevcut) }), birimEki('kg'),
-        birimEki('/'),
-        YU.h('span', { metin: YU.fmt.sayi(cuvalAdet) }), birimEki('çuval')
-      ])
-    });
-  }
-
-  /* Kampanya toplamı: üretilen çuvallı kg + adet; mevcut stok kartından
-     farkı budur (kullanıcı isteği, 21.08.2026). */
-  /* "Toplam Çuvallı" kartı KALDIRILDI (Şartname §4, Demirbaş): çuvallama
-     üretim değil biçim değiştirmedir; kümülatif "çuval üretimi" kartı çift
-     sayım algısı doğuruyordu. Kuru küspe yalnız iki biçimde sunulur:
-     silolarda dökme, 50 kg çuvallarda çuvallı (§2). */
-
-  /* Türler AYRI kartlarda, birleşik toplam gösterilmez (kullanıcı isteği,
-     21.08.2026): bu kart yalnız tonluk, 25'lik kendi kartında. */
-  function kartYas(o) {
-    return kpiKarti({
-      etiket: '1 Tonluk Yaş Küspe', ikon: '#ic-beet',
-      ipucu: TONLUK_NOTU,
-      deger: degerSatiri([YU.h('span', { metin: YU.fmt.kg(o.yasTonluk) }), birimEki('kg')])
-    });
-  }
-
-  function kartYasPoset(o) {
-    var adet = Math.round(o.yasPoset / POSET_KG);
-    return kpiKarti({
-      etiket: '25 KG Yaş Küspe', ikon: '#ic-bag',
-      deger: degerSatiri([
-        YU.h('span', { metin: YU.fmt.kg(o.yasPoset) }), birimEki('kg'),
-        birimEki('/'),
-        YU.h('span', { metin: YU.fmt.sayi(adet) }), birimEki('poşet')
-      ])
-    });
-  }
-
-  /* kartUretim30 / kartSatis30 (Son 30 Günün Dökme Üretimi/Satışı) kaldırıldı
-     (kullanıcı isteği, 24.08.2026) — pencereFarki/pencereAraligi/dokmePencere
-     yardımcıları ve o.pencere hesapları da yalnız bu iki karta hizmet ettiği
-     için birlikte silindi. */
-
-  /* Pasif malzeme yeni hareket almaz ama stoğu duruyorsa toplamdan düşmez —
-     Stok Durumu ekranındaki "Toplam Stok" kartıyla aynı kural. */
-  /* Toplam Stok, Doluluk Oranı ve Kayıtlı Gün kartları katalogdan
-     kaldırıldı (kullanıcı isteği, 21.08.2026). */
-
-  /* Günlük kartlar: son kayıtlı günün üretim ve satışı tek kartta, çuval
-     kartındaki "değer / değer" diliyle. Bugüne kayıt yoksa son gün gösterilir;
-     alt satır hangi güne bakıldığını her zaman söyler. */
-  /* birimKg verilirse değerler kg değil ADET olarak yazılır (kg/birimKg):
-     çuval, poşet, torba — kullanıcı isteği, 21.08.2026. Dökmenin adet
-     kavramı olmadığı için o kartta kg kalır. */
-  function gunlukKarti(s) {
-    var g = s.veri;
-    var birim = s.birimAd || 'kg';
-    function deger(kg) {
-      return s.birimKg ? YU.fmt.sayi(Math.round(kg / s.birimKg)) : YU.fmt.kg(kg);
-    }
-    return kpiKarti({
-      etiket: s.etiket, ikon: s.ikon,
-      deger: degerSatiri([
-        YU.h('span', { metin: deger(g.uretim) }), birimEki(birim + ' üretim'),
-        birimEki('·'),
-        YU.h('span', { metin: deger(g.satis) }), birimEki(birim + ' satış')
-      ]),
-      alt: YU.h('div', {
-        sinif: 'yu-kpi-alt',
-        metin: !s.sonGun ? 'Kayıtlı gün yok.'
-          : YU.fmt.tarih(s.sonGun) + ' · ' + YU.fmt.gunAdi(s.sonGun)
-      })
-    });
-  }
-
-  function kartGunlukDokme(o) {
-    return gunlukKarti({
-      etiket: 'Dökme Kuru Küspe Üretim/Satış', ikon: '#ic-swap',
-      veri: o.gunluk.dokme, sonGun: o.sonGun
-    });
-  }
-
-  function kartGunlukCuval(o) {
-    return gunlukKarti({
-      etiket: '50 KG Çuvallı Üretim/Satış', ikon: '#ic-sack-flow',
-      veri: o.gunluk.cuval, sonGun: o.sonGun,
-      birimAd: 'çuval', birimKg: YU.hesap.CUVAL_KG
-    });
-  }
-
-  /* Türler ayrı sayılır: bu kart yalnız TONLUK yaş küspeyi gösterir;
-     25'lik, Günlük Poşetli kartında (kullanıcı isteği, 21.08.2026).
-     Torba adedi TONLUK_KG varsayımıyla türetilir — üstteki DİKKAT notuna bak. */
-  function kartGunlukYas(o) {
-    return gunlukKarti({
-      etiket: '1 Tonluk Yaş Küspe Üretim/Satış', ikon: '#ic-beet-flow',
-      veri: o.gunluk.tonluk, sonGun: o.sonGun,
-      birimAd: 'torba', birimKg: TONLUK_KG
-    });
-  }
-
-  function kartGunlukPoset(o) {
-    return gunlukKarti({
-      etiket: '25 KG Yaş Küspe Üretim/Satış', ikon: '#ic-bag',
-      veri: o.gunluk.poset, sonGun: o.sonGun,
-      birimAd: 'poşet', birimKg: POSET_KG
-    });
-  }
-
-  /* ==================================================================
-     Özet kartları — hangisi, hangi sırada: kullanıcı seçer
-     ==================================================================
-     Katalogdaki kartlardan istenenler seçilir, sırası elle değiştirilir.
-     Seçim tarayıcıda saklanır; prototipte sunucu yok, bu yüzden kullanıcı
-     başına değil tarayıcı başınadır. */
-
-  var KART_ANAHTAR = 'yu.anasayfa.kartlari.v1';
-
-  /* Aile: tek katalog kaydı birden çok kart üretir (ciz dizi döndürür) ve
-     seçiciden tek kalemde eklenip kaldırılır. Demirbaş aile seçime tabi
-     değildir, her zaman en başta çizilir (kullanıcı isteği, 21.08.2026). */
-  var KART_KATALOG = [
-    {
-      kod: 'stok-ailesi', ad: 'Stok Kartları', demirbas: true, aile: true,
-      aciklama: 'Dökme, 50 KG çuvallı, 1 tonluk ve 25 KG yaş küspe stokları — her zaman görünür.',
-      ciz: function (o) { return [kartDokme(o), kartCuval(o), kartYas(o), kartYasPoset(o)]; }
-    },
-    {
-      kod: 'uretim-satis', ad: 'Üretim/Satış Kartları', aile: true,
-      aciklama: 'Aynı dört ürünün günlük üretim ve satışı; dördü birlikte eklenir.',
-      ciz: function (o) { return [kartGunlukDokme(o), kartGunlukCuval(o), kartGunlukYas(o), kartGunlukPoset(o)]; }
-    },
-    /* 'uretim30' ve 'satis30' (Son 30 Günün Dökme Üretimi/Satışı) kaldırıldı
-       (kullanıcı isteği, 24.08.2026). Kayıtlı kart seçimlerindeki eski kodlar
-       kartlariOku'nun katalog süzgeciyle kendiliğinden elenir. */
-  ];
-
-  var VARSAYILAN_KARTLAR = ['uretim-satis'];
-
-  function kartBul(kod) {
-    for (var i = 0; i < KART_KATALOG.length; i++) if (KART_KATALOG[i].kod === kod) return KART_KATALOG[i];
-    return null;
-  }
-
-  /* Kayıt yoksa varsayılan liste döner. Boş dizi geçerli bir seçimdir
-     (kullanıcı tüm kartları kaldırabilir), bu yüzden "kayıt yok" ile
-     "boş kayıt" ayrı ele alınır. */
-  function kartlariOku() {
-    var ham = null;
-    try { ham = localStorage.getItem(KART_ANAHTAR); } catch (e) { ham = null; }
-    if (ham === null || ham === undefined) return VARSAYILAN_KARTLAR.slice();
-    var cozulen;
-    try { cozulen = JSON.parse(ham); } catch (e) { return VARSAYILAN_KARTLAR.slice(); }
-    if (Object.prototype.toString.call(cozulen) !== '[object Array]') return VARSAYILAN_KARTLAR.slice();
-    var liste = [], i, tanim;
-    for (i = 0; i < cozulen.length; i++) {
-      tanim = kartBul(cozulen[i]);
-      /* Demirbaş seçime yazılmaz; katalogdan kalkan eski kodlar da elenir. */
-      if (tanim && !tanim.demirbas && liste.indexOf(cozulen[i]) < 0) liste.push(cozulen[i]);
-    }
-    return liste;
-  }
-
-  function kartlariYaz(liste) {
-    try { localStorage.setItem(KART_ANAHTAR, JSON.stringify(liste)); } catch (e) { /* özel mod */ }
-  }
-
-  /* Kart yönetimi tek düğmeye indi (kullanıcı isteği, 21.08.2026):
-     "Kartları Seç" kaldırıldı; Üretim/Satış ailesi bu düğmeyle açılıp
-     kapanır. Aile açıkken düğmenin üstü çizilir — tıklamak kapatır. */
-  function kartCubugu(secim) {
-    var acik = secim.indexOf('uretim-satis') >= 0;
-    var dugme = YU.ui.dugme({
-      metin: 'Üretim/Satış Kartlarını Göster', ikon: '#ic-swap', tur: 'ikincil', kucuk: true,
-      baslik: acik ? 'Açık — kapatmak için tıklayın' : 'Dört üretim/satış kartını açar',
-      onClick: function () {
-        var yeni = secim.slice();
-        var k = yeni.indexOf('uretim-satis');
-        if (k >= 0) yeni.splice(k, 1); else yeni.unshift('uretim-satis');
-        kartlariYaz(yeni);
-        YU.yenile();
-      }
-    });
-    if (acik) dugme.style.textDecoration = 'line-through';
-    return YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' } },
-      YU.h('span', { sinif: 'yu-etiket', metin: 'Özet Kartları' }),
-      YU.h('span', { stil: { flex: '1' } }),
-      dugme
-    );
-  }
-
-  /* Tek üçlü ızgara: kaç kart seçilirse seçilsin her kart aynı genişlikte ve
-     aynı yükseklikte kalır. Son sıra eksik kalırsa kalan kartlar genişlemez,
-     sağda boş göz bırakır (kullanıcı isteği). */
-  function kpiIzgarasi(o) {
-    var secim = kartlariOku();
-    var kap = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '14px' } });
-    kap.appendChild(kartCubugu(secim));
-
-    var kartlar = [], i, tanim;
-    function ekle(tanim) {
-      var uretilen = tanim.ciz(o);
-      if (Object.prototype.toString.call(uretilen) === '[object Array]') {
-        for (var j = 0; j < uretilen.length; j++) kartlar.push(uretilen[j]);
-      } else {
-        kartlar.push(uretilen);
-      }
-    }
-    /* Demirbaş aileler seçimden bağımsız her zaman en başta. */
-    for (i = 0; i < KART_KATALOG.length; i++) {
-      if (KART_KATALOG[i].demirbas) ekle(KART_KATALOG[i]);
-    }
-    for (i = 0; i < secim.length; i++) {
-      tanim = kartBul(secim[i]);
-      if (tanim && !tanim.demirbas) ekle(tanim);
-    }
-
-    /* Demirbaş aile her zaman kart ürettiği için boş durum oluşmaz. */
-
-    /* Kartlar satır başına 4'lü dizilir (kullanıcı isteği, 21.08.2026);
-       dar ekran kırılımları yu-iz-4'ten gelir (≤1100 2'li, ≤700 tekli). */
-    kap.appendChild(YU.h('div', { sinif: 'yu-izgara yu-iz-4 yu-esit' }, kartlar));
-    return kap;
-  }
+  /* ÖZET KARTLARI kaldırıldı (kullanıcı kararı, 25.08.2026 — sadeleştirme).
+     Aynı rakamlar Malzeme Stokları tablosunda satır satır okunuyordu; sekiz
+     kartlık şerit ekranın üst yarısını kapatıyordu. Kart kataloğu, kart seçme
+     çubuğu ve localStorage tercihi (yu.anasayfa.kartlari.v1) birlikte gitti.
+     SİLO KARTLARI YERİNDE DURUYOR (kullanıcı isteği, 25.08.2026). */
 
   /* ==================================================================
      Sütun grafiği — son 14 kayıtlı gün
      ================================================================== */
 
   function grafikPaneli(depo, o) {
-    var son = o.tumGunler.slice(0, GRAFIK_GUN).reverse();
+    /* Gün sınırı YOK (kullanıcı isteği, 25.08.2026): grafik panelin yarısında
+       kalıyordu. Kampanyanın bütün günleri çizilir; aynı anda kaç sütun
+       göründüğünü pencere genişliği belirler (sütun genişliği sabit), kalanına
+       oklarla/sürükleyerek gidilir. */
+    var son = o.tumGunler.slice().reverse();
     var harita = {}, i, h;
     for (i = 0; i < depo.gunlukHareket.length; i++) {
       h = depo.gunlukHareket[i];
@@ -506,7 +238,11 @@
        kullanıyor, davranış tek yerde tanımlı (25.08.2026). */
     var g = YU.ui.kaydirmaliGrafik({
       veri: veri, yukseklik: 210, renk2: 'var(--grafik-ikincil)',
-      efsane: ['Dökme Üretim', 'Dökme Satış']
+      efsane: ['Dökme Üretim', 'Dökme Satış'],
+      /* Tekerlekle sağa-sola kayma KAPALI (kullanıcı isteği, 25.08.2026):
+         grafiğin üstünde tekerlek çevrilince sayfa kaysın. Oklar ve fareyle
+         sürükleme çalışmaya devam eder. Aylık Özet'in grafiği etkilenmez. */
+      tekerleksiz: true
     });
     var grafikGovde = g.govde, notEl = g.notEl;
 
@@ -700,9 +436,10 @@
     /* Eski düz görünüm (SILO_GORSELI=false): değer + çubuk + kapasite satırı. */
     var govde = SILO_GORSELI
       ? YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '14px' } },
-          /* Hunili küspe silosu biçimi yalnız Ana Sayfa'da (kullanıcı isteği,
-             24.08.2026); Silo Durumu düz tabanlı biçimi kullanmayı sürdürür. */
-          YU.ui.siloSekli(oran, tur, true),
+          /* Huni (konik alt) kaldırıldı (kullanıcı isteği, 25.08.2026):
+             düz tabanlı silindir biçimine dönüldü — Silo Durumu ile aynı.
+             Geri istenirse üçüncü argüman yine true yapılır. */
+          YU.ui.siloSekli(oran, tur),
           YU.h('div', {
             stil: { display: 'flex', flexDirection: 'column', gap: '10px', flex: '1', minWidth: '0' }
           },
@@ -744,7 +481,7 @@
         YU.h('div', { sinif: 'yu-kpi-ikon' }, YU.svg('#ic-building', 15)),
         YU.h('div', { sinif: 'yu-kpi-etiket', metin: s.silo.Ad }),
         /* Oran silonun ortasına taşındı; rozet yalnız eski görünümde kalır. */
-        SILO_GORSELI ? null : YU.ui.rozet(YU.fmt.yuzde(oran * 100, 1), tur === 'vurgu' ? 'notr' : tur)
+        SILO_GORSELI ? null : YU.ui.rozet(YU.fmt.doluluk(oran), tur === 'vurgu' ? 'notr' : tur)
       ),
       govde
     );
@@ -757,81 +494,13 @@
     return iz;
   }
 
-  /* ==================================================================
-     Malzeme stok tablosu
-     ================================================================== */
-
-  function malzemeAdi(malzeme) {
-    if (malzeme.OzelTip !== 'DokmeKuruKuspe') return malzeme.Ad;
-    /* Şartname §5 KRİTİK: bu satırın mevcudu formülle değil silo toplamıyla
-       hesaplanır — rozet bunu ekranda görünür kılar. Sayı aktif silo
-       sayısından gelir ("3 Silonun Toplamı"); silo eklenirse kendiliğinden
-       güncellenir (kullanıcı isteği, 24.08.2026). */
-    var siloSayisi = 0;
-    for (var si = 0; si < YU.db.silolar.length; si++) {
-      if (YU.db.silolar[si].Aktif !== false) siloSayisi++;
-    }
-    return YU.h('span', {
-      stil: { display: 'inline-flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }
-    }, YU.h('span', { metin: malzeme.Ad }),
-      YU.ui.rozet(YU.fmt.sayi(siloSayisi) + ' Silonun Toplamı', 'vurgu'));
-  }
-
-  function malzemePaneli(o) {
-    var satirlar = [], i, s;
-    for (i = 0; i < o.malzemeler.length; i++) {
-      s = o.malzemeler[i];
-      if (!s.malzeme || s.malzeme.Aktif === false) continue;
-      satirlar.push({
-        hucreler: [
-          malzemeAdi(s.malzeme),
-          YU.fmt.kg(s.devir),
-          YU.fmt.kg(s.uretim),
-          /* İade kolonu (M26): mevcut = devir + üretim + iade − satış;
-             kolon yokken iadeli satır ekranda kendi içinde tutmuyordu. */
-          YU.fmt.kg(s.iade),
-          YU.fmt.kg(s.satis),
-          YU.h('span', { sinif: 'yu-guclu', metin: YU.fmt.kg(s.mevcut) })
-        ],
-        onClick: (function (id) {
-          return function () { YU.git('stok-durumu', { malzeme: id }); };
-        })(s.malzeme.Id)
-      });
-    }
-
-    var tablo = YU.ui.tablo({
-      sutunlar: [
-        { baslik: 'Malzeme' },
-        /* Üretim ve satış, kampanya başı devirden bugüne BİRİKİMLİ toplamdır
-           (YU.stok.tumMalzemeler, Şartname §5); başlık bunu açıkça söyler
-           (kullanıcı isteği, 23.08.2026). */
-        { baslik: 'Devir (Kg)', hiza: 'sag', mono: true, genislik: 120 },
-        { baslik: 'Toplam Üretim (Kg)', hiza: 'sag', mono: true, genislik: 150 },
-        { baslik: 'Toplam İade (Kg)', hiza: 'sag', mono: true, genislik: 130 },
-        { baslik: 'Toplam Satış (Kg)', hiza: 'sag', mono: true, genislik: 140 },
-        { baslik: 'Mevcut (Kg)', hiza: 'sag', mono: true, genislik: 150 }
-      ],
-      satirlar: satirlar,
-      bos: 'Aktif malzeme bulunamadı.',
-      yapiskan: true
-    });
-
-    /* Sayı kolonları panelin sağ kenarına yapışıyordu; son kolonun sağ dolgusu
-       açılarak blok hafifçe sola çekildi (kullanıcı isteği, 23.08.2026). */
-    var sonHucreler = tablo.querySelectorAll('tr > th:last-child, tr > td:last-child');
-    for (i = 0; i < sonHucreler.length; i++) sonHucreler[i].style.paddingRight = '40px';
-
-    return YU.ui.panel({
-      baslik: 'Malzeme Stokları',
-      ikon: '#ic-chart',
-      dolgusuz: true,
-      sag: YU.ui.dugme({
-        metin: 'Tümünü Gör', ikon: '#ic-chevron', tur: 'ikincil', kucuk: true,
-        onClick: function () { YU.git('stok-durumu'); }
-      }),
-      govde: tablo
-    });
-  }
+  /* ANA SAYFANIN KENDİ "Malzeme Stokları" TABLOSU KALDIRILDI (kullanıcı
+     isteği, 25.08.2026). Yerine Günlük Stok Durumu'ndaki "Malzeme Bazında
+     Stok" panelinin aynısı geliyor (YU.malzemeStokPaneli — 23-stok-durumu),
+     altına da Günlük Silo Durumu'ndaki "Silo Bazında Stok" paneli
+     (YU.siloStokPaneli — 24-silo-durumu). İki panelde de tarih HEP bugündür
+     ve tarih girişi yoktur. malzemeAdi yardımcısı yalnız eski tabloya
+     hizmet ettiği için birlikte kaldırıldı. */
 
   /* ==================================================================
      Boş durum — artboard 2b dili
@@ -946,16 +615,90 @@
       return;
     }
 
-    kap.appendChild(kpiIzgarasi(o));
-    /* Son Hareketler kendi sayfasına, dökme üretim–satış grafiği Silo
-       Durumu'na taşındı (kullanıcı istekleri, 21.08.2026). */
-    kap.appendChild(siloIzgarasi(o));
-    kap.appendChild(malzemePaneli(o));
+    /* SIRA (kullanıcı isteği, 25.08.2026): silo kartları → dökme üretim–satış
+       grafiği → Silo Bazında Stok → Malzeme Bazında Stok. Grafik, Günlük Silo
+       Durumu'ndaki panelin BİREBİR AYNISIDIR — kaydırmalı ve sürüklenebilir.
+       Stok/Silo panelleri de kendi ekranlarındaki panellerin aynısıdır; dosya
+       yükleme sırası nedeniyle varlık kontrolü yapılır.
+       Son Hareketler kendi sayfasına taşındı (kullanıcı isteği, 21.08.2026).
+
+       YAZDIRMAYA GİRMEZLER (kullanıcı isteği, 26.08.2026): kâğıda yalnız iki
+       stok tablosu basılır. Silo kartları ve kampanya grafiği ekranda kalır;
+       kâğıtta bir sayfa yer kaplayıp raporu ikiye bölüyorlardı. Sınıf YALNIZ
+       bu iki öğeye burada takılır — Günlük Silo Durumu'ndaki aynı grafik
+       (YU.dokmeGrafikPaneli) etkilenmez, orada basılmaya devam eder. */
+    var siloKartlari = siloIzgarasi(o);
+    siloKartlari.className += ' yu-baski-yok';
+    kap.appendChild(siloKartlari);
+
+    var grafik = grafikPaneli(depo, o);
+    grafik.className += ' yu-baski-yok';
+    kap.appendChild(grafik);
+
+    /* Paneller şeritten ÖNCE kurulur, ekranda yine altta durur: Excel düğmesi
+       tıklanınca panelin gösterdiği günü (data-tarih) okuyacak. */
+    var siloPanel = typeof YU.siloStokPaneli === 'function'
+      /* devirTarihiAyri (27.08.2026) + hizaOrta (28.08.2026): rakam kolon
+         başlığının ortasında durur, hane sayısı artsa da ortalı kalır. */
+      /* birimli (28.08.2026): rakamın yanında "kg" yazar, Malzeme Bazında
+         Stok tablosundaki dille aynı olur. */
+      ? YU.siloStokPaneli(null, { devirTarihiAyri: true, hizaOrta: true, birimli: true })
+      : null;
+    var malzemePanel = typeof YU.malzemeStokPaneli === 'function'
+      ? YU.malzemeStokPaneli(null, { hizaOrta: true })   /* rakamlar kolon ortasında (28.08.2026) */
+      : null;
+
+    /* EYLEM ŞERİDİ — sayfa başlığının sağından ALINDI, grafik ile Silo Bazında
+       Stok arasındaki ara koridora konuldu, sağa yaslı (kullanıcı isteği,
+       26.08.2026). Düğmeler bastıkları raporun hemen üstünde durur; sayfa
+       başlığı yalnız başlık kalır.
+       Yazdırmaya girmez: kâğıda yalnız iki stok tablosu basılır. */
+    var eylemSeridi = YU.h('div', {
+      sinif: 'yu-baski-yok',
+      stil: { display: 'flex', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }
+    },
+      /* Raporu Mail ile Gönder (kullanıcı isteği, 26.08.2026). Şartname dışı
+         ektir; ayrıntı ve gerekçe 35-mail-gonder.js başında yazılı. Modül
+         yüklenmemişse düğme hiç çizilmez — sayfa yine açılır.
+         BİRİNCİL görünüm: Yazdır'la aynı mavi zemin · koyu yazı. */
+      typeof YU.mailPaneli === 'function' ? YU.ui.dugme({
+        metin: 'Mail ile Gönder', ikon: '#ic-doc', tur: 'birincil', kucuk: true,
+        baslik: 'Günlük Stok Durumu raporunu seçtiğiniz adreslere postalayın',
+        onClick: function () { YU.mailPaneli(); }
+      }) : null,
+      /* Excel İndir — Şartname §11'in birinci opsiyonel genişletmesi; ayrıntı
+         ve gerekçe 36-excel-indir.js başında yazılı. Kullanıcı isteği
+         (26.08.2026) sıranın Mail · Excel · Yazdır olmasıdır. Ekranda hangi gün
+         açıksa onu indirir: gün panelin data-tarih değerinden okunur. */
+      typeof YU.excelIndir === 'function' ? YU.ui.dugme({
+        metin: 'Excel İndir', ikon: '#ic-download', tur: 'birincil', kucuk: true,
+        baslik: 'Ekrandaki iki stok tablosunu Excel ile açılan dosyaya indirir',
+        onClick: function () {
+          YU.excelIndir(malzemePanel && malzemePanel.getAttribute('data-tarih'));
+        }
+      }) : null,
+      YU.ui.dugme({
+        metin: 'Yazdır', ikon: '#ic-download', tur: 'birincil', kucuk: true,
+        baslik: 'Bu sayfayı yazdır',
+        onClick: function () { window.print(); }
+      })
+    );
+    kap.appendChild(eylemSeridi);
+
+    if (siloPanel) kap.appendChild(siloPanel);
+    if (malzemePanel) kap.appendChild(malzemePanel);
   }
 
   YU.sayfaTanimla({
     kod: 'anasayfa',
     baslik: 'Ana Sayfa',
+    /* İçerik üst kenara yaklaşır (kullanıcı isteği, 26.08.2026):
+       .yu-icerik üst dolgusu bu sayfada 20 -> 8px. Ortak dolgu değişmedi,
+       yalnız bu sayfa yu-ust-dar varyantını alır (tema.css · KURAL 10.5). */
+    ustDar: true,
+    /* Kâğıda basılan rapor adı — ekran adı "Ana Sayfa" raporda anlamsız
+       kalıyordu (kullanıcı isteği, 26.08.2026). */
+    baskiBasligi: 'Yan Ürünler Stok Durum Raporu',
     altBaslik: function () {
       var depo = YU.db;
       if (!depo) return '';
@@ -963,7 +706,8 @@
       var gunler = donem ? YU.stok.kayitliGunler(depo, donem.bas, donem.bit) : YU.stok.kayitliGunler(depo);
       var parcalar = [donem ? ('Kampanya ' + donem.ad) : 'Kampanya dönemi tanımlı değil'];
       if (gunler.length) parcalar.push('son kayıt ' + YU.fmt.tarih(gunler[0].tarih));
-      parcalar.push(YU.fmt.sayi(gunler.length) + ' gün veri girilmiş');
+      /* "35 gün veri girilmiş" sayacı kaldırıldı (kullanıcı isteği,
+         26.08.2026 · KURAL 11): kararı değiştiren bir bilgi değildi. */
       return parcalar.join(' · ');
     },
     ikon: '#ic-home',

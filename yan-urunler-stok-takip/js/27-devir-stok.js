@@ -61,7 +61,9 @@
      Kuru Küspe Girişi ve Malzeme Girişi ekranlarında da kullanılır. */
   function cikisEngeli(acik) {
     if (YU.cikisKilidi) {
-      YU.cikisKilidi(acik, 'Devir satırlarında kaydedilmemiş miktar var.');
+      /* SERT kilit (kullanıcı isteği, 27.08.2026): menü/marka/geri tuşu dahil
+         her sayfa geçişini uygulama, sekme kapatma ve yenilemeyi tarayıcı sorar. */
+      YU.cikisKilidi(acik, 'Devir satırlarında kaydedilmemiş değişiklik var.', true);
     }
   }
 
@@ -271,11 +273,6 @@
     return null;
   }
 
-  function kampanyaEki(iso) {
-    var ad = kampanyaAdi(iso);
-    return ad ? ' · kampanya ' + ad : '';
-  }
-
   /* Bir devir tarihinin kampanyası kilitliyse adını döndürür. Servis zaten
      kilitli kampanyaya yazmayı reddediyor (04-servis devirUpsert, KILIT);
      ekran da düzenlemeyi baştan kapatır ki kullanıcı boşuna miktar yazmasın. */
@@ -384,12 +381,23 @@
       (function (v) {
         var sahip = v.sahip, kayit = v.kayit;
 
+        /* Dökme kuru küspenin devri TÜRETİLMİŞTİR: silo devirlerinin
+           toplamıdır (Şartname §5 KRİTİK). Servis katmanı silo devri
+           yazılırken bu satırı kendiliğinden eşitler; elle düzenleme
+           doğrulamada reddedilir. Satır bu yüzden kalem yerine silo
+           işareti gösterir ve nereden geldiğini hücrede söyler (KURAL 8). */
+        var turetilmis = !siloMu(tip) && sahip.OzelTip === "DokmeKuruKuspe";
+
         var alan = YU.ui.alan({
           tip: 'sayi', sag: 'kg', genislik: 170,
           deger: kayit ? Number(kayit.Miktar) : '',
           yerTutucu: kayit ? '' : 'devir yok',
           onInput: function () { canliTazele(); }
         });
+        /* Kutu hücrenin SAĞINA yaslanır (kullanıcı isteği, 27.08.2026): blok
+           kutu solda kalıyor, dökme satırının "devir yok · silo devirlerinin
+           toplamı" gösterimi sağda duruyordu — kolon ikiye yarık görünüyordu. */
+        alan.kok.style.marginLeft = 'auto';
         var alanKaydi = { tip: tip, sahip: sahip, kayit: kayit, alan: alan, tr: null, ac: null };
         alanlar.push(alanKaydi);
         bolumAlanlari.push(alanKaydi);
@@ -461,6 +469,15 @@
               title: 'Bu tarihte kayıt yok — miktar girilirse yeni devir satırı açılır',
               metin: 'devir yok'
             });
+        /* Rakamın nereden geldiği tablonun altına dipnot olarak değil,
+           hücrenin kendisine yazılır (KURAL 8). */
+        var turetilmisNot = turetilmis
+          ? YU.h('div', {
+              sinif: 'yu-yardim',
+              stil: { whiteSpace: 'nowrap', textAlign: 'right', marginTop: '2px' },
+              metin: 'silo devirlerinin toplamı'
+            })
+          : null;
         var duzenlemeKap = YU.h('div', { stil: { display: 'none' } }, alan.kok);
         var gosterimKap, kayitliHucre;
 
@@ -521,7 +538,13 @@
           stil: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }
         },
           kayitliDeger,
-          kilitliAd
+          turetilmis
+            ? YU.h('span', {
+                sinif: 'yu-satir-eylem yu-satir-eylem-buyuk',
+                stil: { opacity: '.5', cursor: 'default' },
+                title: 'Silo devirlerinin toplamı — elle değiştirilmez. Silo devrini düzeltirseniz bu satır kendiliğinden güncellenir (Şartname §5).'
+              }, YU.svg('#ic-building', 18))
+            : kilitliAd
             ? YU.h('span', {
                 sinif: 'yu-satir-eylem yu-satir-eylem-buyuk',
                 stil: { opacity: '.45', cursor: 'default' },
@@ -530,8 +553,10 @@
             : eylemDugmesi('#ic-pencil', kayit ? 'Miktarı Düzenle' : 'Miktar Gir', duzenlemeyiAc, false)
         );
 
-        kayitliHucre = YU.h('div', null, gosterimKap, duzenlemeKap);
-        alanKaydi.ac = duzenlemeyiAc;
+        kayitliHucre = YU.h('div', null, gosterimKap, turetilmisNot, duzenlemeKap);
+        /* Türetilmiş satır hiçbir akışta açılmaz: toplu doldurma da bu satıra
+           dokunamaz, dolayısıyla "değişen satırlar" listesine hiç girmez. */
+        if (!turetilmis) alanKaydi.ac = duzenlemeyiAc;
 
         satirlar.push([adHucre, tarihHucre, kayitliHucre, kullaniciHucre]);
       })(satirVerisi[i]);
@@ -539,6 +564,8 @@
 
     var tablo = YU.ui.tablo({
       sik: false,
+      /* Başlık şeridi vurgulu varyant (27.08.2026) — bkz. tema.css. */
+      sinif: 'yu-tablo-baslik-guclu',
       sutunlar: [
         { baslik: siloMu(tip) ? 'Silo' : 'Malzeme' },
         { baslik: 'Devir Tarihi', genislik: 170 },
@@ -588,6 +615,7 @@
       /* 'sade' iken görünmüyordu (kullanıcı isteği, 25.08.2026): çerçeveli
          ikincil düğme + alt şeridin iri ölçüsü. */
       metin: 'Değişiklikleri Geri Al', ikon: '#ic-swap', tur: 'ikincil',
+      sinif: 'yu-dugme-vurgulu',
       onClick: function () {
         /* Yeni kampanya kurulumu atılıyorsa tarih de geri alınır: yoksa ekran
            hiç kaydı olmayan bir günde "devir yok" satırlarıyla kalıyordu. */
@@ -620,9 +648,9 @@
             : 'Kaydedilmemiş değişiklik yok');
       kaydetDugmesi.disabled = degisen === 0 || !!kilitliAd;
       geriDugmesi.disabled = degisen === 0 && !durum.yeniKampanya;
-      /* Çıkış engeli: kaydedilmemiş satır varsa sekme/pencere kapatma ve menü
-         geçişi sorulur (kullanıcı isteği, 25.08.2026). */
-      cikisEngeli(degisen > 0);
+      /* Çıkış engeli: kaydedilmemiş satır ya da bekleyen yeni kampanya
+         kurulumu varsa her çıkış yolu sorulur (kullanıcı isteği, 27.08.2026). */
+      cikisEngeli(degisen > 0 || !!durum.yeniKampanya);
     }
 
     var siloTablo = bolumTablosu('Silo', tarih, kilitliAd, alanlar, canliTazele);
@@ -657,15 +685,13 @@
 
     canliTazele();
 
-    var kampanyaSayisi = devirTarihleri().length;
     return YU.ui.panel({
       baslik: 'Kampanya Devirleri',
       ikon: '#ic-wallet',
       dolgusuz: true,
-      sag: YU.h('span', {
-        metin: (tarih ? YU.fmt.tarih(tarih) + kampanyaEki(tarih) + ' · ' : '') +
-          YU.fmt.sayi(kampanyaSayisi) + ' kampanya devri'
-      }),
+      /* Panel sağındaki "22.07.2026 · kampanya 2026/2027 · 2 kampanya devri"
+         cümlesi kaldırıldı (kullanıcı isteği, 26.08.2026 · KURAL 11):
+         sayı tablodan, tarih ise hemen altındaki tarih bloğundan okunuyor. */
       govde: [
         tarihBlogu(),
         kilitSeridi(kilitliAd),
@@ -878,14 +904,38 @@
       else hatalar = hatalar.concat(etiketle(y.onceki.ad, k.hatalar));
     }
 
+    /* Sorunsuz kayıtta ekranın ORTASINDA mini onay penceresi açılır
+       (kullanıcı isteği, 27.08.2026); sağ alttaki geçici bildirim yerine
+       geçer — kullanıcı Tamam'a basana kadar durur. Hata ya da uyarı varsa
+       aşağıdaki pencere zaten açılıyor: iki pencere üst üste binmesin diye
+       o durumda eski bildirim korunur. */
+    var basariPenceresi = false;
     if (basarili) {
       durum.yeniKampanya = null;
       durum.acikKal = false;
       cikisEngeli(false);
-      YU.ui.bildir(YU.fmt.sayi(basarili) + ' devir satırı kaydedildi (' + YU.fmt.tarih(tarih) + ').', 'basari');
+      if (!hatalar.length && !uyarilar.length) basariPenceresi = true;
+      else YU.ui.bildir(YU.fmt.sayi(basarili) + ' devir satırı kaydedildi (' + YU.fmt.tarih(tarih) + ').', 'basari');
     }
     YU.donem.tazele();
     YU.yenile();
+
+    if (basariPenceresi) {
+      var mb = YU.ui.modal({
+        baslik: 'Başarıyla Kaydedildi',
+        genislik: 380,
+        govde: [YU.h('div', {
+          stil: {
+            display: 'flex', alignItems: 'center', gap: '10px',
+            font: '400 15px/1.5 var(--font)', color: 'var(--metin)'
+          }
+        },
+          YU.h('span', { stil: { display: 'flex', color: 'var(--olumlu)', flex: 'none' } }, YU.svg('#ic-checklist', 20)),
+          YU.h('span', { metin: YU.fmt.sayi(basarili) + ' devir satırı kaydedildi.' })
+        )],
+        dugmeler: [{ metin: 'Tamam', tur: 'birincil', onClick: function () { mb.kapat(); } }]
+      });
+    }
 
     if (hatalar.length || uyarilar.length) {
       var m = YU.ui.modal({
@@ -1041,7 +1091,11 @@
       }
     },
       YU.h('div', { stil: { flex: '1', minWidth: '0', display: 'flex', flexDirection: 'column', gap: '5px' } },
-        YU.h('div', { metin: soru, stil: { font: '500 15.5px/1.4 var(--font)', color: 'var(--metin)' } }),
+        /* soru bir Element ise olduğu gibi kullanılır (yeni kampanya modalı:
+           kilit sorusu seçilen tarihe göre canlı yazılır — 27.08.2026). */
+        typeof soru === 'string'
+          ? YU.h('div', { metin: soru, stil: { font: '500 15.5px/1.4 var(--font)', color: 'var(--metin)' } })
+          : soru,
         aciklamaEl
       ),
       secim.kok
@@ -1050,103 +1104,149 @@
 
   function yeniKampanyaModali() {
     var liste = YU.donem.liste();
-    var onceki = liste.length ? liste[liste.length - 1] : null;
     var bugun = YU.tarih.bugun();
-    var dun = YU.tarih.ekle(bugun, -1);
+    var hazir = false;
 
-    /* Aynı sezona ikinci kampanya açılamaz: sezon adı servisin kuralından
-       okunur (YU.servis.kampanyaAdi), kural burada tekrar yazılmaz. */
-    var bugunSezon = YU.servis.kampanyaAdi ? YU.servis.kampanyaAdi(bugun) : null;
-    var cakisan = null, i;
-    for (i = 0; i < liste.length; i++) if (liste[i].ad === bugunSezon) { cakisan = liste[i]; break; }
+    /* Başlangıç tarihi SEÇİLEBİLİR (kullanıcı isteği, 27.08.2026): geçmiş
+       tarihli kampanya kurulabilir. Gelecek gün ortak tarih alanı kuralıyla
+       zaten kapalı (YU.ui.alan max=bugün). Sezon çakışması, biten kampanya
+       ve metinler seçilen tarihe göre canlı tazelenir. */
+    var tarihAlan = YU.ui.alan({
+      etiket: 'Kampanya Başlangıç Tarihi', tip: 'tarih', deger: bugun,
+      genislik: 200, onInput: tazele
+    });
+    var tarihNotu = YU.h('span', { sinif: 'yu-yardim', stil: { margin: '0 0 9px' } });
 
     var tarihSatiri = YU.h('div', {
       stil: {
-        display: 'flex', alignItems: 'center', gap: '12px',
+        display: 'flex', alignItems: 'flex-end', gap: '12px',
         padding: '14px 18px', border: '1px solid var(--kenar)',
         borderRadius: 'var(--r-l)', background: 'var(--vurgu-zemin)'
       }
     },
-      YU.h('span', { stil: { display: 'flex', color: 'var(--vurgu)', flex: 'none' } }, YU.svg('#ic-calendar', 18)),
-      YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '3px' } },
-        YU.h('div', { sinif: 'yu-yardim', stil: { margin: '0' }, metin: 'Kampanya Başlangıç Tarihi' }),
-        YU.h('div', {
-          stil: { fontSize: '17px', fontWeight: '600', color: 'var(--metin)' },
-          metin: YU.fmt.tarih(bugun) + ' · bugün'
-        })
-      )
+      YU.h('span', { stil: { display: 'flex', color: 'var(--vurgu)', flex: 'none', margin: '0 0 9px' } }, YU.svg('#ic-calendar', 18)),
+      tarihAlan.kok,
+      tarihNotu
     );
 
-    if (cakisan) {
-      var mc = YU.ui.modal({
-        baslik: 'Yeni Kampanya Açılamaz',
-        genislik: 600,
-        govde: [YU.ui.serit({
-          tur: 'hata', ikon: '#ic-alert',
-          baslik: bugunSezon + ' Sezonu Zaten Açık',
-          metin: 'Bugün (' + YU.fmt.tarih(bugun) + ') ' + bugunSezon + ' sezonuna düşüyor ve bu sezonun ' +
-            'kampanyası ' + YU.fmt.tarih(cakisan.bas) + ' tarihinde başlamış. Aynı sezona ikinci kampanya ' +
-            'açılamaz; devir miktarlarını düzeltmek için tablodaki kalem düğmesini kullanın.'
-        })],
-        dugmeler: [{ metin: 'Kapat', tur: 'ikincil', onClick: function () { mc.kapat(); } }]
-      });
-      return;
-    }
+    var girisMetni = YU.h('div', { stil: { font: '400 15px/1.6 var(--font)', color: 'var(--metin-2)' } });
+    var cakismaKap = YU.h('div', { stil: { display: 'none' } });
 
     var devretAciklama = YU.h('div', { sinif: 'yu-yardim', stil: { margin: '0' } });
-    var devretSecim = evetHayirSecim(true, function (v) {
-      devretAciklama.textContent = v
+    var devretSecim = evetHayirSecim(true, tazele);
+
+    var kilitSoru = YU.h('div', { stil: { font: '500 15.5px/1.4 var(--font)', color: 'var(--metin)' } });
+    var kilitAciklama = YU.h('div', { sinif: 'yu-yardim', stil: { margin: '0' } });
+    var kilitSecim = evetHayirSecim(true, tazele);
+    var kilitSatir = secimSatiri(kilitSoru, kilitAciklama, kilitSecim);
+
+    function secilenTarih() {
+      var t = String(tarihAlan.deger() || '').trim();
+      return /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : null;
+    }
+
+    /* Yeni başlangıçtan önceki SON kampanya: dönemi seçilen tarihte biten
+       kampanya budur (liste YU.donem.liste() ile artan sıralı). Araya ekleme
+       de doğru çalışır: dönem sınırları devir tarihlerinden türediği için
+       bölünen kampanya seçilen tarihin bir gün öncesinde biter. */
+    function oncekiBul(tarih) {
+      var o = null, i;
+      for (i = 0; i < liste.length; i++) if (liste[i].bas < tarih) o = liste[i];
+      return o;
+    }
+
+    /* Aynı sezona ikinci kampanya açılamaz: sezon adı servisin kuralından
+       okunur (YU.servis.kampanyaAdi), kural burada tekrar yazılmaz. */
+    function cakisanBul(tarih) {
+      var ad = YU.servis.kampanyaAdi ? YU.servis.kampanyaAdi(tarih) : null;
+      for (var i = 0; i < liste.length; i++) if (liste[i].ad === ad) return liste[i];
+      return null;
+    }
+
+    function tazele() {
+      if (!hazir) return;
+      var tarih = secilenTarih();
+      var onceki = tarih ? oncekiBul(tarih) : null;
+      var cakisan = tarih ? cakisanBul(tarih) : null;
+      var dun = tarih ? YU.tarih.ekle(tarih, -1) : null;
+
+      tarihAlan.hataGoster('');
+      tarihNotu.textContent = !tarih ? '' : (tarih === bugun ? 'bugün' : 'geçmiş tarih');
+
+      girisMetni.textContent = 'Onaylarsanız seçilen tarihin devir satırları ekrana hazırlanır; ' +
+        'kampanya ancak KAYDET\'e bastığınızda oluşur.' +
+        (onceki && !cakisan ? ' ' + onceki.ad + ' kampanyası ' + YU.fmt.tarih(dun) + ' günü biter.' : '');
+
+      YU.bos(cakismaKap);
+      cakismaKap.style.display = cakisan ? '' : 'none';
+      if (cakisan) {
+        cakismaKap.appendChild(YU.ui.serit({
+          tur: 'hata', ikon: '#ic-alert',
+          baslik: cakisan.ad + ' Sezonu Zaten Açık',
+          metin: 'Seçilen tarih (' + YU.fmt.tarih(tarih) + ') ' + cakisan.ad + ' sezonuna düşüyor ve bu ' +
+            'sezonun kampanyası ' + YU.fmt.tarih(cakisan.bas) + ' tarihinde başlamış. Aynı sezona ikinci ' +
+            'kampanya açılamaz; başka bir tarih seçin ya da devir miktarlarını tablodaki kalem düğmesiyle düzeltin.'
+        }));
+      }
+
+      devretAciklama.textContent = devretSecim.deger()
         ? (onceki
-            ? onceki.ad + ' kapanış stokları (' + YU.fmt.tarih(dun) + ' gün sonu) satırlara yazılır; ' +
-              'kontrol edip Kaydet\'e basarsınız.'
+            ? onceki.ad + ' kapanış stokları (' + (dun ? YU.fmt.tarih(dun) : '—') + ' gün sonu) satırlara ' +
+              'yazılır; kontrol edip Kaydet\'e basarsınız.'
             : 'Önceki kampanya yok; satırlar boş açılır.')
         : 'Satırlar boş ve düzenlemeye açık gelir; miktarları elle girip Kaydet\'e basarsınız.';
-    });
 
-    var kilitAciklama = YU.h('div', { sinif: 'yu-yardim', stil: { margin: '0' } });
-    var kilitSecim = evetHayirSecim(true, function (v) {
-      kilitAciklama.textContent = v
-        ? 'Kaydettikten sonra kilitlenir: kayıt girilemez, düzeltilemez, silinemez. Kilidi yalnız yönetici açar.'
-        : 'Kampanya açık kalır; geçmiş sezona yanlışlıkla kayıt girilebilir. Sonra listeden kilitleyebilirsiniz.';
-    });
+      kilitSatir.style.display = onceki ? '' : 'none';
+      if (onceki) {
+        kilitSoru.textContent = onceki.ad + ' kampanyası kilitlensin mi?';
+        kilitAciklama.textContent = kilitSecim.deger()
+          ? 'Kaydettikten sonra kilitlenir: kayıt girilemez, düzeltilemez, silinemez. Kilidi yalnız yönetici açar.'
+          : 'Kampanya açık kalır; geçmiş sezona yanlışlıkla kayıt girilebilir. Sonra listeden kilitleyebilirsiniz.';
+      }
+    }
 
     var m = YU.ui.modal({
       baslik: 'Yeni Kampanya Oluştur',
       genislik: 660,
       govde: [YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '16px' } },
-        YU.h('div', {
-          stil: { font: '400 15px/1.6 var(--font)', color: 'var(--metin-2)' },
-          metin: 'Onaylarsanız bugünün devir satırları ekrana hazırlanır; kampanya ancak ' +
-            'KAYDET\'e bastığınızda oluşur.' +
-            (onceki ? ' Şu anki kampanya (' + onceki.ad + ') ' + YU.fmt.tarih(dun) + ' günü biter.' : '')
-        }),
+        girisMetni,
         tarihSatiri,
+        cakismaKap,
         secimSatiri('Önceki kampanyanın kapanış stokları devir olarak yazılsın mı?',
           devretAciklama, devretSecim),
-        onceki ? secimSatiri('Şu anki kampanya (' + onceki.ad + ') kilitlensin mi?',
-          kilitAciklama, kilitSecim) : null
+        kilitSatir
       )],
       dugmeler: [
         { metin: 'Vazgeç' },
         {
           metin: 'Satırları Hazırla', ikon: '#ic-plus', tur: 'birincil',
           onClick: function () {
+            var tarih = secilenTarih();
+            if (!tarih) { tarihAlan.hataGoster('Geçerli bir tarih seçin.'); return; }
+            if (tarih > bugun) { tarihAlan.hataGoster('Gelecek tarihe kampanya açılamaz.'); return; }
+            /* Çakışmada pencere kapanmaz: şerit sebebi zaten söylüyor. */
+            if (cakisanBul(tarih)) { tazele(); return; }
+            var onceki = oncekiBul(tarih);
+            var dun = YU.tarih.ekle(tarih, -1);
             m.kapat();
-            durum.tarih = bugun;
+            durum.tarih = tarih;
             durum.elle = true;
             durum.acikKal = true;
             durum.yeniKampanya = {
               onceki: onceki,
-              devret: devretSecim.deger(),
+              devret: !!(devretSecim.deger() && onceki),
               kilitle: !!(onceki && kilitSecim.deger())
             };
             durum.onDoldur = (devretSecim.deger() && onceki) ? ikiTarafKapanis(dun) : null;
             govdeyiCiz();
-            YU.ui.bildir('Devir satırları hazır. Miktarları kontrol edip Kaydet\'e basın — kampanya o zaman oluşur.', 'bilgi');
+            YU.ui.bildir('Devir satırları hazır (' + YU.fmt.tarih(tarih) + '). Miktarları kontrol edip ' +
+              'Kaydet\'e basın — kampanya o zaman oluşur.', 'bilgi');
           }
         }
       ]
     });
+    hazir = true;
+    tazele();
   }
 
   function kampanyaPaneli() {

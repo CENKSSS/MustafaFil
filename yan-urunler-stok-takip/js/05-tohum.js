@@ -39,7 +39,9 @@
      Kuru Küspe Günlük Giriş'ten otomatik gelir (Şartname §4). */
   var MALZEME_PLANI = [
     { ad: "Yaş Küspe (Tonluk)", uretim: [18000, 26000], adim: 10, satisOrani: [0.75, 1.00] },
-    { ad: "Yaş Küspe (25'lik)", uretim: [800, 1500], adim: 10, satisOrani: [0.75, 1.00] },
+    /* adim 25: bu malzeme 25 kg'lık poşette satılıyor, miktarları poşetin katı
+       olmak zorunda (03-dogrulama · PAKET_TANIMI, 27.08.2026). */
+    { ad: "Yaş Küspe (25'lik)", uretim: [800, 1500], adim: 25, satisOrani: [0.75, 1.00] },
     { ad: "Dökme Yaş Küspe", uretim: [9000, 16000], adim: 10, satisOrani: [0.70, 1.00] },
     { ad: "Atık Kuru Küspe", uretim: [50, 250], adim: 10, satisSeyrek: 0.34, satisAralik: [200, 600] },
     { ad: "Kuyruk", uretim: [2000, 4500], adim: 10, satisAralik: [1500, 4000] },
@@ -253,10 +255,19 @@
     return liste;
   }
 
-  function kullaniciBul(depo, kullaniciAdi) {
-    var i;
+  /* Kullanıcı ROLE göre bulunur, ada göre değil (27.08.2026 düzeltmesi).
+     Giriş kimliği 26.08.2026'da e-postaya döndü ("cenk.cogalmis@fabrika.com");
+     burada hâlâ "yonetici"/"operator" aranıyordu, kimse bulunamıyordu ve
+     yönetici gerektiren her yazma M15 rol denetimine takılıyordu — tohum
+     verisinde HİÇ devir satırı, dolayısıyla hiç kampanya oluşmuyordu
+     (konsol: "silo devri · Silo 1 yazılamadı … Yetki"). Sıra korunur:
+     ilk Yönetici, sonra Operatörler — Id'ler ve tohum çıktısı aynı kalır. */
+  function kullaniciBul(depo, rol, sira) {
+    var bulunan = 0, i;
     for (i = 0; i < depo.kullanicilar.length; i++) {
-      if (depo.kullanicilar[i].KullaniciAdi === kullaniciAdi) return depo.kullanicilar[i];
+      if (depo.kullanicilar[i].Rol !== rol) continue;
+      if (bulunan === (sira || 0)) return depo.kullanicilar[i];
+      bulunan++;
     }
     return null;
   }
@@ -372,8 +383,8 @@
   function kampanyaUret(depo, plan, rnd, durum) {
     var silolar = siraliSilolar(depo);
     var malzemeler = malzemeHaritasi(depo);
-    var yonetici = kullaniciBul(depo, "yonetici");
-    var operatorler = [kullaniciBul(depo, "operator"), kullaniciBul(depo, "operator2")];
+    var yonetici = kullaniciBul(depo, "Yonetici", 0);
+    var operatorler = [kullaniciBul(depo, "Operator", 0), kullaniciBul(depo, "Operator", 1)];
     var siloIdler = [], kapasiteler = [], bakiye = [], toplamKapasite = 0;
     var malzemeStok = {}, i, g, ad;
 
@@ -393,12 +404,16 @@
         }, yonetici));
     }
 
-    /* 2 — malzeme devirleri. Dökme kuru küspenin devri silo devirlerinin
-       toplamıdır: stoğu zaten silolardan okunuyor (Şartname §5 KRİTİK),
-       devir satırı onunla çelişmemeli. */
+    /* 2 — malzeme devirleri. DÖKME KURU KÜSPE burada YAZILMAZ: devri, silo
+       devirlerinin toplamıdır ve servis katmanı onu silo devri yazılırken
+       kendiliğinden kurar (04-servis · dokmeDevriniEsitle). Eskiden burada
+       elle yazılıyordu; aşağıdaki denetim izi silo devrini +2.000 düzeltince
+       malzeme satırı eski değerinde kalıyor ve aynı gün aynı ürün için iki
+       farklı rakam oluşuyordu. */
     for (i = 0; i < depo.malzemeler.length; i++) {
       ad = depo.malzemeler[i].Ad;
-      var miktar = ad === DOKME_AD ? toplamDizi(plan.siloDevir) : plan.malzemeDevir[ad];
+      if (ad === DOKME_AD) continue;
+      var miktar = plan.malzemeDevir[ad];
       if (miktar === undefined) continue;
       calistir(durum, "malzeme devri · " + ad, plan.devirTarihi,
         YU.servis.devirKaydet(depo, {
@@ -406,7 +421,7 @@
           devirTarihi: plan.devirTarihi,
           miktar: miktar
         }, yonetici));
-      if (ad !== DOKME_AD) malzemeStok[ad] = miktar;
+      malzemeStok[ad] = miktar;
     }
 
     /* Bakiye depodan okunur, plandan değil: devir yazılamamışsa yanlış
@@ -666,9 +681,9 @@
   function denetimIzi(depo, durum) {
     var plan = KAMPANYALAR[KAMPANYALAR.length - 1];
     var sonGun = YU.tarih.ekle(plan.devirTarihi, plan.gunSayisi - 1);
-    var yonetici = kullaniciBul(depo, "yonetici");
-    var operator = kullaniciBul(depo, "operator");
-    var operator2 = kullaniciBul(depo, "operator2") || operator;
+    var yonetici = kullaniciBul(depo, "Yonetici", 0);
+    var operator = kullaniciBul(depo, "Operator", 0);
+    var operator2 = kullaniciBul(depo, "Operator", 1) || operator;
     var malzemeler = malzemeHaritasi(depo);
     var logBasi = depo.degisiklikLog.length;
     var kayit, girdi, m, d, sd, yeniAdet, fark, enBuyuk, i;

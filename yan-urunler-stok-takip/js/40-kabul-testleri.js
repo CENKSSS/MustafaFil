@@ -35,12 +35,8 @@
 
   function kg(n) { return YU.fmt.kgU(n); }
 
-  function iki(n) { return (n < 10 ? '0' : '') + n; }
-
-  function saatMetni() {
-    var d = new Date();
-    return iki(d.getHours()) + ':' + iki(d.getMinutes()) + ':' + iki(d.getSeconds());
-  }
+  /* İstanbul saati, kaynağı internet (YU.zaman · 26.08.2026). */
+  function saatMetni() { return YU.zaman.saat(); }
 
   var zamanAl = (window.performance && window.performance.now)
     ? function () { return window.performance.now(); }
@@ -797,7 +793,10 @@
     baslik: 'Kabul Testleri',
     altBaslik: 'Şartname §9 · 12 senaryo tarayıcı içinde koşar · her test temiz bellek deposuyla başlar, kayıtlı verilere dokunulmaz',
     ikon: '#ic-checklist',
-    grup: 'Yönetim',
+    /* Menüden kaldırıldı (kullanıcı kararı, 25.08.2026 — sadeleştirme).
+       Testler yalnız doğrudan adresle (#/kabul-testleri) koşturulur; Şartname §9
+       kapsamı aynen durur, yalnız sol menüde görünmüyor. */
+    grup: null,
     rol: 'Yonetici',
     ciz: function (kap) { sayfaCiz(kap); }
   });

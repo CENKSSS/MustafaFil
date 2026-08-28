@@ -181,16 +181,32 @@
     }
   }
 
+  /* Silo satırlarının buçuk denetimi — tamSayiDenetle'nin liste hâli. */
+  function tamSayiSatirlar(satirlar, etiket, hatalar) {
+    var i, n;
+    if (!satirlar) return;
+    for (i = 0; i < satirlar.length; i++) {
+      n = oku(satirlar[i].miktar);
+      if (!isNaN(n) && n !== Math.round(n)) {
+        /* Aynı harman (28.08.2026): kısa cümle + girilen rakam. */
+        hatalar.push(kayit(ALAN, etiket + " tam sayı olmalı. Girilen " + sayiKisa(n) + "."));
+        return;
+      }
+    }
+  }
+
   /* ---------- D14 motoru: ileri bakiye ---------- */
 
-  /* taslak = {tarih, silinecekKaynakId, yeniHareketler:[{siloId,GirenKg,CikanKg}], silTarih}
+  /* taslak = {tarih, kuruKuspeSilTarihi, yeniHareketler:[{siloId,GirenKg,CikanKg}], silTarih}
      taslak null ise depo bugünkü hâliyle taranır (Silo Durumu uyarı satırı).
-     Her silo için gün gün tek geçiş yapılır; negatife düşen İLK gün döner. */
-  function ileriBakiye(depo, baslangicTarih, taslak) {
+     Her silo için gün gün tek geçiş yapılır; negatife düşen İLK gün döner.
+     kuruKuspeSilTarihi: kuru küspe yeniden kaydı artık o günün Manuel DIŞI
+     tüm silo hareketlerini siler (kullanıcı kararı, 27.08.2026 — eski
+     KaynakKayitId süzgeci yetim satırı yaşatıyordu); önizleme aynısını yapar. */
+  function ileriYurut(depo, baslangicTarih, taslak, sinama) {
     var netler = {};   // siloId -> {tarih: netDegisim}
     var i, h, siloId, tarih, y;
-    var silinecekKaynak = taslak && taslak.silinecekKaynakId !== null && taslak.silinecekKaynakId !== undefined
-      ? taslak.silinecekKaynakId : null;
+    var kkSilTarih = taslak && taslak.kuruKuspeSilTarihi ? taslak.kuruKuspeSilTarihi : null;
     var silTarih = taslak && taslak.silTarih ? taslak.silTarih : null;
 
     function ekle(id, gun, deger) {
@@ -202,7 +218,7 @@
       h = depo.siloHareket[i];
       /* Manuel satır yeniden kayıtta silinmez (M16) — önizleme de silmesin;
          gün silme (silTarih) ise günü komple kaldırır, Manuel dahil. */
-      if (silinecekKaynak !== null && h.KaynakKayitId === silinecekKaynak &&
+      if (kkSilTarih !== null && h.Tarih === kkSilTarih &&
           h.HareketTipi !== "Manuel") continue;
       if (silTarih !== null && h.Tarih === silTarih) continue;
       ekle(h.SiloId, h.Tarih, YU.yuvarla((Number(h.GirenKg) || 0) - (Number(h.CikanKg) || 0)));
@@ -224,7 +240,6 @@
       (devirler[h.SiloId] || (devirler[h.SiloId] = {}))[h.DevirTarihi] = Number(h.Miktar) || 0;
     }
 
-    var tol = tolerans();
     var sonuc = [];
     var anahtar;
 
@@ -246,15 +261,9 @@
         tarih = takvim[i];
         if (Object.prototype.hasOwnProperty.call(devir, tarih)) bakiye = devir[tarih];
         bakiye = YU.yuvarla(bakiye + (gunler[tarih] || 0));
-        if (bakiye < -tol && (!baslangicTarih || tarih >= baslangicTarih)) {
-          var silo = satirBul(depo.silolar, siloId);
-          sonuc.push({
-            siloId: siloId,
-            siloAd: silo ? silo.Ad : "Silo #" + siloId,
-            tarih: tarih,
-            bakiye: bakiye
-          });
-          break;                          // silo başına ilk patlama yeter
+        if (!baslangicTarih || tarih >= baslangicTarih) {
+          var bulgu = sinama(siloId, tarih, bakiye);
+          if (bulgu) { sonuc.push(bulgu); break; }   // silo başına ilk patlama yeter
         }
       }
     }
@@ -266,6 +275,52 @@
     return sonuc;
   }
 
+  /* Negatife düşen ilk günü döndürür — D14'ün eski davranışı, birebir. */
+  function ileriBakiye(depo, baslangicTarih, taslak) {
+    var tol = tolerans();
+    return ileriYurut(depo, baslangicTarih, taslak, function (siloId, tarih, bakiye) {
+      if (bakiye >= -tol) return null;
+      var silo = satirBul(depo.silolar, siloId);
+      return {
+        siloId: siloId,
+        siloAd: silo ? silo.Ad : "Silo #" + siloId,
+        tarih: tarih,
+        bakiye: bakiye
+      };
+    });
+  }
+
+  /* KAPASİTEYİ AŞAN ilk günü döndürür (kullanıcı direktifi, 28.08.2026:
+     "düzeltmeden sonraki ileriye dönük veriler hesaplanıp negatif ya da
+     kapasite aşımı varsa kayıt onaylanmamalı — tüm sayfalarda").
+
+     Eskiden D15 YALNIZ düzenlenen günün sonunu ölçüyordu; ölçüldü:
+     geçmiş bir güne 50.000 kg eklemek ileri bir günü 3.049.000 kg'a
+     çıkarıyor ve kayıt KABUL ediliyordu (kapasite 3.000.000). Negatif
+     tarafında bu boşluk yoktu — D14 zaten gün gün ileri yürüyordu.
+     Artık ikisi aynı takvimi yürür (ileriYurut). */
+  function ileriKapasite(depo, baslangicTarih, taslak) {
+    var tol = tolerans();
+    return ileriYurut(depo, baslangicTarih, taslak, function (siloId, tarih, bakiye) {
+      var silo = satirBul(depo.silolar, siloId);
+      var kap = silo ? (Number(silo.Kapasite) || 0) : 0;
+      if (!(kap > 0) || bakiye - kap <= tol) return null;
+      return {
+        siloId: siloId,
+        siloAd: silo ? silo.Ad : "Silo #" + siloId,
+        tarih: tarih,
+        bakiye: bakiye,
+        kapasite: kap
+      };
+    });
+  }
+
+  /* D15'in ileri günler için mesajı — D14'ün d14Mesaji kalıbıyla aynı. */
+  function d15IleriMesaji(n) {
+    return n.siloAd + ": " + tr(n.tarih) + " günü stok " + kg(n.bakiye) +
+      " olur; kapasite " + kg(n.kapasite) + ".";
+  }
+
   /* Kapasite aşımı gerekçesi (M32). En az 10 karakter: "ok", "olsun" gibi
      boş geçiştirmeler denetim izinde işe yaramaz. */
   var GEREKCE_ENAZ = 10;
@@ -275,13 +330,91 @@
       ? girdi.kapasiteGerekcesi : "").trim();
   }
 
-  function kapasiteGerekcesiGecerli(girdi) {
-    return kapasiteGerekcesi(girdi).length >= GEREKCE_ENAZ;
+  /* GEREKÇE KAPISI KAPATILDI (kullanıcı direktifi, 27.08.2026: "kapasite
+     aşımı da olamaz, bu yasak olmalı"). M32 (25.08.2026) kapasite aşımını
+     gerekçeyle geçirilebilir yapmıştı — o karar geri alındı: D15 artık her
+     durumda HATA, hiçbir gerekçe kaydı geçirmez. Fonksiyon tek çıkış
+     noktasıdır; false döndüğü sürece 03 ve 04'teki bütün D15 yolları sert
+     engel uygular. Girdi sözleşmesindeki kapasiteGerekcesi alanı okunmaya
+     devam eder ama sonucu değiştirmez. */
+  function kapasiteGerekcesiGecerli() {
+    return false;
   }
 
   function d14Mesaji(n) {
-    return n.siloAd + " bakiyesi " + tr(n.tarih) + " günü " + kg(n.bakiye) +
-      "'a düşüyor. Sonraki günler negatife düştüğü için işlem reddedildi.";
+    /* Kısaltıldı (kullanıcı isteği, 26.08.2026): "Sonraki günler negatife
+       düştüğü için işlem reddedildi" cümlesi kuralı anlatıyordu, olayı değil.
+       Panel başlığı kaydın geçmediğini zaten söylüyor, Kaydet de pasif.
+       Kalan bilgi: hangi silo, hangi gün, hangi bakiye.
+       SADELEŞTİRİLDİ (kullanıcı isteği, 27.08.2026): "·" ve "—" ayraçları ile
+       "'a düşüyor" kalıbı kalktı. Kalıp artık her hatada aynı: "Silo N:"
+       önekiyle başlar, ekranda o önek hizalı bir sütun olarak çizilir. */
+    return n.siloAd + ": " + tr(n.tarih) + " günü stok " + kg(n.bakiye) + " oluyor.";
+  }
+
+  /* PAKETLİ SATILAN MALZEMELER — miktar paket boyutunun katı olmalıdır
+     (kullanıcı kararı, 27.08.2026).
+
+     Çuvallı kuru küspe ÖZEL TİPTEN tanınır: 1 çuval = 50 kg, Şartname §4
+     Demirbaş. Yaş küspenin 25'liği ise özel tipsiz, sıradan bir malzemedir;
+     Şartname §2 "25 kg'lık poşette satılır" diyor ama veri modelinde paket
+     boyutunu tutan bir alan YOK (§6, sekiz tablo). Bu yüzden AD ile eşlenir.
+
+     BİLİNEN SINIR: malzemenin adı Malzeme & Silo Yönetimi'nden değiştirilirse
+     eşleşme düşer ve o malzemede miktar yeniden serbest kalır. Kalıcı çözüm
+     Malzemeler tablosuna paket boyutu alanı eklemektir; şartname değişikliği
+     gerektirdiği için yapılmadı. */
+  /* Paket adı ("çuval" / "poşet") mesajdan çıkınca kullanılmıyor; tanımda
+     yalnız KG kaldı (27.08.2026). */
+  var PAKET_TANIMI = {
+    "Yaş Küspe (25'lik)": { kg: 25 }
+  };
+
+  /* BUÇUKLU DEĞER YASAĞI (kullanıcı kararı, 27.08.2026): tüm miktarlar tam
+     sayıdır — terazi kg altını ölçmez, çuval 50/25 kg'dır. Tam sayı girdide
+     kayan nokta kiri de oluşmaz; 0,01 toleransı yalnız türetilmiş hesaplara
+     kalır (−0,01'lik sınır deliği böyle kapandı). null/NaN'a karışmaz —
+     onları kendi kuralları (D1, D2, "sayı olmalı") yakalar. */
+  /* Buçuklu rakamı gereksiz sıfırla yazmaz: 1,500 -> 1,5 (28.08.2026).
+     Binlik ayracı nokta olduğu için kırpma YALNIZ virgülden sonra yapılır. */
+  function sayiKisa(n) {
+    var s = YU.fmt.sayi(n, 3);
+    if (s.indexOf(",") < 0) return s;
+    return s.replace(/0+$/, "").replace(/,$/, "");
+  }
+
+  function tamSayiDenetle(hatalar, etiket, deger) {
+    if (deger === null || deger === undefined || isNaN(deger)) return;
+    if (deger === Math.round(deger)) return;
+    /* "Girilen …" GERİ GELDİ (kullanıcı isteği, 28.08.2026: "girilen değeri
+       yazması güzel oluyordu, kalsın"). Kuyruğun uzun yarısı ("buçuklu değer
+       girilemez") gitti, rakam kaldı — hangi satırın suçlu olduğu da böyle
+       görünür. */
+    hatalar.push(kayit(ALAN, etiket + " tam sayı olmalı. Girilen " + sayiKisa(deger) + "."));
+  }
+
+  function paketBoyu(malzeme) {
+    if (malzeme.OzelTip === "CuvalKuruKuspe") return { kg: YU.hesap.CUVAL_KG };
+    return PAKET_TANIMI[malzeme.Ad] || null;
+  }
+
+  /* Miktar paketin katı mı? Değilse en yakın iki geçerli değer söylenir —
+     operatör hangi rakama çekeceğini aramasın. */
+  function paketKatiDenetle(hatalar, malzeme, kalemAdi, deger, paket) {
+    var K = paket.kg;
+    if (!isFinite(deger) || deger <= 0) return;
+    var adet = deger / K;
+    if (Math.abs(adet - Math.round(adet)) * K <= tolerans()) return;
+    /* SADELEŞTİRİLDİ (kullanıcı isteği, 27.08.2026): tırnak, uzun tire ve
+       "en yakınları …" kuyruğu atıldı. Kalan iki bilgi karar için yeterli:
+       kaç kg'ın katı olmalı ve ne girilmiş. Doğru rakamı operatör zaten
+       biliyor — 90 yazan 50 mi 100 mü yapacağını kendi seçer. */
+    /* Malzeme adı ÖNEK oldu (28.08.2026): hata şeridinde satırlar hizalı
+       okunsun. "Girilen …" burada KALIR — kaç kg'a çekileceğini seçmek için
+       yazılan rakam gerekiyor (Kuru Küspe ekranındaki 50'nin katı kuralıyla
+       aynı karar). */
+    hatalar.push(kayit(ALAN, malzeme.Ad + ": " + kalemAdi + " " + kg(K) +
+      "'ın katı olmalı. Girilen " + kg(deger) + "."));
   }
 
   /* ---------- Kuru küspe günlük kaydı: D1–D7, D13, D15, D16 ---------- */
@@ -302,14 +435,42 @@
     }
 
     /* D1 */
+    /* Tarih öneki ve "Girilen: …" kuyruğu düştü (kullanıcı bildirimi,
+       28.08.2026): gün sayfanın başlığında, girilen rakam kutunun içinde
+       yazılı. Kalan cümle kuralı söyler. */
     if (isNaN(uretilen)) {
-      hatalar.push(kayit("D1", "Üretilen dökme küspe sayı olmalı. Girilen: \"" + String(girdi.uretilenDokme) + "\"."));
+      hatalar.push(kayit("D1", "Üretilen dökme sayı olmalı."));
     } else if (uretilen < 0) {
-      hatalar.push(kayit("D1", tr(tarih) + " — üretilen dökme küspe negatif olamaz. Girilen: " + kg(uretilen) + "."));
+      hatalar.push(kayit("D1", "Üretilen dökme negatif olamaz. Girilen " + kg(uretilen) + "."));
     }
 
-    /* D2 */
-    if (isNaN(cuvalAdet)) {
+    /* D2 — EKRAN ARTIK KG İSTİYOR (kullanıcı kararı, 28.08.2026: "kaç adet
+       çuval üretildi değil, çuvalların toplamı kaç kg oldu; 50 ve katı
+       olmalı"). Depoda saklanan alan CuvalAdet olarak KALIR (Şartname §6
+       sekiz tablo); adet, girilen kg'dan türetilir.
+
+       Kural kg gönderen çağrıda kg dilinde konuşur — operatör kg yazdı, hata
+       da kg cinsinden okunmalı. cuvalKg göndermeyen çağrılar (tohum verisi,
+       kabul testleri) eski adet dilinde doğrulanır; o yollar adet üretir ve
+       50'nin katı olma sorunu doğmaz. */
+    var cuvalKg = (girdi.cuvalKg === undefined || girdi.cuvalKg === null)
+      ? null : oku(girdi.cuvalKg);
+
+    if (cuvalKg !== null) {
+      if (isNaN(cuvalKg)) {
+        hatalar.push(kayit("D2", "Çuvallanan kg sayı olmalı."));
+      } else if (cuvalKg < 0) {
+        hatalar.push(kayit("D2", "Çuvallanan kg negatif olamaz. Girilen " + kg(cuvalKg) + "."));
+      } else if (cuvalKg % YU.hesap.CUVAL_KG !== 0) {
+        /* "Girilen: … kg" eki KALIR (kullanıcı kararı, 28.08.2026): bu cümle
+           sağdaki "Kaydedilemez:" panelinde okunur, orada rakamın tekrarı
+           bilgi taşır. Kutunun ALTINDAKİ satıra bu mesaj yazılmaz — orası
+           kısa canlı ipucunda kalır (21-kuru-kuspe-giris · alanlariBoya). */
+        hatalar.push(kayit("D2", "Çuvallanan kg " + YU.fmt.sayi(YU.hesap.CUVAL_KG) +
+          "'nin katı olmalı (1 çuval = " + YU.fmt.sayi(YU.hesap.CUVAL_KG) + " kg). Girilen: " +
+          kg(cuvalKg) + "."));
+      }
+    } else if (isNaN(cuvalAdet)) {
       hatalar.push(kayit("D2", "Çuval adedi sayı olmalı. Girilen: \"" + String(girdi.cuvalAdet) + "\"."));
     } else if (cuvalAdet < 0) {
       hatalar.push(kayit("D2", tr(tarih) + " — çuval adedi negatif olamaz. Girilen: " + YU.fmt.sayi(cuvalAdet) + " adet."));
@@ -317,11 +478,14 @@
       hatalar.push(kayit("D2", "Çuval adedi tam sayı olmalı. Girilen: " + YU.fmt.sayi(cuvalAdet, 3) + " adet."));
     }
 
+    tamSayiDenetle(hatalar, "Üretilen dökme küspe", uretilen);
+    tamSayiDenetle(hatalar, "Satılan dökme küspe", satilan);
+
     /* D13 — satılan dökme sayısal denetimi */
     if (isNaN(satilan)) {
-      hatalar.push(kayit("D13", "Satılan dökme küspe sayı olmalı. Girilen: \"" + String(girdi.satilanDokme) + "\"."));
+      hatalar.push(kayit("D13", "Satılan dökme sayı olmalı."));
     } else if (satilan < 0) {
-      hatalar.push(kayit("D13", tr(tarih) + " — satılan dökme küspe negatif olamaz. Girilen: " + kg(satilan) + "."));
+      hatalar.push(kayit("D13", "Satılan dökme negatif olamaz. Girilen " + kg(satilan) + "."));
     }
 
     /* Ham girdi bozuksa türetilmiş kontroller anlamsız sayı üretir; burada durulur. */
@@ -336,42 +500,64 @@
     negatifSatirlar(girdi.yerlestirmeler, "D3", "Siloya yerleştirme", hatalar);
     negatifSatirlar(girdi.cekisler, "D5", "Silodan çekiş", hatalar);
     negatifSatirlar(girdi.satisCekisleri, "D13", "Dökme satış çekişi", hatalar);
+    tamSayiSatirlar(girdi.yerlestirmeler, "Siloya yerleştirme", hatalar);
+    tamSayiSatirlar(girdi.cekisler, "Silodan çekiş", hatalar);
+    tamSayiSatirlar(girdi.satisCekisleri, "Dökme satış çekişi", hatalar);
 
-    /* D3 */
-    if (!esit(topYerlestirme, h.netDokmeUretim)) {
-      hatalar.push(kayit("D3", "Silolara yerleştirilen toplam " + kg(topYerlestirme) +
-        ", net dökme üretim " + kg(h.netDokmeUretim) + " ile eşleşmiyor. Fark: " +
-        kg(YU.yuvarla(Math.abs(h.netDokmeUretim - topYerlestirme))) + "."));
+    /* D3 — D4 ZATEN KONUŞACAKSA SUSAR (kullanıcı bildirimi, 28.08.2026:
+       "çok fazla detay var"). Net üretim 0 iken ikisi birden yazıyordu:
+       "Silolara 300 kg dağıtıldı; 0 kg olmalı" + "Siloya giriş yok; 300 kg
+       kaldırılmalı". İkincisi ne yapılacağını söylediği için o kalır. */
+    if (!esit(topYerlestirme, h.netDokmeUretim) &&
+        !(h.netDokmeUretim === 0 && topYerlestirme > tol)) {
+      /* "Silolara 0 kg dağıtıldı; 10 kg olmalı" KALIBI DEĞİŞTİ (kullanıcı
+         isteği, 28.08.2026): hangi rakamın nereden geldiği okunmuyordu.
+         Yeni kalıp iki miktarı da EKRANDAKİ ADIYLA yazar — "Siloya girecek"
+         solda duran büyük yeşil rakamın etiketidir (KURAL 8). Beklenen
+         miktar üretilen değil NET üretimdir (üretilen − çuvallanan); o
+         yüzden etiket "Bugün Üretilen…" değil, "Siloya girecek". */
+      hatalar.push(kayit("D3", "Siloya girecek " + kg(h.netDokmeUretim) +
+        ", silolara dağıtılan " + kg(topYerlestirme) + "."));
     }
 
     /* D4 */
     if (h.netDokmeUretim === 0 && topYerlestirme > tol) {
-      hatalar.push(kayit("D4", "Net dökme üretim 0 kg olduğu hâlde silolara " + kg(topYerlestirme) +
-        " yerleştirilmiş. Çuvallanan (" + kg(h.cuvalKg) + "), üretilen dökmeden (" + kg(uretilen) +
-        ") fazla olduğu için o gün siloya giriş yapılamaz."));
+      /* SADELEŞTİRİLDİ (28.08.2026): gerekçe (çuvallanan üretilenden fazla)
+         iki rakamla anlatılıyordu; ikisi de ekranın solunda yazılı. Kalan
+         cümle ne yapılacağını söyler. */
+      /* D3 ile AYNI KALIP (kullanıcı isteği, 28.08.2026: "hepsini böyle
+         yap"): beklenen 0 olduğu için cümle kendiliğinden "buraya yazma"
+         demiş olur. */
+      hatalar.push(kayit("D4", "Siloya girecek " + kg(0) +
+        ", silolara dağıtılan " + kg(topYerlestirme) + "."));
     }
 
-    /* D5 */
-    if (!esit(topCekis, h.silodanCekilecek)) {
-      hatalar.push(kayit("D5", "Silolardan çekilen toplam " + kg(topCekis) +
-        ", hesaplanan çekiş " + kg(h.silodanCekilecek) + " ile eşleşmiyor. Fark: " +
-        kg(YU.yuvarla(Math.abs(h.silodanCekilecek - topCekis))) + "."));
+    /* D5 — D6 konuşacaksa susar (D3/D4 ile aynı gerekçe, 28.08.2026). */
+    if (!esit(topCekis, h.silodanCekilecek) &&
+        !(h.silodanCekilecek === 0 && topCekis > tol)) {
+      /* D3 ile aynı kalıp (28.08.2026). */
+      hatalar.push(kayit("D5", "Çuvallama için çıkacak " + kg(h.silodanCekilecek) +
+        ", silolardan çekilen " + kg(topCekis) + "."));
     }
 
     /* D6 */
     if (h.silodanCekilecek === 0 && topCekis > tol) {
-      hatalar.push(kayit("D6", "Çuvallama için silodan çekiş gerekmiyor (üretilen dökme " + kg(uretilen) +
-        ", çuvallanan " + kg(h.cuvalKg) + ") ama silolardan " + kg(topCekis) + " çekiş girilmiş."));
+      /* Aynı sadeleştirme (28.08.2026): gerekçedeki iki rakam ekranda yazılı. */
+      hatalar.push(kayit("D6", "Çuvallama için çıkacak " + kg(0) +
+        ", silolardan çekilen " + kg(topCekis) + "."));
     }
 
-    /* D13 */
-    if (satilan > tol && topSatisCekis <= tol) {
-      hatalar.push(kayit("D13", tr(tarih) + " — " + kg(satilan) +
-        " dökme satış girilmiş ama hiçbir silodan çekiş yapılmamış. Dökme küspe yalnızca silolarda durduğu için satışın silo karşılığı olmak zorundadır."));
-    } else if (!esit(topSatisCekis, satilan)) {
-      hatalar.push(kayit("D13", "Dökme satış için silolardan çekilen toplam " + kg(topSatisCekis) +
-        ", girilen satılan dökme " + kg(satilan) + " ile eşleşmiyor. Fark: " +
-        kg(YU.yuvarla(Math.abs(satilan - topSatisCekis))) + "."));
+    /* D13 — mesaj KISA ve hedef odaklı (kullanıcı isteği, 27.08.2026): eski
+       metin kuralın GEREKÇESİNİ anlatıyordu ("dökme yalnız silolarda durur…");
+       operatörün ihtiyacı olan tek şey ne yapacağı. Hangi kutunun eksik
+       olduğunu ayrıca kutunun kendisi söyler — kırmızıya döner
+       (21-kuru-kuspe-giris · canliBoya).
+       D3'ün beklenen + girilen toplamı Şartname §9 Test 5 gereği KALIR. */
+    /* Tek cümle yeter (28.08.2026): hiç çekiş yapılmamış hâli de "çekilen
+       0 kg" olarak okunur, ayrı bir dal gerekmiyor. Kalıp D3/D5 ile aynı. */
+    if (!esit(topSatisCekis, satilan)) {
+      hatalar.push(kayit("D13", "Satış için çıkacak " + kg(satilan) +
+        ", silolardan çekilen " + kg(topSatisCekis) + "."));
     }
 
     /* D7 / D15 — silo başına. Çekiş TOPLAM üzerinden ölçülür: çuvallama ve satış
@@ -402,10 +588,44 @@
          ölçer, D14 reddederdi ama mesajı yanlış kuraldan gelirdi. */
       gunBasi = YU.yuvarla(YU.stok.siloGunBasi(depo, siloId, tarih) + gunIciManuelNet(depo, siloId, tarih));
 
-      if (cikan > tol && cikan - gunBasi > tol) {
-        hatalar.push(kayit("D7", silo.Ad + " silosundan " + tr(tarih) + " günü toplam " + kg(cikan) +
-          " çekilmek isteniyor (çuvallama " + kg(cek) + " + dökme satış " + kg(sat) +
-          ") ama gün başı mevcudu " + kg(gunBasi) + ". Aşım: " + kg(YU.yuvarla(cikan - gunBasi)) + "."));
+      /* D7'nin ZEMİNİ: gün başı + O GÜN SİLOYA GİREN (kullanıcı kararı,
+         28.08.2026). Şartname §229 "o gün başındaki mevcudundan fazlası
+         çekilemez" diyordu; harfi harfine uygulanınca normal bir üretim
+         günü bloke oluyordu: sabah 500 kg olan siloya gün içinde 50.000 kg
+         üretim giriyor, öğleden sonra 10.000 kg sevk ediliyor — siloda
+         50.500 kg olmasına rağmen kayıt reddediliyordu (ölçüldü).
+         Aynı anda D14 o siloyu HİÇ şikâyet etmiyordu (günün tamamını
+         hesaplayıp +40.500 buluyordu) — iki kural aynı silo için zıt karar
+         veriyordu. Zemin düzeltildi; güvenlik kaybı yok, çünkü stoğun
+         eksiye düşmesini D14 kesin engelliyor ve gün sonu bakiyesini D15
+         ayrıca ölçüyor. */
+      var kullanilabilir = YU.yuvarla(gunBasi + giren);
+
+      if (cikan > tol && cikan - kullanilabilir > tol) {
+        /* Kısaltıldı (kullanıcı isteği, 26.08.2026): cümle çok uzundu.
+           Kalem dökümü (çuvallama + dökme satış) yalnız İKİSİ DE doluyken
+           yazılır — biri sıfırken bir şey anlatmıyor, satırı uzatıyordu.
+           Kural değişmedi: kalan bilgi hangi silo, hangi gün, ne kadar. */
+        /* KALEM DÖKÜMÜ VE ZEMİN HESABI KALKTI (kullanıcı bildirimi,
+           28.08.2026: "çok fazla detay var, ana sorun anlaşılması çok güç").
+           Cümle üç bilgi taşıyordu — hangi kalemden ne çekildiği, mevcudun
+           gün başı + bugün giren dökümü, ve asıl olay. İlk ikisi ekranda
+           zaten yazıyor: hangi kutuya ne yazıldığı silo kutularında, gün başı
+           her silonun üstünde, bugün giren "Siloya girecek" satırında.
+           Geriye tek cümlede asıl olay kalır: ne çekiliyor, ne var. */
+        var dokum = "";
+        /* Tarih düştü (27.08.2026): ekran zaten o günü gösteriyor. Fark da
+           düştü — iki rakamdan çıkıyor. Kalan: hangi silo, ne çekiliyor,
+           ne var. SADELEŞTİRİLDİ (27.08.2026): "—" ayracı ve "çekilen X,
+           mevcut Y" devrik kalıbı düz cümleye döndü; kalem dökümü ayrı
+           cümleye çıktı, parantez kalktı. Önek "Silo N:" — D14 ile aynı
+           kalıp, ekranda hizalı sütun olur. */
+        /* Gün içinde siloya giriş varsa rakamın nereden çıktığı yazılır —
+           operatör "siloda 50.500 var" cümlesini gün başındaki 500 ile
+           bağdaştıramazdı (KURAL 8: bilgi okunduğu yerde). */
+        /* Sıra değişti: önce SORUN (fazla çekiliyor), sonra sınır. */
+        hatalar.push(kayit("D7", silo.Ad + ": " + kg(cikan) + " çekiliyor, siloda " +
+          kg(kullanilabilir) + " var." + dokum));
       }
 
       /* D15 — yerleştirilen miktar değil, oluşan gün sonu bakiyesi ölçülür.
@@ -419,14 +639,17 @@
            kilitler". Fiili taşma/ölçüm sapması gerçek olduğu için operatör
            GEREKÇE yazarak kaydı geçirebilir; o zaman D15 hataya değil
            uyarıya düşer ve gerekçe denetim izine yazılır (04-servis). */
-        var d15Metin = silo.Ad + " gün sonu bakiyesi " + kg(gunSonu) + " olur; kapasitesi " +
-          kg(kapasite) + ". Aşım: " + kg(YU.yuvarla(gunSonu - kapasite)) + " (" + tr(tarih) + ").";
+        /* SADELEŞTİRİLDİ (kullanıcı isteği, 27.08.2026: "bunu okumak bile
+           insanı yoruyor"). Üç cümle ve dört rakam vardı; ikisi türetilebilir
+           (aşım = gün sonu − kapasite) ve tarih zaten ekranın seçili günü.
+           Kalan: hangi silo, ne kadar olurdu, sınırı ne. D3/D5/D13'teki
+           "şu oldu; şu olmalı" kalıbının aynısı. */
+        var d15Metin = silo.Ad + " gün sonu " + kg(gunSonu) + " olur; kapasite " + kg(kapasite) + ".";
         if (kapasiteGerekcesiGecerli(girdi)) {
           uyarilar.push(kayit("D15", d15Metin + " Kapasite aşımı gerekçeyle kabul edildi: \"" +
             kapasiteGerekcesi(girdi) + "\"."));
         } else {
-          hatalar.push(kayit("D15", d15Metin + " Kapasite aşılamaz — kayıt engellendi. " +
-            "Aşım gerçekse gerekçe yazarak kaydedebilirsiniz."));
+          hatalar.push(kayit("D15", d15Metin));
         }
       }
     }
@@ -435,20 +658,20 @@
        Yeni-gün ayağı (prototip eklentisi, DUZELTME-PLANI M7): iki oturum aynı
        KAYITSIZ günü açarsa ikisi de null taşır; ikincinin kaydı, birincinin
        yazdığını sessizce ezerdi — null + mevcut kayıt da çakışmadır. */
+    /* Sürüm numaraları cümleden çıktı (kullanıcı bildirimi, 28.08.2026):
+       operatöre "sürüm 2 → 3" bir şey söylemiyordu. Kalan iki bilgi karar
+       için yeter: ne olmuş, ne yapılacak. Tarih öneki de düştü — ekranın
+       gösterdiği gün zaten o. */
     var mevcutD16 = kuruKuspeGunuBul(depo, tarih);
     if (girdi.rowVersion === null || girdi.rowVersion === undefined) {
       if (mevcutD16) {
-        hatalar.push(kayit("D16", tr(tarih) + " günü siz ekranı açtıktan sonra başkası tarafından girilmiş (sürüm " +
-          YU.fmt.sayi(Number(mevcutD16.RowVersion)) +
-          "). Kaydınız yazılmadı; sayfayı yenileyip mevcut kaydın üzerinden düzeltin."));
+        hatalar.push(kayit("D16", "Bu güne siz ekranı açtıktan sonra başkası kayıt girmiş. Sayfayı yenileyin."));
       }
     } else {
       if (!mevcutD16) {
-        hatalar.push(kayit("D16", tr(tarih) + " gününe ait kayıt artık yok — siz ekranı açtıktan sonra silinmiş. Sayfayı yenileyip yeniden deneyin."));
+        hatalar.push(kayit("D16", "Bu günün kaydı siz ekranı açtıktan sonra silinmiş. Sayfayı yenileyin."));
       } else if (Number(mevcutD16.RowVersion) !== Number(girdi.rowVersion)) {
-        hatalar.push(kayit("D16", tr(tarih) + " günü siz ekranı açtıktan sonra başkası tarafından güncellenmiş (sürüm " +
-          YU.fmt.sayi(Number(girdi.rowVersion)) + " → " + YU.fmt.sayi(Number(mevcutD16.RowVersion)) +
-          "). Kaydınız yazılmadı; sayfayı yenileyip yeniden deneyin."));
+        hatalar.push(kayit("D16", "Bu gün siz ekranı açtıktan sonra başkası tarafından değiştirilmiş. Sayfayı yenileyin."));
       }
     }
 
@@ -478,8 +701,38 @@
     negatifler = ileriBakiye(depo, tarih, { tarih: tarih, silTarih: tarih, yeniHareketler: [] });
     for (i = 0; i < negatifler.length; i++) {
       n = negatifler[i];
-      hatalar.push(kayit("D14", tr(tarih) + " silinirse " + n.siloAd + " bakiyesi " + tr(n.tarih) +
-        " günü " + kg(n.bakiye) + "'a düşer. Önce o günü düzeltin veya silin."));
+      /* Aynı sadeleştirme (27.08.2026): önek "Silo N:", ayraç ve "'a düşer"
+         kalıbı yok. */
+      hatalar.push(kayit("D14", n.siloAd + ": " + tr(tarih) + " silinirse " + tr(n.tarih) +
+        " günü stok " + kg(n.bakiye) + " oluyor. Önce o günü düzeltin veya silin."));
+    }
+
+    /* İLERİ KAPASİTE (kullanıcı direktifi, 28.08.2026): silinen günün ÇEKİŞİ
+       sonraki günlerin bakiyesini yükseltir — silme 20.08'i 3.096.000 kg'a
+       çıkarırken kabul ediliyordu (ölçüldü; kapasite 3.000.000). */
+    var asimlar = ileriKapasite(depo, tarih, { tarih: tarih, silTarih: tarih, yeniHareketler: [] });
+    for (i = 0; i < asimlar.length; i++) {
+      hatalar.push(kayit("D15", asimlar[i].siloAd + ": " + tr(tarih) + " silinirse " +
+        tr(asimlar[i].tarih) + " günü stok " + kg(asimlar[i].bakiye) + " oluyor; kapasite " +
+        kg(asimlar[i].kapasite) + ". Önce o günü düzeltin."));
+    }
+
+    /* MALZEME İLERİ NEGATİF (kullanıcı direktifi, 28.08.2026): silinen günün
+       üretimi sonraki günün satışını besliyor olabilir — stoğu −5.000'e
+       düşüren silme kabul ediliyordu (ölçüldü). Dökme kuru küspe dışarıda:
+       stoğu siloların toplamı, üstteki silo yürüyüşü onu zaten kapsıyor.
+       Çuvallı DAHİL: stoğu kendi hareketlerinden hesaplanır. */
+    for (i = 0; i < depo.gunlukHareket.length; i++) {
+      var satir = depo.gunlukHareket[i];
+      if (satir.Tarih !== tarih) continue;
+      var mz = satirBul(depo.malzemeler, satir.MalzemeId);
+      if (!mz || mz.OzelTip === "DokmeKuruKuspe") continue;
+      var negatif = malzemeIlkNegatifGun(depo, mz, tarih, 0, 0);
+      if (negatif) {
+        hatalar.push(kayit(ALAN, "\"" + mz.Ad + "\" stoğu " + tr(tarih) + " silinirse " +
+          tr(negatif.tarih) + " günü " + kg(negatif.bakiye) + "'a düşerdi. Stok hiçbir gün " +
+          "eksiye inemez; gün silinemez. Önce sonraki günleri düzeltin."));
+      }
     }
     return { hatalar: hatalar };
   }
@@ -527,6 +780,7 @@
     } else if (miktar <= 0) {
       hatalar.push(kayit(ALAN, "Miktar 0'dan büyük olmalı. Girilen: " + kg(miktar) + "."));
     }
+    tamSayiDenetle(hatalar, "Sayım düzeltmesi miktarı", miktar);
     /* Sayım düzeltmesi gerekçesiz olmaz: denetim izinin "neden" ayağı. */
     if (!aciklama) {
       hatalar.push(kayit(ALAN, "Açıklama zorunlu: sayım farkının gerekçesi yazılmalı (örn. \"fiili sayım farkı\", \"fire\")."));
@@ -556,53 +810,79 @@
       hatalar.push(kayit(ALAN, "Malzeme bulunamadı (Id: " + String(girdi.malzemeId) + ")."));
       return { hatalar: hatalar, uyarilar: uyarilar };
     }
+    /* MALZEME GİRİŞİ MESAJLARI SADELEŞTİ (kullanıcı isteği, 28.08.2026:
+       "malzeme girişi sayfasındaki hataları da böyle yap"). Kuru Küspe
+       ekranındaki kalıbın aynısı:
+         · malzeme adı ÖNEK olarak başta ve tırnaksız — "Toprak: …"
+           (hata şeridi öneki kalın yazar, satırlar hizalı okunur),
+         · "Girilen: …" kuyruğu düştü; yazılan rakam kutunun içinde duruyor,
+         · kuralın gerekçesi değil, ne olduğu yazılır. */
+    var ad = malzeme.Ad + ": ";
+
     if (!malzeme.Aktif) {
-      hatalar.push(kayit(ALAN, "\"" + malzeme.Ad + "\" pasif durumda; yeni hareket girilemez. (D12 — malzeme silinmez, pasifleştirilir.)"));
+      hatalar.push(kayit(ALAN, ad + "pasif malzemeye hareket girilemez."));
     }
 
     if (uretim !== null && isNaN(uretim)) {
-      hatalar.push(kayit(ALAN, "\"" + malzeme.Ad + "\" üretim miktarı sayı olmalı. Girilen: \"" + String(girdi.uretim) + "\"."));
+      hatalar.push(kayit(ALAN, ad + "üretim sayı olmalı."));
     } else if (uretim !== null && uretim < 0) {
-      hatalar.push(kayit(ALAN, "\"" + malzeme.Ad + "\" üretim miktarı negatif olamaz. Girilen: " + kg(uretim) + "."));
+      hatalar.push(kayit(ALAN, ad + "üretim negatif olamaz. Girilen " + kg(uretim) + "."));
     }
     if (satis !== null && isNaN(satis)) {
-      hatalar.push(kayit(ALAN, "\"" + malzeme.Ad + "\" satış miktarı sayı olmalı. Girilen: \"" + String(girdi.satis) + "\"."));
+      hatalar.push(kayit(ALAN, ad + "satış sayı olmalı."));
     } else if (satis !== null && satis < 0) {
-      hatalar.push(kayit(ALAN, "\"" + malzeme.Ad + "\" satış miktarı negatif olamaz. Girilen: " + kg(satis) + "."));
+      hatalar.push(kayit(ALAN, ad + "satış negatif olamaz. Girilen " + kg(satis) + "."));
     }
 
-    /* İade (kullanıcı direktifi, 24.08.2026): stokta üretim gibi davranır,
-       ayrı alanda saklanır; satış rakamına dokunmaz. REVİZE (24.08.2026):
-       iade yalnız STOKTA görünür, siloya GİRMEZ. Bu yüzden dökme kuru
-       küspeye iade girilemez: dökme stok siloların toplamıdır (Şartname §5
-       Demirbaş) — siloya girmeyen iade dökme stoğunda görünemezdi. Çuvallı
-       ve basit malzemelerde iade stoğa işler. */
+    /* İade (kullanıcı direktifi, 24.08.2026): ayrı alanda saklanır, satış
+       rakamına dokunmaz. REVİZE (26.08.2026): iade artık HİÇBİR malzemede
+       stoğa girmez — yalnız raporlanır (04-servis.js "mevcut" hesabı).
+       Bu yüzden dökme kuru küspenin iade yasağı da KALKTI (kullanıcı
+       bildirimi, 26.08.2026): yasak "iade stokta görünür ama dökmede
+       görünemez" gerekçesine dayanıyordu, o gerekçe kalmadı. Dökme iade
+       kaydedilir ve raporlanır; siloya ve dökme mevcuduna dokunmaz, yani
+       "dökme stok siloların toplamıdır" kuralı (Şartname §5) bozulmaz. */
     var iade = girdi.iade === null || girdi.iade === undefined ? null : oku(girdi.iade);
     if (iade !== null && isNaN(iade)) {
-      hatalar.push(kayit(ALAN, "\"" + malzeme.Ad + "\" iade miktarı sayı olmalı. Girilen: \"" + String(girdi.iade) + "\"."));
+      hatalar.push(kayit(ALAN, ad + "iade sayı olmalı."));
     } else if (iade !== null && iade < 0) {
-      hatalar.push(kayit(ALAN, "\"" + malzeme.Ad + "\" iade miktarı negatif olamaz. Girilen: " + kg(iade) + "."));
-    } else if (iade !== null && iade > 0 && malzeme.OzelTip === "DokmeKuruKuspe") {
-      hatalar.push(kayit(ALAN, "Dökme kuru küspeye iade girilemez: dökme stok siloların toplamıdır " +
-        "(Şartname §5) ve iade siloya girmediği için stokta gösterilemez."));
+      hatalar.push(kayit(ALAN, ad + "iade negatif olamaz. Girilen " + kg(iade) + "."));
+    }
+
+    tamSayiDenetle(hatalar, malzeme.Ad + ": üretim", uretim);
+    tamSayiDenetle(hatalar, malzeme.Ad + ": satış", satis);
+    tamSayiDenetle(hatalar, malzeme.Ad + ": iade", iade);
+
+    /* ÇUVALLI KURU KÜSPE 50'NİN KATI OLMALI (kullanıcı kararı, 27.08.2026).
+       Şartname §2: çuvallama, dökmenin 50 kg'lık çuvala doldurulmasıdır ve
+       "1 çuval = 50 Kg sabittir" (§4, Demirbaş). Bu malzeme çuvalla girer,
+       çuvalla çıkar; 120 kg satış diye bir şey yoktur. Üretim kolonu zaten
+       kilitli ve çuval adedinden hesaplanıyor — kural SATIŞ ve İADE içindir.
+       Öbür malzemeler dökme ölçülür, onlara dokunulmaz. */
+    var paket = paketBoyu(malzeme);
+    if (paket) {
+      /* Çuvallının ÜRETİMİ zaten kilitli ve çuval adedinden hesaplandığı için
+         hep katıdır; 25'liğin üretimi elle girilir, asıl denetlenen odur. */
+      paketKatiDenetle(hatalar, malzeme, "üretim", uretim, paket);
+      paketKatiDenetle(hatalar, malzeme, "satış", satis, paket);
+      if (iade !== null) paketKatiDenetle(hatalar, malzeme, "iade", iade, paket);
     }
 
     if (hatalar.length) return { hatalar: hatalar, uyarilar: uyarilar };
 
     var mevcut = gunlukHareketBul(depo, tarih, malzeme.Id);
 
-    /* Kilitli kolonlar (Şartname §4, §7): dökme kuru küspenin iki kolonu da,
-       çuvallı kuru küspenin üretim kolonu da Kuru Küspe Günlük Giriş'ten gelir.
-       Kilit ALAN bazlıdır (24.08.2026): dökmeye İADE girilebilir — iade
-       üretim/satış kolonu değildir, silo seçimiyle ayrıca denetlenir. */
+    /* Kilitli kolonlar (Şartname §4, §7): dökme kuru küspenin ÜRETİM ve SATIŞ
+       kolonları, çuvallı kuru küspenin üretim kolonu Kuru Küspe Günlük
+       Giriş'ten gelir. Kilit ALAN bazlıdır: İADE kolonu kilitli değildir —
+       iade üretim/satış değildir, stoğa da girmez (26.08.2026). */
     var uretimVerildi = !(girdi.uretim === null || girdi.uretim === undefined || girdi.uretim === "");
     var satisVerildi = !(girdi.satis === null || girdi.satis === undefined || girdi.satis === "");
     if (malzeme.OzelTip === "DokmeKuruKuspe" && (uretimVerildi || satisVerildi)) {
-      hatalar.push(kayit(ALAN, "\"" + malzeme.Ad + "\" üretim ve satış kolonları kilitlidir; her ikisi de Kuru Küspe Günlük Giriş ekranından gelir."));
+      hatalar.push(kayit(ALAN, ad + "üretim ve satış Kuru Küspe Günlük Giriş'ten gelir, buradan girilemez."));
     } else if (malzeme.OzelTip === "CuvalKuruKuspe" && uretimVerildi &&
                !esit(uretim, mevcut ? Number(mevcut.Uretim) || 0 : 0)) {
-      hatalar.push(kayit(ALAN, "\"" + malzeme.Ad + "\" üretim kolonu kilitlidir; çuvallanan adetten otomatik hesaplanır (1 çuval = " +
-        YU.fmt.sayi(YU.hesap.CUVAL_KG) + " kg). Bu ekrandan yalnızca satış girilir."));
+      hatalar.push(kayit(ALAN, ad + "üretim Kuru Küspe Günlük Giriş'ten gelir, buradan girilemez. Buradan yalnız satış girilir."));
     }
 
     /* D16. Yeni-gün ayağı kuru küspedekiyle aynı (DUZELTME-PLANI M7):
@@ -610,29 +890,44 @@
        "yok" bilgisiyle açılmış, biri arada oluşturmuştur. */
     if (girdi.rowVersion === null || girdi.rowVersion === undefined) {
       if (mevcut) {
-        hatalar.push(kayit("D16", tr(tarih) + " / \"" + malzeme.Ad + "\" satırı siz ekranı açtıktan sonra oluşturulmuş (sürüm " +
-          YU.fmt.sayi(Number(mevcut.RowVersion)) + "). Kaydınız yazılmadı; sayfayı yenileyip mevcut satırın üzerinden düzeltin."));
+        hatalar.push(kayit("D16", ad + "bu satır siz ekranı açtıktan sonra başkası tarafından girilmiş. Sayfayı yenileyin."));
       }
     } else {
       if (!mevcut) {
-        hatalar.push(kayit("D16", tr(tarih) + " / \"" + malzeme.Ad + "\" kaydı artık yok — siz ekranı açtıktan sonra silinmiş. Sayfayı yenileyin."));
+        hatalar.push(kayit("D16", ad + "bu satır siz ekranı açtıktan sonra silinmiş. Sayfayı yenileyin."));
       } else if (Number(mevcut.RowVersion) !== Number(girdi.rowVersion)) {
-        hatalar.push(kayit("D16", tr(tarih) + " / \"" + malzeme.Ad + "\" kaydı siz ekranı açtıktan sonra güncellenmiş (sürüm " +
-          YU.fmt.sayi(Number(girdi.rowVersion)) + " → " + YU.fmt.sayi(Number(mevcut.RowVersion)) + "). Sayfayı yenileyip yeniden deneyin."));
+        hatalar.push(kayit("D16", ad + "bu satır siz ekranı açtıktan sonra başkası tarafından değiştirilmiş. Sayfayı yenileyin."));
       }
     }
 
     if (hatalar.length) return { hatalar: hatalar, uyarilar: uyarilar };
 
-    /* Şartname §13 Soru 3 önerisi: basit malzeme stoğu negatife düşerse UYARI,
-       engelleme yok — sert engel, giriş sırası bozuk olduğunda operatörü kilitler. */
-    if (!malzeme.OzelTip) {
+    /* MALZEME STOĞU NEGATİFE DÜŞEMEZ — SERT ENGEL (kullanıcı kararı,
+       26.08.2026: "önceki güne veri girildiğinde o günden sonraki günler tek
+       tek sayılsın, herhangi bir günde stok 0'ın altına düşmesi kesinlikle
+       yasak"). Şartname §13 Soru 3 AÇIK BİR SORUDUR ve önerisi "uyarı"ydı;
+       kullanıcı cevabı ENGELLE olarak verdi — CLAUDE.md KURAL 12'ye yazıldı.
+       Demirbas bir maddeyle çelişmez.
+
+       Tarama ileriye doğrudur: malzemeIlkNegatifGun devir tarihinden başlayıp
+       hareketi olan her günü sırayla yürütür ve negatife düşen İLK günü
+       döner — düzeltilen günün TASLAK değerleriyle. Yani geçmiş bir günü
+       düşürüp sonraki günleri patlatmak artık kaydedilemez (silolardaki
+       D14 kuralının malzeme karşılığı).
+
+       Dökme kuru küspe DIŞARIDA: onun stoğu siloların toplamıdır (Şartname §5)
+       ve D7 + D14 zaten sert engel uyguluyor. Çuvallı küspe ve basit
+       malzemeler bu kuralın kapsamındadır. */
+    if (malzeme.OzelTip !== "DokmeKuruKuspe") {
       var negatif = malzemeIlkNegatifGun(depo, malzeme, tarih,
         uretim === null ? (mevcut ? Number(mevcut.Uretim) || 0 : 0) : uretim,
         satis === null ? (mevcut ? Number(mevcut.Satis) || 0 : 0) : satis);
       if (negatif) {
-        uyarilar.push(kayit(ALAN, "\"" + malzeme.Ad + "\" stoğu " + tr(negatif.tarih) + " günü " +
-          kg(negatif.bakiye) + "'a düşüyor. Kayıt engellenmedi; giriş sırasını kontrol edin."));
+        /* Kuru Küspe ekranındaki D14 kalıbının aynısı (28.08.2026): hangi
+           malzeme, hangi gün, ne oluyor. Kuralın kendisi ("stok eksiye
+           inemez") zaten sonucun kendisinden anlaşılıyor. */
+        hatalar.push(kayit(ALAN, ad + tr(negatif.tarih) + " günü stok " +
+          kg(negatif.bakiye) + " oluyor."));
       }
     }
 
@@ -649,7 +944,9 @@
       if (h.Tarih === tarih) continue;                    // o günün satırı taslakla değişiyor
       gunler[h.Tarih] = YU.yuvarla((gunler[h.Tarih] || 0) + (Number(h.Uretim) || 0) - (Number(h.Satis) || 0));
     }
-    gunler[tarih] = YU.yuvarla((gunler[tarih] || 0) + yeniUretim - yeniSatis);
+    /* tarih null ise TASLAK YOK demektir: kayıtlı veri olduğu gibi taranır
+       (üst şerit uyarısı bu yolu kullanır, 26.08.2026). */
+    if (tarih) gunler[tarih] = YU.yuvarla((gunler[tarih] || 0) + yeniUretim - yeniSatis);
 
     for (i = 0; i < depo.devirStok.length; i++) {
       h = depo.devirStok[i];
@@ -674,6 +971,26 @@
     return null;
   }
 
+  /* Kayıtlı veriye göre negatife düşen BASİT malzemeleri listeler
+     (kullanıcı kararı, 26.08.2026): kayıt engellenmez — Şartname §13 Soru 3
+     "öneri: uyarı" — ama uyarı üst şerit zilinden düşmez, koşul düzelene
+     kadar orada durur. Özel tipler (dökme/çuvallı kuru küspe) dışarıdadır:
+     onların stoğu siloların toplamıdır ve D14 zaten sert engeldir. */
+  function malzemeNegatifGunleri(depo) {
+    var liste = [], i, m, n;
+    if (!depo || !depo.malzemeler) return liste;
+    for (i = 0; i < depo.malzemeler.length; i++) {
+      m = depo.malzemeler[i];
+      /* Dökme dışında her malzeme taranır (26.08.2026): çuvallı küspenin
+         stoğu da formülle hesaplanır, o da eksiye düşebilir. */
+      if (!m || m.OzelTip === 'DokmeKuruKuspe' || m.Aktif === false) continue;
+      n = malzemeIlkNegatifGun(depo, m, null, 0, 0);
+      if (n) liste.push({ malzemeId: m.Id, malzemeAd: m.Ad, tarih: n.tarih, bakiye: n.bakiye });
+    }
+    liste.sort(function (a, b) { return a.tarih < b.tarih ? -1 : (a.tarih > b.tarih ? 1 : 0); });
+    return liste;
+  }
+
   /* ---------- Kullanıcı: D9, D10, D11, D12 ---------- */
 
   /* islemiYapan üçüncü parametredir: D9 "kendi hesabı" karşılaştırması için
@@ -684,7 +1001,13 @@
     var aktif = kullanici.Aktif !== false;
     var rol = kullanici.Rol;
 
-    if (bosMu(kullanici.KullaniciAdi)) hatalar.push(kayit(ALAN, "Kullanıcı adı boş olamaz."));
+    /* Giriş kimliği E-POSTA (kullanıcı kararı, 26.08.2026). Alan ve D11
+       tekilliği değişmedi; yalnız içeriğin biçimi denetleniyor. */
+    if (bosMu(kullanici.KullaniciAdi)) {
+      hatalar.push(kayit(ALAN, "E-posta adresi boş olamaz."));
+    } else if (!YU.ePosta.gecerliMi(kullanici.KullaniciAdi)) {
+      hatalar.push(kayit(ALAN, "Geçerli bir e-posta adresi yazın — ad.soyad@" + YU.ePosta.alanAdi + " gibi."));
+    }
     if (bosMu(kullanici.AdSoyad)) hatalar.push(kayit(ALAN, "Ad soyad boş olamaz."));
     if (rol !== "Yonetici" && rol !== "Operator") {
       hatalar.push(kayit(ALAN, "Rol \"Yonetici\" veya \"Operator\" olmalı. Girilen: \"" + String(rol) + "\"."));
@@ -696,8 +1019,8 @@
       for (i = 0; i < depo.kullanicilar.length; i++) {
         k = depo.kullanicilar[i];
         if (k.Id !== kullanici.Id && anahtarla(k.KullaniciAdi) === ad) {
-          hatalar.push(kayit("D11", "\"" + kullanici.KullaniciAdi + "\" kullanıcı adı zaten kullanılıyor (" +
-            k.AdSoyad + "). Aynı kullanıcı adı iki kez eklenemez."));
+          hatalar.push(kayit("D11", "\"" + kullanici.KullaniciAdi + "\" adresi zaten kullanılıyor (" +
+            k.AdSoyad + "). Aynı e-posta iki hesaba verilemez."));
           break;
         }
       }
@@ -837,11 +1160,24 @@
       return { hatalar: hatalar };
     }
     if (!sahip) hatalar.push(kayit(ALAN, etiket + " bulunamadı (Id: " + String(sahipId) + ")."));
+
+    /* Dökme kuru küspenin devri ELLE GİRİLEMEZ (Şartname §5 KRİTİK kural):
+       stoğu siloların toplamı olduğu için açılışı da silo devirlerinin
+       toplamıdır. Satır servis katmanında silo devirlerine kenetli tutulur
+       (04-servis · dokmeDevriniEsitle); elle yazılabilseydi iki kaynak
+       birbirinden kayar ve aynı gün aynı ürün için iki rakam oluşurdu. */
+    if (!siloMu && sahip && sahip.OzelTip === "DokmeKuruKuspe") {
+      hatalar.push(kayit(ALAN, "\"" + sahip.Ad + "\" devri elle girilemez: stoğu siloların toplamı " +
+        "olduğu için devri de silo devirlerinin toplamıdır (Şartname §5). Silo devirlerini " +
+        "değiştirin, bu satır kendiliğinden güncellenir."));
+    }
     if (!gecerliTarih(tarih)) hatalar.push(kayit(ALAN, "Devir tarihi geçersiz: \"" + String(tarih) + "\"."));
     if (isNaN(miktar)) {
       hatalar.push(kayit(ALAN, "Devir miktarı sayı olmalı. Girilen: \"" + String(alan(devir, "Miktar", "miktar")) + "\"."));
     } else if (miktar < 0) {
       hatalar.push(kayit(ALAN, "Devir miktarı negatif olamaz. Girilen: " + kg(miktar) + "."));
+    } else if (miktar !== Math.round(miktar)) {
+      tamSayiDenetle(hatalar, "Devir miktarı", miktar);
     } else if (siloMu && sahip && Number(sahip.Kapasite) > 0 && miktar - Number(sahip.Kapasite) > 0.01) {
       /* D15'in devir ayağı (kullanıcı kararı, 21.08.2026): açılış stoğu da
          silo kapasitesini aşamaz. */
@@ -877,7 +1213,11 @@
     silo: siloDogrula,
     devir: devirDogrula,
     ileriBakiye: ileriBakiye,
+    malzemeIlkNegatifGun: malzemeIlkNegatifGun,
+    ileriKapasite: ileriKapasite,
+    d15IleriMesaji: d15IleriMesaji,
     d14Mesaji: d14Mesaji,
+    malzemeNegatifGunleri: malzemeNegatifGunleri,
     enEskiDevir: enEskiDevir
   };
 })();

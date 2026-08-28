@@ -30,6 +30,10 @@
 
   var hesap = {
     CUVAL_KG: 50,
+    /* Silo kapasitesi SABİTTİR (kullanıcı kararı, 28.08.2026: "sabit her
+       seferinde 3 bin ton kapasitesi var siloların"). Ekran ve servis bu
+       sabiti okur; kapasite alanı artık değiştirilemez. */
+    SILO_KAPASITE_KG: 3000000,
     /* Şartname §2: yaş küspe tonluk büyük torbada veya 25 kg'lık poşette
        satılır. Tonluk torbanın kg'ı şartnamede yazmadığı için burada yok. */
     POSET_KG: 25,

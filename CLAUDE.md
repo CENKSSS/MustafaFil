@@ -152,29 +152,38 @@ ne değişti, neye dikkat edilmeli: net cümlelerle.
 
 ---
 
-## KURAL 6 — Şartnamenin dışına çıkmak yasaktır (kullanıcı direktifi, 23.08.2026)
+## KURAL 6 — Şartname bağlayıcı değil; kullanıcı sözü üstündür
+(kullanıcı direktifi, 27.08.2026 — önceki hâlin yerine geçer)
 
-`docs/yan-urunler-sartname-v2.html`, Yan Ürünler Stok Takip prototipinin
-**bağlayıcı sözleşmesidir**. Bu kural, KURAL 4 ve 5 ile birlikte her görevde
-geçerlidir:
+Kullanıcının sözü: *"şartname kuralları artık uymak zorunda değiliz… dediklerimiz
+şartname ile çelişse de benim dediklerimi uygulamak zorundasın."*
 
-* **Şartnamenin dışına çıkmak kesinlikle yasaktır.** Demirbaş işaretli
-  maddeler (hesap formülleri, D1–D16 doğrulama kuralları, kabul testleri ve
-  beklenen rakamları, §4 yeniden kaydetme/üzerine yazma davranışı, çift sayım
-  yasağı, sekiz tablo ve tekillik kısıtları) hiçbir istekle esnetilmez.
-* **Kullanıcı yanlış talimat verirse düzeltilir ve talimat UYGULANMAZ.**
-  Talimat Demirbaş bir maddeyle çelişiyorsa: kullanıcı uyarılır (ilgili madde
-  gösterilerek) ve istek YAPILMAZ — kullanıcı ısrar etse bile. Kullanıcının
-  kendi direktifi budur: *"ben bu kuralların dışına çıkma talimatı verirsem
-  beni uyar ve benim dediklerimi yapma, kesinlikle."* Demirbaş davranış ancak
-  şartnamenin kendisi güncellenirse değişir.
-* Çelişen isteğin özü mümkünse **şartnameye uygun bir eşdeğerle** önerilir
-  (örnek: veri düzeyinde yasak olan "üstüne ekleme", toplamın arayüzde
-  hesaplanıp §4'e uygun tek kayıt olarak yazılmasıyla karşılanır). Uygun
-  eşdeğer yoksa istek yapılmaz.
-* Şartnamede tanımsız kalan noktalarda (ör. tonluk torbanın kg'ı) varsayım
-  ancak açıkça işaretlenip kullanıcıya bildirilerek kullanılabilir
-  (KURAL 4.4 ile birlikte).
+`docs/yan-urunler-sartname-v2.html` (ve düz metni `sartname-duz.txt`) artık
+**bağlayıcı sözleşme değil, REFERANS BELGEDİR**. Bir konuda karar yoksa
+şartnameye bakılır; karar varsa **kullanıcının kararı geçerlidir**.
+
+* **Çelişkide kullanıcı kazanır.** "Demirbaş" işareti dâhil hiçbir madde
+  kullanıcının açık talimatını geçersiz kılmaz. Talimat uygulanır.
+* **Uyarı bir kere yapılır, iş durdurulmaz.** Bir istek şartnamedeki bir
+  hesabı, doğrulama kuralını ya da kabul testi rakamını değiştiriyorsa bu
+  **tek cümleyle söylenir** ve iş **yapılır**. Onay beklenmez.
+* **Ne değiştiği yazılır.** Şartnameden ayrılan her davranış, dokunulan
+  dosyada yorumla kayda geçer: hangi madde, hangi tarihli kullanıcı kararı.
+* **12 kabul testi yine koşulur.** Testler artık "şartnameye uygunluk kanıtı"
+  değil, **regresyon ağıdır**: bir değişikliğin başka bir yeri bozmadığını
+  gösterir. Kullanıcının kararı bir testin beklentisini değiştiriyorsa
+  **test güncellenir** ve bu açıkça bildirilir.
+* **Değişmeyen tek şey:** veri tutarlılığı. Çift sayım, negatif stok, kayıp
+  kayıt gibi veriyi bozan sonuçlar kullanıcı istemedikçe üretilmez; böyle bir
+  sonuç doğuracak bir istek varsa önce bu söylenir (KURAL 4.4).
+
+### Önceki hâli (21.08–26.08.2026 arası yürürlükteydi)
+
+Eski KURAL 6 şartnameyi bağlayıcı sözleşme sayıyor, Demirbaş maddeleri
+"hiçbir istekle esnetilemez" diyor ve kullanıcının o günkü direktifi gereği
+çelişen talimatın **uygulanmamasını** emrediyordu. Bu hüküm 27.08.2026'da
+kullanıcı tarafından kaldırıldı. Metni tarihçe olarak `DUZELTME-PLANI.md`
+kayıtlarında ve git geçmişinde durur.
 
 ---
 
@@ -300,6 +309,91 @@ estetik karar, **dokunulan ekranın içinde** serbesttir. Başka bir ekrana
 yaymak, ortak bileşeni değiştirmek veya kullanıcının daha önce verdiği bir
 karara aykırı davranmak için yine izin alınır. Ortak CSS'e dokunmak
 gerekiyorsa yeni bir varyant sınıfı eklenir, mevcut sınıf ezilmez.
+
+---
+
+## KURAL 11 — Sayaç ve durum cümlesi yazma (kullanıcı direktifi, 26.08.2026)
+
+Kullanıcının sözü: *"böyle yazılar olmasın istemiyorum, gereksiz bunlar yani
+okunmaz bir şey etmez gereksiz kaos."*
+
+Ekrana, kullanıcının **sormadığı** ve **bir karara dönüşmeyen** cümle yazılmaz.
+Örnek olay: Malzeme Girişi'nde panel başlığının sağında `8 malzeme · bu güne
+henüz giriş yapılmamış` yazıyordu — aynı şeyi iki adım solundaki `Kayıt Yok`
+rozeti zaten söylüyordu.
+
+### 11.1 — Yazılmayacaklar
+
+* **Sayaç cümlesi:** `8 malzeme · …`, `12 kayıt bulundu`, `3 silo listeleniyor`.
+  Kaç satır olduğu tablonun kendisinden görülür.
+* **Durum tekrarı:** rozet, kolon ya da başlık zaten söylüyorsa aynı bilgi
+  cümleyle tekrarlanmaz.
+* **Teselli / yönlendirme cümlesi:** `bu güne henüz giriş yapılmamış`,
+  `rakam yazınca burada görünür`, `başlamak için bir tarih seçin`.
+* **Dipnot ve açıklama satırı** — KURAL 8 zaten yasaklıyor, burada da geçerli.
+
+### 11.2 — Yazılacaklar
+
+* Kullanıcının bir karar vermesi için gereken bilgi.
+* Bir hatayı, engeli veya sonucu anlatan cümle (kaydedilemedi, silindi, aşıldı).
+* Gerçekten boş bir ekranda **tek** kısa satır — o da liste boşken, panel
+  başlığında değil.
+
+### 11.3 — Ölçü
+
+Bir satırı yazmadan önce sor: **"bu okunmazsa kullanıcı ne kaybeder?"**
+Cevap "hiçbir şey" ise yazma. Cevap "bir bilgiyi" ise o bilgiyi KURAL 8'e göre
+başlığa, kolona veya etikete koy — cümleye değil.
+
+Bu kural KURAL 8 (dipnot yasağı) ve KURAL 9 (kısa cümle) ile birlikte uygulanır:
+8 bilginin yerini, 9 anlatımın uzunluğunu, 11 ise **yazılıp yazılmayacağını**
+belirler.
+
+---
+
+## KURAL 12 — Şartname §13 Soru 3'ün cevabı: malzeme stoğu eksiye düşemez
+(kullanıcı kararı, 26.08.2026)
+
+Şartname §13 Soru 3 şunu açık bırakmıştı: *"Basit malzeme stoğu negatife
+düşerse ne olsun? Engellensin mi, uyarı mı verilsin, serbest mi?"* — şartnamenin
+kendi önerisi **uyarı**ydı.
+
+**Kullanıcının cevabı: ENGELLE.** Sözü: *"güncel stok durumu veya ondan sonraki
+herhangi bir günde stok durumu 0'ın altına düşmesi kesinlikle ve kesinlikle
+yasak olsun."*
+
+* Malzeme Girişi'nde bir güne veri yazılırken, o günden sonraki **her gün tek
+  tek ileri yürütülür**. Herhangi bir gün bakiye 0'ın altına düşüyorsa kayıt
+  **reddedilir** — hangi malzeme, hangi gün, hangi bakiye söylenir.
+* Bu, silolardaki **D14**'ün malzeme karşılığıdır. Geçmiş bir günü düşürüp
+  sonraki günleri patlatmak artık mümkün değildir.
+* **Kapsam:** dökme kuru küspe DIŞINDA tüm malzemeler (çuvallı küspe dâhil).
+  Dökmenin stoğu siloların toplamıdır (Şartname §5) ve D7 + D14 onu zaten
+  sert engelle koruyor.
+* Uygulama yeri: `js/03-dogrulama.js` · `malzemeHareketi` → `malzemeIlkNegatifGun`.
+
+Bu bir Demirbas maddesiyle çelişmez: Soru 3 cevapsız bırakılmış bir sorudur,
+cevabı kullanıcı verir. Şartnamenin "sert engel operatörü kilitler" gerekçesi
+kullanıcıya iletilmiş, karar bilerek verilmiştir.
+
+### 12.1 — Kural PROGRAMIN TAMAMI için geçerlidir (kullanıcı direktifi, 27.08.2026)
+
+Kullanıcının sözü: *"negatif stok olan her durumu incele, sakın kayıt
+yapılamasın, programda negatif kayıt kesinlikle engellenmeli, kaydet yasak
+olmalı."* Negatife düşüren hiçbir yazma yolu açık bırakılmaz:
+
+| Yol | Engel |
+|---|---|
+| Malzeme Girişi | `03-dogrulama` · `malzemeIlkNegatifGun` — hata; ekranda Kaydet de KAPALI |
+| Kuru Küspe Günlük Giriş | D7 + D14 — hata |
+| Sayım Düzeltmesi (Manuel) | D14 — hata |
+| Devir düşürme / silme (malzeme ve silo) | `04-servis` · `negatifEngeli` — hata, işlem geri sarılır |
+
+**Ölçü "hiç negatif yok" değil, "YENİ negatif yok".** Devir yollarında işlemden
+önceki ve sonraki negatifler karşılaştırılır; yalnız yeni doğan ya da daha da
+eksiye giden gün engeller. Sebep: veri hâlihazırda bozuksa "hiç negatif olmasın"
+kuralı kullanıcıyı kilitler — bozukluğu düzeltmek için girdiği ekran onu
+reddederdi. Devri ARTIRMAK hiçbir zaman engellenmez.
 
 ---
 

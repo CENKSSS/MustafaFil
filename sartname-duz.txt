@@ -1,0 +1,406 @@
+Yan Ürünler Stok Takip v2
+Yan Ürünler Stok Takip
+ŞARTNAME v2
+0 Bu sürüm hakkında
+1 Amaç ve kapsam
+2 Sözlük
+3 Roller
+4 Kuru küspe ve silo
+5 Stok formülleri
+6 Veri modeli
+7 Ekranlar
+8 Doğrulama kuralları
+9 Kabul testleri
+10 Teknik notlar
+11 Opsiyonel
+12 Teslim
+13 Açık sorular
+İşaretler
+Demirbaş
+v1'den birebir gelir. Değiştirilemez, sadeleştirilemez; değişiklik teklifine kapalıdır.
+v2
+Bu sürümde eklendi. İyileştirme, performans veya arayüz kalemi — işleyişi değiştirmez.
+Yazılım Analiz ve Şartname Dokümanı · Sürüm 2.0
+Yan Ürünler Stok Takip
+Şeker fabrikasının yan ürünlerinin (yaş küspe, kuru küspe, kuyruk, toprak) günlük üretim, satış ve stok takibini yapan uygulamanın iş kuralları ve teknik şartnamesi.
+v1 Hazırlayan Mümin CEYLAN
+Uygulayacak Stajyer
+Sürüm 2.0
+Referans uygulama C:\YanUrunlerTakip
+0 Bu sürüm hakkında
+v2, v1'in ne yapacağını değiştirmez . Yalnızca nasıl yapılacağını günceller ve v1'de açıkta kalmış birkaç noktayı kapatır.
+Okuma kılavuzu
+Demirbaş işaretli her madde v1'den birebir gelir ve tartışmaya kapalıdır — hesap formülleri, stok kuralları, D1–D12 ve kabul testlerinin beklenen rakamları buna dahildir. v2 işaretli maddeler bu sürümde eklendi; hepsi iyileştirme, dayanıklılık veya arayüz kalemidir.
+v2'de ne değişti
+Konu v1 v2 Efor
+Dökme küspe satışı
+FABRİKA TEYİDİ ALINDI Hareket tipi tanımlı, giriş ekranı yok. §5 ile §7 çelişiyor Günlük giriş ekranına alan + silo seçimi + D13 1 gün
+Geriye dönük düzeltme Yalnız o günün başına bakılıyor D14 — sonraki günler ileri doğru doğrulanır 1 gün
+Devir stok Malzeme başına ömür boyu tek satır Tekillik (MalzemeId, DevirTarihi) ; "en son devir" formülü ½ gün
+Eşzamanlı düzenleme Çözüm belirtilmemiş RowVersion + D16 + "bu gün zaten kayıtlı" uyarısı ½ gün
+Denetim izi Yalnız "kim oluşturdu" Güncelleyen kolonları + DegisiklikLog tablosu 1 gün
+Silo kapasitesi
+3.000 TON · KAPSAM TEYİT BEKLİYOR Tutuluyor, kontrol edilmiyor D15 yumuşak uyarı + doluluk göstergesi ½ gün
+Tarih ve miktar tipleri Belirtilmemiş DATE / DateOnly , decimal(18,3) 0
+Özel tip tekilliği Kısıtsız Filtreli tekil indeks 0
+Teknoloji .NET 8 · Blazor Server .NET 8 korunur · Blazor Web App (Interactive Server) 0
+Testler 8 test, elle çalıştırılır 12 test, xUnit ile otomatik 1 gün
+Değişmeyenler
+§4'ün netleme formülleri, §5'in stok hesapları, D1–D12 , sekiz kabul testinin beklenen rakamları, sözlük, malzeme listesi, roller, sekiz tablonun ilişkileri, SQL Server, çok kullanıcılı web mimarisi, hash'li parola ve decimal miktarlar — hepsi aynen korunur.
+Stajyere not · v1'den devam
+Bu dokümandaki 4., 5. ve 8. bölümler işin özüdür. Ekran tasarımını değiştirebilirsin, teknoloji seçimini tartışabilirsin; ama oradaki hesap ve doğrulama kurallarını birebir uygulaman gerekiyor. Bir kuralı anlamadıysan uydurma, sor.
+1 Amaç ve kapsam Demirbaş
+Şeker fabrikasında pancar işlenirken şekerin yanında bir dizi yan ürün çıkar. Bunların günlük üretimi, satışı ve eldeki stoğu bugün elle/Excel ile takip ediliyor. Bu uygulamanın amacı bu takibi tek bir yerde, tutarlı ve geçmişe dönük sorgulanabilir hâle getirmek.
+Kapsam içinde
+Malzeme bazında günlük üretim ve satış girişi.
+Malzeme bazında kümülatif stok hesabı (devir + üretim − satış).
+Dökme kuru küspe için silo bazlı stok takibi.
+Kampanya başı devir stok tanımlama (malzeme ve silo bazında).
+Geçmiş girişleri listeleme, düzeltme, silme.
+Kullanıcı yönetimi ve iki seviyeli yetkilendirme.
+Kapsam dışında
+Muhasebe/fatura entegrasyonu, cari hesap, fiyat ve tutar takibi.
+Kantar (tartı) sistemiyle otomatik veri alışverişi.
+Şeker (ana ürün) takibi — yalnızca yan ürünler.
+2 Sözlük Demirbaş
+Fabrika terimleri. Kodda ve ekranlarda bu adlandırmayı kullan.
+Terim Anlamı
+Küspe Pancardan şeker alındıktan sonra kalan posa. Hayvan yemi olarak satılır.
+Yaş küspe Kurutulmamış küspe. Tonluk büyük torbada veya 25 kg'lık poşette satılır.
+Kuru küspe Kurutulmuş, peletlenmiş küspe. İki biçimde tutulur: dökme (silolarda) ve çuvallı (50 kg torba).
+Çuvallama Dökme kuru küspenin 50 kg'lık çuvallara doldurulması. Yeni üretim değildir, biçim değiştirmedir.
+Silo Dökme kuru küspenin depolandığı tank. Fabrikada üç adet var: Silo 1, Silo 2, Silo 3. Kapasite 3.000 ton — silo başına mı yoksa üçünün toplamı mı olduğu teyit bekliyor (§13, Soru 5). v2
+Kuyruk Pancar kuyruğu/parçası. Ayrı bir yan ürün, ayrı satılır.
+Toprak Pancarla gelen ve yıkamada ayrışan toprak.
+Atık kuru küspe Standart dışı, ıskarta kuru küspe.
+Devir stok Kampanya (sezon) başındaki açılış stoğu. Uygulama kurulurken elle girilir, sonra kümülatif hesabın başlangıç noktası olur.
+Kampanya Pancar işleme sezonu. Genelde eylülde başlar.
+Takip edilen malzemeler
+Uygulama bu yedi malzeme ile kurulur; yenisi ekranından eklenebilir olmalı.
+Sıra Malzeme Birim Özel tip
+1 Yaş Küspe (Tonluk) Kg —
+2 Yaş Küspe (25'lik) Kg —
+3 Dökme Kuru Küspe Kg DokmeKuruKuspe
+4 Kuru Küspe (50 Kg) Kg CuvalKuruKuspe
+5 Atık Kuru Küspe Kg —
+6 Kuyruk Kg —
+7 Toprak Kg —
+Özel tip alanı, o malzemenin normal akış dışında işlendiğini belirtir. Boş olan malzemeler basit malzemedir: kullanıcı üretim ve satış miktarını doğrudan girer. Özel tipli iki malzemenin nasıl işlendiği 4. bölümde anlatılıyor.
+3 Roller Demirbaş
+Rol Yapabildikleri
+Operatör Günlük üretim/satış girer, geçmiş girişleri düzeltir, stok ve silo durumunu görür, rapor alır.
+Yönetici Operatörün her şeyi + devir stok tanımlama, malzeme yönetimi, kullanıcı yönetimi.
+Uygulamaya giriş kullanıcı adı ve parola ile yapılır. Parolalar veritabanında düz metin tutulmaz, hash'lenir (BCrypt gibi bir algoritma kullan). Oturum çerezle taşınır.
+4 Kuru küspe ve silo mantığı Demirbaş
+Uygulamanın tek zor kısmı burası. Yanlış kurgulanırsa stok çift sayılır ve rakamlar tutmaz. Önce sorunu anla, sonra kodla.
+Sorun
+Kurutma tesisi gün boyu dökme kuru küspe üretir. Bu küspenin bir kısmı aynı gün 50 kg'lık çuvallara doldurulup çuvallı kuru küspe olarak satılır. Çuvallama yeni üretim değildir — aynı malın biçim değiştirmesidir.
+Kritik kural
+Eğer gün içinde üretilen dökme küspenin tamamını "dökme üretim" sayar, ayrıca çuvallananı da "çuval üretim" sayarsan aynı malı iki kez saymış olursun. Uygulamanın var oluş sebeplerinden biri bunu engellemektir.
+Kullanıcı ne girer
+Operatör gün için yalnızca iki sayı girer:
+Üretilen dökme kuru küspe (Kg) — işletme raporundan gelen ham rakam.
+Çuvallanan adet — kaç çuval doldurulduğu. 1 çuval = 50 Kg sabittir.
+Sistem kalanını hesaplar. Kullanıcıya "net üretim" diye bir şey sordurma.
+Sistem ne hesaplar
+CuvalKg = CuvalAdet × 50
+NetDokmeUretim = max(0, UretilenDokme − CuvalKg) // silolara girecek
+SilodanCekilecek = max(0, CuvalKg − UretilenDokme) // silolardan çıkacak
+İki değerden her zaman en fazla biri sıfırdan büyüktür. Hangisinin dolu olduğu o günün durumunu anlatır.
+Durum A — Üretim çuvallamadan fazla Durum B — Çuvallama üretimden fazla
+UretilenDokme > CuvalKg CuvalKg > UretilenDokme
+Üretilen dökme: 250.000 Kg Üretilen dökme: 5.000 Kg
+Çuvallanan (200 çuval): 10.000 Kg → Kuru Küspe (50 Kg) üretimi Çuvallanan (200 çuval): 10.000 Kg → Kuru Küspe (50 Kg) üretimi
+Net dökme üretim: 240.000 Kg → silolara yerleşir Net dökme üretim: 0 — eksik 5.000 Kg silolardan çekilir
+Operatör 240.000 kg'ı silolar arasında dağıtır. Toplam net dökmeye eşit olmak zorundadır. O gün üretilenden fazla çuvallanmış; fark önceki günlerin silo stoğundan karşılanır.
+Raporlamada dikkat
+Durum B'de rapor net dökme üretimi 0 gösterir, ama operatörün girdiği ham rakam (5.000 kg) kaybolmamalı — raporda ayrı bir satır olarak görünmeli. Aksi hâlde kullanıcı "ben 5.000 girmiştim, nereye gitti?" diye sorar.
+Silo dağıtımı
+Net dökme üretim otomatik olarak silolara paylaştırılmaz — hangi siloya ne kadar gittiğini operatör bilir ve girer. Aynı şekilde silodan çekiliyorsa hangi silodan çekildiğini de o seçer. Ekranda "tümü ilk siloya" ve "eşit dağıt" gibi kolaylık düğmeleri koy, ama son söz kullanıcıda olsun.
+Yeniden kaydetme
+Aynı gün için ikinci kez kayıt yapılırsa (düzeltme), o güne ait eski silo hareketleri silinip yenileri yazılmalıdır. Üstüne eklenirse silo stoğu şişer. Bu işlemlerin tamamı tek bir veritabanı transaction'ı içinde olmalı: günlük kayıt + eski hareketlerin silinmesi + yeni hareketler + malzeme hareketlerinin güncellenmesi. Ortada hata olursa hiçbiri yazılmamalı.
+Dökme küspe satışı v2
+Fabrika teyidi · onaylandı
+Dökme kuru küspe yalnızca silolarda durur ve satışı doğrudan silolardan yapılır. Dolayısıyla dökme küspenin silo dışında bağımsız bir stoğu yoktur; her dökme hareketinin (üretim, çuvallama, satış) mutlaka bir silo karşılığı olmalıdır.
+Açık soru 1 · cevaplandı
+v2'de eklendi · v1'deki çelişkinin çözümü
+v1'de SiloHareket tablosunda DokmeSatis hareket tipi tanımlıydı, ama girildiği ekran yoktu. Üstelik §5 "çuvallı satışı normal satış girişinden gelir" derken §7 o satırı kilitliyordu. Dökme stoğu siloların toplamı olduğu için, satışı yalnızca GunlukHareket 'e yazmak silo bakiyesini düşürmez ve dökme stok hiç azalmaz.
+Çözüm: Kuru Küspe Günlük Giriş ekranına satılan dökme (Kg) alanı ve silo seçimi eklenir.
+Neden ana ekranda, kenarda değil
+Toplam silo kapasitesi 3.000 – 9.000 ton aralığında (§13, Soru 5), günlük net dökme üretim ise 240.000 kg mertebesinde. Hiç satış yapılmasa silolar 12–37 gün içinde dolar; kampanya ise eylülden itibaren aylarca sürer.
+Yani dökme satış istisnai bir işlem değil, kampanya boyunca neredeyse her gün tekrarlayan bir işlem olmak zorunda. Bu yüzden ayrı bir ekrana değil, günlük giriş ekranının içine konur. Aynı sebeple D15 kapasite uyarısı süs değil — kampanya içinde gerçekten tetiklenecek bir kuraldır.
+Silo net değişimi = NetDokmeUretim − SilodanCekilecek − SatilanDokme
+SatilanDokme , KuruKuspeGunluk tablosunda saklanır ve karşılığında DokmeSatis tipinde silo hareketleri üretilir. Yeni doğrulama kuralı D13 .
+Çuvallı kuru küspenin satışı ise Malzeme Girişi ekranından girilir. O ekranda kilitli olan yalnızca üretim kolonudur; satış kolonu açıktır. Dökme kuru küspenin hem üretim hem satış kolonu kilitlidir — ikisi de günlük giriş ekranından gelir.
+5 Stok formülleri Demirbaş
+Basit malzemeler
+Yaş küspe, atık küspe, kuyruk, toprak ve sonradan eklenecek malzemeler:
+Stok = DevirStok + Toplam(Uretim) − Toplam(Satis)
+Silo stoğu
+SiloStok = SiloDevirStok + Toplam(GirenKg) − Toplam(CikanKg)
+Dökme kuru küspe
+Kritik kural
+Dökme kuru küspenin stoğu yukarıdaki basit formülle hesaplanmaz. Dökme küspe fiziksel olarak silolarda durur, dolayısıyla: DokmeKuruKuspeStok = tüm siloların mevcut stoklarının toplamı.
+Çuvallı kuru küspe
+Basit formülle hesaplanır. Üretimi, o günün CuvalKg değeridir; satışı normal satış girişinden gelir.
+Tarih bazlı sorgulama
+Stok ekranları "bugün itibarıyla" çalışır, ama seçilen bir tarihe kadar olan stoğu da hesaplayabilmelidir ( Tarih <= seçilen ). Silo giriş ekranında operatöre o günün başındaki silo mevcudu gösterilir ( Tarih < seçilen ) — çünkü o gün henüz kaydedilmemiştir.
+Devir stoğun seçilmesi v2
+v2'de eklendi
+v1'de her malzeme için ömür boyu tek devir satırı vardı. Kampanya her eylül tekrarladığı için ikinci sezonda devir ya üzerine yazılıp geçmiş karşılaştırılamaz hâle gelirdi, ya da kümülatif toplam sezonlar boyu akıp giderdi.
+Tekillik kısıtı (MalzemeId, DevirTarihi) ve (SiloId, DevirTarihi) olur. Formül şu hâle gelir:
+Stok = EnSonDevir (Tarih <= sorgu) + Toplam(Uretim) − Toplam(Satis)
+// hareketler yalnızca o devir tarihinden sonrakiler
+Tek devir satırı varken davranış v1 ile birebir aynıdır; yeni kampanya açılınca ikinci satır eklenir ve eski sezon olduğu gibi durur.
+6 Veri modeli
+Sekiz tablo yeterli Demirbaş . Alan adlarını değiştirebilirsin ama ilişkileri ve tekillik kısıtlarını koru — kuralların çoğu oralarda saklı.
+Tablo Ne tutar Tekillik kısıtı
+Kullanicilar Kullanıcı adı, parola hash'i, ad soyad, rol, aktif mi KullaniciAdi
+Malzemeler Ad, birim, sıra, özel tip, aktif mi Ad
+Silolar Ad, sıra, kapasite, aktif mi Ad
+DevirStok Malzeme başına açılış stoğu ve tarihi (MalzemeId, DevirTarihi)
+SiloDevirStok Silo başına açılış stoğu ve tarihi (SiloId, DevirTarihi)
+GunlukHareket Tarih + malzeme için üretim ve satış miktarı (Tarih, MalzemeId)
+KuruKuspeGunluk Günün ham girdisi: üretilen dökme, çuval adedi, çuval kg, satılan dökme Tarih
+SiloHareket Silo bazında giren/çıkan, hareket tipi, kaynak kayıt referansı —
+DegisiklikLog v2 Tablo, kayıt, alan, eski değer, yeni değer, kullanıcı, tarih, işlem —
+Kritik kural
+GunlukHareket tablosunda (Tarih, MalzemeId) ikilisi benzersiz olmalı. Aynı gün aynı malzeme için ikinci satır açılmamalı; kayıt "varsa güncelle, yoksa ekle" (upsert) mantığıyla yazılmalı. Aynısı KuruKuspeGunluk.Tarih için geçerli.
+SiloHareket hareket tipleri Demirbaş
+Değer Anlamı Yön
+DokmeUretim Üretimden siloya giriş Giren
+Cuvallama Çuvallamak için silodan çekiş Çıkan
+DokmeSatis Silodan doğrudan dökme satış Çıkan
+Manuel Elle düzeltme (sayım farkı vb.) Her ikisi
+Kolon tipleri v2
+Alan Tip Neden
+Tüm tarih alanları SQL DATE · C# DateOnly datetime olursa saat bileşeni sızar; 03.07 00:00 ile 03.07 14:32 iki ayrı satır olur, (Tarih, MalzemeId) kısıtı ihlal edilmez, upsert çalışmaz ve stok sessizce çift sayar
+Tüm miktar alanları decimal(18,3) v1 "decimal, asla float" diyor ama hassasiyeti yazmıyor; ±0,01 toleransının zemini netleşsin
+Metin alanları NVARCHAR Türkçe karakter
+Malzemeler.OzelTip Filtreli tekil indeks Her özel tipten en fazla bir malzeme. İkinci bir malzemeye DokmeKuruKuspe verilirse "stok = silolar toplamı" iki malzemeye uygulanır ve stok ikiye katlanır
+KuruKuspeGunluk.RowVersion
+GunlukHareket.RowVersion rowversion Eşzamanlı düzenlemede sessiz üzerine yazmayı engeller — D16
+Başlangıç verisi v2
+§12'deki kurulum betiği bu satırları da oluşturmalı. Betik ikinci kez çalıştırıldığında bu kayıtlar tekrar eklenmemeli.
+Tablo Başlangıç kayıtları
+Malzemeler §2'deki yedi malzeme, sıra ve özel tipleriyle
+Silolar Silo 1 , Silo 2 , Silo 3 — kapasite 3.000.000 kg (silo başına varsayımı; §13 Soru 5 ile teyit edilecek)
+Kullanicilar Tablo boşsa bir yönetici hesabı. Varsayılan parola ilk girişte değiştirilmeli
+Kapasite decimal(18,3) ve kg cinsinden saklanır — malzeme birimleriyle aynı ölçü. Ekranda ton olarak gösterilebilir, veritabanında kg tutulur; iki ayrı birim saklamak dönüşüm hatası üretir.
+İzlenebilirlik
+Her hareket kaydında kim ve ne zaman oluşturdu bilgisi tutulmalı Demirbaş . SiloHareket kayıtları, kaynağı olan günlük kuru küspe kaydına bir referans alanıyla bağlanmalı — düzeltmede hangi satırların silineceğini bu referanstan bulacaksın.
+v2'de eklendi · denetim izi
+Düzeltme bu uygulamada rutin bir işlem (Test 3 zaten onu sınıyor). v1 yalnızca "kim oluşturdu" tuttuğu için "silo geçen hafta 240.000'di, şimdi neden 290.000?" sorusunun cevabı yok.
+Ana tablolara GuncelleyenKullaniciId ve GuncellemeTarihi kolonları eklenir.
+DegisiklikLog tablosu eski ve yeni değeri alan bazında saklar.
+Yalnız kritik tablolar loglanır: KuruKuspeGunluk , GunlukHareket , SiloHareket , DevirStok , SiloDevirStok , Kullanicilar . Her tabloyu loglamak veritabanını gereksiz şişirir.
+7 Ekranlar
+Ekran İşlev Yetki
+Giriş Kullanıcı adı + parola. Herkes
+Ana sayfa Malzeme ve silo stoklarının kart görünümü, sık kullanılan işlemlere kısayol. Giriş yapan
+Kuru Küspe Günlük Giriş 4. bölümdeki akış. Tarih + üretilen dökme + çuval adedi + satılan dökme v2 ; hesaplanan değerler anlık gösterilir; silo dağıtımı burada yapılır. Giriş yapan
+Malzeme Girişi Diğer malzemelerin üretim/satış girişi. Dökme kuru küspenin her iki kolonu, çuvallı kuru küspenin üretim kolonu kilitli ve "otomatik" işaretli olmalı. Giriş yapan
+Stok Durumu Malzeme bazında devir / toplam üretim / toplam satış / mevcut. Giriş yapan
+Silo Durumu Silo bazında devir / giren / çıkan / mevcut, kapasiteye göre doluluk v2 , negatife düşen gün uyarısı v2 . Giriş yapan
+Günlük Rapor Seçilen günün kuru küspe detayı (ham girdi + net üretim ayrı), tüm malzeme ve silo hareketleri. Giriş yapan
+Geçmiş Girişler Tarih aralığına göre girilmiş günlerin listesi; düzeltme ve o günün tüm girişlerini silme. Giriş yapan
+Devir Stok İki sekme: malzeme devirleri ve silo devirleri. Kampanya başında bir kez girilir. Yönetici
+Malzeme Yönetimi Malzeme ekleme, düzenleme, pasifleştirme. Yönetici
+Kullanıcı Yönetimi Kullanıcı ekleme, düzenleme, parola sıfırlama, aktif/pasif. Yönetici
+Değişiklik Geçmişi v2 Kayıt bazında kim, ne zaman, hangi alanı, hangi değerden hangi değere değiştirdi. Yönetici
+Kullanılabilirlik Demirbaş
+Operatör bu ekranı her gün, çoğu zaman aceleyle kullanacak. Tarih seçici varsayılan olarak bugünü göstersin, sayısal alanlar Türkçe biçimi kabul etsin ( 1.234,56 ), kaydetten sonra ne olduğu net bir mesajla söylensin. Hesaplanan değerler (net dökme, silodan çekilecek) kullanıcı yazarken anında güncellensin — kaydete basınca sürpriz olmasın.
+Arayüz iyileştirmeleri v2
+Nerede Ne Neden
+Kuru Küspe Günlük Giriş Seçilen günde zaten kayıt varsa uyarı: "Bu gün 14:30'da Ahmet tarafından girilmiş, üzerine yazıyorsun." Haberi olmadan üzerine yazmayı önler — eşzamanlılık vakalarının çoğu bu
+Silo Durumu Herhangi bir silo geçmişte negatife düşüyorsa uyarı satırı: "Silo 2 · 15.07.2026 · −150.000" Geriye dönük düzeltmenin sonraki günleri bozması görünür olur
+Silo Durumu Kapasiteye göre doluluk çubuğu ve yüzde Silolar.Kapasite zaten tutuluyordu, hiç kullanılmıyordu
+Silo dağıtımı Kapasite aşılıyorsa yumuşak uyarı (engel değil) — D15 240.000'i 50.000'lik siloya yazan parmak hatasını yakalar
+Günlük Rapor Dökme satış ayrı satır olarak görünür Ham girdinin kaybolmaması kuralının dökme satışa uzantısı
+8 Doğrulama kuralları
+Bunların hepsi sunucu tarafında kontrol edilmeli. Ekranda da engellemen iyi olur ama tek savunma hattı ekran olmamalı.
+Demirbaş D1 – D12
+D1 Üretilen dökme küspe negatif olamaz. Hata
+D2 Çuval adedi negatif olamaz. Hata
+D3 Silolara yerleştirilen toplam, net dökme üretime eşit olmalı (±0,01 kg tolerans). Hata
+D4 Net dökme üretim 0 iken siloya yerleştirme yapılamaz. Hata
+D5 Silolardan çekilen toplam, hesaplanan çekiş miktarına eşit olmalı (±0,01 kg). Hata
+D6 Çekiş gerekmiyorken silodan çekiş girilemez. Hata
+D7 Bir silodan, o gün başındaki mevcudundan fazlası çekilemez. Hata
+D8 Aynı gün + aynı malzeme için ikinci kayıt açılamaz (güncelleme yapılır). Upsert
+D9 Kullanıcı kendi hesabını pasifleştiremez. Engelle
+D10 Sistemdeki son aktif yönetici pasifleştirilemez veya operatöre düşürülemez. Engelle
+D11 Aynı kullanıcı adı iki kez eklenemez. Hata
+D12 Kullanıcı ve malzeme silinmez , yalnızca pasifleştirilir. Tasarım
+D12 neden böyle
+Geçmiş kayıtlar "bu girişi kim yaptı" bilgisini tutuyor. Kullanıcıyı silersen o bağ kopar ve eski kayıtlar sahipsiz kalır. Malzeme için de aynısı geçerli: silinirse geçmiş günlük hareketler anlamsızlaşır. Pasifleştirilen kayıt yeni işlemlerde seçilemez ama geçmişte görünmeye devam eder.
+v2 D13 – D16
+D13 Dökme satış için silolardan çekilen toplam, girilen SatilanDokme değerine eşit olmalı (±0,01 kg). D3 ve D5 ile aynı mantık; dökme satışın silo karşılığı olmadan kayıt geçmez. Dökme küspe yalnızca silolarda durduğu için karşılıksız satış, stoğun hiç azalmaması demektir. Hata
+D7'nin kapsamı genişledi
+D7 metni değişmedi Demirbaş , ama dökme satış eklendiğinde çekiş kavramı iki kalemi birden kapsar: çuvallama çekişi + satış çekişi . Bir silodan o gün çekilen toplam, o günün başındaki mevcudunu aşamaz. İkisi ayrı ayrı sığıyor diye toplamı sığmayabilir; kontrol toplam üzerinden yapılmalı.
+D14 Kayıt veya silme sonrası, işlem tarihinden son kayıtlı güne kadar her silonun bakiyesi ileri doğru hesaplanır. Herhangi bir gün negatife düşüyorsa işlem reddedilir ve hangi silonun hangi tarihte patladığı söylenir. D7 yalnız o günün başına bakıyordu. Geçmiş bir günü düşürmek sonraki günü negatife çekebiliyordu ve hiçbir kural engellemiyordu. Aynı transaction içinde çalışır. Hata
+D15 Bir silonun gün sonu bakiyesi o silonun kapasitesini aşıyorsa uyarı gösterilir — kayıt engellenmez. Kontrol silo başına yapılır, toplam üzerinden değil. Yerleştirilen miktar değil, oluşan bakiye ölçülür; silo stoğu kümülatiftir. Kapasite 3.000.000 kg (§13 Soru 5 ile teyit edilecek). Fiili taşma ve ölçüm sapması gerçektir, sert engel operatörü kilitler — amaç parmak hatasını yakalamak. Uyarı
+D16 Kayıt güncellenirken RowVersion değeri okunduğu andakinden farklıysa işlem reddedilir; kullanıcıya kaydın değiştiği söylenir ve yenilemesi istenir. Unique kısıtların yerine geçmez, yanına gelir. Hata
+9 Kabul testleri
+Uygulamayı teslim etmeden önce bu senaryoların hepsi geçmeli. Hepsi geçmiyorsa iş bitmemiştir. Rakamlar gerçek bir günün verisinden alınmıştır Demirbaş .
+Test 1 Üretim çuvallamadan fazla Demirbaş
+Silolar boş (devir 0). 03.07.2026 için üretilen dökme 250.000 kg, çuvallanan 200 adet. Tamamı Silo 1'e.
+CuvalKg = 10.000
+NetDokmeUretim = 240.000
+SilodanCekilecek = 0
+Silo 1 mevcut = 240.000
+Dökme Kuru Küspe stok = 240.000 // silo toplamı
+Kuru Küspe (50 Kg) stok = 10.000
+Test 2 Çuvallama üretimden fazla Demirbaş
+Test 1'in ertesi günü: üretilen dökme 5.000 kg, çuvallanan 200 adet. Çekiş Silo 1'den.
+NetDokmeUretim = 0
+SilodanCekilecek = 5.000
+Silo 1 mevcut = 235.000 // 240.000 − 5.000
+Raporda ham girdi 5.000 ayrı satırda görünür
+Test 3 Aynı günü düzeltme Demirbaş
+Test 1'deki günü aç, üretilen dökmeyi 250.000'den 300.000'e çıkar ve kaydet.
+Silo 1 mevcut = 290.000 // 240.000 DEĞİL, 530.000 HİÇ DEĞİL
+O güne ait silo hareketi sayısı = 1 // eskisi silinmiş olmalı
+Test 4 Silo yetersiz Demirbaş
+Silo 1'de 1.000 kg varken, çuvallama için 5.000 kg çekilmeye çalışılır.
+Kayıt reddedilir, hangi silonun yetersiz olduğunu söyleyen hata verilir (D7).
+Test 5 Dağıtım toplamı tutmuyor Demirbaş
+Net dökme 240.000 iken silolara toplam 200.000 dağıtılır.
+Kayıt reddedilir, beklenen ve girilen toplam hatada gösterilir (D3).
+Test 6 Çift sayım yok Demirbaş
+Test 1'den sonra Stok Durumu ekranı açılır.
+Dökme + Çuvallı toplam = 250.000 // 260.000 ise çift sayıyorsun
+Test 7 Yetki Demirbaş
+Operatör hesabıyla giriş yapılır ve devir stok ekranının adresi tarayıcıya elle yazılır.
+Erişim engellenir. Menüde görünmemesi tek başına yeterli değildir.
+Test 8 Son yönetici koruması Demirbaş
+Tek yönetici hesabıyla girilip kendi rolü operatöre düşürülmeye çalışılır.
+Engellenir (D10). Aksi hâlde sisteme kimse yönetici olarak giremez.
+Test 9 Geriye dönük düzeltme sonraki günü bozuyor v2
+Test 1 ve Test 2 girildikten sonra (Silo 1 = 235.000), 03.07 açılır ve üretilen dökme 250.000'den 8.000'e düşürülmeye çalışılır.
+Kayıt reddedilir (D14).
+Hata mesajı hangi silonun hangi tarihte negatife düştüğünü söyler.
+Silo 1 mevcut değişmez = 235.000
+Test 10 Gün silme v2
+Test 1 ve Test 2 girildikten sonra 03.07 günü tamamen silinir.
+Silme reddedilir (D14) — 04.07 negatife düşerdi.
+Önce 04.07 silinirse, ardından 03.07 silinebilir.
+Her iki gün silindikten sonra Silo 1 mevcut = 0
+Test 11 Dökme satış v2
+Test 1'in ertesi günü: üretilen dökme 0, çuvallanan 0, satılan dökme 40.000 kg — Silo 1'den.
+Silo 1 mevcut = 200.000 // 240.000 − 40.000
+Dökme Kuru Küspe stok = 200.000 // silo toplamı takip eder
+SiloHareket tipi = DokmeSatis
+Silo karşılığı girilmezse kayıt reddedilir (D13)
+Test 12 Eşzamanlı düzenleme v2
+İki oturum aynı günü açar. Birincisi kaydeder, ardından ikincisi kaydetmeye çalışır.
+İkinci kayıt reddedilir (D16).
+Kullanıcıya kaydın değiştiği söylenir, yenilemesi istenir.
+Birincinin yazdığı değerler korunur.
+10 Teknik notlar
+Teknoloji yığını v2
+Katman v1 v2 Gerekçe
+Çatı .NET 8 .NET 8 Değişmiyor. Fabrikadaki diğer programlar .NET 8 ile yazılmış; tek sürümde kalmak bakım ve sunucu tarafını sadeleştiriyor
+Şablon Blazor Server Blazor Web App · Interactive Server Aynı çalışma modeli. Eski "Blazor Server App" şablonu .NET 8 ile kaldırıldı; .NET 8'in kendi şablonu bu
+Arayüz MudBlazor MudBlazor Değişmiyor
+Veri erişimi Dapper Dapper Referans uygulama Dapper; stok sorguları agrega ağırlıklı; §12'nin tek SQL betiği şartına uyuyor
+Veritabanı SQL Server SQL Server Sunucuda zaten duruyor
+Kimlik Çerez + hash Cookie authentication + BCrypt ASP.NET Core Identity kurulmayacak — kendi şemasını dayatır, §6'daki Kullanicilar tablosuyla çakışır
+Test Elle xUnit + LocalDB Her test kendi transaction'ında açılır ve geri alınır
+Değişmeyen teknik temeller Demirbaş
+Veritabanı SQL Server (mevcut sunucuda duruyor).
+Ağdan birden fazla kişinin aynı anda kullanabileceği bir web uygulaması.
+Parolalar hash'li, oturum yönetimi var.
+Miktar alanları decimal , asla float değil.
+Karar kaydı · .NET 8'de kalınıyor
+v2 hazırlanırken .NET 10 LTS önerilmişti; gerekçe .NET 8'in desteğinin 10 Kasım 2026 'da bitmesiydi. Karar .NET 8'de kalmak yönünde verildi: fabrikadaki diğer programlar .NET 8 ile yazılmış ve tek sürümde kalmak bakımı, sunucu kurulumunu ve ekip alışkanlığını sadeleştiriyor.
+Bilinen sonuç: Kasım 2026'dan sonra .NET 8'e güvenlik yaması gelmeyecek. Uygulama fabrika ağında çalıştığı ve internete açık olmadığı için bu risk kabul edildi. Yükseltme gerektiğinde .csproj hedef çatısını değiştirmek ve paketleri güncellemek yeterli — bu projede küçük iş.
+Karar tarihi: 19.08.2026 · Mümin Bey'e bildirilecek (v1 §10: "başka bir yığın seçeceksen önce konuş")
+Paket listesi v2
+Aşağıdaki sürümler 19.08.2026 tarihinde NuGet üzerinden doğrulanmıştır . Kurulumdan önce güncel sürüme bakılmalı.
+Paket Sürüm .NET 8 Ne için
+MudBlazor 9.8.0 ✓ Bileşen kütüphanesi. net8.0 , net9.0 ve net10.0 hedefliyor. Not: MudBlazor ileride net8.0 hedefini bırakmayı planlıyor — o zaman sürüm sabitlenir ya da çatı yükseltilir
+Dapper 2.1.79 ✓ Veri erişimi
+BCrypt.Net-Next 4.2.x ✓ Parola hash'i — §3'teki "BCrypt gibi bir algoritma"nın karşılığı
+Microsoft.Data.SqlClient — ✓ SQL Server bağlantısı
+xUnit — ✓ 12 kabul testi
+ClosedXML — ✓ Yalnızca §11'deki Excel çıktısı yapılacaksa. MIT lisanslı
+Bunların dışında bağımlılık eklenmeyecek. Özellikle ikinci bir admin/CRUD çatısı (React tabanlı olanlar Blazor'da çalışmaz), ORM (Dapper seçildi) veya kimlik çatısı (Identity kurulmuyor) eklenmez.
+Kodlamadan önce doğrula · tek kalem
+Fabrikadaki sunucuda ASP.NET Core 8 Hosting Bundle kurulu mu? Diğer programlar .NET 8 ile çalıştığı için büyük ihtimalle kuruludur — ama teyit edilmeli. Sunucuda çalıştırılacak: dotnet --list-runtimes ve IIS kullanılacaksa Get-Service W3SVC .
+Kod düzeni v2
+Hesap, ekranın içine yazılmamalı. v1'in kendi çalışma yöntemi (§12) zaten "önce hesabı kur, konsoldan veya testle doğrula" diyor — bu ancak hesap ekrandan ve veritabanından ayrıksa mümkün. Bu bir mimari değil, üç parçalı basit bir ayrım:
+KuruKuspeHesaplayici // saf fonksiyon, veritabanı yok
+(uretilenDokme, cuvalAdet, satilanDokme)
+→ (cuvalKg, netDokmeUretim, silodanCekilecek)
+DogrulamaKurallari // D1–D16, tek yerde
+KayitServisleri // transaction'ı yönetir:
+// eski silo hareketlerini sil → günlük kaydı yaz
+// → yeni hareketleri yaz → GunlukHareket upsert
+Bilinen tuzaklar
+Konu Sorun ve çözüm
+Türkçe karakter SQL betiklerini komut satırından çalıştırırken dosya UTF-8 olsa bile araç ANSI okuyabiliyor ve "Küspe" bozuluyor. Kodlamayı açıkça belirt ( sqlcmd -f 65001 ). Sütun tiplerinde NVARCHAR kullan.
+Sınıf adı çakışması Sayfa dosyasına veri modeliyle aynı adı verirsen ( DevirStok.razor ↔ DevirStok sınıfı) derleme patlar. Sayfa dosyasını farklı adlandır, adres aynı kalabilir.
+Ondalık ayracı Sayısal alanlarda kültür ayarını açıkça ver; yoksa 1.234,56 yanlış okunur veya kabul edilmez.
+Transaction Kuru küspe kaydı dört ayrı yazma işlemi yapıyor. Tek transaction içinde olmazsa yarım kayıt kalır ve stok bozulur.
+İlk kullanıcı Uygulama ilk açıldığında kullanıcı tablosu boşsa bir yönetici hesabı oluşturmalı, yoksa sisteme girilemez. Varsayılan parola ilk girişte değiştirilmeli.
+Render mode v2 Blazor Web App'te sayfalar varsayılan olarak statik SSR'dır — render mode ayarlanmazsa form tıklamalara cevap vermez. Ayrıca prerender açıkken bileşen iki kez kurulur: önce statik prerender sırasında, sonra SignalR bağlantısı kurulunca yeniden. Bu yüzden OnInitialized ve OnInitializedAsync iki kez çalışır — bir stok uygulamasında yazma işlemi yaşam döngüsüne girerse çift kayıt demektir.
+Çözüm: App.razor içinde <Routes @rendermode="new InteractiveServerRenderMode(prerender: false)" /> . (Microsoft Learn ve dotnet/aspnetcore #52208 ile doğrulandı.)
+Test altyapısı v2 Testleri in-memory sağlayıcıyla yazma. Unique kısıt, rowversion , decimal hassasiyeti ve transaction davranışı taklit edilmez; tam da sınamak istediğin kurallar sınanmamış olur. LocalDB veya Docker'da gerçek SQL Server kullan.
+11 Opsiyonel genişletmeler Demirbaş
+Ana işlev bitip kabul testleri geçtikten sonra sırayla ele alınabilir. Bunlara baştan başlama.
+Excel çıktısı — stok durumu ve günlük raporun Excel'e aktarılması. ClosedXML kullanılacak, EPPlus değil — aşağıdaki lisans uyarısına bak.
+Gübre takibi — gübre de fabrikada satılan bir ürün. Basit malzeme olarak eklenebilir; ambar bazında ayrım gerekiyorsa önce konuşulmalı.
+Aylık özet ekranı — ay bazında toplam üretim/satış, gün gün grafik.
+Sayım/düzeltme kaydı — fiili sayım ile sistem stoğu arasındaki farkın Manuel silo hareketi olarak girilmesi.
+Silo doluluk göstergesi v1'de bu listedeydi; v2'de D15 ile birlikte ana kapsama alındı.
+Lisans uyarısı · Excel kütüphanesi v2
+EPPlus kullanılmayacak. EPPlus 4.5.3'e (2018) kadar MIT lisanslıydı; sürüm 5 ile Polyform Noncommercial lisansına geçti ve sonraki sürümler ticari kullanım için ücretli lisans gerektiriyor . Bir fabrikada üretimde çalışan uygulama ticari kullanımdır.
+Örnek kodların çoğu hâlâ EPPlus gösterdiği için bu tuzağa düşmek kolay. ClosedXML MIT lisanslıdır ve ticari kullanımda ücretsizdir; bu proje için gereken okuma/yazma işlerini karşılar (grafik oluşturma desteklemez, burada da gerekmiyor).
+12 Teslim beklentileri Demirbaş
+Kaynak kod bir sürüm kontrol deposunda (git) ve düzenli commit'lerle.
+Veritabanını sıfırdan kuran tek bir SQL betiği — tabloları, kısıtları ve başlangıç verisini oluşturur, ikinci kez çalıştırılınca hata vermez.
+Bağlantı bilgileri koda gömülü değil, ayar dosyasında.
+Kısa bir kurulum notu: nasıl derlenir, nasıl çalıştırılır, ilk giriş nasıl yapılır.
+9. bölümdeki kabul testlerinin çalıştırılmış olması — v2 artık on iki test, xUnit ile otomatik.
+Çalışma yöntemi Demirbaş
+Önce veri modelini ve 4. bölümdeki hesabı kur, konsoldan veya testle doğrula. Ekranlar en son gelsin. Hesap yanlışsa güzel ekran işe yaramaz; hesap doğruysa ekranı iyileştirmek kolaydır.
+Önerilen sıra v2
+1 Açık soruları netleştir 13. bölüm — özellikle dökme satış. Her şeyin önünde. ½ gün
+2 Veri modeli + saf hesap sınıfı + D1–D16 Ekran yok. SQL betiği burada yazılır. 3 gün
+3 12 kabul testini xUnit'e yaz Gerçek SQL Server'a karşı. Buradan sonrası kırmızıdan yeşile. 2 gün
+4 Kayıt servisi + transaction + RowVersion + denetim izi Testler yeşile döndüğünde bu adım bitmiştir. 3 gün
+5 Ekranlar MudBlazor'ın kendi görünümüyle, çalışır hâle getir. 5 gün
+6 Arayüz iyileştirmeleri ve görsel dil Yalnızca testler geçtikten sonra. 3 gün
+13 Açık sorular v2
+Bunlar iş kalemi değil, karar. Cevaba göre iş çıkar ya da hiç çıkmaz. Kodlamaya başlamadan cevaplanmalı.
+Cevaplananlar
+Soru 1 · Cevaplandı
+Dökme küspe silodan doğrudan satılıyor mu?
+Evet. Dökme kuru küspe yalnızca silolarda durur; satışı doğrudan silolardan yapılır.
+Sonuç: §4'teki SatilanDokme alanı, D13 ve Test 11 kapsamda kalır. DokmeSatis hareket tipi korunur.
+Soru 5 · Kısmen cevaplandı
+Silo kapasitesi kaç?
+3.000 ton = 3.000.000 kg .
+Sonuç: D15 ve doluluk göstergesi uygulanabilir. Kapasite kg cinsinden saklanır.
+Açık kalanlar
+Soru 5a · Öncelikli · Soru 5'ten arta kalan
+3.000 ton her bir silonun kapasitesi mi, yoksa üç silonun toplamı mı?
+İki okuma üç kat fark yaratıyor:
+Silo başına → her silo 3.000.000 kg , toplam 9.000.000 kg
+Toplam → her silo 1.000.000 kg , toplam 3.000.000 kg
+D15 uyarısı bu sayıya göre tetiklenir; yanlış değer uyarıyı ya hiç çalışmaz ya da sürekli çalışır hâle getirir. Ayrıca siloların kaç günde dolduğu ( 12 gün mü 37 gün mü) buna bağlı. Üç silonun kapasitesi birbirinden farklıysa ayrı ayrı da yazılabilir — tablo silo başına kapasite tutuyor.
+Soru 2
+Gelecek kampanyada devir stok ne olacak?
+Yeni sezon açılıp eski sezon saklanacaksa §5'teki "en son devir" formülü uygulanır. "Üzerine yazarız" cevabı geliyorsa tek satırlık yapı yeterlidir ve §5'teki v2 maddesi düşer.
+Soru 3
+Basit malzeme stoğu negatife düşerse ne olsun?
+Engellensin mi, uyarı mı verilsin, serbest mi? Öneri: uyarı. Sert engel, veri giriş sırası bozuk olduğunda operatörü kilitler.
+Soru 4
+Silolar arası transfer oluyor mu?
+Oluyorsa Manuel tipiyle karşılanabilir, ama çıkan ve giren hareket ortak bir referansla eşleştirilmeli — yoksa transfer, bir siloda kayıp diğerinde kazanç gibi görünür.
+Soru 6 · Soru 1'in doğurduğu yeni soru
+Dökme satış aynı gün birden fazla silodan yapılabiliyor mu?
+Bir kamyona iki silodan yükleniyorsa giriş ekranı silo başına ayrı satır kabul etmeli. Tek silodan yapılıyorsa tek seçim yeter ve ekran sadeleşir. D13 her iki durumda da aynı çalışır.
+Yan Ürünler Stok Takip — Şartname v2.0
+v1: Mümin CEYLAN. v2: teknik güncelleme ve iyileştirmeler; işleyiş, hesap formülleri ve kabul testi rakamları v1'den birebir korunmuştur. Demirbaş işaretli maddeler değişiklik teklifine kapalıdır.

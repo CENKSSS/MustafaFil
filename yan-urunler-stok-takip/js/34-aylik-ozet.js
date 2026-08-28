@@ -119,93 +119,20 @@
   }
 
   function tire() { return YU.h('span', { sinif: 'yu-zayif', metin: '—' }); }
-  function kgYaTire(n) { return n ? YU.fmt.kg(n) : tire(); }
+  /* Rakamın yanında BİRİM yazar (kullanıcı isteği, 26.08.2026): sayı
+     normal, "kg" küçük ve soluk — Stok Durumu ile aynı ölçü dili
+     (YU.ui.olcu). Hazır sayı metni verilirse (işaretli fark gibi)
+     olduğu gibi kullanılır. */
+  function kgOlcu(metinYaDaSayi) {
+    var m = typeof metinYaDaSayi === 'string' ? metinYaDaSayi : YU.fmt.kg(metinYaDaSayi);
+    return YU.ui.olcu([{ sayi: m, birim: 'kg' }], 'sag');
+  }
+  function kgYaTire(n) { return n ? kgOlcu(n) : tire(); }
 
   /* Kuru küspe ay toplamı (Şartname §4). Hesap GÜNLÜK yapılıp toplanır:
      netDokmeUretim ve silodanCekilecek max(0,…) içerdiği için aylık brütten
      aylık çuvalı çıkarmak YANLIŞ olurdu — Durum B günleri (çuvallama >
      üretim) o gün silodan çekilir, ertesi günün üretimiyle mahsuplaşmaz. */
-  /* Yaş küspe ay özeti (kullanıcı isteği, 25.08.2026 — "Ayın Uç Günleri"nin
-     yerine). Kuru küspenin karşılığı ama YAŞ küspeye ait kalemlerle:
-     yaş küspenin özel tipi yoktur, silo/çuvallama akışı da yoktur — üretim
-     ve satış doğrudan GunlukHareket'ten okunur. Tonluk ve 25'lik ambalajlar
-     ayrı ayrı, altında toplam ve stok değişimi verilir. */
-  var POSET_DESEN = /25\s*'?\s*l[ıi]k|25\s*kg|po[şs]et/i;
-
-  /* Bir ÜRÜN AİLESİNİN (kuru / yaş) ay özeti — iki panel de bunu kullanır
-     ki aynı iskelette okunsunlar (kullanıcı isteği, 25.08.2026: "ortak
-     paydada birleştir"). Döner:
-       kalemler   : biçim/ambalaj kırılımı  [{ad, kg, ek}]
-       uretim     : ayın toplam üretimi
-       satis/iade : ailenin ay toplamı (bütün malzemeleri)
-       basStok/sonStok/stokDegisimi, gun, gunlukOrt
-     KURU KÜSPE İSTİSNASI (Şartname §4 Demirbaş): dökme satırının
-     GunlukHareket üretimi NET'tir; ailenin toplam üretimi BRÜT dökme
-     üretimidir ve çuvallama yeni üretim değildir — o yüzden toplam
-     kalemlerin toplamı değil, kkAyi.uretilenDokme'den gelir. */
-  function aileAyi(depo, ay, sinirGun, aile, basTarih, sonTarih, kkAyi) {
-    var t = {
-      kalemler: [], uretim: 0, satis: 0, iade: 0,
-      basStok: 0, sonStok: 0, gun: 0
-    };
-    var gunler = {}, i, j, m, h, kalemKg, kalemEk;
-    for (i = 0; i < depo.malzemeler.length; i++) {
-      m = depo.malzemeler[i];
-      if (malzemeGrubu(m.Ad) !== aile) continue;
-      t.basStok = YU.yuvarla(t.basStok + (Number(YU.stok.malzemeStok(depo, m.Id, basTarih).mevcut) || 0));
-      t.sonStok = YU.yuvarla(t.sonStok + (Number(YU.stok.malzemeStok(depo, m.Id, sonTarih).mevcut) || 0));
-      kalemKg = 0; kalemEk = null;
-      for (j = 0; j < depo.gunlukHareket.length; j++) {
-        h = depo.gunlukHareket[j];
-        if (h.MalzemeId !== m.Id) continue;
-        if (ayAnahtari(h.Tarih) !== ay) continue;
-        if (sinirGun && gunNo(h.Tarih) > sinirGun) continue;
-        var u = Number(h.Uretim) || 0, s = Number(h.Satis) || 0, ia = Number(h.Iade) || 0;
-        kalemKg = YU.yuvarla(kalemKg + u);
-        t.satis = YU.yuvarla(t.satis + s);
-        t.iade = YU.yuvarla(t.iade + ia);
-        if (u || s || ia) gunler[h.Tarih] = 1;
-      }
-      /* Kuru küspede dökme kalemi BRÜT yazılır (net değil): panelin ilk
-         satırı "ne üretildi" sorusuna cevap vermeli. Çuvallı kalemin yanına
-         çuval adedi eklenir. */
-      if (aile === 'kuru' && m.OzelTip === 'DokmeKuruKuspe' && kkAyi) {
-        kalemKg = kkAyi.uretilenDokme;
-        kalemEk = 'brüt';
-      }
-      if (aile === 'kuru' && m.OzelTip === 'CuvalKuruKuspe' && kkAyi) {
-        kalemEk = YU.fmt.sayi(kkAyi.cuvalAdet) + ' çuval';
-      }
-      t.kalemler.push({ ad: kisaAdi(m.Ad, aile), kg: kalemKg, ek: kalemEk });
-      t.uretim = YU.yuvarla(t.uretim + kalemKg);
-    }
-    /* Kuru küspede toplam = BRÜT dökme üretimi. Çuvallama biçim
-       değiştirmedir, üretime İKİNCİ KEZ eklenmez (§4 çift sayım yasağı). */
-    if (aile === 'kuru' && kkAyi) t.uretim = kkAyi.uretilenDokme;
-    for (var g in gunler) if (Object.prototype.hasOwnProperty.call(gunler, g)) t.gun++;
-    t.stokDegisimi = YU.yuvarla(t.sonStok - t.basStok);
-    /* Ortalama TAM KG yazılır: 23.545,600 gibi üç ondalık okunmuyordu. */
-    t.gunlukOrt = t.gun ? Math.round(t.uretim / t.gun) : 0;
-    return t;
-  }
-
-  /* Kalem etiketi: aile adı satırda tekrar etmesin — "Yaş Küspe (Tonluk)"
-     yaş panelinde "Tonluk" olur, "Kuru Küspe (50 Kg)" kuru panelinde
-     "Çuvallı (50 Kg)". */
-  function kisaAdi(ad, aile) {
-    var s = String(ad);
-    if (aile === 'kuru') {
-      if (/d[öo]kme/i.test(s)) return 'Dökme';
-      if (/50/.test(s)) return 'Çuvallı (50 Kg)';
-    }
-    if (aile === 'yas') {
-      if (/d[öo]kme/i.test(s)) return 'Dökme';
-      if (/25/.test(s)) return '25’lik';
-      if (/tonluk/i.test(s)) return 'Tonluk';
-    }
-    return s;
-  }
-
   function kuruKuspeAyi(depo, ay, sinirGun) {
     var t = {
       uretilenDokme: 0, cuvalAdet: 0, cuvalKg: 0, netDokmeUretim: 0,
@@ -276,52 +203,13 @@
     return g;
   }
 
-
-  /* Yüzde değişim rozeti: artış yeşil, düşüş kırmızı. Önceki dönem 0 ise
-     yüzde tanımsızdır; oran uydurulmaz, "—" yazılır. ("yeni" işareti
-     kaldırıldı — kullanıcı isteği, 25.08.2026.) */
-  function degisimRozeti(simdi, onceki) {
-    if (!onceki) return tire();
-    var oran = (simdi - onceki) / onceki * 100;
-    if (Math.abs(oran) < 0.05) return YU.ui.rozet('%0', 'notr');
-    return YU.ui.rozet((oran > 0 ? '+' : '−') + YU.fmt.yuzde(Math.abs(oran)),
-      oran > 0 ? 'olumlu' : 'olumsuz');
-  }
-
-  /* Ay içinde kampanya devri yapıldı mı — devir, stoğu üretim/satıştan
-     bağımsız değiştirir; o ayın stok değişimi başka bir ayla kıyaslanamaz. */
-  function aydaDevirVar(depo, ayKodu) {
-    var i;
-    for (i = 0; i < depo.devirStok.length; i++) {
-      if (ayAnahtari(depo.devirStok[i].DevirTarihi) === ayKodu) return true;
-    }
-    for (i = 0; i < depo.siloDevirStok.length; i++) {
-      if (ayAnahtari(depo.siloDevirStok[i].DevirTarihi) === ayKodu) return true;
-    }
-    return false;
-  }
-
-  /* Etiket–değer satırı (Silo Durumu'ndaki dille aynı). */
-  function olcuSatiri(etiket, deger, guclu) {
-    return YU.h('div', {
-      stil: { display: 'flex', alignItems: 'baseline', gap: '12px', padding: '7px 0' }
-    },
-      YU.h('span', { sinif: 'yu-etiket', metin: etiket, stil: { flex: '1', minWidth: '0' } }),
-      deger && deger.nodeType
-        ? deger
-        : YU.h('span', { sinif: 'yu-mono' + (guclu ? ' yu-guclu' : ''), metin: deger })
-    );
-  }
-
   /* İşaretli fark hücresi: +yeşil, −kırmızı, 0 gri. Ay içinde kampanya
      devri varsa yıldızla işaretlenir — fark devir etkisini de içerir,
      yalnız üretim/satıştan gelmez (KURAL 4.4: yanıltıcı okuma engellenir). */
   function farkHucre(n, devirIcinde) {
     if (!n && !devirIcinde) return tire();
-    var deger = YU.h('span', {
-      stil: { color: n > 0 ? 'var(--olumlu)' : (n < 0 ? 'var(--olumsuz)' : null) },
-      metin: n ? (n > 0 ? '+' : '−') + YU.fmt.kg(Math.abs(n)) : YU.fmt.kg(0)
-    });
+    var deger = kgOlcu(n ? (n > 0 ? '+' : '−') + YU.fmt.kg(Math.abs(n)) : YU.fmt.kg(0));
+    deger.style.color = n > 0 ? 'var(--olumlu)' : (n < 0 ? 'var(--olumsuz)' : '');
     if (!devirIcinde) return deger;
     /* Devir etkisi yıldız + dipnot yerine hücrenin alt satırında yazar
        (KURAL 8, 25.08.2026). */
@@ -372,7 +260,6 @@
        yükseklikte kalır ve kaydırma çubuğu görünür durur.
        Gezinme düğmeleri kayıtlı aylar arasında yürür: aylar dizisi yeniden
        eskiye sıralı olduğu için "Önceki Ay" bir SONRAKİ öğedir. */
-    var AY_LISTE_YUKSEKLIGI = 236;   /* ~5,5 satır: kaydırılabilirlik görünsün */
     var i;
 
     /* Ay başına kayıtlı gün sayısı — tek geçişte; satırda "12 gün" yazar. */
@@ -392,50 +279,81 @@
     var buAyKodu = ayAnahtari(YU.tarih.bugun());
     var buAyVar = aylar.indexOf(buAyKodu) >= 0;
 
+    /* WINDOWS TARZI 12 AYLIK IZGARA (kullanıcı isteği, 26.08.2026).
+       Eskiden dikey bir liste vardı ve yalnız KAYITLI ayları gösteriyordu;
+       kaç ay olduğu belli olmuyor, yıl atlamak için kaydırmak gerekiyordu.
+       Artık klasik takvim düzeni: üstte '‹ 2026 ›' yıl gezinmesi, altında
+       4x3 ızgarada OCK ŞBT MRT … ARA. Karede RAKAM YOK (kullanıcı isteği,
+       26.08.2026): kaydı olmayan ay soluk ve tıklanamaz durur, hangi ayda
+       veri var zaten oradan görünür. Kaç gün kayıt olduğu ipucunda yazar —
+       ekranda yer kaplamaz, isteyen görür (KURAL 8). */
+    var AY_KISA = ['OCK', 'ŞBT', 'MRT', 'NİS', 'MAY', 'HAZ',
+                   'TEM', 'AĞU', 'EYL', 'EKİ', 'KAS', 'ARA'];
+
+    /* Kayıtlı yılların sınırları: yıl okları bunların dışına çıkmaz. */
+    var yillar = (function () {
+      var s = {}, j;
+      for (j = 0; j < aylar.length; j++) s[aylar[j].slice(0, 4)] = 1;
+      return Object.keys(s).sort();
+    })();
+    var ilkYil = yillar.length ? parseInt(yillar[0], 10) : parseInt(ay.slice(0, 4), 10);
+    var sonYil = yillar.length ? parseInt(yillar[yillar.length - 1], 10) : ilkYil;
+
     var ayCipi = YU.ui.acilirCip({
       ikon: '#ic-calendar', metin: ayAdi(ay), genislik: 268, enGenis: 268,
-      baslik: 'Ay seç', dolgu: '8px 8px 10px',
+      baslik: 'Ay seç', dolgu: '9px 9px 10px',
       govde: function (kapat) {
-        var kap = YU.h('div');
-        var liste = YU.h('div', {
-          sinif: 'yu-ay-liste',
-          stil: { maxHeight: AY_LISTE_YUKSEKLIGI + 'px', overflowY: 'auto' }
-        });
-        var sonYil = null, j;
-        for (j = 0; j < aylar.length; j++) {
-          (function (a) {
-            var yil = a.slice(0, 4);
-            if (yil !== sonYil) {
-              liste.appendChild(YU.h('div', {
-                sinif: 'yu-ay-yil', metin: yil,
-                stil: sonYil === null ? { marginTop: '2px' } : null
-              }));
-              sonYil = yil;
-            }
-            var secili = a === ay;
-            var gun = ayGunSayisi[a] || 0;
-            liste.appendChild(YU.h('button', {
-              tip: 'button',
-              sinif: 'yu-ay-satir' + (secili ? ' secili' : ''),
-              'aria-pressed': secili ? 'true' : 'false',
-              onClick: function () { kapat(); YU.git(KOD, { ay: a }); }
-            },
-              YU.h('span', { metin: ayAdi(a), stil: { flex: '1', minWidth: '0', textAlign: 'left' } }),
-              YU.h('span', {
-                sinif: 'yu-ay-satir-gun',
-                metin: gun ? YU.fmt.sayi(gun) + ' gün' : '—'
-              })
-            ));
-          })(aylar[j]);
+        var kap = YU.h('div', { stil: { minWidth: '236px' } });
+        var gosterilenYil = parseInt(ay.slice(0, 4), 10);
+        var izgara = YU.h('div', { sinif: 'yu-ay-izgara' });
+        var yilYazi = YU.h('span', { sinif: 'yu-ay-yil-baslik' });
+
+        function yilOku(yon, etiket) {
+          return YU.h('button', {
+            tip: 'button', sinif: 'yu-ay-yil-ok', 'aria-label': etiket, title: etiket,
+            onClick: function () { gosterilenYil += yon; ciz(); }
+          }, YU.h('span', {
+            stil: { display: 'flex', transform: yon < 0 ? 'rotate(180deg)' : 'none' }
+          }, YU.svg('#ic-chevron', 14)));
         }
-        kap.appendChild(liste);
-        if (aylar.length > 5) {
-          kap.appendChild(YU.h('div', {
-            sinif: 'yu-yardim',
-            stil: { margin: '0', padding: '8px 4px 0', borderTop: '1px solid var(--ayrac)' },
-            metin: YU.fmt.sayi(aylar.length) + ' kayıtlı ay'
-          }));
+        var geriOk = yilOku(-1, 'Önceki yıl');
+        var ileriOk = yilOku(1, 'Sonraki yıl');
+
+        function ciz() {
+          yilYazi.textContent = String(gosterilenYil);
+          geriOk.disabled = gosterilenYil <= ilkYil;
+          ileriOk.disabled = gosterilenYil >= sonYil;
+          YU.bos(izgara);
+          for (var j = 0; j < 12; j++) {
+            (function (no) {
+              var kod = gosterilenYil + '-' + (no < 9 ? '0' : '') + (no + 1);
+              var kayitli = aylar.indexOf(kod) >= 0;
+              var secili = kod === ay;
+              var gun = ayGunSayisi[kod] || 0;
+              var d = YU.h('button', {
+                tip: 'button',
+                sinif: 'yu-ay-kare' + (secili ? ' secili' : '') + (kayitli ? '' : ' bos'),
+                'aria-pressed': secili ? 'true' : 'false',
+                title: kayitli ? ayAdi(kod) + ' · ' + YU.fmt.sayi(gun) + ' gün kayıt'
+                               : ayAdi(kod) + ' · kayıt yok',
+                onClick: function () { kapat(); YU.git(KOD, { ay: kod }); }
+              },
+                YU.h('span', { metin: AY_KISA[no] })
+              );
+              if (!kayitli) d.disabled = true;
+              izgara.appendChild(d);
+            })(j);
+          }
         }
+
+        kap.appendChild(YU.h('div', { sinif: 'yu-ay-yil-satiri' }, geriOk, yilYazi, ileriOk));
+        kap.appendChild(izgara);
+        kap.appendChild(YU.h('div', {
+          sinif: 'yu-yardim',
+          stil: { margin: '0', padding: '9px 2px 0', borderTop: '1px solid var(--ayrac)' },
+          metin: YU.fmt.sayi(aylar.length) + ' kayıtlı ay'
+        }));
+        ciz();
         return kap;
       }
     });
@@ -449,7 +367,12 @@
 
     /* Önceki Ay · Bu Ay · Sonraki Ay — diğer ekranlardaki gün gezinmesinin
        aynısı; uçlarda düğme pasifleşir ve sebebini ipucunda söyler. */
+    /* Ay seçici KÂĞIDA BASILMAZ (kullanıcı isteği, 27.08.2026): Önceki/Bu/
+       Sonraki Ay düğmeleri .yu-dugme olduğu için baskıda zaten gizleniyordu,
+       "Ağustos 2026" çipi düğme sınıfı taşımadığı için kalıyordu. Hangi ayın
+       basıldığı panelin sağındaki dönem yazısında ve künyede duruyor. */
     var aySecici = YU.h('div', {
+      sinif: 'yu-baski-yok',
       stil: { display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }
     },
       ayCipi,
@@ -524,19 +447,23 @@
           }
           satirlar.push([]);
           satirlar.push(['Aylık Malzeme Özeti']);
-          satirlar.push(['Malzeme', 'Ay Başı Stok (kg)', 'Aylık Üretim (kg)', 'Günlük Ort. Üretim (kg)',
-            'Aylık İade (kg)', 'Aylık Satış (kg)', 'Stok Değişimi (kg)', kapanisBaslik + ' (kg)']);
-          var j, o, ortalama;
+          satirlar.push(['Malzeme', 'Ay Başı Stok (kg)', 'Aylık İade (kg)',
+            'Günlük Ort. Üretim (kg)', 'Günlük Ort. Satış (kg)',
+            'Aylık Üretim Toplamı (kg)', 'Aylık Satış Toplamı (kg)',
+            'Stok Değişimi (kg)', kapanisBaslik + ' (kg)']);
+          var j, o, ortUretim, ortSatis;
           for (j = 0; j < ozet.length; j++) {
             o = ozet[j];
-            ortalama = v.gunSayisi && o.uretim ? YU.yuvarla(o.uretim / v.gunSayisi) : 0;
-            satirlar.push([o.malzeme.Ad, YU.csvSayi(o.basStok), YU.csvSayi(o.uretim),
-              YU.csvSayi(ortalama), YU.csvSayi(o.iade), YU.csvSayi(o.satis),
+            ortUretim = v.gunSayisi && o.uretim ? YU.yuvarla(o.uretim / v.gunSayisi) : 0;
+            ortSatis = v.gunSayisi && o.satis ? YU.yuvarla(o.satis / v.gunSayisi) : 0;
+            satirlar.push([o.malzeme.Ad, YU.csvSayi(o.basStok), YU.csvSayi(o.iade),
+              YU.csvSayi(ortUretim), YU.csvSayi(ortSatis),
+              YU.csvSayi(o.uretim), YU.csvSayi(o.satis),
               YU.csvSayi(o.fark), YU.csvSayi(o.sonStok)]);
           }
           var t2 = v.toplam;
-          satirlar.push(['AYLIK TOPLAM', '', YU.csvSayi(t2.uretim), '', YU.csvSayi(t2.iade),
-            YU.csvSayi(t2.satis), '', '']);
+          satirlar.push(['AYLIK TOPLAM', '', YU.csvSayi(t2.iade), '', '',
+            YU.csvSayi(t2.uretim), YU.csvSayi(t2.satis), '', '']);
           satirlar.push([]);
           /* Gün gün döküm ekrandan kaldırıldı ama CSV'de KALIYOR: indirilen
              dosya Excel'de incelenecek, orada gün ayrıntısı işe yarar. */
@@ -553,6 +480,12 @@
           }
           YU.csvIndir('aylik-ozet-' + ay + '.csv', satirlar);
         }
+      }),
+      /* Ana Sayfa'daki yazdırma düğmesinin aynısı (kullanıcı isteği, 27.08.2026). */
+      YU.ui.dugme({
+        metin: 'Yazdır', ikon: '#ic-download', tur: 'birincil',
+        baslik: 'Bu sayfayı yazdır',
+        onClick: function () { window.print(); }
       })
     );
 
@@ -582,133 +515,10 @@
     var buGrup = grupOzeti(depo, v, kk, ayOncesiGun, kapanisTarih);
     var oncekiGrup = grupOzeti(depo, oncekiV, oncekiKk, oncekiOncesi, oncekiKapanis);
 
-    /* Karşılaştırılan iki pencere, panel başlığının sağında yazar (KURAL 8:
-       bilgi dipnotta değil başlıkta). KAYITLI GÜN SAYISI da yazılır: pencere
-       eşit uzunlukta olsa bile kampanya ay ortasında başlamışsa taraflardan
-       biri daha az gün taşır (ölçüldü: 1–25 Temmuz'da yalnız 4 gün kayıt var,
-       kıyas %488'lik sahte bir artış gösteriyordu). Gün sayısı görünürse
-       oranın neden yüksek çıktığı rakama bakınca anlaşılır. */
-    function pencereMetni(ayKodu, ayVeri) {
-      var ad = sinirGun
-        ? ayAdi(ayKodu) + ' 1–' + YU.fmt.sayi(Math.min(sinirGun, gunNo(YU.tarih.aySonu(ayKodu + '-01'))))
-        : ayAdi(ayKodu);
-      return ad + ' · ' + YU.fmt.sayi(ayVeri.gunSayisi) + ' gün';
-    }
-
-    /* Kıyas, İKİ AYDAN BİRİNDE devir varsa stok değişiminde yapılmaz: devir,
-       stoğu üretim/satıştan bağımsız değiştirir (ölçüldü: Temmuz 2026'nın
-       kendi devri −1.707.770 kg'lık sahte bir "düşüş" üretiyordu). Sebep
-       hücrenin kendi alt satırında yazar; tablo altına dipnot konmaz. */
-    var buAyDevirli = aydaDevirVar(depo, ay);
-    var devirEngeli = buAyDevirli || aydaDevirVar(depo, oncekiAyKodu);
-
-    /* Hücre: üstte bu ayın rakamı, altında geçen aya göre değişim.
-       isaretli → değer +/− ile yazılır ve renklenir (stok değişimi).
-       kiyassiz → alt satır basılmaz (devir yüzünden kıyas geçersizse). */
-    function grupHucresi(simdi, onceki, secenek) {
-      secenek = secenek || {};
-      if (!simdi && !onceki) return tire();
-      var ustMetin = secenek.isaretli && simdi
-        ? (simdi > 0 ? '+' : '−') + YU.fmt.kg(Math.abs(simdi))
-        : YU.fmt.kg(simdi);
-      var kutu = YU.h('div', {
-        stil: { display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-end' }
-      },
-        YU.h('span', {
-          sinif: 'yu-guclu',
-          stil: secenek.isaretli && simdi
-            ? { color: simdi > 0 ? 'var(--olumlu)' : 'var(--olumsuz)' } : null,
-          metin: ustMetin
-        })
-      );
-      /* Devir ayında stok kıyası geçersiz — sebep hücrenin ALT SATIRINDA
-         yazar (KURAL 8), tablonun altına dipnot konmaz. */
-      if (secenek.kiyassiz) {
-        kutu.appendChild(YU.h('span', {
-          stil: { font: '400 11px/1 var(--font)', color: 'var(--bekleyen)' },
-          metin: 'devir ayı'
-        }));
-        kutu.title = 'Bu dönemde kampanya devri yapıldı; stok üretim ve satıştan ' +
-          'bağımsız değiştiği için önceki ayla karşılaştırılmadı.';
-        return kutu;
-      }
-      if (!onceki) {
-        /* Önceki ayda kayıt yoksa altına hiçbir işaret yazılmaz (kullanıcı
-           isteği, 25.08.2026: "yeni" ibaresi kaldırıldı). Bilgi kaybolmuyor —
-           hücrenin ipucu zaten "önceki ay: kayıt yok" diyor. */
-      } else {
-        var oran = (simdi - onceki) / Math.abs(onceki) * 100;
-        if (Math.abs(oran) >= 0.05) {
-          kutu.appendChild(YU.h('span', {
-            stil: { font: '400 11px/1 var(--font)', color: oran > 0 ? 'var(--olumlu)' : 'var(--olumsuz)' },
-            metin: (oran > 0 ? '▲ +' : '▼ −') + YU.fmt.yuzde(Math.abs(oran))
-          }));
-        }
-      }
-      kutu.title = ayAdi(oncekiAyKodu) + ': ' + (onceki ? YU.fmt.kgU(onceki) : 'kayıt yok');
-      return kutu;
-    }
-
-    function grupSatiri(kod) {
-      var b = buGrup[kod], o = oncekiGrup[kod];
-      var fark = YU.yuvarla(b.son - b.bas);
-      var oncekiFark = YU.yuvarla(o.son - o.bas);
-      /* Kuru küspenin üretimi HAM (brüt) — bu, satır etiketinde yazar
-         (KURAL 8); eskiden tablo altında dipnottu. */
-      var etiket = YU.h('span', { sinif: 'yu-guclu', metin: GRUP_ADLARI[kod] });
-      if (kod === 'kuru') {
-        etiket.title = 'Üretim ham (brüt) üretimdir; çuvallanan miktar bu rakamın ' +
-          'içinden çıkar, ayrıca eklenmez.';
-      }
-      if (kod === 'diger') etiket.title = 'Atık kuru küspe, toprak ve kuyruk.';
-      return [
-        etiket,
-        grupHucresi(b.uretim, o.uretim),
-        grupHucresi(b.satis, o.satis),
-        grupHucresi(b.iade, o.iade),
-        grupHucresi(fark, oncekiFark, { isaretli: true, kiyassiz: devirEngeli })
-      ];
-    }
-
-    /* KURAL 8: ne karşılaştırıldığı BAŞLIKTA, hangi dönem olduğu başlığın
-       sağında yazar; tablo altında açıklama yok. */
-    kap.appendChild(YU.ui.panel({
-      /* Başlığın yanında hangi iki ayın karşılaştırıldığı SİLİK yazar
-         (kullanıcı isteği, 25.08.2026): "Önceki ay" soyut kalıyordu. */
-      /* Ay seçici başlığın HEMEN SAĞINDA (kullanıcı isteği, 25.08.2026):
-         hangi ayın seçildiği, ayların yazdığı yerde durur. */
-      baslik: YU.h('span', {
-        stil: { display: 'inline-flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }
-      },
-        YU.h('span', { metin: 'Önceki Aya Göre Ürün Grubu Karşılaştırması' }),
-        YU.h('span', {
-          sinif: 'yu-zayif',
-          stil: { fontWeight: '400' },
-          metin: '(' + ayAdi(oncekiAyKodu) + ' – ' + ayAdi(ay) + ')'
-        }),
-        aySecici),
-      ikon: '#ic-bars-up',
-      sag: YU.h('span', { sinif: 'yu-zayif',
-        metin: pencereMetni(oncekiAyKodu, oncekiV) + '  →  ' + pencereMetni(ay, v) }),
-      dolgusuz: true,
-      govde: YU.ui.tablo({
-        sutunlar: [
-          { baslik: 'Ürün Grubu' },
-          { baslik: 'Üretim (Ham)', hiza: 'sag', mono: true, genislik: 150 },
-          { baslik: 'Satış', hiza: 'sag', mono: true, genislik: 150 },
-          { baslik: 'İade', hiza: 'sag', mono: true, genislik: 130 },
-          { baslik: 'Stok Değişimi', hiza: 'sag', mono: true, genislik: 150 }
-        ],
-        satirlar: [grupSatiri('kuru'), grupSatiri('yas'), grupSatiri('diger')],
-        /* sik:false — satır dolgusu bir kademe rahatlar (kullanıcı isteği,
-           25.08.2026: "satırları çok az uzat"). yu-tablo-iri sınıfı yazıları
-           da bir kademe büyütür (tema.css). */
-        sik: false,
-        sinif: 'yu-tablo-iri',
-        bos: 'Bu ay için kayıt yok.'
-      })
-    }));
-
+    /* "Önceki Aya Göre Ürün Grubu Karşılaştırması" paneli KALDIRILDI
+       (kullanıcı isteği, 26.08.2026). Önceki ay kıyası kaybolmadı: Aylık
+       Malzeme Özeti tablosunda her malzemenin hücresinde ▲/▼ olarak ve
+       ipucunda ay adıyla duruyor. Grup toplamları CSV çıktısında da kalır. */
     /* Malzeme özeti — ay başı stok → hareketler → ay sonu stok.
        "Günlük Ort." (kullanıcı isteği, 25.08.2026) malzemenin AYLIK ÜRETİMİNİ
        ayın kayıtlı gün sayısına böler. Burada çeşit karışmaz: her satır tek
@@ -727,7 +537,7 @@
       var oncekiM = oncekiV.malzemeler[sat.malzeme.Id];
       var oncekiUretim = oncekiM ? oncekiM.uretim : 0;
       var kutu = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-end' } },
-        YU.h('span', { metin: YU.fmt.kg(sat.uretim) })
+        kgOlcu(sat.uretim)
       );
       if (oncekiUretim) {
         var oran = (sat.uretim - oncekiUretim) / oncekiUretim * 100;
@@ -748,47 +558,73 @@
     for (i = 0; i < ozet.length; i++) {
       sat = ozet[i];
       ozetSatirlar.push([
-        YU.h('span', { sinif: 'yu-guclu', metin: sat.malzeme.Ad }),
+        YU.h('span', {
+          sinif: 'yu-guclu',
+          /* Dar pencerede ad üç satıra kırılıp satırı üç katına çıkarıyordu
+             (26.08.2026); Program Hareketleri'ndeki gibi tek satırda kalır. */
+          stil: { whiteSpace: 'nowrap' },
+          metin: sat.malzeme.Ad
+        }),
         kgYaTire(sat.basStok),
-        uretimHucresi(sat),
-        sat.uretim
-          ? YU.h('span', { sinif: 'yu-zayif', metin: YU.fmt.kg(gunlukOrt(sat.uretim)) })
-          : tire(),
         kgYaTire(sat.iade),
+        sat.uretim ? kgOlcu(gunlukOrt(sat.uretim)) : tire(),
+        sat.satis ? kgOlcu(gunlukOrt(sat.satis)) : tire(),
+        uretimHucresi(sat),
         kgYaTire(sat.satis),
         farkHucre(sat.fark, sat.devirIcinde),
-        YU.h('span', { sinif: 'yu-guclu', metin: YU.fmt.kg(sat.sonStok) })
+        kgOlcu(sat.sonStok)
       ]);
     }
-    ozetSatirlar.push([
-      YU.h('span', { sinif: 'yu-guclu', metin: 'AYLIK TOPLAM' }),
-      tire(),
-      YU.h('span', { sinif: 'yu-guclu', metin: YU.fmt.kg(v.toplam.uretim) }),
-      tire(),
-      YU.h('span', { sinif: 'yu-guclu', metin: YU.fmt.kg(v.toplam.iade) }),
-      YU.h('span', { sinif: 'yu-guclu', metin: YU.fmt.kg(v.toplam.satis) }),
-      tire(),
-      tire()
-    ]);
+    /* Panelin kapsadığı ARALIK başlığın sağında yazar (kullanıcı isteği,
+       26.08.2026: "son 30 gün mü, 1 Ağustos'tan itibaren mi — veri bilgisi
+       doğru olsun"). Bu tablo KAYAN 30 GÜN DEĞİL, TAKVİM AYIDIR: ayın 1'inden
+       başlar; içinde bulunulan ayda bugüne, geçmiş ayda ayın son gününe kadar
+       sayar (ayVerisi çağrısında sinirGun verilmez). Gün sayısı, aralıkta
+       KAYIT GİRİLMİŞ gün adedidir — "Günlük Ort. Üretim" kolonu ona bölünür. */
+    var kapsamMetni = '1–' + YU.fmt.sayi(gunNo(kapanisTarih)) + ' ' + ayAdi(ay) +
+      ' · ' + YU.fmt.sayi(v.gunSayisi) + ' gün kaydı';
 
+    /* "AYLIK TOPLAM" satırı KALDIRILDI (kullanıcı isteği, 26.08.2026).
+       Onunla birlikte satırı çizen toplamHucresi de gitti; CSV çıktısındaki
+       toplam satırı yerinde duruyor. */
     kap.appendChild(YU.ui.panel({
-      baslik: 'Aylık Malzeme Özeti',
+      /* Ay seçici BU panelin başlığında (kullanıcı isteği, 26.08.2026):
+         önceden karşılaştırma panelinin başlığındaydı. Görünüm aynı —
+         ay çipi + Önceki/Bu/Sonraki Ay düğmeleri. */
+      baslik: YU.h('span', {
+        stil: { display: 'inline-flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }
+      },
+        YU.h('span', { metin: 'Aylık Malzeme Özeti' }),
+        aySecici),
       ikon: '#ic-cube',
-      /* Panel sağındaki "üretimdeki ▲▼ … farkı gösterir" yazısı KALDIRILDI
-         (kullanıcı isteği, 25.08.2026): hangi dönemle kıyaslandığı üstteki
-         karşılaştırma panelinin başlığında zaten yazıyor. */
+      sag: YU.h('span', {
+        sinif: 'yu-zayif',
+        metin: kapsamMetni,
+        title: 'Takvim ayıdır, kayan 30 gün değil: ' + YU.fmt.tarih(ayBasi) + ' – ' +
+          YU.fmt.tarih(kapanisTarih) + ' arası. "Günlük Ort. Üretim" kolonu, bu aralıkta ' +
+          'kayıt girilmiş ' + YU.fmt.sayi(v.gunSayisi) + ' güne bölünür.'
+      }),
       dolgusuz: true,
       govde: [YU.ui.tablo({
         /* Başlıklar kendi kendini açıklar (kullanıcı isteği, 25.08.2026):
            ortadaki üç sütunun AY TOPLAMI olduğu, uçtaki ikisinin STOK olduğu
            başlıktan okunur. İki kelimeyi geçmez — kalabalık istenmiyor. */
         sutunlar: [
-          { baslik: 'Malzeme' },
+          /* Genişlik verildi (kullanıcı isteği, 26.08.2026): ölçüsüz kalınca
+             geniş ekranda artan yerin TAMAMINI bu kolon alıyor ve ayraç
+             çizgisi adlardan çok uzağa düşüyordu. Ölçü küçük tutulur (150 px):
+             tablo genişleyince artan yer kolonlara ORANLI dağıldığı için bu
+             kolonun payı da küçük kalır, çizgi adlara yakın durur. */
+          { baslik: 'Malzeme', genislik: 150 },
+          /* Kolon sırası kullanıcı tarafından verildi (26.08.2026): önce
+             açılış ve iade, sonra GÜNLÜK ortalamalar, sonra AYLIK toplamlar,
+             en sonda değişim ve kapanış. */
           { baslik: 'Ay Başı Stok', hiza: 'sag', mono: true, genislik: 120 },
-          { baslik: 'Aylık Üretim', hiza: 'sag', mono: true, genislik: 120 },
-          { baslik: 'Günlük Ort.', hiza: 'sag', mono: true, genislik: 110 },
           { baslik: 'Aylık İade', hiza: 'sag', mono: true, genislik: 110 },
-          { baslik: 'Aylık Satış', hiza: 'sag', mono: true, genislik: 120 },
+          { baslik: 'Günlük Ort. Üretim', hiza: 'sag', mono: true, genislik: 140 },
+          { baslik: 'Günlük Ort. Satış', hiza: 'sag', mono: true, genislik: 140 },
+          { baslik: 'Aylık Üretim Toplamı', hiza: 'sag', mono: true, genislik: 150 },
+          { baslik: 'Aylık Satış Toplamı', hiza: 'sag', mono: true, genislik: 145 },
           { baslik: 'Stok Değişimi', hiza: 'sag', mono: true, genislik: 125 },
           { baslik: kapanisBaslik, hiza: 'sag', mono: true, genislik: 120 }
         ],
@@ -796,142 +632,26 @@
         /* Karşılaştırma tablosuyla aynı iri ölçü (kullanıcı isteği,
            25.08.2026): satırlar biraz uzar, yazılar bir kademe büyür. */
         sik: false,
-        sinif: 'yu-tablo-iri',
+        sinif: 'yu-tablo-iri yu-tablo-ilk-ayrac',
         bos: 'Bu ay için kayıt yok.'
       })]
     }));
 
-    /* İki dar panel YAN YANA (kullanıcı isteği, 25.08.2026 — kaos olmasın):
-       ikisi de kısa listedir; alt alta konsa sayfa gereksiz uzar, yan yana
-       konunca aynı yükseklikte iki blok olarak okunur. */
-    /* kk yukarıda, grup karşılaştırması için hesaplandı. yk = yaş küspe ay
-       özeti; stok uçları grup tablosuyla aynı tarihleri kullanır. */
-    /* İki aile de AYNI hesaplayıcıdan geçer (aileAyi); paneller de aynı
-       çiziciyi kullanır, böylece yan yana okunabiliyorlar. */
-    var kkA = aileAyi(depo, ay, sinirGun, 'kuru', ayOncesiGun, kapanisTarih, kk);
-    var ykA = aileAyi(depo, ay, sinirGun, 'yas', ayOncesiGun, kapanisTarih, null);
+    /* KURU KÜSPE ve YAŞ KÜSPE AY ÖZETİ panelleri KALDIRILDI (kullanıcı
+       kararı, 26.08.2026). Aynı rakamlar üstteki "Aylık Malzeme Özeti"
+       tablosunda malzeme malzeme, "Önceki Aya Göre Ürün Grubu
+       Karşılaştırması"nda da grup grup duruyordu. */
 
-    /* Ortak iskelet: kırılım → toplamlar → stoklar → (varsa) aileye özel ek. */
-    function aileOzetPaneli(o) {
-      var d = o.veri;
-      if (!d.gun) {
-        return YU.ui.panel({
-          baslik: o.baslik, ikon: o.ikon,
-          sag: YU.h('span', { sinif: 'yu-zayif', metin: ayAdi(ay) }),
-          govde: YU.h('div', { sinif: 'yu-yardim', metin: o.bosMetin })
-        });
-      }
-      var govde = YU.h('div');
-      var i;
-      for (i = 0; i < d.kalemler.length; i++) {
-        govde.appendChild(olcuSatiri(
-          ayAdi(ay) + ' Üretimi · ' + d.kalemler[i].ad +
-            (d.kalemler[i].ek ? ' (' + d.kalemler[i].ek + ')' : ''),
-          YU.fmt.kgU(d.kalemler[i].kg),
-          i === 0
-        ));
-      }
-      govde.appendChild(YU.h('hr', { sinif: 'yu-ayrac yu-yatay' }));
-      govde.appendChild(olcuSatiri(ayAdi(ay) + ' Toplam Üretimi', YU.fmt.kgU(d.uretim)));
-      govde.appendChild(olcuSatiri('Günlük Ortalama Üretim (' + YU.fmt.sayi(d.gun) + ' güne bölündü)',
-        YU.fmt.kgU(d.gunlukOrt)));
-      govde.appendChild(olcuSatiri(ayAdi(ay) + ' Toplam Satışı', YU.fmt.kgU(d.satis)));
-      govde.appendChild(olcuSatiri(ayAdi(ay) + ' Toplam İadesi', YU.fmt.kgU(d.iade)));
-      govde.appendChild(YU.h('hr', { sinif: 'yu-ayrac yu-yatay' }));
-      govde.appendChild(olcuSatiri(ayAdi(ay) + ' Başı Stok', YU.fmt.kgU(d.basStok)));
-      govde.appendChild(olcuSatiri(buAyMi ? 'Bugünkü Stok' : (ayAdi(ay) + ' Sonu Stok'),
-        YU.fmt.kgU(d.sonStok)));
-      govde.appendChild(olcuSatiri(ayAdi(ay) + ' Stok Değişimi', YU.h('span', {
-        sinif: 'yu-mono yu-guclu',
-        stil: { color: d.stokDegisimi >= 0 ? 'var(--olumlu)' : 'var(--olumsuz)' },
-        metin: (d.stokDegisimi >= 0 ? '+' : '−') + YU.fmt.kgU(Math.abs(d.stokDegisimi))
-      })));
-      if (o.ek) govde.appendChild(o.ek);
-      return YU.ui.panel({
-        baslik: o.baslik, ikon: o.ikon,
-        sag: YU.h('span', { sinif: 'yu-zayif', metin: ayAdi(ay) + ' · ' + YU.fmt.sayi(d.gun) + ' gün kaydı' }),
-        govde: govde
-      });
-    }
-
-    kap.appendChild(YU.h('div', { sinif: 'yu-izgara yu-iz-2' },
-      /* İKİ AİLE PANELİ AYNI İSKELET (kullanıcı isteği, 25.08.2026 —
-         "ortak paydada birleştir"): önce biçim/ambalaj kırılımı, sonra her
-         iki panelde BİREBİR aynı sırayla toplam üretim · günlük ortalama ·
-         toplam satış · toplam iade, sonra yine aynı sırayla ay başı stok ·
-         ay sonu stok · stok değişimi. Aileye özel olan tek blok en altta
-         durur: kuru küspenin silo akışı (yaş küspenin silosu yoktur). */
-      aileOzetPaneli({
-        baslik: 'Kuru Küspe Ay Özeti', ikon: '#ic-silos', veri: kkA,
-        bosMetin: 'Bu ay kuru küspe hareketi yok.',
-        ek: kk.gun ? YU.h('div', null,
-          YU.h('hr', { sinif: 'yu-ayrac yu-yatay' }),
-          olcuSatiri(ayAdi(ay) + ' Silolara Giren (net üretim)', YU.fmt.kgU(kk.netDokmeUretim)),
-          olcuSatiri(ayAdi(ay) + ' Silodan Çekilen (çuvallama)', YU.fmt.kgU(kk.silodanCekilen)),
-          olcuSatiri(ayAdi(ay) + ' Silo Net Değişimi', YU.h('span', {
-            sinif: 'yu-mono yu-guclu',
-            stil: { color: kk.siloNetDegisim >= 0 ? 'var(--olumlu)' : 'var(--olumsuz)' },
-            metin: (kk.siloNetDegisim >= 0 ? '+' : '−') + YU.fmt.kgU(Math.abs(kk.siloNetDegisim))
-          })),
-          kk.durumB ? YU.h('div', {
-            sinif: 'yu-yardim', stil: { marginTop: '8px' },
-            metin: YU.fmt.sayi(kk.durumB) + ' günde çuvallama üretimi aştı; ' +
-              'aradaki fark silodan çekildi (Durum B).'
-          }) : null
-        ) : null
-      }),
-      aileOzetPaneli({
-        baslik: 'Yaş Küspe Ay Özeti', ikon: '#ic-beet', veri: ykA,
-        bosMetin: 'Bu ay yaş küspe hareketi yok.'
-      })
-    ));
-
-    /* Gün × malzeme döküm tablosu KALDIRILDI (kullanıcı kararı, 25.08.2026):
-       "bu rapor, aylık özet değil" — gün gün sekiz kolonluk tablo bu ekranın
-       işi değil, Program Hareketleri'nin işi. Şartname §11 bu ekrandan ay
-       bazında toplam ve GÜN GÜN GRAFİK ister; grafik aşağıda duruyor. */
-    var gunListesi = gunAraligi(v.gunler);
-
-    /* Gün gün grafik — üretim(+iade) ve satış (Şartname §11 "gün gün grafik").
-       Etiket yalnız gün numarası; her 2. etiket sutunGrafik'e sığar. */
-    var grafikVeri = [];
-    for (i = 0; i < gunListesi.length; i++) {
-      var gv2 = v.gunler[gunListesi[i]];
-      grafikVeri.push({
-        /* Etiket "1" değil "01.08" (kullanıcı isteği, 25.08.2026): grafik
-           kaydırılabildiği için yalnız gün numarası hangi aya ait olduğunu
-           söylemiyordu. */
-        etiket: YU.fmt.tarih(gunListesi[i]).slice(0, 5),
-        deger1: gv2 ? gv2.uretim : 0,
-        deger2: gv2 ? gv2.satis : 0
-      });
-    }
-    /* Silo Durumu'ndaki dökme grafiğiyle aynı davranış (kullanıcı isteği,
-       25.08.2026): sütunlar doğal genişlikte, en yeni gün SAĞDA, eskiye
-       fareyle sürükleyerek ya da iki yandaki oklarla gidilir. Görünür
-       pencere en fazla 25 gün — daha geniş ekranda bile 26. gün ekrana
-       gelmez, kaydırmada kalır. Ayın tüm günleri veride durur, hiçbiri
-       atılmaz. */
-    var gg = YU.ui.kaydirmaliGrafik({
-      veri: grafikVeri,
-      yukseklik: 190,
-      enFazlaGun: 25,
-      efsane: ['Üretim', 'Satış'],
-      bos: 'Bu ay için kayıt yok.'
-    });
-    kap.appendChild(YU.ui.panel({
-      baslik: 'Gün Gün Üretim ve Satış',
-      ikon: '#ic-chart',
-      sag: YU.h('span', { sinif: 'yu-zayif' },
-        YU.h('span', { metin: 'tüm malzemelerin kg toplamı · iade hariç' }),
-        gg.notEl),
-      govde: gg.govde
-    }));
+    /* Bu ekranda gün gün döküm YOK (kullanıcı kararları, 25.08.2026):
+       gün × malzeme tablosu Program Hareketleri'nin işi, gün gün üretim–satış
+       grafiği de Ana Sayfa'daki "Dökme Üretim – Dökme Satış" panelinde duruyor.
+       Aylık Özet ay bazında toplam verir. */
   }
 
   YU.sayfaTanimla({
     kod: KOD,
     baslik: 'Aylık Özet',
+    baskiBasligi: 'Aylık Stok ve Üretim Raporu',
     ikon: '#ic-calendar-dots',
     grup: 'Takip',
     rol: 'Hepsi',

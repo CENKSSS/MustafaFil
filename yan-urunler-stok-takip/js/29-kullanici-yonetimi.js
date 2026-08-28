@@ -12,8 +12,6 @@
 
   var YU = window.YU;
 
-  var ROL_ADI = { Yonetici: 'Yönetici', Operator: 'Operatör' };
-
   /* Gerçek uygulamada bu alan BCrypt hash'i tutar (Şartname §3). Prototipte
      yalnızca "ne zaman sıfırlandı" notudur — parola metni hiçbir yere yazılmaz. */
   var PAROLA_NOTU_ONEK = '(prototip — parola saklanmaz · sıfırlama ';
@@ -25,14 +23,8 @@
   function db() { return YU.db; }
   function oturumKullanicisi() { return YU.oturum.kullanici; }
 
-  function damga() {
-    var d = new Date();
-    function p(n) { return (n < 10 ? '0' : '') + n; }
-    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' +
-      p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
-  }
-
-  function rolMetni(rol) { return ROL_ADI[rol] || '—'; }
+  /* İstanbul saati, kaynağı internet (YU.zaman · 26.08.2026). */
+  function damga() { return YU.zaman.damgaBosluklu(); }
 
   function aktifMi(k) { return k.Aktif !== false; }
 
@@ -45,12 +37,6 @@
   function aktifOperatorSayisi() {
     var liste = db().kullanicilar, n = 0, i;
     for (i = 0; i < liste.length; i++) if (liste[i].Rol === 'Operator' && aktifMi(liste[i])) n++;
-    return n;
-  }
-
-  function pasifSayisi() {
-    var liste = db().kullanicilar, n = 0, i;
-    for (i = 0; i < liste.length; i++) if (!aktifMi(liste[i])) n++;
     return n;
   }
 
@@ -91,18 +77,6 @@
     return YU.h('div', {
       stil: { display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'flex-end' }
     });
-  }
-
-  function satirEylem(s) {
-    var el = YU.h('span', {
-      sinif: 'yu-satir-eylem', role: 'button', tabindex: '0',
-      title: s.baslik, 'aria-label': s.baslik
-    }, YU.svg(s.ikon, 15));
-    el.addEventListener('click', s.onClick);
-    el.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); s.onClick(); }
-    });
-    return el;
   }
 
   /* Devre dışı düğme fare olaylarını yutabildiği için title sarmalayıcıya konur:
@@ -149,9 +123,21 @@
     }
   }
 
+  /* Yardım satırı artık SABİT metin taşımıyor (kullanıcı isteği, 26.08.2026):
+     rol, durum ve e-posta açıklamaları kaldırıldı — kimse okumuyordu, ekranı
+     kalabalıklaştırıyordu (KURAL 11). Satır yalnız bir ENGEL varken doğar:
+     "neden pasifleştiremiyorum" sorusunun cevabı yazılı kalmalı. */
   function yardimYaz(alan, metin) {
     var el = alan.kok.querySelector('.yu-yardim');
-    if (el) el.textContent = metin;
+    if (!metin) {
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+      return;
+    }
+    if (!el) {
+      el = YU.h('div', { sinif: 'yu-yardim' });
+      alan.kok.insertBefore(el, alan.kok.querySelector('.yu-alan-hata'));
+    }
+    el.textContent = metin;
   }
 
   function kullaniciModali(kullanici) {
@@ -159,9 +145,11 @@
     var hataKap = YU.h('div');
 
     var adiAlan = YU.ui.alan({
-      etiket: 'Kullanıcı Adı', tip: 'metin',
-      deger: duzenle ? kullanici.KullaniciAdi : '',
-      yardim: 'Aynı kullanıcı adı iki kez eklenemez (D11).'
+      etiket: 'E-posta', tip: 'metin',
+      deger: duzenle ? kullanici.KullaniciAdi : ''
+      /* Açıklama satırı kaldırıldı (kullanıcı isteği, 26.08.2026). Etiket
+         "E-posta" zaten ne yazılacağını söylüyor; kural bozulursa doğrulama
+         hatası aynı yere düşüyor. */
     });
     var adSoyadAlan = YU.ui.alan({
       etiket: 'Ad Soyad', tip: 'metin',
@@ -170,14 +158,12 @@
     var rolAlan = YU.ui.alan({
       etiket: 'Rol', tip: 'secim',
       secenekler: [{ deger: 'Yonetici', metin: 'Yönetici' }, { deger: 'Operator', metin: 'Operatör' }],
-      deger: duzenle ? kullanici.Rol : 'Operator',
-      yardim: 'Yönetici: tüm ekranlar. Operatör: günlük giriş, stok ve rapor görüntüleme.'
+      deger: duzenle ? kullanici.Rol : 'Operator'
     });
     var durumAlan = YU.ui.alan({
       etiket: 'Durum', tip: 'secim',
       secenekler: [{ deger: 'aktif', metin: 'Aktif' }, { deger: 'Pasif', metin: 'Pasif' }],
-      deger: duzenle && !aktifMi(kullanici) ? 'Pasif' : 'aktif',
-      yardim: 'Kullanıcı silinmez, yalnızca pasifleştirilir (D12). Geçmiş kayıtlardaki adı korunur.'
+      deger: duzenle && !aktifMi(kullanici) ? 'Pasif' : 'aktif'
     });
 
     if (duzenle) {
@@ -195,13 +181,35 @@
 
     var notlar = duzenle ? null : YU.h('div', {
       sinif: 'yu-yardim',
-      metin: 'Prototipte parola belirlenmez ve saklanmaz. Gerçek uygulamada kullanıcı adı + BCrypt hash’li ' +
-        'parola ile giriş yapılır (Şartname §3).'
+      /* Not GÜNCELLENDİ (26.08.2026): parola artık belirleniyor ve hash'lenip
+         saklanıyor; eski cümle yanlış bilgi veriyordu. Hash cümlesi ve şartname
+         atfı kullanıcı isteğiyle kesildi — soru "parolayı nereye yazacağım",
+         yanıtı iki cümlede tam. */
+      metin: 'Parola burada belirlenmez. Yeni kullanıcı ilk girişinde kendi parolasını kurar.'
     });
 
+    /* Kaydetmeden çıkış kilidi — ortak mekanizma (10-kabuk · YU.ui.modal
+       kirliMi, 27.08.2026). */
+    function kirliMi() {
+      var eposta = String(adiAlan.deger() || '').trim();
+      var adSoyad = String(adSoyadAlan.deger() || '').trim();
+      var rol = String(rolAlan.deger() || '');
+      var durum = String(durumAlan.deger() || '');
+      if (duzenle) {
+        return eposta !== String(kullanici.KullaniciAdi || '') ||
+               adSoyad !== String(kullanici.AdSoyad || '') ||
+               rol !== String(kullanici.Rol || '') ||
+               durum !== (aktifMi(kullanici) ? 'aktif' : 'Pasif');
+      }
+      return eposta !== '' || adSoyad !== '' || rol !== 'Operator' || durum !== 'aktif';
+    }
+
     var m = YU.ui.modal({
-      baslik: duzenle ? 'Kullanıcıyı düzenle' : 'Yeni Kullanıcı',
+      baslik: duzenle ? 'Kullanıcıyı Düzenle' : 'Yeni Kullanıcı',
       genislik: 520,
+      kirliMi: kirliMi,
+      kilitMesaji: duzenle ? 'Kullanıcı bilgilerinde kaydedilmemiş değişiklik var.'
+                           : 'Yeni kullanıcı bilgileri henüz kaydedilmedi.',
       govde: [hataKap, adiAlan.kok, adSoyadAlan.kok, rolAlan.kok, durumAlan.kok, notlar],
       dugmeler: [
         { metin: 'Vazgeç', tur: 'sade', onClick: function () { m.kapat(); } },
@@ -225,7 +233,7 @@
       var maddeler = [], rolDegisti = false;
       if (duzenle) {
         if (String(aday.KullaniciAdi) !== String(kullanici.KullaniciAdi)) {
-          maddeler.push({ etiket: 'Kullanıcı Adı', eski: kullanici.KullaniciAdi, yeni: aday.KullaniciAdi });
+          maddeler.push({ etiket: 'E-posta', eski: kullanici.KullaniciAdi, yeni: aday.KullaniciAdi });
         }
         if (String(aday.AdSoyad) !== String(kullanici.AdSoyad)) {
           maddeler.push({ etiket: 'Ad Soyad', eski: kullanici.AdSoyad, yeni: aday.AdSoyad });
@@ -239,7 +247,7 @@
         }
         if (!maddeler.length) { uygula(); return; }
       } else {
-        maddeler.push({ etiket: 'Kullanıcı Adı', deger: aday.KullaniciAdi || '—' });
+        maddeler.push({ etiket: 'E-posta', deger: aday.KullaniciAdi || '—' });
         maddeler.push({ etiket: 'Ad Soyad', deger: aday.AdSoyad || '—' });
         maddeler.push({ etiket: 'Rol', deger: rolAdi(aday.Rol) });
         rolDegisti = aday.Rol === 'Yonetici';
@@ -353,12 +361,20 @@
     var engel = pasiflestirmeEngeli(k);
     var eylemler = eylemKabi();
 
-    eylemler.appendChild(satirEylem({
-      ikon: '#ic-pencil', baslik: 'Düzenle',
+    /* Düzenle de METİNLİ DÜĞME (kullanıcı isteği, 26.08.2026): kalem ikonu
+       ne yaptığını üstüne gelmeden söylemiyordu. Satırdaki üç eylem artık
+       aynı dilde: Düzenle · Parola Sıfırla · Pasifleştir. */
+    eylemler.appendChild(YU.ui.dugme({
+      metin: 'Düzenle', ikon: '#ic-pencil', tur: 'ikincil', kucuk: true,
+      baslik: 'E-posta, ad soyad, rol ve durumu değiştir',
       onClick: function () { kullaniciModali(k); }
     }));
-    eylemler.appendChild(satirEylem({
-      ikon: '#ic-gear', baslik: 'Parola Sıfırla',
+    /* Parola sıfırlama ikon değil METİNLİ DÜĞME (kullanıcı isteği, 26.08.2026):
+       dişli ikonu ne yaptığını üstüne gelmeden söylemiyordu. Yanındaki
+       Pasifleştir düğmesiyle aynı ölçüde durur. */
+    eylemler.appendChild(YU.ui.dugme({
+      metin: 'Parola Sıfırla', ikon: '#ic-gear', tur: 'ikincil', kucuk: true,
+      baslik: 'Hesabın parolasını sıfırlar',
       onClick: function () { parolaModali(k); }
     }));
 
@@ -402,12 +418,12 @@
 
     return YU.ui.tablo({
       sutunlar: [
-        { baslik: 'Kullanıcı Adı', genislik: 150 },
+        { baslik: 'E-posta', genislik: 210 },
         { baslik: 'Ad Soyad' },
         { baslik: 'Rol', genislik: 110, hiza: 'orta' },
         { baslik: 'Durum', genislik: 96, hiza: 'orta' },
         { baslik: 'Kayıt Sayısı', genislik: 110, hiza: 'sag', mono: true },
-        { baslik: 'İşlem', genislik: 178, hiza: 'sag' }
+        { baslik: 'İşlem', genislik: 380, hiza: 'sag' }
       ],
       satirlar: satirlar,
       bos: 'Tanımlı kullanıcı yok.',
@@ -446,39 +462,9 @@
         return;
       }
 
-      var yoneticiSayisi = aktifYoneticiSayisi();
-
-      kap.appendChild(YU.h('div', { sinif: 'yu-izgara yu-iz-3' },
-        YU.ui.kpi({
-          etiket: 'Aktif Yönetici', ikon: '#ic-users',
-          deger: YU.fmt.sayi(yoneticiSayisi),
-          alt: yoneticiSayisi === 1
-            ? 'Son yönetici korunuyor (D10) — pasifleştirilemez, operatöre düşürülemez.'
-            : 'Yönetim ekranlarına erişebilen hesap sayısı.',
-          renk: yoneticiSayisi === 1 ? 'bekleyen' : 'vurgu'
-        }),
-        YU.ui.kpi({
-          etiket: 'Aktif Operatör', ikon: '#ic-pencil',
-          deger: YU.fmt.sayi(aktifOperatorSayisi()),
-          alt: 'Günlük giriş, stok ve rapor görüntüleme yetkisi.'
-        }),
-        YU.ui.kpi({
-          etiket: 'Pasif Hesap', ikon: '#ic-down',
-          deger: YU.fmt.sayi(pasifSayisi()),
-          alt: 'Silinmedi, pasifleştirildi (D12); geçmiş kayıtlardaki bağları duruyor.',
-          renk: 'notr'
-        })
-      ));
-
-      if (yoneticiSayisi === 1) {
-        kap.appendChild(YU.ui.serit({
-          tur: 'uyari',
-          baslik: 'Sistemde Tek Aktif Yönetici Var',
-          metin: 'Bu hesap pasifleştirilemez ve operatöre düşürülemez (D10). İkinci bir yönetici ' +
-            'tanımlanırsa bu kilit kalkar. Kural yalnızca ekranda değil, kayıt servisinde de uygulanır.'
-        }));
-      }
-
+      /* KPI kartları ve "Sistemde Tek Aktif Yönetici Var" şeridi kaldırıldı
+         (kullanıcı isteği, 25.08.2026). Sayılar sayfa alt başlığında zaten
+         yazıyor; D10 kilidi tabloda ve kayıt servisinde aynen duruyor. */
       kap.appendChild(YU.ui.panel({
         baslik: 'Kullanıcılar',
         ikon: '#ic-users',

@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    Yan Ürünler Stok Takip — denemelik ortak veri sunucusu.
+    Plan: DENEMELIK-SUNUCU-PLANI.md
+
+    .NET 8: şartname satır 303 "Demirbaş". Makinede SDK 8.0.421 doğrulandı.
+    Bu proje TESLİM sürümü değildir; teslim SQL Server + Blazor olacaktır
+    (şartname satır 311). Bkz. SQLITE-MIMARI-KARARI.md §8 (a) şıkkı.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>YanUrunler.Sunucu</RootNamespace>
+    <AssemblyName>YanUrunler.Sunucu</AssemblyName>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <!-- Türkçe karakter: şartname satır 342 "bilinen tuzaklar". -->
+    <NeutralLanguage>tr-TR</NeutralLanguage>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.11" />
+    <!-- IIS altında hiçbir şey yapmaz; yalnız Windows servisi olarak
+         çalıştırılırsa devreye girer. Tek publish çıktısı iki yolu da taşır. -->
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.1" />
+    <PackageReference Include="QuestPDF" Version="2024.12.3" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+  </ItemGroup>
+
+  <!--
+    İSTEMCİ DOSYALARI TEK KAYNAKTAN GELİR.
+    Ekranlar üst klasörde durur; buraya kopyası ÇIKARILMAZ. Publish sırasında
+    wwwroot'a bağlanır, böylece yayın her zaman güncel ekranı taşır.
+
+    Beyaz liste bilinçli: .md, .ps1, .vbs, .ico ve tasarım/örnek dosyaları
+    yayına GİRMEZ (IIS-VE-ORTAK-KULLANIM.md §2.2).
+  -->
+  <ItemGroup>
+    <!-- Geliştirme ayarı yayına GİRMEZ: göreli veri yolu taşır, bilgi işlemin
+         eline geçerse hangi ayarın geçerli olduğu karışır. -->
+    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+
+    <Content Include="..\index.html" Link="wwwroot\index.html" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\css\**\*.css" Link="wwwroot\css\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\js\**\*.js" Link="wwwroot\js\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\*.png" Link="wwwroot\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
