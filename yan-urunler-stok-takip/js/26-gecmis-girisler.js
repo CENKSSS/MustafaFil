@@ -364,7 +364,7 @@
   var GUN_BAGLI_TABLO = { KuruKuspeGunluk: 1, SiloHareket: 1, GunlukHareket: 1 };
 
   function gecmiseDokunusHaritasi(db) {
-    var h = {}, i, l, hedef, kayit, m;
+    var h = { yapan: {}, hedef: {} }, i, l, hedef, kayit, m;
     for (i = 0; i < db.degisiklikLog.length; i++) {
       l = db.degisiklikLog[i];
       if (!GUN_BAGLI_TABLO[l.Tablo]) continue;
@@ -379,7 +379,11 @@
         if (m) hedef = m[3] + '-' + m[2] + '-' + m[1];
       }
       if (!hedef || hedef === yapildigi) continue;
-      (h[yapildigi] || (h[yapildigi] = {}))[hedef] = 1;
+      (h.yapan[yapildigi] || (h.yapan[yapildigi] = {}))[hedef] = 1;
+      /* Hedef gün için damga listesi: o günün verisi SİLİNMİŞ olsa bile
+         "ilk / son veri girişi" buradan okunur (kullanıcı isteği,
+         28.08.2026). */
+      (h.hedef[hedef] || (h.hedef[hedef] = [])).push({ an: l.Tarih, kim: l.KullaniciId });
     }
     return h;
   }
@@ -411,13 +415,26 @@
     for (i = 0; i < dl.length; i++) {
       isle({ OlusturmaTarihi: dl[i].Tarih, OlusturanKullaniciId: dl[i].KullaniciId });
     }
+
+    /* BAŞKA BİR GÜNDEN yapılan dokunuşlar da bu günün künyesine girer
+       (kullanıcı isteği, 28.08.2026): "23'ünde veri değişikliği olduğu için
+       23'ün de satırı olmalı; ilk/son veri girişi ise verinin GİRİLDİĞİ
+       zaman olmalı". Kaydı sonradan silinmiş gün için tek kaynak budur. */
+    var dk = (dokunusHaritasi.hedef && dokunusHaritasi.hedef[tarih]) || [];
+    for (i = 0; i < dk.length; i++) {
+      isle({ OlusturmaTarihi: dk[i].an, OlusturanKullaniciId: dk[i].kim });
+    }
     return { ilk: ilk, son: son };
   }
 
   function kunyeHucresi(k) {
     if (!k || !k.an) return YU.h('span', { sinif: 'yu-zayif', metin: '—' });
     return YU.h('div', null,
-      YU.h('div', { metin: YU.fmt.tarihSaat(k.an) }),
+      /* YALNIZ TARİH, saat yok (kullanıcı isteği, 28.08.2026: "burası ilk
+         görüş sayfası, saat yazmasına gerek yok bu listede"). Saat, günün
+         Program Hareketleri ekranında satır satır duruyor (KURAL 7).
+         Damga saatli ISO metindir; günü baştaki 10 karakterdir. */
+      YU.h('div', { metin: YU.fmt.tarih(String(k.an).slice(0, 10)) }),
       YU.h('div', { sinif: 'yu-yardim', metin: kisiAdi(k.kim) || 'kullanıcı bilinmiyor' })
     );
   }
@@ -452,7 +469,7 @@
        yine g.kayitsiz'e bakar: silme hareket kayıtlarını siler, devri değil. */
     var devirDokunusu = typeof YU.gunDevirLogSayisi === 'function'
       ? YU.gunDevirLogSayisi(YU.db, g.tarih) : 0;
-    var girisYok = g.kayitsiz && !devirDokunusu;
+    var girisYok = g.kayitsiz && !devirDokunusu && !g.yalnizDokunus;
     var kunye = girisYok ? { ilk: null, son: null } : gunKunyesi(g.tarih);
     var tarihHucresi = girisYok
       ? YU.h('div', null,
@@ -460,32 +477,19 @@
           YU.h('div', { sinif: 'yu-yardim', metin: 'Bugün Giriş Yok' }))
       : YU.h('span', { sinif: 'yu-guclu', metin: YU.fmt.tarih(g.tarih) });
 
-    /* O tarihte BAŞKA günlere dokunulduysa tarih hücresinin altına yazılır
-       (kullanıcı direktifi, 28.08.2026). Tarihler bağlantıdır: sol tık aynı
-       sekmede Program Hareketleri'ni açar (ayrıntının yeri — KURAL 7),
-       Ctrl+tık yeni sekmede. */
-    var hedefler = dokunusHaritasi[g.tarih]
-      ? Object.keys(dokunusHaritasi[g.tarih]).sort().reverse() : [];
-    if (hedefler.length) {
-      var dokunusSatiri = YU.h('div', { sinif: 'yu-yardim', stil: { margin: '3px 0 0' } },
-        YU.h('span', { metin: 'Geçmişe dokunuş: ' }));
-      for (var hd = 0; hd < hedefler.length; hd++) {
-        if (hd) dokunusSatiri.appendChild(YU.h('span', { metin: ' · ' }));
-        (function (hedefTarih) {
-          dokunusSatiri.appendChild(YU.h('a', {
-            href: YU.adres('gunluk-rapor', { tarih: hedefTarih }),
-            metin: YU.fmt.tarih(hedefTarih),
-            baslik: 'Program Hareketleri · ' + YU.fmt.tarih(hedefTarih),
-            stil: { color: 'var(--vurgu)', textDecoration: 'underline', textUnderlineOffset: '2px' },
-            onClick: function (e) {
-              if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button === 1) return;
-              e.preventDefault();
-              YU.git('gunluk-rapor', { tarih: hedefTarih });
-            }
-          }));
-        })(hedefler[hd]);
-      }
-      tarihHucresi = YU.h('div', null, tarihHucresi, dokunusSatiri);
+    /* O tarihte BAŞKA günlere dokunulduysa tarih hücresinin altına tek satır
+       düşer. TARİHLER YAZILMAZ (kullanıcı isteği, 28.08.2026: "buradaki
+       23.08.2026 tarihini de kaldır, geçmişte değiştirme yaptı yazsın
+       sadece"): hangi güne dokunulduğu, o günün KENDİ satırında zaten
+       görünüyor — dokunulan gün artık listede duruyor. Burada yalnız
+       "bu gün geçmişe dokundu" bilgisi kalır; ayrıntı Program
+       Hareketleri'ndedir (KURAL 7). */
+    if (dokunusHaritasi.yapan && dokunusHaritasi.yapan[g.tarih]) {
+      tarihHucresi = YU.h('div', null, tarihHucresi,
+        YU.h('div', {
+          sinif: 'yu-yardim', stil: { margin: '3px 0 0' },
+          metin: 'Geçmişte değiştirme yaptı'
+        }));
     }
 
     return [
@@ -584,6 +588,29 @@
      Liste
      ------------------------------------------------------------------ */
 
+  /* Denetim izinde HEDEF olarak geçen ama kaydı kalmamış günler listeye
+     eklenir (kullanıcı isteği, 28.08.2026). Gün silindiğinde satır büsbütün
+     kayboluyordu; oysa o güne dokunulduğu denetim izinde duruyor ve gün
+     listesi bunu göstermeli (KURAL 7: gün listesi = hangi günler girilmiş).
+     En soldaki TARİH verinin ait olduğu gündür; ilk/son veri girişi kolonları
+     dokunuşun yapıldığı zamanı söyler — kullanıcının istediği ayrım budur. */
+  function dokunulanGunleriEkle(gunler) {
+    var hedefler = dokunusHaritasi.hedef || {}, varOlan = {}, i, t;
+    for (i = 0; i < gunler.length; i++) varOlan[gunler[i].tarih] = 1;
+    for (t in hedefler) {
+      if (!Object.prototype.hasOwnProperty.call(hedefler, t)) continue;
+      if (varOlan[t]) continue;
+      gunler.push({
+        tarih: t, kuruKuspeVar: false, malzemeSayisi: 0,
+        sonGuncelleme: null, kullanici: null, kullaniciId: null,
+        kayitsiz: true, yalnizDokunus: true
+      });
+    }
+    /* Liste tarihe göre AZALAN sıralı kalmalı — eklenenler araya girdi. */
+    gunler.sort(function (a, b) { return a.tarih < b.tarih ? 1 : (a.tarih > b.tarih ? -1 : 0); });
+    return gunler;
+  }
+
   function listeyiTazele() { if (dom.liste) listeyiCiz(dom.liste); }
 
   function listeyiCiz(kap) {
@@ -592,6 +619,7 @@
     var gunler = YU.stok.kayitliGunler(YU.db, null, null);
     gunler = bugunuEkle(gunler);
     dokunusHaritasi = gecmiseDokunusHaritasi(YU.db);
+    gunler = dokunulanGunleriEkle(gunler);
 
     var liste = [], j, kunye;
     for (j = 0; j < gunler.length; j++) {
@@ -693,6 +721,7 @@
     baslikGizle: true,
     ikon: '#ic-calendar',
     grup: 'Takip',
+    menuSira: 2,          /* Aylık Özet'in altında (31.08.2026) */
     rol: 'Hepsi',
     ciz: function (kap) {
       /* Kuru Küspe Girişi düğmesi kaldırıldı (kullanıcı isteği, 24.08.2026). */

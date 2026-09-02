@@ -6,15 +6,20 @@
    YU.servis.kullaniciKaydet → YU.dogrula.kullanici aynı kuralı yeniden uygular.
    Şartname §8: "tek savunma hattı ekran olmamalı".
 
-   Parola prototipte saklanmaz; sıfırlama yalnızca "(sıfırlandı)" izi bırakır. */
+   Parola PBKDF2-SHA256 ile hash'lenerek saklanır (01-cekirdek · YU.parola).
+   Yönetici parolayı GÖREMEZ ve yerine yenisini YAZAMAZ; yalnız SİLER. Silinen
+   parolanın yerine kişi ilk girişinde kendi parolasını kurar (10-kabuk ·
+   parolaKurmaPenceresi -> 04-servis · parolaKur). Denetim izine düz metin
+   değil "(sıfırlandı)" düşer. */
 (function () {
   'use strict';
 
   var YU = window.YU;
 
-  /* Gerçek uygulamada bu alan BCrypt hash'i tutar (Şartname §3). Prototipte
-     yalnızca "ne zaman sıfırlandı" notudur — parola metni hiçbir yere yazılmaz. */
-  var PAROLA_NOTU_ONEK = '(prototip — parola saklanmaz · sıfırlama ';
+  /* SIFIRLAMA İZİ. Alana geçerli bir hash yerine bu not yazılır; YU.parola.varMi
+     notu "hash değil" sayar ve hesap parolasız duruma döner. Yani sıfırlama
+     bir parola ÜRETMEZ — parolayı siler, yerine kişi kendi parolasını kurar. */
+  var PAROLA_NOTU_ONEK = '(sıfırlandı · ';
 
   /* ==================================================================
      Ortak yardımcılar
@@ -86,12 +91,17 @@
     return YU.h('span', { title: ipucu, stil: { display: 'inline-flex' } }, el);
   }
 
-  /* Bir kullanıcı için "pasifleştirilemez" gerekçesi; yoksa null. */
+  /* Bir kullanıcı için "pasifleştirilemez" gerekçesi; yoksa null.
+
+     KURAL KODU ÖNEKİ KALDIRILDI (kullanıcı isteği, 02.09.2026: "buradaki d10
+     ve d9 gibi d'li ifadeleri kaldır"). "D9 —" / "D10 —" şartname kodlarıdır;
+     operatöre bir şey anlatmıyor, cümle onlarsız da tam. Kodlar doğrulama
+     katmanında (03-dogrulama) aynen duruyor, yalnız ekrana yazılmıyor. */
   function pasiflestirmeEngeli(k) {
     if (!aktifMi(k)) return null;
-    if (kendiHesabiMi(k)) return 'D9 — kendi hesabınızı pasifleştiremezsiniz.';
+    if (kendiHesabiMi(k)) return 'Kendi hesabınızı pasifleştiremezsiniz.';
     if (sonAktifYoneticiMi(k)) {
-      return 'D10 — ' + k.AdSoyad + ' sistemdeki son aktif yönetici. Pasifleştirilirse sisteme kimse ' +
+      return k.AdSoyad + ' sistemdeki son aktif yönetici. Pasifleştirilirse sisteme kimse ' +
         'yönetici olarak giremez.';
     }
     return null;
@@ -100,7 +110,7 @@
   /* Rolü operatöre düşürme gerekçesi; yoksa null. */
   function rolDusurmeEngeli(k) {
     if (!sonAktifYoneticiMi(k)) return null;
-    return 'D10 — ' + k.AdSoyad + ' sistemdeki son aktif yönetici. Operatöre düşürülemez.';
+    return k.AdSoyad + ' sistemdeki son aktif yönetici. Operatöre düşürülemez.';
   }
 
   function sonucuBildir(sonuc, basariMetni) {
@@ -292,13 +302,20 @@
       baslik: 'Parola Sıfırla',
       genislik: 500,
       govde: [
+        /* İki cümlenin ikisi de bir KARARA dönüşür (KURAL 11): yönetici, elle
+           bir parola verip iletmeyeceğini bilerek onaylar. */
         YU.h('div', {
-          metin: kullanici.AdSoyad + ' (' + kullanici.KullaniciAdi + ') hesabının parolası sıfırlanacak.'
+          metin: kullanici.AdSoyad + ' (' + kullanici.KullaniciAdi + ') hesabının parolası silinecek.'
+        }),
+        YU.h('div', {
+          stil: { marginTop: '8px' },
+          metin: 'Yeni parolayı siz belirlemezsiniz; ' + kullanici.AdSoyad +
+            ' bir sonraki girişinde kendi parolasını kurar. Kurana kadar hesaba girilemez.'
         })
       ],
       dugmeler: [
         { metin: 'Vazgeç', tur: 'sade', onClick: function () { m.kapat(); } },
-        { metin: 'Parolayı sıfırla', tur: 'birincil', onClick: sifirla }
+        { metin: 'Parolayı Sıfırla', tur: 'birincil', onClick: sifirla }
       ]
     });
 
@@ -438,6 +455,7 @@
   YU.sayfaTanimla({
     kod: 'kullanici-yonetimi',
     baslik: 'Kullanıcı Yönetimi',
+    menuAd: 'Kullanıcılar',          /* menüde kısa ad (31.08.2026) */
     altBaslik: function () {
       var d = YU.db;
       if (!d) return '';

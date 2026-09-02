@@ -59,6 +59,7 @@ public static class GunlukJsonYedek
     {
         var yazilan = new List<string>();
         var hatali = new List<string>();
+        List<string> silinen;
 
         lock (Kilit)
         {
@@ -87,10 +88,57 @@ public static class GunlukJsonYedek
                     try { if (File.Exists(gecici)) File.Delete(gecici); } catch { /* yoksay */ }
                 }
             }
+
+            silinen = Buda(klasor);
         }
 
         var kod = hatali.Count == 0 ? 200 : 500;
-        return Results.Json(new { yazilan, hatali }, statusCode: kod);
+        return Results.Json(new { yazilan, hatali, silinen }, statusCode: kod);
+    }
+
+    /// <summary>
+    /// 14 GÜN PENCERESİ (kullanıcı direktifi, 31.08.2026 — "max 14 günlük
+    /// veriler yazılsın; 15. gün yazılınca 1. gün silinsin, komple veri seti
+    /// olmasın"). Aynı direktif 31.08 sabahındaki "geriye dönük dosyalar
+    /// korunur" kararının YERİNE geçer (KURAL 6; CLAUDE.md KURAL 13 revize).
+    ///
+    /// Kural: klasörde yalnız TEKİL gün dosyaları durur. Dosya adındaki
+    /// TARİHE göre en yeni 14 gün kalır, daha eskisi silinir. Eski düzenden
+    /// kalan toplu dosyalar (_tam-paket.json, _tanimlar.json) da temizlenir —
+    /// artık üretilmiyorlar, klasörde kalsalar bayat kopya olarak yanıltırlar.
+    /// Tam kurtarma görevi gecelik SQLite yedeğindedir (GunlukYedek, 7 kopya).
+    /// </summary>
+    private const int TutulacakGun = 14;
+
+    private static List<string> Buda(string klasor)
+    {
+        var silinen = new List<string>();
+
+        foreach (var eski in new[] { "_tam-paket.json", "_tanimlar.json" })
+        {
+            var yol = Path.Combine(klasor, eski);
+            try { if (File.Exists(yol)) { File.Delete(yol); silinen.Add(eski); } }
+            catch { /* kilitliyse bir sonraki yazmada denenir */ }
+        }
+
+        // Gün dosyaları: GG.AA.YYYY.json — sıralama için YYYYAAGG anahtarı.
+        var gunler = new List<(string Anahtar, string Ad)>();
+        foreach (var dosya in Directory.EnumerateFiles(klasor, "*.json"))
+        {
+            var ad = Path.GetFileName(dosya);
+            var e = System.Text.RegularExpressions.Regex.Match(ad, @"^(\d{2})\.(\d{2})\.(\d{4})\.json$");
+            if (!e.Success) continue;
+            gunler.Add((e.Groups[3].Value + e.Groups[2].Value + e.Groups[1].Value, ad));
+        }
+        gunler.Sort((a, b) => string.CompareOrdinal(b.Anahtar, a.Anahtar)); // yeni önce
+
+        for (var i = TutulacakGun; i < gunler.Count; i++)
+        {
+            try { File.Delete(Path.Combine(klasor, gunler[i].Ad)); silinen.Add(gunler[i].Ad); }
+            catch { /* kilitliyse bir sonraki yazmada denenir */ }
+        }
+
+        return silinen;
     }
 }
 

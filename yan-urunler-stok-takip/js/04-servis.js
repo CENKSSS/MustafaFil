@@ -23,7 +23,7 @@
   ];
 
   var ALAN_ADI = {
-    UretilenDokme: "Üretilen Dökme", CuvalAdet: "Çuval Adedi", CuvalKg: "Çuval Kg",
+    UretilenDokme: "Üretilen Dökme", CuvalKg: "Çuvallanan",
     SatilanDokme: "Satılan Dökme", Uretim: "Üretim", Satis: "Satış", Iade: "İade",
     Miktar: "Miktar", DevirTarihi: "Devir Tarihi", Tarih: "Tarih",
     Ad: "Ad", Birim: "Birim", Sira: "Sıra", OzelTip: "Özel Tip", Aktif: "Durum",
@@ -149,6 +149,22 @@
       (e && e.message ? e.message : String(e)));
   }
 
+  /* DİSKE YAZILAMADIYSA İŞLEM BAŞARILI DEĞİLDİR (denetim bulgusu BUG-001,
+     30.08.2026). depo.kaydet() iki durumda false döner — 'cakisma' (başka sekme
+     daha yeni yazmış, onun verisi EZİLMEZ) ve 'kota' (localStorage reddetti).
+     İkisinde de veri yalnız BELLEKTE kalır. Servisler bu dönüşü okumuyordu:
+     ekran "kaydedildi" diyor, sayfa yenilenince kayıt yok oluyordu (ölçüldü).
+
+     Bellek geri sarılır ki ekran diskte olmayan veriyi göstermesin: çakışmada
+     bu sekmenin verisi zaten bayattır, kotada hiç yazılamamıştır. */
+  function diskeYazilamadi(depo, yedek) {
+    if (depo.kaydet()) return null;
+    if (yedek) geriSar(depo, yedek);
+    return sonuc(false, [hataSatiri("Kayit",
+      "Kayıt diske yazılamadı; hiçbir değişiklik saklanmadı. Bu veriyi başka bir sekme " +
+      "değiştirmiş ya da tarayıcı deposu dolmuş olabilir. Sayfayı yenileyip tekrar deneyin.")], [], null);
+  }
+
   /* ---------- YU.log ---------- */
 
   function metinDeger(v) {
@@ -206,6 +222,44 @@
       y = yeni[a];
       if (metinDeger(e) === metinDeger(y)) continue;
       logYaz(depo, { tablo: tablo, kayitId: kayitId, alan: a, eski: e, yeni: y, kullaniciId: kullaniciId, islem: "Guncelle" });
+    }
+  }
+
+  /* GÜNLÜK HAREKET ALANLARI — "ilk kayıt" ile "değişiklik" AYRI ŞEYDİR
+     (kullanıcı direktifi, 31.08.2026).
+
+     Kullanicinin sozu: "0 default deger olarak aliniyor, 0 degistirilirse
+     degistirilmis kabul ediyor... ilk giris yoksa girilen ilk deger yeni
+     deger olarak tanimlansin."
+
+     SEBEP: GunlukHareket satiri uc alan tasir (Uretim, Satis, Iade) ve satir
+     bir kez dogunca uc alanin ucu de dolar — girilmeyenler 0 olur. Kullanici
+     ertesi adimda o bos alani ilk kez doldurunca logDegisenler bunu
+     "0 -> 10.000 degistirildi" diye yaziyordu. Oysa 0, girilmis bir deger
+     degil, HIC GIRILMEMIS alanin yer tutucusudur.
+
+     KURAL: eski 0 ve yeni 0 degilse bu alanin ILK KAYDIDIR -> islem "Ekle",
+     eski deger null. Ters yon (10.000 -> 0) gercek bir degisikliktir ve
+     "Guncelle" olarak kalir: orada bir rakam SILINIYOR ve denetim izinde
+     gorunmesi gerekir.
+
+     Neden ortak logDegisenler'e dokunulmadi: o fonksiyon Kullanicilar,
+     Malzemeler, Silolar gibi tablolarda da calisiyor; orada 0 gercek bir
+     degerdir (ornegin kapasite). Kural yalniz gunluk hareket alanlarina
+     aittir, bu yuzden ayri fonksiyon. */
+  function logHareketAlanlari(depo, kayitId, eski, yeni, alanlar, kullaniciId) {
+    var i, a, e, y, ilkKayit;
+    for (i = 0; i < alanlar.length; i++) {
+      a = alanlar[i];
+      e = YU.yuvarla(say(eski ? eski[a] : 0));
+      y = YU.yuvarla(say(yeni[a]));
+      if (e === y) continue;
+      ilkKayit = e === 0 && y !== 0;
+      logYaz(depo, {
+        tablo: "GunlukHareket", kayitId: kayitId, alan: a,
+        eski: ilkKayit ? null : e, yeni: y,
+        kullaniciId: kullaniciId, islem: ilkKayit ? "Ekle" : "Guncelle"
+      });
     }
   }
 
@@ -493,7 +547,7 @@
     var kk = kuruKuspeGunuBul(depo, tarih);
     var hesap = YU.hesap.kuruKuspe(
       kk ? say(kk.UretilenDokme) : 0,
-      kk ? say(kk.CuvalAdet) : 0,
+      kk ? YU.hesap.kayitCuvalKg(kk) : 0,
       kk ? say(kk.SatilanDokme) : 0
     );
     /* Şartname §4 "Raporlamada dikkat": Durum B'de net üretim 0 görünür ama
@@ -659,7 +713,7 @@
       mevcut.RowVersion = (Number(mevcut.RowVersion) || 0) + 1;
       mevcut.GuncelleyenKullaniciId = kullaniciId;
       mevcut.GuncellemeTarihi = an;
-      if (logla) logDegisenler(depo, "GunlukHareket", mevcut.Id, eski, mevcut, ["Uretim", "Satis", "Iade"], kullaniciId);
+      if (logla) logHareketAlanlari(depo, mevcut.Id, eski, mevcut, ["Uretim", "Satis", "Iade"], kullaniciId);
       return mevcut;
     }
 
@@ -694,7 +748,7 @@
 
   /* ---------- kampanya kilidi (kullanıcı isteği, 24.08.2026) ----------
      Kilitli kampanyada veri değişikliği yasaktır; yönetici kilidi Devir
-     Stok & Kampanya Yönetimi ekranından açmadan giriş/düzeltme/silme ve
+     Stok ve Kampanya Yönetimi ekranından açmadan giriş/düzeltme/silme ve
      devir değişikliği yapılamaz. Şartnamede kilit yoktur — D17 gibi
      prototip eklentisidir; Demirbaş davranışlara dokunmaz (kilit açılınca
      her şey aynen işler). Kabul testleri temiz bellek deposuyla koşar;
@@ -710,16 +764,47 @@
     return a >= 7 ? (y + "/" + (y + 1)) : ((y - 1) + "/" + y);
   }
 
+  /* KAMPANYA BAŞLIĞI (kullanıcı kararı, 31.08.2026) — "aynı yıl içinde yeni
+     kampanya açılabilmeli; kampanyalar yılbaşı itibariyle değil yazın oluyor.
+     Kampanyaya başlık girişi de koyalım."
+
+     Eskiden kampanyanın adı TARİHTEN türetiliyordu (2026/2027) ve bu ad aynı
+     zamanda kimlikti; bu yüzden aynı sezona ikinci kampanya açılamıyordu. Ad
+     artık kullanıcının yazdığı başlıktır: aynı sezonda kaç kampanya olursa
+     olsun her biri kendi adıyla durur. Başlık kaydı OLMAYAN eski veri eski
+     kuralla (sezon adıyla) gruplanmaya devam eder — geçmiş kampanyalar
+     ekranlarda aynı isimle görünür. */
+  function baslikKaydi(depo, tarih) {
+    var l = depo.kampanyaBasliklari || [], i;
+    for (i = 0; i < l.length; i++) if (l[i].DevirTarihi === tarih) return l[i];
+    return null;
+  }
+
   function kampanyaBaslari(depo) {
     var t = {}, i, l = [];
     for (i = 0; i < depo.devirStok.length; i++) t[depo.devirStok[i].DevirTarihi] = 1;
     for (i = 0; i < depo.siloDevirStok.length; i++) t[depo.siloDevirStok[i].DevirTarihi] = 1;
+    var basliklar = depo.kampanyaBasliklari || [];
+    for (i = 0; i < basliklar.length; i++) if (basliklar[i].DevirTarihi) t[basliklar[i].DevirTarihi] = 1;
     for (var k in t) if (Object.prototype.hasOwnProperty.call(t, k)) l.push(k);
     l.sort();
-    var gruplar = [];
+    var gruplar = [], kullanilan = {};
     for (i = 0; i < l.length; i++) {
-      var ad = kampanyaAdiHesapla(l[i]);
-      if (!gruplar.length || gruplar[gruplar.length - 1].ad !== ad) gruplar.push({ ad: ad, bas: l[i] });
+      var kayit = baslikKaydi(depo, l[i]);
+      var sezon = kampanyaAdiHesapla(l[i]);
+      var son = gruplar.length ? gruplar[gruplar.length - 1] : null;
+      /* Başlığı yazılmış her tarih kampanya BAŞIDIR. Başlıksız tarihte eski
+         kural işler: sezon değişmediyse önceki kampanyanın içinde kalır. */
+      if (!kayit && son && son.sezon === sezon) continue;
+      var ad = kayit && kayit.Baslik ? String(kayit.Baslik) : sezon;
+      /* Ad kimliktir (kilit kaydı adla tutulur): çakışırsa ayırt edilir. */
+      if (kullanilan[ad]) {
+        var n = 2;
+        while (kullanilan[ad + " (" + n + ")"]) n++;
+        ad = ad + " (" + n + ")";
+      }
+      kullanilan[ad] = 1;
+      gruplar.push({ ad: ad, bas: l[i], sezon: sezon, baslikli: !!kayit });
     }
     for (i = 0; i < gruplar.length; i++) gruplar[i].sinir = i + 1 < gruplar.length ? gruplar[i + 1].bas : null;
     return gruplar;
@@ -741,11 +826,21 @@
     return null;
   }
 
+  /* Bir tarihin DÜŞTÜĞÜ kampanyanın kilit kaydı. Eskiden kilit, tarihten
+     türetilen sezon adıyla aranıyordu; başlıklı kampanyalarda ad artık
+     tarihten okunamaz (31.08.2026). Yeni kampanyanın ilk devri kilide
+     takılmaz: başlık kaydı devir satırlarından ÖNCE yazılır, o tarih kendi
+     kampanyasının başı olur ve yeni kampanya kilitli değildir. */
+  function tarihKilidi(depo, tarih) {
+    var kmp = tarihinKampanyasi(depo, tarih);
+    return kmp ? kilitKaydi(depo, kmp.ad) : null;
+  }
+
   function kilitEngeli(depo, tarih) {
     var kmp = tarihinKampanyasi(depo, tarih);
     if (!kmp || !kilitKaydi(depo, kmp.ad)) return null;
     return hataSatiri("KILIT", "\"" + kmp.ad + "\" kampanyası kilitli — " + YU.fmt.tarih(tarih) +
-      " bu kampanyaya düşer ve değiştirilemez. Önce Devir Stok & Kampanya Yönetimi ekranından kilidi açın.");
+      " bu kampanyaya düşer ve değiştirilemez. Önce Devir Stok ve Kampanya Yönetimi ekranından kilidi açın.");
   }
 
   /* GEÇMİŞ KAMPANYA YALNIZ YÖNETİCİNİN (kullanıcı kararı, 25.08.2026):
@@ -770,18 +865,18 @@
     return kilitEngeli(depo, tarih) || gecmisKampanyaEngeli(depo, tarih, kullanici);
   }
 
-  function kuruKuspeKaydet(depo, girdi, kullanici, secenek) {
-    secenek = secenek || {};
+  /* SEÇENEK PARAMETRESİ KALDIRILDI (kullanıcı direktifi, 31.08.2026).
+     Tek seçenek "tohumlama" idi: verilince denetim izi yazılmıyor, kampanya
+     kilidi ve D14 negatif-stok denetimi ATLANIYORDU. Bayrağı yalnız örnek veri
+     üreticisi geçiyordu; o silindi ve geriye kural atlatan açık bir kapı
+     kalmıştı. Artık her yazma aynı kapıdan geçer, istisna yok. */
+  function kuruKuspeKaydet(depo, girdi, kullanici) {
     var kullaniciId = kullanici && kullanici.Id !== undefined ? kullanici.Id : null;
-    var tohumlama = secenek.tohumlama === true;
-    /* Tohum verisi kullanıcı değişikliği değildir: loglanırsa gerçek düzeltmeleri
-       gömer ve depoyu gereksiz şişirir (Şartname §6). */
-    var logla = !tohumlama;
+    var logla = true;
     var tarih = girdi.tarih;
 
-    /* Kampanya kilidi her yazma yolunu keser (tohum verisi hariç — tohum
-       kullanıcı işlemi değildir ve kilitler kurulmadan önce yazılır). */
-    var kilitH = logla ? yazmaEngeli(depo, tarih, kullanici) : null;
+    /* Kampanya kilidi her yazma yolunu keser — istisnasız. */
+    var kilitH = yazmaEngeli(depo, tarih, kullanici);
     if (kilitH) return sonuc(false, [kilitH], [], null);
 
     var d = YU.dogrula.kuruKuspeKaydi(depo, girdi);
@@ -791,10 +886,8 @@
     var i;
 
     /* D14 — ileri bakiye. Başka hata varken de çalıştırılır: geriye dönük bir
-       düzeltme hem D7'yi hem D14'ü bozabiliyor, kullanıcı ikisini birden görmeli.
-       Tohumlamada atlanır: tohum verisi yalnızca ileriye doğru eklenir, geriye
-       dönük bozma riski yoktur. */
-    if (!tohumlama) {
+       düzeltme hem D7'yi hem D14'ü bozabiliyor, kullanıcı ikisini birden görmeli. */
+    {
       var negatifler = YU.dogrula.ileriBakiye(depo, tarih, {
         tarih: tarih,
         kuruKuspeSilTarihi: tarih,
@@ -804,50 +897,24 @@
         hatalar.push(hataSatiri("D14", YU.dogrula.d14Mesaji(negatifler[i])));
       }
 
-      /* D15 — İLERİ GÜNLER (kullanıcı direktifi, 28.08.2026). Doğrulama
-         katmanındaki D15 yalnız DÜZENLENEN günün sonunu ölçüyordu; geçmişe
-         eklenen üretim ileri bir günü kapasitenin üstüne çıkarabiliyor ve
-         kayıt kabul ediliyordu (ölçüldü: 3.049.000 / 3.000.000). Düzenlenen
-         gün burada ELENİR — onu D15 kendi ayrıntılı mesajıyla zaten söyler,
-         iki kez yazılmasın. */
-      var ileriKap = YU.dogrula.ileriKapasite(depo, tarih, {
-        tarih: tarih,
-        kuruKuspeSilTarihi: tarih,
-        yeniHareketler: taslakHareketler(girdi)
-      });
-      for (i = 0; i < ileriKap.length; i++) {
-        if (ileriKap[i].tarih === tarih) continue;
-        hatalar.push(hataSatiri("D15", YU.dogrula.d15IleriMesaji(ileriKap[i])));
-      }
-
-      /* ÇUVALLI KURU KÜSPE — İLERİ NEGATİF (kullanıcı direktifi, 28.08.2026).
-         Bu kayıt çuvallı üretimini (adet × 50) yeniden yazar; geçmiş günün
-         adedini düşürmek ileri günün çuvallı satışını açıkta bırakabiliyordu
-         ve kabul ediliyordu (ölçüldü: stok −4.000). Satış bu yoldan DEĞİŞMEZ
-         (Malzeme Girişi'nin kolonu) — mevcut satır neyse o simüle edilir.
-         Dökme dışarıda: stoğu siloların toplamı, D14 silo yürüyüşü kapsıyor. */
-      var cuvalMlz = ozelTipliMalzeme(depo, "CuvalKuruKuspe");
-      var cuvalAdedi = oku(girdi.cuvalAdet);
-      if (cuvalMlz && !isNaN(cuvalAdedi)) {
-        var cuvalSatiri = gunlukHareketBul(depo, tarih, cuvalMlz.Id);
-        var cuvalNegatif = YU.dogrula.malzemeIlkNegatifGun(depo, cuvalMlz, tarih,
-          YU.yuvarla(cuvalAdedi * YU.hesap.CUVAL_KG),
-          cuvalSatiri ? Number(cuvalSatiri.Satis) || 0 : 0);
-        if (cuvalNegatif) {
-          hatalar.push(hataSatiri("D14", "\"" + cuvalMlz.Ad + "\" stoğu " +
-            YU.fmt.tarih(cuvalNegatif.tarih) + " günü " + YU.fmt.kgU(cuvalNegatif.bakiye) +
-            "'a düşerdi. Stok hiçbir gün eksiye inemez; kayıt yapılmadı."));
-        }
-      }
+      /* D15 ileri günler + çuvallı ileri negatif — KURAL 03-dogrulama'da
+         (kuruKuspeIleriEngeller). Buradan taşındı ki ekranın canlı denetimi de
+         aynı kuralı çağırabilsin (denetim bulgusu BUG-002, 30.08.2026):
+         eskiden kural yalnız burada durduğu için ekran "Kaydedilebilir" derken
+         servis reddediyor ve sebep hiçbir yerde görünmüyordu. */
+      hatalar = hatalar.concat(
+        YU.dogrula.kuruKuspeIleriEngeller(depo, girdi, taslakHareketler(girdi)));
     }
 
     /* Tüm doğrulamalar bitmeden depoya dokunulmaz. */
     if (hatalar.length) return sonuc(false, hatalar, uyarilar, null);
 
     var uretilen = oku(girdi.uretilenDokme);
-    var cuvalAdet = oku(girdi.cuvalAdet);
+    /* Çuvallanan artık doğrudan kg (kullanıcı kararı, 02.09.2026); adet
+       yalnız şema alanı olarak türetilir, hiçbir hesapta okunmaz. */
+    var cuvallananKg = YU.hesap.girdiCuvalKg(girdi);
     var satilan = oku(girdi.satilanDokme);
-    var hesap = YU.hesap.kuruKuspe(uretilen, cuvalAdet, satilan);
+    var hesap = YU.hesap.kuruKuspe(uretilen, cuvallananKg, satilan);
     var dokmeMalzeme = ozelTipliMalzeme(depo, "DokmeKuruKuspe");
     var cuvalMalzeme = ozelTipliMalzeme(depo, "CuvalKuruKuspe");
 
@@ -919,11 +986,13 @@
       /* 2 — KuruKuspeGunluk upsert (D8), RowVersion +1 */
       if (mevcut) {
         eski = {
-          UretilenDokme: say(mevcut.UretilenDokme), CuvalAdet: say(mevcut.CuvalAdet),
-          CuvalKg: say(mevcut.CuvalKg), SatilanDokme: say(mevcut.SatilanDokme)
+          UretilenDokme: say(mevcut.UretilenDokme),
+          CuvalKg: YU.hesap.kayitCuvalKg(mevcut), SatilanDokme: say(mevcut.SatilanDokme)
         };
         mevcut.UretilenDokme = uretilen;
-        mevcut.CuvalAdet = cuvalAdet;
+        /* CuvalAdet ŞEMA ALANI olarak kalır (KURAL 13: gün dosyası biçimi
+           bozulmaz) ama artık türetilmiştir — okunduğu hiçbir yer yoktur. */
+        mevcut.CuvalAdet = YU.hesap.CUVAL_KG ? hesap.cuvalKg / YU.hesap.CUVAL_KG : 0;
         mevcut.CuvalKg = hesap.cuvalKg;
         mevcut.SatilanDokme = satilan;
         mevcut.RowVersion = (Number(mevcut.RowVersion) || 0) + 1;
@@ -932,14 +1001,14 @@
         kayit = mevcut;
         if (logla) {
           logDegisenler(depo, "KuruKuspeGunluk", kayit.Id, eski, kayit,
-            ["UretilenDokme", "CuvalAdet", "CuvalKg", "SatilanDokme"], kullaniciId);
+            ["UretilenDokme", "CuvalKg", "SatilanDokme"], kullaniciId);
         }
       } else {
         kayit = {
           Id: depo.yeniId("KuruKuspeGunluk"),
           Tarih: tarih,
           UretilenDokme: uretilen,
-          CuvalAdet: cuvalAdet,
+          CuvalAdet: YU.hesap.CUVAL_KG ? hesap.cuvalKg / YU.hesap.CUVAL_KG : 0,
           CuvalKg: hesap.cuvalKg,
           SatilanDokme: satilan,
           RowVersion: 1,
@@ -953,7 +1022,7 @@
           logYaz(depo, {
             tablo: "KuruKuspeGunluk", kayitId: kayit.Id, alan: null, eski: null,
             yeni: YU.fmt.tarih(tarih) + " · üretilen dökme " + YU.fmt.kgU(uretilen) +
-              " · " + YU.fmt.sayi(cuvalAdet) + " çuval · satılan dökme " + YU.fmt.kgU(satilan),
+              " · çuvallanan " + YU.fmt.kgU(hesap.cuvalKg) + " · satılan dökme " + YU.fmt.kgU(satilan),
             kullaniciId: kullaniciId, islem: "Ekle"
           });
         }
@@ -996,7 +1065,8 @@
       return sonuc(false, [beklenmedikHata(e)], uyarilar, null);
     }
 
-    depo.kaydet();
+    var yazHatasi = diskeYazilamadi(depo, yedek);
+    if (yazHatasi) return yazHatasi;
     return sonuc(true, [], uyarilar, kayit);
   }
 
@@ -1010,7 +1080,19 @@
     if (d.hatalar.length) return sonuc(false, d.hatalar, [], null);
 
     var yedek = anlikGoruntu(depo, ["kuruKuspeGunluk", "siloHareket", "gunlukHareket", "degisiklikLog"]);
-    var i, silinenSilo = 0, silinenHareket = 0, kk = null;
+    var i, silinenSilo = 0, kk = null;
+    /* GÜNÜ SIFIRLA YALNIZ BU EKRANIN VERİSİNİ SİLER (kullanıcı kararı,
+       31.08.2026): eskiden o günün TÜM GunlukHareket satırları gidiyordu,
+       yani Malzeme Girişi'ne elle yazılmış yaş küspe, kuyruk, toprak da
+       siliniyordu. Artık yalnız bu ekranın YAZDIĞI alanlar sıfırlanır —
+       kuruKuspeKaydet'in 4. adımının tam karşılığı:
+         Dökme Kuru Küspe  → Üretim + Satış
+         Çuvallı Kuru Küspe → yalnız Üretim
+       İade ve çuvallının Satış'ı Malzeme Girişi'nin verisidir, dokunulmaz.
+       Satırda hiçbir değer kalmazsa satır silinir: gunlukHareketYaz da sıfır
+       satır yazmıyor, geride boş kayıt bırakmak çöp olurdu. */
+    var dokmeMz = ozelTipliMalzeme(depo, "DokmeKuruKuspe");
+    var cuvalMz = ozelTipliMalzeme(depo, "CuvalKuruKuspe");
 
     try {
       for (i = depo.kuruKuspeGunluk.length - 1; i >= 0; i--) {
@@ -1023,14 +1105,41 @@
         if (depo.siloHareket[i].Tarih === tarih) { depo.siloHareket.splice(i, 1); silinenSilo++; }
       }
       for (i = depo.gunlukHareket.length - 1; i >= 0; i--) {
-        if (depo.gunlukHareket[i].Tarih === tarih) { depo.gunlukHareket.splice(i, 1); silinenHareket++; }
+        var gh = depo.gunlukHareket[i];
+        if (gh.Tarih !== tarih) continue;
+        var dokmeMu = dokmeMz && gh.MalzemeId === dokmeMz.Id;
+        var cuvalMi = cuvalMz && gh.MalzemeId === cuvalMz.Id;
+        if (!dokmeMu && !cuvalMi) continue;               /* başka malzeme: elleme */
+
+        var eskiGh = { Uretim: say(gh.Uretim), Satis: say(gh.Satis), Iade: say(gh.Iade) };
+        var yeniUretim = 0;
+        var yeniSatis = dokmeMu ? 0 : say(gh.Satis);      /* çuvallının satışı kalır */
+        if (eskiGh.Uretim === yeniUretim && eskiGh.Satis === yeniSatis) continue;   /* zaten boş */
+
+        if (yeniUretim === 0 && yeniSatis === 0 && eskiGh.Iade === 0) {
+          depo.gunlukHareket.splice(i, 1);
+          logYaz(depo, {
+            tablo: "GunlukHareket", kayitId: gh.Id, alan: null,
+            eski: YU.fmt.tarih(tarih) + " · " + (dokmeMu ? dokmeMz.Ad : cuvalMz.Ad) +
+              " · üretim " + YU.fmt.kgU(eskiGh.Uretim) + " · satış " + YU.fmt.kgU(eskiGh.Satis),
+            yeni: null, kullaniciId: kullaniciId, islem: "Sil"
+          });
+          continue;
+        }
+
+        gh.Uretim = yeniUretim;
+        gh.Satis = yeniSatis;
+        gh.RowVersion = (Number(gh.RowVersion) || 0) + 1;
+        gh.GuncelleyenKullaniciId = kullaniciId;
+        gh.GuncellemeTarihi = simdi();
+        logDegisenler(depo, "GunlukHareket", gh.Id, eskiGh, gh, ["Uretim", "Satis", "Iade"], kullaniciId);
       }
 
       if (kk) {
         logYaz(depo, {
           tablo: "KuruKuspeGunluk", kayitId: kk.Id, alan: null,
           eski: YU.fmt.tarih(tarih) + " · üretilen dökme " + YU.fmt.kgU(kk.UretilenDokme) +
-            " · " + YU.fmt.sayi(kk.CuvalAdet) + " çuval · satılan dökme " + YU.fmt.kgU(kk.SatilanDokme),
+            " · çuvallanan " + YU.fmt.kgU(YU.hesap.kayitCuvalKg(kk)) + " · satılan dökme " + YU.fmt.kgU(kk.SatilanDokme),
           yeni: null, kullaniciId: kullaniciId, islem: "Sil"
         });
       }
@@ -1041,20 +1150,191 @@
           yeni: null, kullaniciId: kullaniciId, islem: "Sil"
         });
       }
-      if (silinenHareket) {
-        logYaz(depo, {
-          tablo: "GunlukHareket", kayitId: null, alan: null,
-          eski: YU.fmt.tarih(tarih) + " · " + YU.fmt.sayi(silinenHareket) + " malzeme satırı",
-          yeni: null, kullaniciId: kullaniciId, islem: "Sil"
-        });
-      }
+      /* Malzeme satırlarının toplu "N satır silindi" özeti KALDIRILDI: artık
+         her satır kendi içinde ya sıfırlanıyor ya siliniyor ve ikisi de
+         yukarıda tek tek loglanıyor. İkinci bir özet satırı aynı işi iki
+         kere yazardı. */
     } catch (e) {
       geriSar(depo, yedek);
       return sonuc(false, [beklenmedikHata(e)], [], null);
     }
 
-    depo.kaydet();
+    var yazHatasi = diskeYazilamadi(depo, yedek);
+    if (yazHatasi) return yazHatasi;
     return sonuc(true, [], [], null);
+  }
+
+  /* ---------- GÜNÜ YEDEKTEN GERİ YÜKLE (kullanıcı isteği, 31.08.2026) ----------
+
+     Günlük yedeğin eksik yarısıydı: her gün kendi dosyasına yazılıyordu ama
+     tek günü geri koyan yol yoktu; geri yükleme yalnız TÜM veritabanı için
+     vardı (_tam-paket.json). Bu servis bir gün dosyasını (07-yedekci ·
+     gunPaketi biçimi) o günün yerine koyar; başka güne dokunmaz.
+
+     ÜZERİNE YAZAR: o güne ait mevcut satırlar önce silinir, sonra dosyadakiler
+     konur. "Birleştir" olsaydı aynı kayıt iki kez sayılırdı.
+
+     İŞLEM GEÇMİŞİ DE GERİ KONUR (kullanıcı direktifi, 31.08.2026 — önceki
+     "geri konmaz" kararının yerine geçer): Program Hareketleri sayfasındaki
+     günlük döküm DegisiklikLog'dan okunur; geri konmayınca gün boş
+     görünüyordu (ölçüldü). Çiftlenme yok: o günün satırları önce silinir,
+     dosyadakiler konur. Silinen kayıt kopyaları da aynı yolla döner. Sona
+     bir satır eklenir — gün yedekten geri yüklendi, kim ve ne zaman.
+
+     KURAL 12.1: geri yükleme de bir yazmadır. İşlem öncesi ve sonrası negatif
+     fotoğrafı karşılaştırılır; YENİ negatif doğuyorsa işlem geri sarılır. */
+  function gunYedektenYukle(depo, girdi, kullanici) {
+    var kullaniciId = kullanici && kullanici.Id !== undefined ? kullanici.Id : null;
+    var paket = girdi && girdi.paket;
+    if (!paket || typeof paket !== "object") {
+      return sonuc(false, [hataSatiri("Alan", "Yedek paketi okunamadı.")], [], null);
+    }
+    var tarih = paket.tarih;
+    if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(String(tarih || ""))) {
+      return sonuc(false, [hataSatiri("Alan", "Yedek dosyasında geçerli bir tarih yok.")], [], null);
+    }
+    var kilitH = yazmaEngeli(depo, tarih, kullanici);
+    if (kilitH) return sonuc(false, [kilitH], [], null);
+
+    var kk = paket.kuruKuspe || null;
+    var siloSatirlari = paket.siloHareket || [];
+    var hareketSatirlari = paket.gunlukHareket || [];
+    if (!kk && !siloSatirlari.length && !hareketSatirlari.length &&
+        !(paket.devirStok || []).length && !(paket.siloDevirStok || []).length) {
+      return sonuc(false, [hataSatiri("Alan", YU.fmt.tarih(tarih) +
+        " yedeği boş — geri yüklenecek kayıt yok.")], [], null);
+    }
+
+    var yedek = anlikGoruntu(depo, ["kuruKuspeGunluk", "siloHareket", "gunlukHareket",
+                                    "devirStok", "siloDevirStok", "kampanyaBasliklari",
+                                    "degisiklikLog", "silinenKayitlar",
+                                    "olayGunlugu", "stokFotograflari", "kampanyaKilitleri"]);
+    var oncekiNegatif = negatifFotograf(depo);
+    var i;
+
+    /* DEVİR DE GERİ KONUR (kullanıcı direktifi, 31.08.2026). Gün dosyası
+       surum 2'den beri kampanyanın devir satırlarını da taşıyor; devirsiz
+       geri yükleme her stoğu devir kadar eksik gösteriyordu. Eski surum 1
+       dosyalarında bu alanlar yoktur, o zaman bu adım atlanır. */
+    var devirSatirlari = paket.devirStok || [];
+    var siloDevirSatirlari = paket.siloDevirStok || [];
+    var kampanyaKaydi = paket.kampanya || null;
+    var devirYazilan = 0;
+
+    function devriGeriKoy(tablo, satirlar, alan) {
+      var a, b, mevcut;
+      for (a = 0; a < satirlar.length; a++) {
+        mevcut = null;
+        for (b = 0; b < tablo.length; b++) {
+          if (tablo[b][alan] === satirlar[a][alan] && tablo[b].DevirTarihi === satirlar[a].DevirTarihi) {
+            mevcut = tablo[b]; break;
+          }
+        }
+        if (mevcut) mevcut.Miktar = YU.yuvarla(satirlar[a].Miktar);
+        else tablo.push(YU.kopya(satirlar[a]));
+        devirYazilan++;
+      }
+    }
+
+    try {
+      for (i = depo.kuruKuspeGunluk.length - 1; i >= 0; i--) {
+        if (depo.kuruKuspeGunluk[i].Tarih === tarih) depo.kuruKuspeGunluk.splice(i, 1);
+      }
+      for (i = depo.siloHareket.length - 1; i >= 0; i--) {
+        if (depo.siloHareket[i].Tarih === tarih) depo.siloHareket.splice(i, 1);
+      }
+      for (i = depo.gunlukHareket.length - 1; i >= 0; i--) {
+        if (depo.gunlukHareket[i].Tarih === tarih) depo.gunlukHareket.splice(i, 1);
+      }
+
+      /* Satırlar KOPYALANARAK konur: dosyadan gelen nesne depoya bağlanmaz.
+         Id'ler olduğu gibi korunur — depo.yeniId tabloyu tarayıp en büyük
+         Id'yi bulduğu için sonraki kayıtlar yine çakışmaz. */
+      if (kk) depo.kuruKuspeGunluk.push(YU.kopya(kk));
+      for (i = 0; i < siloSatirlari.length; i++) depo.siloHareket.push(YU.kopya(siloSatirlari[i]));
+      for (i = 0; i < hareketSatirlari.length; i++) depo.gunlukHareket.push(YU.kopya(hareketSatirlari[i]));
+
+      /* İşlem geçmişi: o günün satırları dosyadakilerle DEĞİŞTİRİLİR.
+         Log tarihi saatli olduğundan gün, ilk 10 karakterden okunur. */
+      var logSatirlari = paket.degisiklikLog || [];
+      for (i = depo.degisiklikLog.length - 1; i >= 0; i--) {
+        if (String(depo.degisiklikLog[i].Tarih || "").slice(0, 10) === tarih) depo.degisiklikLog.splice(i, 1);
+      }
+      for (i = 0; i < logSatirlari.length; i++) depo.degisiklikLog.push(YU.kopya(logSatirlari[i]));
+
+      /* Silinen kayıt kopyaları (yönetici ekranlarındaki çizili satırlar):
+         aynı değiştirme kuralı. Eski dosyada alan yoksa mevcut korunur. */
+      if (paket.silinenKayitlar) {
+        if (!depo.silinenKayitlar) depo.silinenKayitlar = [];
+        for (i = depo.silinenKayitlar.length - 1; i >= 0; i--) {
+          var skk = depo.silinenKayitlar[i];
+          if (skk.Kayit && skk.Kayit.Tarih === tarih) depo.silinenKayitlar.splice(i, 1);
+        }
+        for (i = 0; i < paket.silinenKayitlar.length; i++) depo.silinenKayitlar.push(YU.kopya(paket.silinenKayitlar[i]));
+      }
+
+      /* Arşiv tabloları: aynı değiştirme kuralı (surum 4, 31.08.2026).
+         Eski dosyada alan yoksa mevcut korunur. */
+      function gunuDegistir(tabloAdi2, satirlar2, gunAl) {
+        if (!satirlar2) return;
+        if (!depo[tabloAdi2]) depo[tabloAdi2] = [];
+        var tt = depo[tabloAdi2], q;
+        for (q = tt.length - 1; q >= 0; q--) if (gunAl(tt[q]) === tarih) tt.splice(q, 1);
+        for (q = 0; q < satirlar2.length; q++) tt.push(YU.kopya(satirlar2[q]));
+      }
+      gunuDegistir("olayGunlugu", paket.olayGunlugu, function (r) { return String(r.Tarih || "").slice(0, 10); });
+      gunuDegistir("stokFotograflari", paket.stokFotograflari, function (r) { return r.Tarih; });
+
+      /* Kampanya kilidi: dosyada varsa ve içeride yoksa geri konur —
+         yedeklenen durumun aynısı. (Kilitli günün İLK geri yüklemesi çalışır:
+         o an içeride kilit yoktur; kilit bu adımda döner. Sonraki denemeler
+         kilide takılır — kilitli kampanyaya yazma yasağının kendisi.) */
+      if (paket.kampanyaKilidi && paket.kampanyaKilidi.Kampanya) {
+        if (!depo.kampanyaKilitleri) depo.kampanyaKilitleri = [];
+        if (!kilitKaydi(depo, paket.kampanyaKilidi.Kampanya)) {
+          depo.kampanyaKilitleri.push(YU.kopya(paket.kampanyaKilidi));
+        }
+      }
+
+      /* Devir ve kampanya başlığı: varsa üzerine yazılır, yoksa eklenir.
+         Yalnız dosyadaki DevirTarihi'ne dokunulur — başka kampanyanın
+         devri etkilenmez. */
+      devriGeriKoy(depo.devirStok, devirSatirlari, "MalzemeId");
+      devriGeriKoy(depo.siloDevirStok, siloDevirSatirlari, "SiloId");
+      if (kampanyaKaydi && kampanyaKaydi.DevirTarihi) {
+        if (!depo.kampanyaBasliklari) depo.kampanyaBasliklari = [];
+        if (!baslikKaydi(depo, kampanyaKaydi.DevirTarihi)) depo.kampanyaBasliklari.push(YU.kopya(kampanyaKaydi));
+      }
+
+      logYaz(depo, {
+        tablo: "GunlukHareket", kayitId: null, alan: null, eski: null,
+        yeni: YU.fmt.tarih(tarih) + " günü yedekten geri yüklendi — " +
+          YU.fmt.sayi(hareketSatirlari.length) + " malzeme satırı, " +
+          YU.fmt.sayi(siloSatirlari.length) + " silo hareketi" +
+          (kk ? ", kuru küspe kaydı" : "") +
+          (devirYazilan ? ", " + YU.fmt.sayi(devirYazilan) + " devir satırı" : "") +
+          (logSatirlari.length ? ", " + YU.fmt.sayi(logSatirlari.length) + " işlem geçmişi satırı" : "") +
+          (kampanyaKaydi ? ", kampanya \"" + kampanyaKaydi.Baslik + "\"" : ""),
+        kullaniciId: kullaniciId, islem: "Ekle"
+      });
+    } catch (e) {
+      geriSar(depo, yedek);
+      return sonuc(false, [beklenmedikHata(e)], [], null);
+    }
+
+    var negatifH = negatifEngeli(depo, oncekiNegatif, yedek);
+    if (negatifH) return negatifH;
+
+    var yazHatasi = diskeYazilamadi(depo, yedek);
+    if (yazHatasi) return yazHatasi;
+    return sonuc(true, [], [], {
+      tarih: tarih,
+      malzeme: hareketSatirlari.length,
+      silo: siloSatirlari.length,
+      kuruKuspe: !!kk,
+      devir: devirYazilan,
+      kampanya: kampanyaKaydi ? kampanyaKaydi.Baslik : null
+    });
   }
 
   /* ---------- malzeme hareketi (Malzeme Girişi) ---------- */
@@ -1093,7 +1373,8 @@
       return sonuc(false, [beklenmedikHata(e)], d.uyarilar, null);
     }
 
-    depo.kaydet();
+    var yazHatasi = diskeYazilamadi(depo, yedek);
+    if (yazHatasi) return yazHatasi;
     return sonuc(true, [], d.uyarilar, kayit);
   }
 
@@ -1118,10 +1399,10 @@
     var aciklama = String(girdi.aciklama).trim();
     var hatalar = [], i;
 
-    var kilitliKmp = kilitKaydi(depo, kampanyaAdiHesapla(tarih));
+    var kilitliKmp = tarihKilidi(depo, tarih);
     if (kilitliKmp) {
       return sonuc(false, [hataSatiri("KILIT", "\"" + kilitliKmp.Kampanya +
-        "\" kampanyası kilitli — sayım düzeltmesi girilemez. Önce Devir Stok & Kampanya Yönetimi ekranından kilidi açın.")], [], null);
+        "\" kampanyası kilitli — sayım düzeltmesi girilemez. Önce Devir Stok ve Kampanya Yönetimi ekranından kilidi açın.")], [], null);
     }
 
     /* D14 — işlem gününden ileriye her silonun bakiyesi taslakla doğrulanır. */
@@ -1200,7 +1481,8 @@
       return sonuc(false, [beklenmedikHata(e)], [], null);
     }
 
-    depo.kaydet();
+    var yazHatasi = diskeYazilamadi(depo, yedek);
+    if (yazHatasi) return yazHatasi;
     return sonuc(true, [], uyarilar, kayit);
   }
 
@@ -1321,12 +1603,12 @@
     var kullaniciId = kullanici && kullanici.Id !== undefined ? kullanici.Id : null;
     var i, mevcut = null;
 
-    /* Kilitli kampanyanın devri değiştirilemez. Ad üzerinden bakılır:
-       yeni sezonun ilk devri farklı sezon adı ürettiği için serbesttir. */
-    var kilitliKmp = kilitKaydi(depo, kampanyaAdiHesapla(devirTarihi));
+    /* Kilitli kampanyanın devri değiştirilemez. Tarihin düştüğü kampanyaya
+       bakılır; yeni kampanyanın ilk devri serbesttir (bkz. tarihKilidi). */
+    var kilitliKmp = tarihKilidi(depo, devirTarihi);
     if (kilitliKmp) {
       return sonuc(false, [hataSatiri("KILIT", "\"" + kilitliKmp.Kampanya +
-        "\" kampanyası kilitli — devir satırı değiştirilemez. Önce Devir Stok & Kampanya Yönetimi ekranından kilidi açın.")], [], null);
+        "\" kampanyası kilitli — devir satırı değiştirilemez. Önce Devir Stok ve Kampanya Yönetimi ekranından kilidi açın.")], [], null);
     }
 
     for (i = 0; i < tablo.length; i++) {
@@ -1395,8 +1677,10 @@
     var kapEngel = kapasiteEngeli(depo, oncekiAsim, yedek);
     if (kapEngel) return kapEngel;
 
-    depo.kaydet();
-    return sonuc(true, [], devirUyarilari(depo, siloMu ? sahipId : null), kayit);
+    var yazHatasi = diskeYazilamadi(depo, yedek);
+    if (yazHatasi) return yazHatasi;
+    return sonuc(true, [], devirUyarilari(depo, siloMu ? sahipId : null)
+      .concat(devirOncesiUyarisi(depo, tip, sahipId, devirTarihi, mevcut)), kayit);
   }
 
   /* NEGATİF STOK SERT ENGELİ — devir yolları (kullanıcı direktifi,
@@ -1510,6 +1794,57 @@
     return uyarilar;
   }
 
+  /* DEVİR ÖNCESİ HAREKET UYARISI (denetim bulgusu BUG-006, 30.08.2026).
+
+     Şartname §5'in "en son devir" formülü, devir tarihinden ÖNCEKİ hareketleri
+     saymaz — doğru davranış. Ama hareketler ZATEN VARKEN araya devir yazılırsa
+     o hareketler görünmez veri olur ve kullanıcı bunu hiçbir yerden göremezdi
+     (ölçüldü: 5.000 kg'lık iki hareket devir yazılınca stoktan düştü, uyarı
+     çıkmadı). D18 yalnız tersini engelliyor: devirden önceki güne YENİ kayıt.
+
+     ENGEL DEĞİL, UYARI: kampanya açılışında önceki sezonun hareketleri zaten
+     bilerek dışarıda bırakılır — engel olsaydı yeni sezon açılamazdı.
+
+     KAPSAM bir önceki devirden bu devre kadardır; daha eskisi zaten sayılmıyordu.
+     Yalnız YENİ satır açılırken çalışır: mevcut satırın miktarı değişince
+     hareketlerin kapsamı değişmez. */
+  function devirOncesiUyarisi(depo, tip, sahipId, devirTarihi, mevcutSatir) {
+    if (mevcutSatir) return [];
+    var siloMu = tip === "Silo";
+    var onceki = enSonDevir(depo, tip, sahipId, YU.tarih.ekle(devirTarihi, -1));
+    var bas = onceki ? onceki.DevirTarihi : null;
+    var sayi = 0, toplam = 0, ilk = null, i, h, net;
+
+    if (siloMu) {
+      for (i = 0; i < depo.siloHareket.length; i++) {
+        h = depo.siloHareket[i];
+        if (h.SiloId !== sahipId || h.Tarih >= devirTarihi) continue;
+        if (bas && h.Tarih < bas) continue;
+        sayi++;
+        toplam += (Number(h.GirenKg) || 0) - (Number(h.CikanKg) || 0);
+        if (ilk === null || h.Tarih < ilk) ilk = h.Tarih;
+      }
+    } else {
+      for (i = 0; i < depo.gunlukHareket.length; i++) {
+        h = depo.gunlukHareket[i];
+        if (h.MalzemeId !== sahipId || h.Tarih >= devirTarihi) continue;
+        if (bas && h.Tarih < bas) continue;
+        sayi++;
+        toplam += (Number(h.Uretim) || 0) - (Number(h.Satis) || 0);
+        if (ilk === null || h.Tarih < ilk) ilk = h.Tarih;
+      }
+    }
+
+    if (!sayi) return [];
+    net = YU.yuvarla(toplam);
+    var sahip = satirBul(siloMu ? depo.silolar : depo.malzemeler, sahipId);
+    return [hataSatiri("Devir", (sahip ? sahip.Ad : "#" + sahipId) + ": " +
+      YU.fmt.tarih(devirTarihi) + " devrinden önceki " + YU.fmt.sayi(sayi) +
+      " hareket (" + YU.fmt.tarih(ilk) + " tarihinden başlayarak, net " +
+      YU.fmt.kgU(net) + ") artık stok hesabına girmez. Stok bu devir " +
+      "rakamından devam eder.")];
+  }
+
   function devirKaydet(depo, girdi, kullanici) {
     var yetki = yoneticiSarti(kullanici);
     if (yetki) return yetki;
@@ -1534,10 +1869,10 @@
     if (!kayit) {
       return sonuc(false, [hataSatiri("Alan", "Silinecek devir kaydı bulunamadı (Id: " + String(id) + ").")], [], null);
     }
-    var kilitliKmpSil = kilitKaydi(depo, kampanyaAdiHesapla(kayit.DevirTarihi));
+    var kilitliKmpSil = tarihKilidi(depo, kayit.DevirTarihi);
     if (kilitliKmpSil) {
       return sonuc(false, [hataSatiri("KILIT", "\"" + kilitliKmpSil.Kampanya +
-        "\" kampanyası kilitli — devir satırı silinemez. Önce Devir Stok & Kampanya Yönetimi ekranından kilidi açın.")], [], null);
+        "\" kampanyası kilitli — devir satırı silinemez. Önce Devir Stok ve Kampanya Yönetimi ekranından kilidi açın.")], [], null);
     }
 
     /* Silo devri yazılırken DEVIRSTOK da yedeğe girer: dökme satırı aynı
@@ -1570,7 +1905,8 @@
     var kapEngelSil = kapasiteEngeli(depo, oncekiAsimSil, yedek);
     if (kapEngelSil) return kapEngelSil;
 
-    depo.kaydet();
+    var yazHatasiSil = diskeYazilamadi(depo, yedek);
+    if (yazHatasiSil) return yazHatasiSil;
     return sonuc(true, [], devirUyarilari(depo, siloMu ? kayit.SiloId : null), kayit);
   }
 
@@ -1635,7 +1971,8 @@
       return sonuc(false, [beklenmedikHata(e)], [], null);
     }
 
-    depo.kaydet();
+    var yazHatasi = diskeYazilamadi(depo, yedek);
+    if (yazHatasi) return yazHatasi;
     return sonuc(true, [], [], kayit);
   }
 
@@ -1700,7 +2037,68 @@
       return sonuc(false, [beklenmedikHata(e)], [], null);
     }
 
-    depo.kaydet();
+    var yazHatasi = diskeYazilamadi(depo, yedek);
+    if (yazHatasi) return yazHatasi;
+    return sonuc(true, [], [], kayit);
+  }
+
+  /* KAYIT OL — kendi hesabını açma (kullanıcı direktifi, 31.08.2026).
+
+     Şartname §3 (Demirbaş) hesap açmayı yalnız yöneticiye veriyordu; kullanıcı
+     giriş ekranına açık bir "Kayıt Ol" istedi ve KURAL 6 gereği kullanıcının
+     kararı geçerlidir. Bu yüzden kapı yoneticiSarti'na BAĞLANMAZ — bağlansaydı
+     kodda tanımlı hesap kalmadığı için (01-cekirdek · KULLANICI_TANIMI boş)
+     ilk hesap hiç açılamazdı.
+
+     Yine de kullaniciKaydet'in tuttuğu her kural burada da tutar: e-posta
+     biçimi, D11 tekilliği ve rol denetimi YU.dogrula.kullanici'dan geçer.
+     Fark üç maddedir:
+       1. Parola ZORUNLU — kayıt olan kişi parolasını burada kurar; hash'siz
+          hesap yazılmaz.
+       2. Hesap her zaman AKTİF doğar; kayıt sırasında durum seçilmez.
+       3. Denetim izine işlemi yapan olarak KİŞİNİN KENDİSİ yazılır.
+     Hash loglanmaz — denetim izi sızıntı yeri olmamalı. */
+  function kullaniciKayitOl(depo, kullanici) {
+    if (!YU.parola || !YU.parola.gecerliHashMi(kullanici && kullanici.ParolaHash)) {
+      return sonuc(false, [hataSatiri("Parola", "Parola değeri geçersiz; hesap açılmadı.")], [], null);
+    }
+
+    var aday = {
+      Id: null,
+      KullaniciAdi: YU.ePosta.duzelt(kullanici.KullaniciAdi),
+      AdSoyad: String(kullanici.AdSoyad === undefined || kullanici.AdSoyad === null ? "" : kullanici.AdSoyad).trim(),
+      Rol: kullanici.Rol,
+      Aktif: true
+    };
+
+    var d = YU.dogrula.kullanici(depo, aday, null);
+    if (d.hatalar.length) return sonuc(false, d.hatalar, [], null);
+
+    var yedek = anlikGoruntu(depo, ["kullanicilar", "degisiklikLog"]);
+    var kayit;
+    try {
+      kayit = {
+        Id: depo.yeniId("Kullanicilar"),
+        KullaniciAdi: aday.KullaniciAdi,
+        ParolaHash: kullanici.ParolaHash,
+        AdSoyad: aday.AdSoyad,
+        Rol: aday.Rol,
+        Aktif: true,
+        OlusturmaTarihi: simdi()
+      };
+      depo.kullanicilar.push(kayit);
+      logYaz(depo, {
+        tablo: "Kullanicilar", kayitId: kayit.Id, alan: null, eski: null,
+        yeni: kayit.AdSoyad + " (" + kayit.KullaniciAdi + " · " + kayit.Rol + ") · kayıt ol",
+        kullaniciId: kayit.Id, islem: "Ekle"
+      });
+    } catch (e) {
+      geriSar(depo, yedek);
+      return sonuc(false, [beklenmedikHata(e)], [], null);
+    }
+
+    var yazHatasi = diskeYazilamadi(depo, yedek);
+    if (yazHatasi) return yazHatasi;
     return sonuc(true, [], [], kayit);
   }
 
@@ -1748,7 +2146,8 @@
       return sonuc(false, [beklenmedikHata(e)], [], null);
     }
 
-    depo.kaydet();
+    var yazHatasi = diskeYazilamadi(depo, yedek);
+    if (yazHatasi) return yazHatasi;
     return sonuc(true, [], [], kayit);
   }
 
@@ -1840,7 +2239,8 @@
       return sonuc(false, [beklenmedikHata(e)], [], null);
     }
 
-    depo.kaydet();
+    var yazHatasi = diskeYazilamadi(depo, yedek);
+    if (yazHatasi) return yazHatasi;
     return sonuc(true, [], uyarilar, kayit);
   }
 
@@ -2016,6 +2416,7 @@
     if (!var2) return sonuc(false, [hataSatiri("Alan", "Kampanya bulunamadı: \"" + String(ad) + "\".")], [], null);
     if (kilitKaydi(depo, ad)) return sonuc(false, [hataSatiri("Alan", "\"" + ad + "\" zaten kilitli.")], [], null);
     if (!depo.kampanyaKilitleri) depo.kampanyaKilitleri = [];
+    var kilitYedek = anlikGoruntu(depo, ["kampanyaKilitleri", "degisiklikLog"]);
     var kayit = {
       Id: depo.yeniId("KampanyaKilitleri"),
       Kampanya: ad,
@@ -2030,7 +2431,8 @@
       eski: null, yeni: "\"" + ad + "\" kampanyası kilitlendi — veri girişi/düzeltme/silme kapandı",
       kullaniciId: kullaniciKimligi(kullanici), islem: "Ekle"
     });
-    depo.kaydet();
+    var kilitYazHatasi = diskeYazilamadi(depo, kilitYedek);
+    if (kilitYazHatasi) return kilitYazHatasi;
     return sonuc(true, [], [], kayit);
   }
 
@@ -2040,6 +2442,7 @@
     var ad = girdi && girdi.kampanya;
     var kayit = kilitKaydi(depo, ad);
     if (!kayit) return sonuc(false, [hataSatiri("Alan", "\"" + String(ad) + "\" zaten kilitli değil.")], [], null);
+    var acmaYedek = anlikGoruntu(depo, ["kampanyaKilitleri", "degisiklikLog"]);
     var l = depo.kampanyaKilitleri, i;
     for (i = l.length - 1; i >= 0; i--) if (l[i].Kampanya === ad) l.splice(i, 1);
     /* M23: kilidin açılması da iz bırakır — kampanya yeniden yazılabilir hâle geldi. */
@@ -2048,8 +2451,195 @@
       eski: "\"" + ad + "\" kampanyası kilitliydi — kilit açıldı, veri girişi yeniden serbest",
       yeni: null, kullaniciId: kullaniciKimligi(kullanici), islem: "Sil"
     });
-    depo.kaydet();
+    var acmaYazHatasi = diskeYazilamadi(depo, acmaYedek);
+    if (acmaYazHatasi) return acmaYazHatasi;
     return sonuc(true, [], [], YU.kopya(kayit));
+  }
+
+  /* KAMPANYA BAŞLIĞI YAZ/SİL (kullanıcı kararı, 31.08.2026).
+     Boş başlık = kaydı SİL; yeni kampanya kurulumu yarıda kalırsa ekran bu
+     yolla geri sarar, ortada devir satırı olmayan bir kampanya kalmaz.
+     Başlık, devir satırlarından ÖNCE yazılır: o tarih böylece kendi
+     kampanyasının başı olur ve önceki kampanya kilitliyse bile ilk devir
+     satırları kilide takılmaz. */
+  function kampanyaBasligiKaydet(depo, girdi, kullanici) {
+    var tarih = girdi && girdi.tarih;
+    if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(String(tarih || ""))) {
+      return sonuc(false, [hataSatiri("Alan", "Kampanya tarihi geçersiz.")], [], null);
+    }
+    var baslik = String((girdi && girdi.baslik) || "").replace(/\s+/g, " ").trim();
+    var g = kampanyaBaslari(depo), i, o = null;
+    for (i = 0; i < g.length; i++) if (g[i].bas === tarih) o = g[i];
+    var son = g.length ? g[g.length - 1] : null;
+
+    /* Kilitli kampanyanın adı değişmez, kilitli döneme yeni kampanya başı
+       eklenmez. Son kampanyanın ARDINA yeni kampanya açmak serbesttir. */
+    var kilitliKmp = o ? kilitKaydi(depo, o.ad) : (son && tarih < son.bas ? tarihKilidi(depo, tarih) : null);
+    if (kilitliKmp) {
+      return sonuc(false, [hataSatiri("KILIT", "\"" + kilitliKmp.Kampanya +
+        "\" kampanyası kilitli — başlık değiştirilemez. Önce Devir Stok ve Kampanya Yönetimi ekranından kilidi açın.")], [], null);
+    }
+
+    var mevcut = baslikKaydi(depo, tarih);
+    if (!depo.kampanyaBasliklari) depo.kampanyaBasliklari = [];
+    var yedek = anlikGoruntu(depo, ["kampanyaBasliklari", "degisiklikLog"]);
+
+    if (!baslik) {
+      if (!mevcut) return sonuc(true, [], [], null);
+      var l = depo.kampanyaBasliklari;
+      for (i = l.length - 1; i >= 0; i--) if (l[i].DevirTarihi === tarih) l.splice(i, 1);
+      logYaz(depo, {
+        tablo: "KampanyaBasliklari", kayitId: mevcut.Id, alan: null,
+        eski: "\"" + mevcut.Baslik + "\" başlığı (" + YU.fmt.tarih(tarih) + ")",
+        yeni: null, kullaniciId: kullaniciKimligi(kullanici), islem: "Sil"
+      });
+      var silYazHatasi = diskeYazilamadi(depo, yedek);
+      if (silYazHatasi) return silYazHatasi;
+      return sonuc(true, [], [], null);
+    }
+
+    if (baslik.length > 40) {
+      return sonuc(false, [hataSatiri("Alan", "Kampanya başlığı en çok 40 karakter olabilir.")], [], null);
+    }
+    for (i = 0; i < g.length; i++) {
+      if (g[i].bas !== tarih && g[i].ad.toLowerCase() === baslik.toLowerCase()) {
+        return sonuc(false, [hataSatiri("Alan", "\"" + baslik + "\" adında bir kampanya zaten var (" +
+          YU.fmt.tarih(g[i].bas) + "). Başka bir başlık yazın.")], [], null);
+      }
+    }
+
+    if (mevcut) {
+      var eskiBaslik = mevcut.Baslik;
+      if (eskiBaslik === baslik) return sonuc(true, [], [], YU.kopya(mevcut));
+      mevcut.Baslik = baslik;
+      logYaz(depo, {
+        tablo: "KampanyaBasliklari", kayitId: mevcut.Id, alan: "Baslik",
+        eski: eskiBaslik, yeni: baslik,
+        kullaniciId: kullaniciKimligi(kullanici), islem: "Guncelle"
+      });
+    } else {
+      mevcut = {
+        Id: depo.yeniId("KampanyaBasliklari"),
+        DevirTarihi: tarih,
+        Baslik: baslik,
+        KullaniciId: kullaniciKimligi(kullanici),
+        Tarih: simdi()
+      };
+      depo.kampanyaBasliklari.push(mevcut);
+      logYaz(depo, {
+        tablo: "KampanyaBasliklari", kayitId: mevcut.Id, alan: null,
+        eski: null, yeni: "\"" + baslik + "\" kampanyası açıldı — devir tarihi " + YU.fmt.tarih(tarih),
+        kullaniciId: kullaniciKimligi(kullanici), islem: "Ekle"
+      });
+    }
+    var yazHatasi = diskeYazilamadi(depo, yedek);
+    if (yazHatasi) return yazHatasi;
+    return sonuc(true, [], [], YU.kopya(mevcut));
+  }
+
+  /* ---------- kampanya başlangıç tarihini taşıma ----------
+
+     KULLANICI İSTEĞİ, 01.09.2026: "Kampanya yönetimine bir adet de düzeltme
+     kısmı koy, adını değiştirebilelim ve tarihini. silme olmasın ama."
+
+     Adı zaten kampanyaBasligiKaydet değiştiriyor. Tarih için bu işlev
+     eklendi: kampanyanın BÜTÜN devir satırlarının (malzeme + silo) ve başlık
+     kaydının DevirTarihi'ni tek işlemde yeni güne taşır. SİLME YOKTUR —
+     hiçbir satır düşmez, yalnız tarih değişir.
+
+     ENGELLER (biri bile varsa hiçbir şey yazılmaz):
+       · Yönetici değilse.
+       · Tarih biçimi bozuksa ya da o günde kampanya yoksa.
+       · Kampanya kilitliyse — kilitli kampanya değiştirilemez.
+       · Yeni gün GELECEKse.
+       · Yeni günde başka bir kampanya başlıyorsa.
+       · Yeni gün komşu kampanyaların dışına taşıyorsa: önceki kampanyanın
+         başından sonra, sonraki kampanyanın başından önce olmalı. Böylece
+         kampanyaların sırası bozulmaz.
+       · Hedef gün KİLİTLİ bir kampanyanın içine düşüyorsa.
+       · Taşıma sonrası herhangi bir silo herhangi bir gün eksiye düşüyorsa
+         (KURAL 12) — işlem geri sarılır.
+
+     NOT: iki tarih arasındaki günlük hareketler taşınmaz, oldukları günde
+     kalır; yalnız hangi kampanyaya sayıldıkları değişir. Stok hesabı zaten
+     "en son devir + sonraki hareketler" olduğu için (Şartname §5) rakamlar
+     kendiliğinden doğru kalır. */
+  function kampanyaTarihiTasi(depo, girdi, kullanici) {
+    var yetki = yoneticiSarti(kullanici);
+    if (yetki) return yetki;
+
+    var eski = girdi && girdi.eskiTarih;
+    var yeni = girdi && girdi.yeniTarih;
+    var bicim = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
+    if (!bicim.test(String(eski || "")) || !bicim.test(String(yeni || ""))) {
+      return sonuc(false, [hataSatiri("Alan", "Kampanya tarihi geçersiz.")], [], null);
+    }
+    if (eski === yeni) return sonuc(true, [], [], { tarih: yeni, tasinan: 0 });
+
+    var g = kampanyaBaslari(depo), i, kmp = null, sira = -1;
+    for (i = 0; i < g.length; i++) if (g[i].bas === eski) { kmp = g[i]; sira = i; }
+    if (!kmp) {
+      return sonuc(false, [hataSatiri("Alan", YU.fmt.tarih(eski) + " gününde başlayan bir kampanya yok.")], [], null);
+    }
+
+    if (kilitKaydi(depo, kmp.ad)) {
+      return sonuc(false, [hataSatiri("KILIT", "\"" + kmp.ad + "\" kampanyası kilitli — tarihi değiştirilemez. Önce kilidi açın.")], [], null);
+    }
+    if (yeni > YU.tarih.bugun()) {
+      return sonuc(false, [hataSatiri("D17", "Gelecek bir güne kampanya taşınamaz.")], [], null);
+    }
+    for (i = 0; i < g.length; i++) {
+      if (g[i].bas === yeni) {
+        return sonuc(false, [hataSatiri("Alan", "\"" + g[i].ad + "\" kampanyası zaten " +
+          YU.fmt.tarih(yeni) + " gününde başlıyor. Başka bir gün seçin.")], [], null);
+      }
+    }
+    var onceki = sira > 0 ? g[sira - 1] : null;
+    var sonraki = sira + 1 < g.length ? g[sira + 1] : null;
+    if (onceki && yeni <= onceki.bas) {
+      return sonuc(false, [hataSatiri("Alan", "Yeni gün, önceki kampanyanın (\"" + onceki.ad +
+        "\", " + YU.fmt.tarih(onceki.bas) + ") başlangıcından sonra olmalı.")], [], null);
+    }
+    if (sonraki && yeni >= sonraki.bas) {
+      return sonuc(false, [hataSatiri("Alan", "Yeni gün, sonraki kampanyanın (\"" + sonraki.ad +
+        "\", " + YU.fmt.tarih(sonraki.bas) + ") başlangıcından önce olmalı.")], [], null);
+    }
+    var hedefKilit = tarihKilidi(depo, yeni);
+    if (hedefKilit) {
+      return sonuc(false, [hataSatiri("KILIT", "\"" + hedefKilit.Kampanya + "\" kampanyası kilitli — " +
+        YU.fmt.tarih(yeni) + " gününe taşınamaz.")], [], null);
+    }
+
+    var yedek = anlikGoruntu(depo, ["devirStok", "siloDevirStok", "kampanyaBasliklari", "degisiklikLog"]);
+    var oncekiNegatif = negatifFotograf(depo);
+    var tasinan = 0;
+
+    try {
+      for (i = 0; i < depo.devirStok.length; i++) {
+        if (depo.devirStok[i].DevirTarihi === eski) { depo.devirStok[i].DevirTarihi = yeni; tasinan++; }
+      }
+      for (i = 0; i < depo.siloDevirStok.length; i++) {
+        if (depo.siloDevirStok[i].DevirTarihi === eski) { depo.siloDevirStok[i].DevirTarihi = yeni; tasinan++; }
+      }
+      var baslik = baslikKaydi(depo, eski);
+      if (baslik) baslik.DevirTarihi = yeni;
+
+      logYaz(depo, {
+        tablo: "KampanyaBasliklari", kayitId: baslik ? baslik.Id : null, alan: "DevirTarihi",
+        eski: YU.fmt.tarih(eski), yeni: YU.fmt.tarih(yeni),
+        kullaniciId: kullaniciKimligi(kullanici), islem: "Guncelle"
+      });
+    } catch (e) {
+      geriSar(depo, yedek);
+      return sonuc(false, [beklenmedikHata(e)], [], null);
+    }
+
+    var negatifH = negatifEngeli(depo, oncekiNegatif, yedek);
+    if (negatifH) return negatifH;
+
+    var yazHatasi = diskeYazilamadi(depo, yedek);
+    if (yazHatasi) return yazHatasi;
+    return sonuc(true, [], [], { tarih: yeni, tasinan: tasinan });
   }
 
   /* Yeni kampanya = yeni devir tarihi. Dökme kuru küspeye MALZEME devri
@@ -2067,19 +2657,22 @@
       return sonuc(false, [hataSatiri("D17", "Gelecek tarihe kampanya açılamaz: " + YU.fmt.tarih(tarih) +
         " bugünden sonra. Kampanya, başladığı gün oluşturulur.")], [], null);
     }
+    /* AYNI SEZON KURALI KALDIRILDI (kullanıcı kararı, 31.08.2026): kampanya
+       yılbaşında değil yazın açılıyor, aynı yıl içinde ikinci kampanya
+       açılabilir. Kimlik artık sezon adı değil, kullanıcının yazdığı
+       başlıktır; benzersizliği kampanyaBasligiKaydet denetler. */
     var g = kampanyaBaslari(depo), i;
-    var yeniAd = kampanyaAdiHesapla(tarih);
-    for (i = 0; i < g.length; i++) {
-      if (g[i].ad === yeniAd) {
-        return sonuc(false, [hataSatiri("Alan", "\"" + yeniAd + "\" sezonu zaten açık (başlangıcı " +
-          YU.fmt.tarih(g[i].bas) + "). Aynı sezona ikinci kampanya açılamaz.")], [], null);
-      }
-    }
     var onceki = g.length ? g[g.length - 1] : null;
     if (onceki && tarih <= onceki.bas) {
       return sonuc(false, [hataSatiri("Alan", "Başlangıç, son kampanyanın başından (" +
         YU.fmt.tarih(onceki.bas) + ") sonra olmalı.")], [], null);
     }
+
+    /* Başlık ÖNCE yazılır: bu tarih böylece yeni kampanyanın başı olur ve
+       devir satırları önceki kampanyanın kilidine takılmaz. */
+    var baslikSonucu = kampanyaBasligiKaydet(depo, { tarih: tarih, baslik: girdi && girdi.baslik }, kullanici);
+    if (!baslikSonucu.ok) return baslikSonucu;
+    var yeniAd = baslikSonucu.kayit && baslikSonucu.kayit.Baslik ? baslikSonucu.kayit.Baslik : kampanyaAdiHesapla(tarih);
 
     var devret = !girdi || girdi.devret !== false;
     var kapanis = YU.tarih.ekle(tarih, -1);
@@ -2104,6 +2697,10 @@
       }
     }
     if (hatalar.length) {
+      /* Hiç satır yazılamadıysa başlık da geri alınır: ortada devir satırı
+         olmayan boş bir kampanya kalmaz. Satır yazıldıysa kampanya vardır,
+         başlık durur ve mesaj eksik satırları söyler. */
+      if (!yazilan) kampanyaBasligiKaydet(depo, { tarih: tarih, baslik: "" }, kullanici);
       hatalar.push(hataSatiri("Alan", "Kampanya oluşturma yarıda kaldı: " + YU.fmt.sayi(yazilan) +
         " devir satırı yazıldı. Devir Stok tablolarından denetleyin."));
       return sonuc(false, hatalar, [], null);
@@ -2112,7 +2709,11 @@
     if (girdi && girdi.oncekiKilitle && onceki && !kilitKaydi(depo, onceki.ad)) {
       kampanyaKilitle(depo, { kampanya: onceki.ad }, kullanici);
     }
-    depo.kaydet();
+    /* Geri sarma YOK: devir satırları tek tek devirUpsert ile yazıldı ve her
+       biri kendi yazmasını zaten doğruladı. Buraya gelindiyse hepsi diske
+       inmiştir; bu son kaydet yalnız kilit satırını kapatır. */
+    var kampanyaYazHatasi = diskeYazilamadi(depo, null);
+    if (kampanyaYazHatasi) return kampanyaYazHatasi;
     return sonuc(true, [], [], { ad: yeniAd, bas: tarih, yazilan: yazilan });
   }
 
@@ -2179,6 +2780,7 @@
         return l.length ? [{ tablo: "SiloHareket", kayitlar: l, baglam: "Üzerine yazma · " + girdi.tarih }] : [];
       }
     }),
+    gunYedektenYukle: arsivli("gunYedektenYukle", gunYedektenYukle),
     gunSil: arsivli("gunSil", gunSil, {
       tarih: function (depo, tarih) { return tarih; },
       silinecekler: gunKayitlariKopyala
@@ -2212,14 +2814,28 @@
     kampanyaKilitle: arsivli("kampanyaKilitle", kampanyaKilitle),
     kampanyaKilidiAc: arsivli("kampanyaKilidiAc", kampanyaKilidiAc),
     yeniKampanyaOlustur: arsivli("yeniKampanyaOlustur", yeniKampanyaOlustur),
+    kampanyaBasligiKaydet: arsivli("kampanyaBasligiKaydet", kampanyaBasligiKaydet),
+    kampanyaTarihiTasi: arsivli("kampanyaTarihiTasi", kampanyaTarihiTasi),
     /* Salt okuma: ekranlar kilit durumunu buradan sorar. */
     kampanyaKilitDurumu: function (depo, ad) { return kilitKaydi(depo, ad); },
+    /* Salt okuma: BİR TARİHİN düştüğü kampanya kilitli mi? Giriş ekranları
+       kutuları kapatmak ve uyarı şeridini açmak için sorar (kullanıcı isteği,
+       01.09.2026: "kilitli kampanyanın tarihine girilirse burası kilitli gibi
+       uyarı gelsin, değiştirilmesin, sadece okuma olayı geçerli olsun").
+       Yazma tarafındaki engel zaten yazmaEngeli'nde duruyor; bu uç yalnız
+       ekranın önceden bilmesi için. */
+    tarihKilitDurumu: function (depo, tarih) { return tarihKilidi(depo, tarih); },
     /* Sezon adlandırması TEK KAYNAKTAN okunsun (25.08.2026): Devir Stok ekranı
        "bugün hangi sezona düşer" sorusunu kendi kopyasıyla değil buradan
        cevaplar; kural değişirse tek yerde değişir. */
     kampanyaAdi: kampanyaAdiHesapla,
+    /* Kampanya gruplaması TEK yerde (başlık kuralı dahil); kabuk dönem
+       listesini buradan kurar, kural iki dosyada tekrarlanmaz. */
+    kampanyaGruplari: kampanyaBaslari,
     malzemeKaydet: arsivli("malzemeKaydet", malzemeKaydet),
     kullaniciKaydet: arsivli("kullaniciKaydet", kullaniciKaydet),
+    /* arsivli SARILMAZ: girdi parola hash'ini taşır (bkz. parolaKur). */
+    kullaniciKayitOl: kullaniciKayitOl,
     /* arsivli SARILMAZ: olay günlüğü çağrının girdisini saklar, girdi de
        hash'in kendisidir. Denetim izine logYaz zaten "(oluşturuldu)" yazıyor. */
     parolaKur: parolaKur,

@@ -613,8 +613,8 @@
     var el = YU.h('span', {
       sinif: 'yu-satir-eylem yu-kisayol',
       role: 'button', tabindex: '0',
-      title: 'Kuru Küspe Günlük Giriş & Çıkış — ' + YU.fmt.tarih(tarih) + ' gününü aç',
-      'aria-label': 'Kuru Küspe Günlük Giriş & Çıkış ekranını aç'
+      title: 'Kuru Küspe Günlük Giriş ve Çıkış — ' + YU.fmt.tarih(tarih) + ' gününü aç',
+      'aria-label': 'Kuru Küspe Günlük Giriş ve Çıkış ekranını aç'
       /* 14 -> 17 px (kullanıcı isteği, 27.08.2026): kilitli hücrenin içinde
          küçük kalıyordu. Dolgu da bir tık açılır ki kutu kare kalsın. */
     }, YU.svg('#ic-pencil', 17));
@@ -736,12 +736,21 @@
       sutunlar: sutunlar,
       satirlar: satirlar,
       sik: false,        /* giriş alanlı düzenleme tablosu — sık stil daraltmaz */
-      /* Satır yüksekliği kısaldı (kullanıcı isteği, 25.08.2026): dikey dolgu
-         12 -> 7. Giriş kutusunun kendi boyu değişmedi, tıklama alanı korunur. */
-      dolgu: '7px 14px',
+      /* Satır yüksekliği kısaldı (kullanıcı istekleri): dikey dolgu
+         25.08.2026'da 12 -> 7; 01.09.2026'da 7 -> 5 -> 3, "biraz fazla
+         daraldı" deyince 4, "çok az daralt" deyince 3,5; kullanıcı bunu da
+         fazla bulup "yaptığın değişimin yarısı kadar olsun" deyince 3,75
+         (4'ten inen 0,5 px'in yarısı). Yan dolgu 14 px aynı, kolon
+         genişlikleri oynamaz. */
+      dolgu: '3.75px 14px',
       bos: 'Aktif malzeme bulunamadı.',
       yapiskan: true
     });
+    /* yu-mg-tablo: iki satir tonu arasindaki fark ACILIR (kullanici istegi,
+       01.09.2026: "koyu gri kismini biraz daha koyu yap"). Olculer
+       css/tema.css icindeki ayni adli blokta; ortak serit tonuna
+       dokunulmaz (KURAL 10.5). */
+    sar.className += ' yu-mg-tablo';
 
     /* Giriş hücreleri sıkışınca sayı okunmaz hâle geliyor: tablo daralmak
        yerine dar ekranda kendi kabında yatay kaysın (tema.css ≤900px'te
@@ -892,14 +901,27 @@
       return;
     }
 
-    govde.appendChild(tabloPaneli(d));
+    var tabloPnl = tabloPaneli(d);
+    var altPnl = altBar(d);
+    govde.appendChild(tabloPnl);
     govde.appendChild(d.uyariKap);
     govde.appendChild(d.hataKap);
-    govde.appendChild(altBar(d));
+    govde.appendChild(altPnl);
 
     gunDurumuTazele(d);
     for (i = 0; i < d.satirlar.length; i++) satirTazele(d.satirlar[i]);
     ozetTazele(d);
+
+    /* KİLİTLİ KAMPANYA GÜNÜ (kullanıcı kararı, 01.09.2026): tablo ve alt
+       şerit kapanır, üste uyarı girer. Tarih şeridi açık kalır ki başka bir
+       güne geçilebilsin. ozetTazele()'den SONRA çalışır — o çağrı Kaydet'i
+       kendi kuralına göre açıp kapatıyor, kilit son sözü söyler. */
+    var gunKilidi = (YU.servis && YU.servis.tarihKilitDurumu)
+      ? YU.servis.tarihKilitDurumu(YU.db, d.tarih) : null;
+    if (gunKilidi) {
+      govde.insertBefore(YU.ui.kilitliGunSeridi(gunKilidi, d.tarih), tabloPnl);
+      YU.ui.girisleriKapat([tabloPnl, altPnl]);
+    }
   }
 
   YU.sayfaTanimla({

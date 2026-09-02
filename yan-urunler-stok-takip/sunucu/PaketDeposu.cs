@@ -50,6 +50,19 @@ public sealed class PaketDeposu
         Pooling = true
     }.ToString();
 
+    /// <summary>
+    /// Başka bir SQLite dosyasını SALT OKUNUR açar — yedek dosyasının bütünlük
+    /// denetimi için (BUG-014). ReadOnly seçilir ki denetim dosyaya yazmasın ve
+    /// yanına -wal/-shm düşmesin; Pooling kapalıdır ki bağlantı hemen bırakılsın
+    /// ve dosya budama sırasında kilitli kalmasın.
+    /// </summary>
+    private static string SaltOkunurDizesi(string dosya) => new SqliteConnectionStringBuilder
+    {
+        DataSource = dosya,
+        Mode = SqliteOpenMode.ReadOnly,
+        Pooling = false
+    }.ToString();
+
     /// <summary>Her istekte YENİ bağlantı. Singleton tutulmaz: SqliteConnection
     /// thread-safe değildir. PRAGMA'lar bağlantı başınadır (journal_mode hariç,
     /// o dosyada kalıcıdır). Ölçümler: SQLITE-MIMARI-KARARI.md §3.</summary>
@@ -62,6 +75,22 @@ public sealed class PaketDeposu
             PRAGMA busy_timeout = 5000;
             PRAGMA foreign_keys = ON;
             PRAGMA synchronous = FULL;
+            """;
+        k.ExecuteNonQuery();
+        return b;
+    }
+
+    /// <summary>Yedek dosyasını salt okunur açar (BUG-014). foreign_keys açılır:
+    /// foreign_key_check onsuz da çalışır ama denetim canlı veritabanıyla aynı
+    /// koşullarda koşsun.</summary>
+    private static SqliteConnection AcSaltOkunur(string dosya)
+    {
+        var b = new SqliteConnection(SaltOkunurDizesi(dosya));
+        b.Open();
+        using var k = b.CreateCommand();
+        k.CommandText = """
+            PRAGMA busy_timeout = 5000;
+            PRAGMA foreign_keys = ON;
             """;
         k.ExecuteNonQuery();
         return b;
@@ -360,10 +389,22 @@ public sealed class PaketDeposu
         }
     }
 
-    /// <summary>Bütünlük kontrolü — sağlık ucu ve yedek sonrası.</summary>
-    public (string Butunluk, int YabanciAnahtarKusuru, long SatirSayisi) Denetle()
+    /// <summary>
+    /// Bütünlük kontrolü. <paramref name="dosya"/> verilmezse CANLI veritabanı
+    /// denetlenir (sağlık ucu bunu kullanır); verilirse o dosya salt okunur
+    /// açılır ve denetlenir.
+    ///
+    /// Yedek sonrası denetim, ÜRETİLEN DOSYA üzerinde yapılmalıdır (BUG-014,
+    /// 30.08.2026): eskiden Yedekle'nin döndürdüğü yol atılıyor ve Denetle()
+    /// canlı veritabanını açıyordu — bozuk bir yedek "sağlam" görünüyor,
+    /// 7 kopyalık rotasyonda sağlam yedekleri yaşlandırıp düşürüyordu.
+    /// SQLITE-MIMARI-KARARI.md §6 planı zaten "yedek dosyası üzerinde
+    /// integrity_check" diyordu. VACUUM INTO çıktısı normal bir SQLite
+    /// dosyasıdır ve ayrı bağlantıyla doğrulanır.
+    /// </summary>
+    public (string Butunluk, int YabanciAnahtarKusuru, long SatirSayisi) Denetle(string? dosya = null)
     {
-        using var b = Ac();
+        using var b = dosya is null ? Ac() : AcSaltOkunur(dosya);
 
         string butunluk;
         using (var k = b.CreateCommand())

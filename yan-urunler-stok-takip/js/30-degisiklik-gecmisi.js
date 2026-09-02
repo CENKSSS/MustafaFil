@@ -18,7 +18,8 @@
     Kullanicilar: 'Kullanıcılar',
     Malzemeler: 'Malzemeler',
     Silolar: 'Silolar',                    /* M23: yalnız Kapasite değişimi loglanır */
-    KampanyaKilitleri: 'Kampanya Kilidi'   /* M23: kilitle/aç izleri */
+    KampanyaKilitleri: 'Kampanya Kilidi',   /* M23: kilitle/aç izleri */
+    KampanyaBasliklari: 'Kampanya Başlığı'
   };
 
   var ISLEM_ADI = { Ekle: 'Ekle', Guncelle: 'Güncelle', Sil: 'Sil' };
@@ -235,7 +236,7 @@
   var KAYIT_ALANLARI = {
     KuruKuspeGunluk: [
       ['Tarih', 'Tarih', 'tarih'], ['UretilenDokme', 'Üretilen dökme', 'kg'],
-      ['CuvalAdet', 'Çuvallanan adet', 'adet'], ['CuvalKg', 'Çuval karşılığı', 'kg'],
+      ['CuvalKg', 'Çuvallanan', 'kg'],
       ['SatilanDokme', 'Satılan dökme', 'kg'], ['RowVersion', 'Sürüm', 'sayi']
     ],
     GunlukHareket: [

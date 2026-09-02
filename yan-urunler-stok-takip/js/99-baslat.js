@@ -105,8 +105,107 @@
         throw new Error('YU.sayfaTanimla bulunamadı — js/10-kabuk.js yüklenmemiş olabilir.');
       }
 
-      YU.db = YU.Depo({ kaynak: 'local', tohumla: true });
+      /* VERİ ARTIK TARAYICIDA TUTULMAZ (kullanıcı direktifi, 31.08.2026 —
+         "yeni boş db koysam bile eski girilen veriler kalıyor").
 
+         Eski düzen: depo localStorage'a yazılıyordu; sunucudaki veritabanı
+         değişse de her tarayıcı kendi eski kopyasını göstermeye devam
+         ediyordu. Yeni düzen: depo BELLEKTE kurulur, açılışta sunucudan
+         yüklenir (06-uzak köprüsü), her başarılı kayıt sunucuya itilir.
+         Tarayıcıya veri anahtarı yazılmaz — boş veritabanı = boş program,
+         her bilgisayarda aynı veri.
+
+         Tarayıcıda kalanlar yalnız oturum ve görünüm tercihleridir
+         (yu.oturum, yu.tema, yu.yan.daralt, yu.donem, yu.hatirla).
+
+         Örnek veri üretici (05-tohum.js) aynı gün tamamen silindi;
+         program boş veritabanında yalnız malzeme/silo tanımlarıyla açılır. */
+      YU.db = YU.Depo({ kaynak: 'bellek', tohumla: false });
+      YU.uzak.baglan(YU.db);
+
+      /* ESKİ KALINTI SÜPÜRME (kullanıcı isteği, 31.08.2026): localStorage'lı
+         dönemden kalan veri anahtarları her açılışta silinir. Yeni kod bunları
+         zaten okumuyor; süpürme yalnız diskteki ölü kalıntıyı temizler.
+         Oturum ve görünüm tercihleri (yu.oturum, yu.tema, yu.yan.daralt,
+         yu.donem, yu.hatirla, yu.mail.alicilar) veri değildir, silinmez. */
+      /* yu.yedek.ozet SÜPÜRÜLMEZ: o kalıntı değil, yedekçinin canlı
+         "hangi dosya değişti" defteridir (07-yedekci · OZET_ANAHTAR);
+         silinse her açılışta tüm gün dosyaları boşuna yeniden yazılır. */
+      try {
+        ['yu.veri.v1', 'yu.veri.sayac', 'yu.veri.yedek']
+          .forEach(function (a) { localStorage.removeItem(a); });
+      } catch (e) { /* storage kapalıysa süpürülecek şey de yoktur */ }
+
+      YU.uzak.yukle().then(function (d) {
+        /* Veritabanı boşsa açılış paketi (yalnız tanımlar) sunucuya yazılır:
+           sürüm 0'dan çıkar, sonraki kayıtlar tek düzenden akar. */
+        if (d.bos) return YU.uzak.gonder();
+      }).then(function () {
+        depoyuBagla();
+        baslatDevam();
+      }, function (e) {
+        hataKutusu('Sunucuya ulaşılamadı',
+          new Error('Veriler sunucuda tutuluyor; sunucu yanıt vermeden uygulama açılamaz. ' +
+            'Sunucunun çalıştığını kontrol edip sayfayı yenileyin. (' +
+            (e && e.message ? e.message : 'bağlantı hatası') + ')'));
+      });
+    } catch (e) {
+      hataKutusu('Uygulama başlatılamadı', e);
+    }
+  };
+
+  /* Her başarılı kayıt sunucuya İTİLİR. depo.kaydet eşzamanlı bir sözleşme
+     (04-servis boolean bekler); gönderim bu yüzden kaydeti bekletmez, kısa
+     bir birleştirme süresiyle arkadan koşar (aynı desen 07-yedekci'de).
+     Gönderim ÇAKIŞMAYA düşerse (409: başka bilgisayar aynı anda yazdı)
+     kapatılamaz 'Veriler Değişti' penceresi açılır — kullanıcı Yenile ile
+     sunucudaki gerçek veriye döner; 'kaydedildi' yalanı ekranda kalmaz. */
+  function depoyuBagla() {
+    var esasKaydet = YU.db.kaydet;
+    var bekleyen = null;
+
+    function gonder() {
+      bekleyen = null;
+      YU.uzak.gonder().then(function (s) {
+        if (s.ok) return;
+        if (s.sebep === 'cakisma') { if (YU.depoUyari) YU.depoUyari('cakisma'); return; }
+        /* Veri hatası (tekillik/bağ ihlali): sunucu reddetti, bellek öne
+           geçti. Ekran YALAN göstermesin diye depo sunucudaki gerçekle
+           eşitlenir ve sayfa tazelenir; sebep bildirimde durur. */
+        if (YU.ui && YU.ui.bildir) YU.ui.bildir('Sunucuya yazılamadı: ' + (s.mesaj || 'bilinmeyen hata'), 'hata');
+        YU.uzak.yukle().then(function () { YU.yenile(); }, function () { /* yoklama toparlar */ });
+      }, function () {
+        if (YU.ui && YU.ui.bildir) YU.ui.bildir('Sunucuya ulaşılamadı — son kayıt sunucuya yazılamadı.', 'hata');
+      });
+    }
+
+    YU.db.kaydet = function () {
+      var t = esasKaydet();
+      /* Bellek deposunda günlük yedek tetiklemesi kaydetin içinde yoktu
+         (yalnız localStorage yolunda çağrılıyordu); burada tamamlanır. */
+      if (YU.yedekci) YU.yedekci.tetikle();
+      if (bekleyen) clearTimeout(bekleyen);
+      bekleyen = setTimeout(gonder, 250);
+      return t;
+    };
+
+    /* Başkası yazınca bu ekran haberdar olsun: sürüm yoklaması (5 sn'de bir
+       tek tamsayı). Kaydedilmemiş alan varken SESSİZ tazeleme yapılmaz —
+       yazılanlar ekrandan silinirdi; onun yerine Yenile penceresi çıkar. */
+    YU.uzak.yoklamayaBasla(function () {
+      if (YU.cikisKilidiAcikMi && YU.cikisKilidiAcikMi()) {
+        if (YU.depoUyari) YU.depoUyari('cakisma');
+        return;
+      }
+      YU.uzak.yukle().then(function () {
+        if (YU.donem && YU.donem.tazele) YU.donem.tazele();
+        YU.yenile();
+      }, function () { /* ağ hıçkırığı: bir sonraki yoklama dener */ });
+    });
+  }
+
+  function baslatDevam() {
+    try {
       /* Günlük yedek klasörü (GUNLUK-YEDEK-PLANI, 27.08.2026): saklı klasör
          tutamacı varsa sessizce bağlanır ve kaçan günleri tamamlar. */
       if (YU.yedekci) YU.yedekci.baslat();
@@ -139,7 +238,7 @@
     } catch (e) {
       hataKutusu('Uygulama başlatılamadı', e);
     }
-  };
+  }
 
   /* Açılıştan sonraki beklenmedik hatalar ekranı silmesin; görünür kalsın yeter. */
   window.addEventListener('error', function (e) {

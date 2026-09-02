@@ -119,7 +119,12 @@
          21.08.2026); kapasiteyi "Kalan kapasite" notu anlatmaya devam eder. */
       YU.h('hr', { sinif: 'yu-ayrac yu-yatay' }),
       YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '8px' } },
-        satir(devir ? 'Devir · ' + YU.fmt.tarih(devir.DevirTarihi) : 'Devir', YU.fmt.kgU(satirVeri.devir)),
+        /* Kartta yalnız DEVİR RAKAMI (kullanıcı isteği, 28.08.2026).
+           Önce etikete gömülüydü ("Devir · 22.07.2026"), sonra ayrı satıra
+           çıkarıldı; kullanıcı "fazlalık oluyor" deyip kaldırttı. Devir
+           tarihi hemen aşağıdaki Silo Bazında Stok tablosunda kendi
+           kolonunda duruyor — bilgi kaybolmadı, tekrarı kalktı. */
+        satir('Devir', YU.fmt.kgU(satirVeri.devir)),
         satir('Giren', YU.fmt.kgU(satirVeri.giren)),
         satir('Çıkan', YU.fmt.kgU(satirVeri.cikan))
       )
@@ -338,6 +343,14 @@
      İkisi de verilmezse başlık şeridi eskisi gibi yalın kalır; bu ekranın
      görünümü değişmez. */
   function stokTablosu(depo, satirlar, tarih, secenek) {
+    /* DEVİR TARİHİ ARTIK VARSAYILAN AYRI KOLON (kullanıcı bildirimi,
+       28.08.2026: "mail ile gönderde görünen raporda devir + devir tarihi
+       görünüyor"). 27.08'de ayrı kolon YALNIZ Ana Sayfa'ya verilmişti;
+       28.08'de Silo Durumu da eklendi — geriye Mail PDF'i ve Excel kalmıştı:
+       paneli bayraksız çağırdıkları için tarih hâlâ rakamın ALTINDA duruyor,
+       hemen altındaki Malzeme tablosu ise ayrı kolon gösteriyordu. Varsayılan
+       açıldı; eski düzeni isteyen devirTarihiAyri:false geçer. */
+    var tarihAyri = !(secenek && secenek.devirTarihiAyri === false);
     /* Seçili günün silo hareketleri tek geçişte haritalanır (silo başına
        yeniden tarama yok) — Stok Durumu'ndaki gunluk haritasının aynısı. */
     var gunluk = {}, sh = depo.siloHareket, i, h, o;
@@ -354,9 +367,11 @@
        Bazında Stok'taki YU.ui.olcu'nun aynısıdır: sayı hücrenin yazı tipini
        sürdürür, birim küçük ve soluk yazılır. Silo dökme küspe tutar, paket
        karşılığı yoktur — tek birim kg, adet satırı yok.
-       Bayrak Ana Sayfa'dan gelir; Günlük Silo Durumu ile Mail/Excel çıktısı
-       eski düzeninde kalır (KURAL 5.1). */
-    var birimli = !!(secenek && secenek.birimli);
+       ORTAK PAYDA (kullanıcı kararı, 28.08.2026: "hepsini ortak paydaya al;
+       ana kısım Ana Sayfa'daki olsun"): birim eki artık VARSAYILAN — Ana
+       Sayfa, Silo Durumu, Mail PDF'i ve Excel aynı görünür. Kapatmak isteyen
+       birimli:false geçer; bugün kimse geçmiyor. */
+    var birimli = !(secenek && secenek.birimli === false);
 
     function deger(n) {
       if (!birimli) return mono(YU.fmt.kg(n));
@@ -369,7 +384,9 @@
     function degerGuclu(n) {
       if (!birimli) return YU.h('span', { sinif: 'yu-mono yu-guclu', metin: YU.fmt.kg(n) });
       var el = YU.ui.olcu([{ sayi: YU.fmt.kg(n), birim: 'kg' }]);
-      el.className = 'yu-guclu';
+      /* classList.add — düz atama olcu'nun yu-olcu işaretini siliyordu,
+         Excel hücreyi yine metin sanırdı (28.08.2026). */
+      el.classList.add('yu-guclu');
       return el;
     }
 
@@ -397,12 +414,10 @@
           s.silo.Aktif === false ? YU.ui.rozet('Pasif', 'notr') : null,
           s.mevcut > s.kapasite ? YU.ui.rozet('Kapasite Aşıldı', 'olumsuz') : null
         ),
-        /* Devir tarihi VARSAYILANDA devrin altında küçük satır: on kolon bu
-           ekrana sığmıyordu (ölçüldü: 1109px tablo, 979px alan). Ana Sayfa
-           ayrı kolon ister (kullanıcı isteği, 27.08.2026) — devirTarihiAyri
-           bayrağı yalnız oradan gelir, bu ekran ve Mail/Excel çıktısı
-           eski düzeninde kalır (KURAL 5.1). */
-        (secenek && secenek.devirTarihiAyri)
+        /* Devir tarihi AYRI KOLON (varsayılan — bkz. tarihAyri). Eski
+           düzen tarihi devrin altına küçük satır olarak koyuyordu; kapatmak
+           isteyen devirTarihiAyri:false geçer, o yol aşağıda durur. */
+        tarihAyri
           ? degerHucre(s.devir)
           : (devir
               ? YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-end' } },
@@ -411,7 +426,7 @@
                     metin: YU.fmt.tarih(devir.DevirTarihi) })
                 )
               : degerHucre(s.devir)),
-        (secenek && secenek.devirTarihiAyri)
+        tarihAyri
           ? (devir ? mono(YU.fmt.tarih(devir.DevirTarihi)) : YU.h('span', { sinif: 'yu-zayif', metin: '—' }))
           : null,
         degerHucre(gunBasi),
@@ -419,26 +434,23 @@
         degerHucre(g.cikan),
         degerHucre(s.giren),
         degerHucre(s.cikan),
-        degerGuclu(s.mevcut),
-        dolulukHucresi(s)
+        degerGuclu(s.mevcut)
       ].filter(hucreVar));
     }
 
     if (tablo.length > 1) {
-      var toplamOran = t.kapasite > 0 ? t.mevcut / t.kapasite : 0;
       /* toplam:true — koyu zeminli, üstü çizgili TOPLAM satırı
          (kullanıcı isteği, 25.08.2026): veri satırlarından ayrılsın. */
       tablo.push({ toplam: true, hucreler: [
         YU.h('span', { sinif: 'yu-guclu', metin: 'TOPLAM' }),
         degerGuclu(t.devir),
-        (secenek && secenek.devirTarihiAyri) ? YU.h('span', { metin: '' }) : null,
+        tarihAyri ? YU.h('span', { metin: '' }) : null,
         degerGuclu(t.gunBasi),
         degerGuclu(t.gunGiren),
         degerGuclu(t.gunCikan),
         degerGuclu(t.giren),
         degerGuclu(t.cikan),
-        degerGuclu(t.mevcut),
-        dolulukHucresi({ doluluk: toplamOran, kapasite: t.kapasite, mevcut: t.mevcut })
+        degerGuclu(t.mevcut)
       ].filter(hucreVar) });
     }
 
@@ -446,12 +458,13 @@
        28.08.2026): başlıklar uzun, sağa yaslı rakam başlığın altında köşede
        kalıyordu. Orta hiza hane sayısından bağımsız ortalar — esnek. Bu ekran
        ve Mail/Excel çıktısı sağa yaslı kalır (KURAL 5.1). */
-    var hz = (secenek && secenek.hizaOrta) ? 'orta' : 'sag';
+    /* Orta hiza da VARSAYILAN (ortak payda, 28.08.2026). */
+    var hz = (secenek && secenek.hizaOrta === false) ? 'sag' : 'orta';
     var sar = YU.ui.tablo({
       sutunlar: [
         { baslik: 'Silo' },
         { baslik: 'Devir', genislik: 112, hiza: hz, mono: true },
-        (secenek && secenek.devirTarihiAyri)
+        tarihAyri
           ? { baslik: 'Devir Tarihi', genislik: 100, hiza: hz, mono: true }
           : null,
         { baslik: 'Gün Başı', genislik: 112, hiza: hz, mono: true },
@@ -466,8 +479,13 @@
         { baslik: 'Kampanya Toplam Giren', genislik: 138, hiza: hz, mono: true, sinif: 'yu-baslik-sarar' },
         { baslik: 'Kampanya Toplam Çıkan', genislik: 138, hiza: hz, mono: true, sinif: 'yu-baslik-sarar' },
         /* 'Mevcut' -> 'Stok' (kullanıcı isteği, 25.08.2026). */
-        { baslik: 'Stok', genislik: 118, hiza: hz, mono: true },
-        { baslik: 'Doluluk', genislik: 122 }
+        /* DOLULUK KOLONU KALDIRILDI (kullanıcı isteği, 28.08.2026: "silo
+           durumu, ana sayfa ve raporlarda/PDF'lerde en sağda doluluk oranı
+           yazmasın"). Tek tablo dört yerde çiziliyor — Silo Durumu, Ana
+           Sayfa, Mail PDF'i ve Excel — kolon burada kalkınca dördünden
+           birden kalkar. Doluluk SİLO KARTLARINDA duruyor (aynı ekranın
+           üstü: çubuk + yüzde); veri kaybolmadı, yalnız bu tablodan çıktı. */
+        { baslik: 'Stok', genislik: 118, hiza: hz, mono: true }
       ].filter(hucreVar),
       satirlar: tablo,
       bos: 'Tanımlı silo yok.',
@@ -534,9 +552,15 @@
       kap.setAttribute('data-tarih', tarih);
       YU.bos(kap).appendChild(stokTablosu(YU.db, YU.stok.tumSilolar(YU.db, tarih), tarih, {
         baslikYani: baslikYani,
-        devirTarihiAyri: !!(panelSecenek && panelSecenek.devirTarihiAyri),
-        hizaOrta: !!(panelSecenek && panelSecenek.hizaOrta),
-        birimli: !!(panelSecenek && panelSecenek.birimli)
+        /* HAM DEĞER GEÇER (28.08.2026): !! zorlaması bayraksız çağrıyı
+           açıkça false yapıyor ve stokTablosu'ndaki "varsayılan açık"
+           kuralını eziyordu — Mail/Excel raporu bu yüzden eski düzende
+           kalmıştı (ölçüldü). undefined geçerse varsayılan işler. */
+        devirTarihiAyri: panelSecenek ? panelSecenek.devirTarihiAyri : undefined,
+        /* HAM geçiş: !! zorlaması varsayılanı eziyordu (devirTarihiAyri'de
+           yaşandı, 28.08.2026). undefined → stokTablosu varsayılanı işler. */
+        hizaOrta: panelSecenek ? panelSecenek.hizaOrta : undefined,
+        birimli: panelSecenek ? panelSecenek.birimli : undefined
       }));
     }
 
@@ -572,14 +596,10 @@
     }
     var bugun = YU.tarih.bugun();
     YU.ui.sayfaEylemleri(
-      /* Sayım Düzeltmesi (M18, Şartname §11): fiili sayım ile sistem stoğu
-         arasındaki fark Manuel silo hareketi olarak girilir. Yönetici işlemi;
-         servis rolü ayrıca denetler (M15). */
-      YU.yonetici() ? YU.ui.dugme({
-        metin: 'Sayım Düzeltmesi', ikon: '#ic-gear', tur: 'ikincil',
-        baslik: 'Fiili sayım farkını Manuel silo hareketi olarak kaydeder (Şartname §11)',
-        onClick: function () { sayimDuzeltmeAc(depo, silolar, tarih); }
-      }) : null,
+      /* SAYIM DÜZELTMESİ DÜĞMESİ KALDIRILDI (kullanıcı isteği, 28.08.2026).
+         sayimDuzeltmeAc penceresi ve servis yolu (manuelHareketKaydet) YEDEK
+         DURUYOR — kural, doğrulama ve denetim izi aynen işler; yalnız bu
+         ekrandan giriş kapısı kapandı. Geri istenirse tek satırla döner. */
       tarihAlani.kok,
       YU.ui.dugme({
         metin: 'Önceki Gün', tur: 'ikincil',
@@ -624,6 +644,16 @@
     var grafik = typeof YU.dokmeGrafikPaneli === 'function' ? YU.dokmeGrafikPaneli() : null;
     if (grafik) kap.appendChild(grafik);
 
+    /* birimli (kullanıcı isteği, 28.08.2026): rakamların yanında "kg" yazar —
+       Ana Sayfa ve mail raporundaki dille aynı oldu. */
+    /* Ana Sayfa'daki silo tablosunun BİREBİR AYNISI (kullanıcı isteği,
+       28.08.2026): devir tarihi ayrı kolon + rakamlar kolon ortasında.
+       Bu iki bayrak 27–28.08'de yalnız Ana Sayfa'ya verilmişti (KURAL 5.1);
+       kullanıcı iki ekranın eşitlenmesini istedi. birimli (kg eki) bu
+       ekranda zaten vardı, korunur. Mail ve Excel çıktısı bayraksız çağırır,
+       onlar eski düzeninde kalır. */
+    /* Bayrak yok: Ana Sayfa düzeni artık VARSAYILAN (ortak payda,
+       28.08.2026) — beş tüketici de aynı tabloyu aynı görünümle alır. */
     kap.appendChild(stokTablosu(depo, satirlar, tarih));
   }
 

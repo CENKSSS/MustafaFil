@@ -793,7 +793,14 @@
   //   malzeme satırı eski değerinde kalıyordu. Aynı tazeleme, devir
   //   satırlarındaki eksik GuncelleyenKullaniciId alanını da doldurur —
   //   eski kayıtlarda "düzeltildi" yazıp kimin yaptığı görünmüyordu.
-  var SEMA_SURUM = 11;
+  // 12 (31.08.2026): kodda tanimli ORNEK HESAPLAR kaldirildi (kullanici
+  //   direktifi). Kullanicilar tablosu artik BOS baslar; ilk hesap giris
+  //   ekranindaki "Kayit Ol" ile acilir. Surum artirilmasa eski localStorage
+  //   kaydindaki uc ornek hesap (cenk / ahmet / hatice) tarayicida durmaya
+  //   devam ederdi. Tohum kampanya verisi KORUNDU (kullanici karari,
+  //   31.08.2026): satirlar bir kisiye degil sisteme yazilir, bu yuzden
+  //   gecmis ekranlarinda "kaydeden" alani bos gorunur.
+  var SEMA_SURUM = 12;
   var YAZMA_SAYAC_ANAHTAR = "yu.veri.sayac"; // sekmeler arası ezme bekçisi (M3)
   var YEDEK_ANAHTAR = "yu.veri.yedek";       // okunamayan eski paketin kopyası (M4)
   var PAROLA_NOTU = "(prototip — gerçek uygulamada BCrypt)";
@@ -822,17 +829,23 @@
     // Kampanya kilitleri (kullanıcı isteği, 24.08.2026): satır varlığı =
     // kampanya kilitli; kilitliyken o kampanyaya veri yazılamaz. SOZLESME
     // §1 dışıdır — sekiz tablo sözleşmesine dokunmaz.
-    ["KampanyaKilitleri", "kampanyaKilitleri"]
+    ["KampanyaKilitleri", "kampanyaKilitleri"],
+    // Kampanya baslıkları (kullanıcı kararı, 31.08.2026): kampanyanın adı
+    // artık tarihten türetilmez, kullanıcı yazar. Satır = bir kampanya başı;
+    // DevirTarihi o kampanyanın devir tarihi, Baslik ekranda görünen ad.
+    // Başlık kaydı OLMAYAN eski kampanyalar eskisi gibi sezon adıyla anılır.
+    ["KampanyaBasliklari", "kampanyaBasliklari"]
   ];
 
   // Sonradan eklenen arşiv tabloları: eski localStorage kaydında bulunmazlar.
   // oku() bunları eksikse boş dizi sayar ki mevcut veri sıfırlanmasın.
-  var ARSIV_TABLOLARI = ["olayGunlugu", "silinenKayitlar", "stokFotograflari", "kampanyaKilitleri"];
+  var ARSIV_TABLOLARI = ["olayGunlugu", "silinenKayitlar", "stokFotograflari",
+                         "kampanyaKilitleri", "kampanyaBasliklari"];
 
   var HAREKET_TABLOLARI = ["devirStok", "siloDevirStok", "gunlukHareket",
                            "kuruKuspeGunluk", "siloHareket", "degisiklikLog",
                            "olayGunlugu", "silinenKayitlar", "stokFotograflari",
-                           "kampanyaKilitleri"];
+                           "kampanyaKilitleri", "kampanyaBasliklari"];
 
   var MALZEME_TANIMI = [
     // Sıra kullanıcı isteğiyle (24.08.2026): Dökme Yaş, Tonluk, 25'lik.
@@ -840,20 +853,23 @@
     ["Yaş Küspe (Tonluk)", null],
     ["Yaş Küspe (25'lik)", null],
     ["Dökme Kuru Küspe", "DokmeKuruKuspe"],
-    ["Kuru Küspe (50 Kg)", "CuvalKuruKuspe"],
+    ["Kuru Küspe (50 Kg Çuvallı)", "CuvalKuruKuspe"],
     ["Atık Kuru Küspe", null],
     ["Kuyruk", null],
     ["Toprak", null]
   ];
 
-  /* Giriş kimliği e-posta (kullanıcı kararı, 26.08.2026): eski adlar rolü
-     söylüyordu ("operator", "operator2"), kişiyi değil. Alan adı yer tutucudur
-     — bkz. YU.ePosta. */
-  var KULLANICI_TANIMI = [
-    ["cenk.cogalmis@fabrika.com", "Cenk Sefer ÇOĞALMIŞ", "Yonetici"],
-    ["ahmet.yilmaz@fabrika.com", "Ahmet Yılmaz", "Operator"],
-    ["hatice.demir@fabrika.com", "Hatice Demir", "Operator"]
-  ];
+  /* KODDA TANIMLI HESAP YOK (kullanıcı direktifi, 31.08.2026: "default olarak
+     kodda tanımlı olmasın mailler"). Liste bilerek boştur; ilk hesabı kullanan
+     kişi giriş ekranındaki "Kayıt Ol" ile kendisi açar.
+
+     Şartname §3 (Demirbaş) hesap açmayı yalnız yöneticiye veriyordu; kullanıcı
+     31.08.2026'da açık kaydı istedi ve KURAL 6 gereği kullanıcının kararı
+     geçerlidir. Kayıt yolu: 04-servis · kullaniciKayitOl.
+
+     Önceki hâli (26.08–30.08.2026): cenk.cogalmis@fabrika.com (Yönetici),
+     ahmet.yilmaz@fabrika.com ve hatice.demir@fabrika.com (Operatör). */
+  var KULLANICI_TANIMI = [];
 
   var SILO_TANIMI = ["Silo 1", "Silo 2", "Silo 3"];
   var SILO_KAPASITE = 3000000; // kg — SİLO BAŞINA; Soru 5a kullanıcı kararıyla kapatıldı (21.08.2026)
@@ -900,7 +916,6 @@
   YU.Depo = function (secenek) {
     secenek = secenek || {};
     var kaynak = secenek.kaynak === "bellek" ? "bellek" : "local";
-    var tohumIstenir = secenek.tohumla !== false;
     var depo = { kaynak: kaynak }, i;
     /* Surum tazelemesinde kurtarilacak kampanya kilitleri (26.08.2026). */
     var tasinanKilitler = null;
@@ -916,6 +931,25 @@
         if (gelen) {
           for (var q = 0; q < gelen.length; q++) hedef.push(gelen[q]);
         }
+      }
+      adiTazele();
+    }
+
+    /* ÇUVALLI KÜSPENİN ADI (kullanıcı isteği, 28.08.2026): "Kuru Küspe
+       (50 Kg)" -> "Kuru Küspe (50 Kg Çuvallı)". Ad varsayılan listede
+       değiştirildi ama ZATEN KAYITLI verideki satır eski adı taşıyordu;
+       yanındaki "Çuvallı" rozeti de kaldırıldığı için ekranda bilgi
+       eksilirdi. Burada yüklenen her pakette bir kez düzeltilir.
+
+       KOŞUL DAR: yalnız adı ESKİ VARSAYILANIN AYNISI olan satır değişir.
+       Kullanıcı malzemeyi kendi eliyle başka bir ada çevirdiyse dokunulmaz.
+       Şema sürümü artırılmaz — bu bir etiket düzeltmesi, yapı değişikliği
+       değil; eski yedekler olduğu gibi açılmaya devam eder. */
+    function adiTazele() {
+      var eski = "Kuru Küspe (50 Kg)", yeni = "Kuru Küspe (50 Kg Çuvallı)", j, m;
+      for (j = 0; j < depo.malzemeler.length; j++) {
+        m = depo.malzemeler[j];
+        if (m && m.OzelTip === "CuvalKuruKuspe" && m.Ad === eski) m.Ad = yeni;
       }
     }
 
@@ -1083,15 +1117,28 @@
     depo.sifirla = function () {
       depo.sayaclar = {}; // tohum her koşuda aynı Id'leri üretsin (determinizm)
       tablolariDoldur(temelVeriUret());
-      // 05-tohum.js yüklenmemişse (tek dosya testi) sessizce atlanır.
-      if (tohumIstenir && typeof YU.tohumla === "function") YU.tohumla(depo);
+      /* ÖRNEK VERİ ÜRETİCİSİ YOK (kullanıcı direktifi, 31.08.2026: "test
+         verisiyle alakalı hepsini sil, ölü kod olarak sil"). js/05-tohum.js
+         silindi; buradaki çağrı kancası da kaldırıldı. Depo sıfırlanınca
+         yalnız malzeme/silo tanımları gelir, hareket tablosu boş kalır.
+         secenek.tohumla parametresi çağrılarda hâlâ geçiyor ama artık hiçbir
+         şey yapmıyor — kaldırmak 4 dosyayı dokunmadan bekletir, davranışı
+         değiştirmez. */
       depo.kaydet();
     };
 
     /* Yedekleme uçları (M5). Doğrulama oku() ile aynı kapıdan geçer; kabuk
        yalnız çağırır, biçim bilgisi bu dosyada kalır. */
+    /* DİKEY (girintili) JSON — kullanıcı isteği, 30.08.2026: "json dosyasını
+       dikey olarak yazsana, tek satırda koyma". Yedek dosyası insan gözüyle
+       okunabilir olmalı: hangi tabloda ne var, tek satırlık duvarda görünmüyordu.
+
+       YALNIZ DIŞA AKTARMA girintilenir. localStorage'a yazan satır (kaydet)
+       SIKIŞIK kalır — orada boyut kotaya sayılır, dosya ise diskte durur ve
+       okunmak içindir. Geri yükleme JSON.parse ile okuduğu için biçimden
+       etkilenmez; eski sıkışık yedekler aynen açılmaya devam eder. */
     depo.disaAktar = function () {
-      return JSON.stringify(paketKur());
+      return JSON.stringify(paketKur(), null, 2);
     };
 
     /* İçe aktarma körlemesine yazmaz (kullanıcı direktifi, 24.08.2026):

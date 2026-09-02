@@ -84,10 +84,32 @@
      2. Test verisi — her test kendi temiz bellek deposuyla başlar
      ================================================================== */
 
+  /* TEST KULLANICILARI (31.08.2026). Kodda tanımlı örnek hesaplar kaldırıldı
+     (01-cekirdek · KULLANICI_TANIMI boş): artık depo hiç kullanıcı olmadan
+     kuruluyor ve yönetici gerektiren her test rol denetimine takılırdı.
+     Testler kendi aktörlerini burada kurar — bellek deposuna yazılır,
+     localStorage'a ve gerçek kullanıcı listesine dokunmaz. */
+  var TEST_KULLANICILARI = [
+    { KullaniciAdi: 'test.yonetici@fabrika.com', AdSoyad: 'Test Yöneticisi', Rol: 'Yonetici' },
+    { KullaniciAdi: 'test.operator@fabrika.com', AdSoyad: 'Test Operatörü', Rol: 'Operator' }
+  ];
+
   function temizDepo() {
-    /* tohumla:false => yalnızca malzeme/silo/kullanıcı başlangıç kayıtları gelir;
+    /* tohumla:false => yalnızca malzeme/silo başlangıç kayıtları gelir;
        kaynak:'bellek' => depo.kaydet() no-op, localStorage'a hiç dokunulmaz. */
-    return YU.Depo({ kaynak: 'bellek', tohumla: false });
+    var depo = YU.Depo({ kaynak: 'bellek', tohumla: false });
+    for (var i = 0; i < TEST_KULLANICILARI.length; i++) {
+      depo.kullanicilar.push({
+        Id: depo.yeniId('Kullanicilar'),
+        KullaniciAdi: TEST_KULLANICILARI[i].KullaniciAdi,
+        ParolaHash: null,
+        AdSoyad: TEST_KULLANICILARI[i].AdSoyad,
+        Rol: TEST_KULLANICILARI[i].Rol,
+        Aktif: true,
+        OlusturmaTarihi: '2024-09-16T08:00:00'
+      });
+    }
+    return depo;
   }
 
   function yoneticiAl(depo) {
@@ -146,7 +168,10 @@
     return {
       tarih: o.tarih,
       uretilenDokme: o.uretilen || 0,
-      cuvalAdet: o.cuval || 0,
+      /* Çuvallanan KG (kullanıcı kararı, 02.09.2026): eskiden adet gönderiliyor
+         ve kg = adet × 50 ile bulunuyordu. Kat kuralı kalkınca ara birim de
+         kalktı; testler doğrudan kg yazar. */
+      cuvalKg: o.cuvalKg || 0,
       satilanDokme: o.satilan || 0,
       yerlestirmeler: o.yerlestirmeler || [],
       cekisler: o.cekisler || [],
@@ -168,18 +193,18 @@
     return sonuc;
   }
 
-  /* Şartname §9 Test 1 günü: 250.000 kg dökme + 200 çuval, tamamı Silo 1'e. */
+  /* Şartname §9 Test 1 günü: 250.000 kg dökme + 10.000 kg çuvallanan, tamamı Silo 1'e. */
   function test1Gunu(depo, yon, s1) {
     return kaydet(depo, yon, {
-      tarih: GUN1, uretilen: 250000, cuval: 200,
+      tarih: GUN1, uretilen: 250000, cuvalKg: 10000,
       yerlestirmeler: [{ siloId: s1, miktar: 240000 }]
     });
   }
 
-  /* Şartname §9 Test 2 günü: 5.000 kg dökme + 200 çuval, çekiş Silo 1'den. */
+  /* Şartname §9 Test 2 günü: 5.000 kg dökme + 10.000 kg çuvallanan, çekiş Silo 1'den. */
   function test2Gunu(depo, yon, s1) {
     return kaydet(depo, yon, {
-      tarih: GUN2, uretilen: 5000, cuval: 200,
+      tarih: GUN2, uretilen: 5000, cuvalKg: 10000,
       cekisler: [{ siloId: s1, miktar: 5000 }]
     });
   }
@@ -268,28 +293,28 @@
      ================================================================== */
 
   test('Üretim çuvallamadan fazla', 'Demirbaş',
-    'Silolar boş (devir 0). 03.07.2026 için üretilen dökme 250.000 kg, çuvallanan 200 adet. Tamamı Silo 1\'e.',
+    'Silolar boş (devir 0). 03.07.2026 için üretilen dökme 250.000 kg, çuvallanan 10.000 kg. Tamamı Silo 1\'e.',
     function () {
       var depo = temizDepo(), yon = yoneticiAl(depo), s1 = siloIdAl(depo, 'Silo 1');
       hazirla(test1Gunu(depo, yon, s1), '03.07 günü');
-      var h = YU.hesap.kuruKuspe(250000, 200, 0);
+      var h = YU.hesap.kuruKuspe(250000, 10000, 0);
       return karsilastir([
         ['CuvalKg', kg(10000), kg(h.cuvalKg)],
         ['NetDokmeUretim', kg(240000), kg(h.netDokmeUretim)],
         ['SilodanCekilecek', kg(0), kg(h.silodanCekilecek)],
         ['Silo 1 mevcut', kg(240000), kg(siloMevcut(depo, s1, GUN1))],
         ['Dökme Kuru Küspe stok (silo toplamı)', kg(240000), kg(malzemeMevcut(depo, 'DokmeKuruKuspe', GUN1))],
-        ['Kuru Küspe (50 Kg) stok', kg(10000), kg(malzemeMevcut(depo, 'CuvalKuruKuspe', GUN1))]
+        ['Kuru Küspe (50 Kg Çuvallı) stok', kg(10000), kg(malzemeMevcut(depo, 'CuvalKuruKuspe', GUN1))]
       ], 'Durum A: üretim çuvallamadan fazla. 250.000 kg\'ın 10.000\'i çuvala, 240.000\'i siloya gider.');
     }).kurallar = ['D3'];
 
   test('Çuvallama üretimden fazla', 'Demirbaş',
-    'Test 1\'in ertesi günü (04.07.2026): üretilen dökme 5.000 kg, çuvallanan 200 adet. Çekiş Silo 1\'den.',
+    'Test 1\'in ertesi günü (04.07.2026): üretilen dökme 5.000 kg, çuvallanan 10.000 kg. Çekiş Silo 1\'den.',
     function () {
       var depo = temizDepo(), yon = yoneticiAl(depo), s1 = siloIdAl(depo, 'Silo 1');
       hazirla(test1Gunu(depo, yon, s1), '03.07 günü');
       var r = hazirla(test2Gunu(depo, yon, s1), '04.07 günü');
-      var h = YU.hesap.kuruKuspe(5000, 200, 0);
+      var h = YU.hesap.kuruKuspe(5000, 10000, 0);
       return karsilastir([
         ['Durum', 'B', h.durum],
         ['NetDokmeUretim', kg(0), kg(h.netDokmeUretim)],
@@ -306,7 +331,7 @@
       hazirla(test1Gunu(depo, yon, s1), '03.07 günü');
       var okunan = gunuBul(depo, GUN1);
       hazirla(kaydet(depo, yon, {
-        tarih: GUN1, uretilen: 300000, cuval: 200,
+        tarih: GUN1, uretilen: 300000, cuvalKg: 10000,
         yerlestirmeler: [{ siloId: s1, miktar: 290000 }],
         rowVersion: okunan.RowVersion
       }), '03.07 düzeltmesi');
@@ -325,7 +350,7 @@
       var depo = temizDepo(), yon = yoneticiAl(depo), s1 = siloIdAl(depo, 'Silo 1');
       hazirla(YU.servis.siloDevirKaydet(depo, { siloId: s1, devirTarihi: DEVIR_GUNU, miktar: 1000 }, yon), 'Silo 1 devri');
       var r = kaydet(depo, yon, {
-        tarih: GUN1, uretilen: 0, cuval: 100,
+        tarih: GUN1, uretilen: 0, cuvalKg: 5000,
         cekisler: [{ siloId: s1, miktar: 5000 }]
       });
       var mesaj = kodMesaji(r.hatalar, 'D7');
@@ -338,11 +363,11 @@
     }).kurallar = ['D7'];
 
   test('Dağıtım toplamı tutmuyor', 'Demirbaş',
-    '03.07 için üretilen dökme 250.000 kg, çuvallanan 200 adet — net dökme 240.000 kg iken silolara toplam 200.000 kg dağıtılır.',
+    '03.07 için üretilen dökme 250.000 kg, çuvallanan 10.000 kg — net dökme 240.000 kg iken silolara toplam 200.000 kg dağıtılır.',
     function () {
       var depo = temizDepo(), yon = yoneticiAl(depo), s1 = siloIdAl(depo, 'Silo 1');
       var r = kaydet(depo, yon, {
-        tarih: GUN1, uretilen: 250000, cuval: 200,
+        tarih: GUN1, uretilen: 250000, cuvalKg: 10000,
         yerlestirmeler: [{ siloId: s1, miktar: 200000 }]
       });
       var mesaj = kodMesaji(r.hatalar, 'D3');
@@ -365,7 +390,7 @@
       var toplam = YU.yuvarla(dokme + cuvalli);
       return karsilastir([
         ['Dökme Kuru Küspe stok', kg(240000), kg(dokme)],
-        ['Kuru Küspe (50 Kg) stok', kg(10000), kg(cuvalli)],
+        ['Kuru Küspe (50 Kg Çuvallı) stok', kg(10000), kg(cuvalli)],
         ['Dökme + Çuvallı toplam', kg(250000), kg(toplam)],
         ['Çift sayım (260.000 kg)', 'yok', toplam === 260000 ? 'var' : 'yok']
       ], 'Çuvallama yeni üretim değil, biçim değişikliğidir; çuvallanan miktar dökme üretimden düşülür.');
@@ -401,9 +426,9 @@
       hazirla(test1Gunu(depo, yon, s1), '03.07 günü');
       hazirla(test2Gunu(depo, yon, s1), '04.07 günü');
       var okunan = gunuBul(depo, GUN1);
-      /* 8.000 kg üretim + 200 çuval => net 0, silodan çekilecek 2.000 kg. */
+      /* 8.000 kg üretim + 10.000 kg çuvallanan => net 0, silodan çekilecek 2.000 kg. */
       var r = kaydet(depo, yon, {
-        tarih: GUN1, uretilen: 8000, cuval: 200,
+        tarih: GUN1, uretilen: 8000, cuvalKg: 10000,
         cekisler: [{ siloId: s1, miktar: 2000 }],
         rowVersion: okunan.RowVersion
       });
@@ -445,9 +470,9 @@
       var depo = temizDepo(), yon = yoneticiAl(depo), s1 = siloIdAl(depo, 'Silo 1');
       hazirla(test1Gunu(depo, yon, s1), '03.07 günü');
       /* Önce karşılıksız satış: reddedilmeli, depo değişmemeli. */
-      var karsiliksiz = kaydet(depo, yon, { tarih: GUN2, uretilen: 0, cuval: 0, satilan: 40000 });
+      var karsiliksiz = kaydet(depo, yon, { tarih: GUN2, uretilen: 0, cuvalKg: 0, satilan: 40000 });
       hazirla(kaydet(depo, yon, {
-        tarih: GUN2, uretilen: 0, cuval: 0, satilan: 40000,
+        tarih: GUN2, uretilen: 0, cuvalKg: 0, satilan: 40000,
         satisCekisleri: [{ siloId: s1, miktar: 40000 }]
       }), '04.07 dökme satışı');
       var hareketler = gununSiloHareketleri(depo, GUN2);
@@ -473,12 +498,12 @@
       var surumB = okunan.RowVersion;
 
       var a = kaydet(depo, yon, {
-        tarih: GUN1, uretilen: 300000, cuval: 200,
+        tarih: GUN1, uretilen: 300000, cuvalKg: 10000,
         yerlestirmeler: [{ siloId: s1, miktar: 290000 }],
         rowVersion: surumA
       });
       var b = kaydet(depo, yon, {
-        tarih: GUN1, uretilen: 100000, cuval: 200,
+        tarih: GUN1, uretilen: 100000, cuvalKg: 10000,
         yerlestirmeler: [{ siloId: s1, miktar: 90000 }],
         rowVersion: surumB
       });

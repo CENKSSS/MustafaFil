@@ -91,6 +91,13 @@
   function gununTablosu(anahtar, tarihIso) {
     var kur = anahtar === 'silo' ? YU.siloStokPaneli : YU.malzemeStokPaneli;
     if (typeof kur !== 'function') return null;
+    /* Silo tablosunda rakamın yanında BİRİM yazar (kullanıcı isteği,
+       28.08.2026: "raporda sadece sayı var, kg mi adet mi belli değil").
+       Ana Sayfa'daki panelin taşıdığı bayrağın aynısı; Malzeme tablosu
+       birimini zaten kendi taşıyor. Günlük Silo Durumu ekranı bu bayrağı
+       almaz, orası eski düzeninde kalır (KURAL 5.1). */
+    /* Bayraksız (ortak payda, 28.08.2026): birim, orta hiza ve ayrı devir
+       tarihi artık panelin varsayılanı — rapor ekranlarla birebir aynı. */
     var kap = kur(tarihIso);
     if (!kap) return null;
     /* SARICI (.yu-tablo-sar) kopyalanır, ÇIPLAK <table> DEĞİL (kullanıcı
@@ -718,6 +725,98 @@
        (Postaci.GonderTekTek), pencere de onu satır satır yazar. Sebep
        cümlesi sunucudan OLDUĞU GİBİ gelir — kısaltılmaz, çünkü düzeltmeyi
        yapacak olan kullanıcıdır. */
+    /* ------------------------------------------------------------------
+       TESLİM İZLEME (kullanıcı direktifi, 31.08.2026: "gönderilemeyen olursa
+       tüm ekrana orta panel gelsin, aynı şekilde bu maile gönderilemedi diye")
+
+       SORUN: "Gönderildi" ile "ulaştı" aynı şey değil. SMTP iletiyi ALIR,
+       teslimi sonra dener. Alıcının kutusu yoksa bunu ancak dakikalar sonra
+       gelen TESLİMSİZLİK POSTASI söyler — o da kullanıcının gelen kutusuna
+       düşer, programın haberi olmazdı.
+
+       NEDEN BAŞKA YOL YOK (ölçüldü, 31.08.2026):
+         · Alan adı kontrolü (sunucu · alan_sorunu) yalnız ALANI doğrular;
+           hotmail.com gerçek bir alan, sorun kutuda.
+         · Alıcının kendi sunucusuna "bu kutu var mı" diye sormak (RCPT):
+           bu ağdan 25. port dışarı KAPALI, zaman aşımına düşüyor.
+
+       ÇÖZÜM: gönderimden sonra sunucu, aynı hesabın gelen kutusunu IMAP ile
+       yoklar (yalnız teslimsizlik iletileri, yalnız okuma). Bir tanesi bizim
+       alıcımıza aitse ekranın ortasında pencere açılır.
+
+       YOKLAMA PENCERESİ 5 DAKİKA: teslimsizlik genellikle saniyeler içinde
+       gelir; 5 dakikada gelmediyse posta yolda demektir ve sessizce durulur —
+       sonsuz yoklama tarayıcıyı ve posta sunucusunu boşuna yorar. */
+    var TESLIM_ARALIK = 15000;   /* ms — iki yoklama arası */
+    var TESLIM_ADET = 20;        /* 20 × 15 sn = 5 dakika */
+
+    function teslimIzlemeyiDurdur() {
+      if (YU.__teslimSayaci) { clearTimeout(YU.__teslimSayaci); YU.__teslimSayaci = null; }
+    }
+
+    /* Sayaç MODÜL DIŞINDA (YU üzerinde) tutulur: ekran yeniden çizilince bu
+       kapanış yenilenir, eskisinin sayacı elde kalmazdı ve iki yoklama zinciri
+       birden koşup pencereyi iki kez açardı (31.08.2026). */
+    function teslimIzle(adresler) {
+      teslimIzlemeyiDurdur();
+      if (!adresler || !adresler.length || typeof fetch !== 'function') return;
+      var gun = YU.tarih.bugun();
+      var kalan = TESLIM_ADET;
+
+      function sor() {
+        YU.__teslimSayaci = null;
+        fetch('api/mail/teslimsiz?gun=' + encodeURIComponent(gun) +
+              '&alicilar=' + encodeURIComponent(adresler.join(',')), { cache: 'no-store' })
+          .then(function (c) { return c.ok ? c.json() : null; })
+          .then(function (g) {
+            var liste = (g && g.teslimsizler) || [];
+            if (liste.length) { teslimsizPenceresi(liste); return; }   /* bulundu — dur */
+            if (--kalan > 0) YU.__teslimSayaci = setTimeout(sor, TESLIM_ARALIK);
+          })
+          ['catch'](function () {
+            /* Sunucuya ulaşılamadı: susarız. "Gönderilemedi" demek için
+               KANIT gerekir; yokluğu kanıt değildir. */
+            if (--kalan > 0) YU.__teslimSayaci = setTimeout(sor, TESLIM_ARALIK);
+          });
+      }
+      YU.__teslimSayaci = setTimeout(sor, TESLIM_ARALIK);
+    }
+
+    /* Ekranın ortasında, gönderim sonucu penceresiyle aynı dilde. */
+    function teslimsizPenceresi(liste) {
+      var kap = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '14px' } });
+      kap.appendChild(YU.h('div', {
+        metin: liste.length === 1
+          ? 'Rapor postası bu adrese ulaşmadı:'
+          : 'Rapor postası şu adreslere ulaşmadı:',
+        stil: { font: '400 14px/1.5 var(--font)', color: 'var(--metin-2)' }
+      }));
+      for (var i = 0; i < liste.length; i++) {
+        kap.appendChild(YU.h('div', {
+          stil: { display: 'flex', gap: '9px', alignItems: 'baseline', minWidth: '0' }
+        },
+          YU.h('span', {
+            metin: '✕', 'aria-hidden': 'true',
+            stil: { flex: 'none', fontWeight: '700', color: 'var(--olumsuz)' }
+          }),
+          YU.h('div', { stil: { minWidth: '0' } },
+            YU.h('div', { sinif: 'yu-guclu', metin: liste[i].adres, stil: { wordBreak: 'break-all' } }),
+            YU.h('div', {
+              metin: liste[i].sebep || 'Teslim edilemedi.',
+              stil: { font: '400 13px/1.45 var(--font)', color: 'var(--olumsuz)', marginTop: '2px' }
+            })
+          )
+        ));
+      }
+      YU.ui.modal({
+        baslik: 'Teslim Edilemedi',
+        baslikAlt: mailHesabi ? mailHesabi.adres : '',
+        genislik: 480,
+        govde: kap,
+        dugmeler: [{ metin: 'Tamam', tur: 'birincil' }]
+      });
+    }
+
     function sonucPenceresi(g) {
       g = g || {};
       var sonuclar = g.sonuclar || [];
@@ -817,6 +916,14 @@
         if (y.kod === 200) {
           if (modal && modal.kapat) modal.kapat();
           sonucPenceresi(y.govde);
+          /* SMTP "aldım" dedi; gerçekten ULAŞTI mı, teslimsizlik postası
+             söyler. Yalnız BAŞARILI görünen adresler izlenir (31.08.2026). */
+          var izlenecek = [];
+          var sonuclar = (y.govde && y.govde.sonuclar) || [];
+          for (var si = 0; si < sonuclar.length; si++) {
+            if (sonuclar[si].tamam) izlenecek.push(sonuclar[si].adres);
+          }
+          teslimIzle(izlenecek);
           return;
         }
         /* Hepsi başarısız: sunucu 502 ile alıcı listesini yine döner —

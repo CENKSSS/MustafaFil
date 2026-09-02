@@ -45,10 +45,27 @@
     return null;
   }
 
-  function malzemeSatiriVarMi(db, tarih) {
-    var i;
+  /* Günü Sıfırla'nın silebileceği bir şey var mı? Ölçü DARALDI (kullanıcı
+     kararı, 31.08.2026): bu ekran artık yalnız kendi yazdığı alanları
+     siliyor — dökmenin üretim+satışı, çuvallının üretimi ve günün silo
+     hareketleri. Malzeme Girişi'ne yazılmış yaş küspe/kuyruk satırı düğmeyi
+     ARTIK AÇMAZ; onlar bu ekranın verisi değil. */
+  function buEkraninVerisiVarMi(db, tarih) {
+    var i, h;
+    for (i = 0; i < db.siloHareket.length; i++) {
+      if (db.siloHareket[i].Tarih === tarih) return true;
+    }
+    var dokme = null, cuval = null;
+    for (i = 0; i < db.malzemeler.length; i++) {
+      if (db.malzemeler[i].OzelTip === "DokmeKuruKuspe") dokme = db.malzemeler[i];
+      if (db.malzemeler[i].OzelTip === "CuvalKuruKuspe") cuval = db.malzemeler[i];
+    }
     for (i = 0; i < db.gunlukHareket.length; i++) {
-      if (db.gunlukHareket[i].Tarih === tarih) return true;
+      h = db.gunlukHareket[i];
+      if (h.Tarih !== tarih) continue;
+      if (dokme && h.MalzemeId === dokme.Id &&
+          ((Number(h.Uretim) || 0) !== 0 || (Number(h.Satis) || 0) !== 0)) return true;
+      if (cuval && h.MalzemeId === cuval.Id && (Number(h.Uretim) || 0) !== 0) return true;
     }
     return false;
   }
@@ -175,7 +192,11 @@
 
   function adimBasligi(no, yon, baslik, sag, sert) {
     var r = ADIM_RENK[yon] || ADIM_RENK.notr;
-    return YU.h("div", { stil: { display: "flex", alignItems: "center", gap: "12px", paddingBottom: "9px", borderBottom: sert ? SERT_CIZGI : "1px solid var(--ayrac)" } },
+    /* Alt dolgu 9 -> 5 (kullanıcı isteği, 31.08.2026: paneller dikeyde
+       incelsin). Rozet 28px ve başlık 20px AYNEN kalır; kısalan yalnız
+       başlığın altındaki boşluk. Sağdaki dağıtım kutusunun başlık bloğu da
+       aynı ölçüde kısaldı — iki panelin içeriği hizasını korur. */
+    return YU.h("div", { stil: { display: "flex", alignItems: "center", gap: "12px", paddingBottom: "5px", borderBottom: sert ? SERT_CIZGI : "1px solid var(--ayrac)" } },
       YU.h("span", {
         metin: String(no),
         stil: {
@@ -220,7 +241,7 @@
 
   function dagitimKutusu(baslik, icerik, ekSinif) {
     var ic = YU.h("div", {
-      stil: { display: "flex", flexDirection: "column", gap: "9px", minWidth: "0" }
+      stil: { display: "flex", flexDirection: "column", gap: "8px", minWidth: "0" }
     }, icerik);
     /* KENDİ PANELİ (kullanıcı isteği, 27.08.2026: "silolara dağıt ve
        silolardan çek'e panel yap ayrı olarak"). Elle çizilen çerçeve yerine
@@ -234,16 +255,22 @@
        içeriği aynı hizada başlar. */
     var bas = YU.h("div", {
       stil: {
-        /* 38px = soldaki adimBasligi'nin toplam yüksekliği (28px rozet +
-           9px dolgu + 1px ayraç). box-sizing: border-box olduğu için
+        /* 34px = soldaki adimBasligi'nin toplam yüksekliği (28px rozet +
+           5px dolgu + 1px ayraç). box-sizing: border-box olduğu için
            min-height dolguyu ve kenarlığı da kapsar; 28 yazınca sağdaki
-           başlık 10px alçak kalıyordu (ölçüldü). */
-        display: "flex", alignItems: "center", minHeight: "38px",
-        paddingBottom: "9px", borderBottom: SERT_CIZGI
+           başlık 10px alçak kalıyordu (ölçüldü). Dolgu 31.08.2026'da 9'dan
+           5'e indi — soldaki başlıkla birlikte, hiza bozulmasın. */
+        display: "flex", alignItems: "center", minHeight: "34px",
+        paddingBottom: "5px", borderBottom: SERT_CIZGI
       }
     }, altEtiket(baslik));
     var p = YU.ui.panel({ govde: [bas, ic] });
-    p.querySelector(".yu-panel-govde").style.gap = "10px";   /* adım paneliyle aynı */
+    /* Boşluk ve dolgu SOLDAKİ adım paneliyle birebir aynı (31.08.2026):
+       ikisi tek kartın iki yarısıdır; dolgu ayrışırsa başlıklar birbirinden
+       kayar (ölçüldü: sağdaki 4px alçak kalıyordu). */
+    p.querySelector(".yu-panel-govde").style.gap = "8px";
+    p.style.paddingTop = "10px";
+    p.style.paddingBottom = "10px";
     /* Şerit YALNIZ sol adım panellerinde (kullanıcı kararı, 27.08.2026):
        önce iki panele de konmuştu, kullanıcı geri aldı. Buraya gelen ek
        sınıf şerit değil, çift panelin SAĞ YARISI biçimidir. */
@@ -311,7 +338,8 @@
     zemin: "gri-duz",   /* zemin gri, paneller mavi/turuncu adım düzeninde (kullanıcı isteği, 23.08.2026) */
     /* Ad "& Çıkış" ile genişledi (kullanıcı isteği, 27.08.2026): ekran yalnız
        giriş değil, dökme satış ve çuvallama çekişini de buradan alıyor. */
-    baslik: "Kuru Küspe Günlük Giriş & Çıkış",
+    baslik: "Kuru Küspe Günlük Giriş ve Çıkış",
+    menuAd: "Kuru Küspe Girişi",   /* menüde kısa ad (31.08.2026) */
     ikon: "#ic-plus",
     grup: "Giriş",
     rol: "Hepsi",
@@ -334,7 +362,7 @@
     if (tarih > YU.tarih.bugun()) tarih = YU.tarih.bugun();
     var kayit = kuruKuspeBul(db, tarih);
     var okunanRowVersion = kayit ? Number(kayit.RowVersion) : null;
-    var silinebilir = !!kayit || malzemeSatiriVarMi(db, tarih);
+    var silinebilir = !!kayit || buEkraninVerisiVarMi(db, tarih);
     var silolar = aktifSilolar(db);
     var gunBasi = {};
     var i;
@@ -361,18 +389,21 @@
     /* Sol yığın (adım 1-2) artık boşta kalan genişliğin tamamını alır
        (kullanıcı isteği, 26.08.2026). 23.08.2026'daki 1120px sınırı kalktı:
        panellerin sağ sınırı "Gün Sonu ve Kayıt" panelidir. */
-    var govde = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "18px", minWidth: "0", gridColumn: "1", gridRow: "1" } });
-    /* Yerleşim (kullanıcı isteği, 23.08.2026): tarih şeridi grid DIŞINDA tam
-       satırdır. Grid TEK satırdır (25.08.2026): solda adım 1-2, sağda
-       yapışkan adım 3. İkinci satır, kaldırılan "Günün Silo Hareketleri"
-       paneli içindi.
-       Sağ sütunun ölçüsü değişmedi (en çok 340px, dar ekranda 300'e iner);
-       sol sütun 1fr olduğu için sağ sütun sayfanın sağ kenarına yaslanır
-       (kullanıcı isteği, 26.08.2026). */
-    var sagKolon = YU.h("div", { stil: { minWidth: "0", gridColumn: "2", gridRow: "1", alignSelf: "stretch" } });
+    var govde = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "18px", minWidth: "0" } });
+    /* TEK SÜTUN (kullanıcı isteği, 02.09.2026: "3-kayıt panelini en alta
+       alsana"). 23.08.2026'dan beri sağda yapışkan bir Kayıt sütunu vardı;
+       panel artık sayfanın en altında, tam genişlikte duruyor ve sütun
+       gereksiz kaldı. Sıra: 1 Siloya Giren → 2 Silodan Çıkan → kayıt alanı.
+       KENAR BOŞLUĞU (aynı istek: "sağ ve sol kenarlardan biraz uzak olsun"):
+       tarih şeridi ve panel yığını iki yandan 22px içeri alınır. Boşluk bu
+       ekrana özeldir; ortak kabuk dolgusuna dokunulmaz (KURAL 10.5). */
+    var YAN_BOSLUK = "22px";
     var yerlesim = YU.h("div", {
-      stil: { display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(300px, 340px)", gap: "18px", alignItems: "start" }
-    }, govde, sagKolon);
+      stil: {
+        display: "flex", flexDirection: "column", gap: "18px", minWidth: "0",
+        paddingLeft: YAN_BOSLUK, paddingRight: YAN_BOSLUK, boxSizing: "border-box"
+      }
+    }, govde);
 
     /* ---------- 1. Kayıtlı gün uyarısı (Şartname §7, v2 — kullanıcı isteği,
        23.08.2026): şerit yerine sayfa açılınca küçük pencere. Kaydet/silme
@@ -391,7 +422,13 @@
          de sayfa açılışındaki "Kayıtlı Gün" penceresinde duruyor. */
     }
 
-    if (kayit && !(bekleyenSonuc && bekleyenSonuc.tarih === tarih)) {
+    /* KİLİTLİ GÜNDE BU PENCERE AÇILMAZ (01.09.2026): "istersen
+       düzenleyebilirsin" cümlesi kilitli günde yanlış olurdu — o gün
+       değiştirilemiyor. Yerine ekranın tepesindeki kilit şeridi çıkar. */
+    var acilistaKilit = (YU.servis && YU.servis.tarihKilitDurumu)
+      ? YU.servis.tarihKilitDurumu(db, tarih) : null;
+
+    if (kayit && !acilistaKilit && !(bekleyenSonuc && bekleyenSonuc.tarih === tarih)) {
       YU.ui.modal({
         baslik: "Kayıtlı Gün",
         genislik: 440,
@@ -502,6 +539,10 @@
     );
     /* Tarih şeridi, altındaki iki sütunla aynı genişlikte durur. Sütunlar
        artık kabı doldurduğu için sabit 1478px sınırı kalktı (26.08.2026). */
+    /* Tarih şeridi panellerle AYNI hizada başlar; yoksa şerit kenara yapışık,
+       paneller içeride kalırdı (02.09.2026). */
+    tarihSatiri.style.marginLeft = YAN_BOSLUK;
+    tarihSatiri.style.marginRight = YAN_BOSLUK;
     kap.appendChild(tarihSatiri);
     kap.appendChild(yerlesim);
 
@@ -517,29 +558,22 @@
        25.08.2026). Alan boş dururken hiçbir şey yazmaz; çuval girilince
        yerine hesabı yazan CANLI satır gelir (aşağıda guncelle). Yardım
        düğümü, sonradan yazılabilsin diye tek boşlukla kurulur. */
-    /* ÇUVALLANAN ARTIK KG (kullanıcı kararı, 28.08.2026): "kaç adet çuval
-       üretildi" yerine "çuvalların toplamı kaç kg oldu" sorulur; değer
-       50'nin katı olmalıdır. Depoda saklanan alan CuvalAdet olarak KALIR
-       (Şartname §6) — adet, girilen kg'dan bölünerek türetilir. Eski kayıt
-       açılırken ters çevrilir: adet × 50 = kutuda görünen kg. */
+    /* ÇUVALLANAN SERBEST KG (kullanıcı kararı, 02.09.2026: "50 ve katları
+       kuralını kaldır, 238 kg de yazılabilsin; hiçbir yerde adet yazmasın").
+       28.08.2026'da alan kg'a çevrilmişti ama değer 50'nin katı olmak
+       zorundaydı ve adet ara birim olarak yaşıyordu. İkisi de kalktı.
+       Eski kayıt açılırken CuvalKg okunur; o boşsa (02.09.2026 öncesi kayıt)
+       eski CuvalAdet × 50 ile çevrilir — YU.hesap.kayitCuvalKg. */
     var CUVAL_YARDIM = "";
     var cuvalAlan = buyukAlan(YU.ui.alan({
       etiket: "Çuvallanan", tip: "sayi", sag: "kg",
-      deger: kayit ? YU.yuvarla(Number(kayit.CuvalAdet) * YU.hesap.CUVAL_KG) : null,
+      deger: kayit ? YU.yuvarla(YU.hesap.kayitCuvalKg(kayit)) : null,
       yardim: " ",
       onInput: guncelle
     }));   /* sağ boşluk ÜRETİLEN ile AYNI (kullanıcı isteği, 28.08.2026):
               64px, eki "çuval" iken konmuştu; ek "kg" olunca rakam ile kg
               arası üstteki kutudan 18px fazla kalıyordu (ölçüldü 46 / 64). */
     var cuvalYardim = cuvalAlan.kok.querySelector(".yu-yardim");
-
-    /* Kutudaki kg'ın adet karşılığı. Boş/bozuk değer olduğu gibi geçer —
-       "sayı olmalı" hatasını D2 yazar, burada susulur. */
-    function cuvalAdedi() {
-      var v = cuvalAlan.deger();
-      if (v === null || v === undefined || isNaN(v)) return v;
-      return v / YU.hesap.CUVAL_KG;
-    }
 
     var satilanAlan = buyukAlan(YU.ui.alan({
       etiket: "Bugün Satılan Dökme Kuru Küspe", tip: "sayi", sag: "kg",
@@ -782,15 +816,20 @@
        içindeki kutular beyaz kalır, panel sınırı böyle okunur. Hover yok. */
     function adimPaneli(govdeListesi, ekSinif) {
       var p = YU.ui.panel({ govde: govdeListesi });
-      /* Dikey sıkılaştırma (kullanıcı isteği, 23.08.2026): yazı boyutları aynı,
-         yalnız boşluklar kısaldı. */
-      p.querySelector(".yu-panel-govde").style.gap = "10px";
+      /* Dikey sıkılaştırma (kullanıcı isteği, 23.08.2026 · 31.08.2026'da bir
+         adım daha): yazı, girdi ve düğme ölçüleri AYNEN kalır — kısalan
+         yalnız panelin kendi dolgusu ve içindeki boşluklar. Dolgu ortak
+         .yu-panel kuralında 14px; burada bu ekrana özel 10px'e iner, başka
+         hiçbir panel etkilenmez (KURAL 10.5). */
+      p.querySelector(".yu-panel-govde").style.gap = "8px";
+      p.style.paddingTop = "10px";
+      p.style.paddingBottom = "10px";
       if (ekSinif) p.className += " " + ekSinif;
       return p;
     }
 
     function rakamYigini() {
-      var kap = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "10px" } });
+      var kap = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "8px" } });
       for (var a = 0; a < arguments.length; a++) kap.appendChild(arguments[a].kok);
       return kap;
     }
@@ -810,7 +849,7 @@
            kartın yarıları. Sütun boşluğu 0 — dikişi kesik çizgi çiziyor.
            alignItems "start" değil "stretch": yarılar farklı boyda kalırsa
            kart basamaklanır, "tek parça" izlenimi bozulurdu. */
-        columnGap: "0", rowGap: "22px", alignItems: "stretch"
+        columnGap: "0", rowGap: "18px", alignItems: "stretch"
       }
     });
 
@@ -1007,31 +1046,62 @@
 
     /* ---------- 6. Adım 3: Gün sonu silo durumu + kayıt (tek panel) ---------- */
 
+    /* SİLO KARTLARI SAĞ PANELDEN ÇIKTI (kullanıcı isteği, 02.09.2026):
+       "Gün Sonu ve Kayıt panelini kaldır, bu en son kaydettikten sonra ortaya
+       panel olarak gelsin". Kartlar artık sol yığının altında, kayıt yazıldıktan
+       sonra açılan kendi panelinde durur. Sağ panelde yalnız kayıtlı gün uyarısı,
+       durum kutusu, Kaydet ve Günü Sıfırla kalır.
+       Izgara dikeyden yatağa döndü: orta alan geniş, kartlar yan yana sığar. */
     var siloOzetleri = [];
-    var siloIzgara = YU.h("div", { stil: { display: "grid", gridTemplateColumns: "1fr", gap: "10px" } });   /* sağ sütunda dikey */
+    var siloIzgara = YU.h("div", {
+      stil: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: "10px" }
+    });
 
     for (i = 0; i < silolar.length; i++) {
       (function (silo) {
         var kapasite = Number(silo.Kapasite) || 0;
-        var sonu = YU.h("span", { metin: "—", stil: { font: "600 22px/1 var(--sayi)", letterSpacing: "-.02em", fontVariantNumeric: "tabular-nums" } });
+        /* ÖLÇÜLER KÜÇÜLDÜ (kullanıcı isteği, 31.08.2026 akşamı: "panelindeki
+           yazılar büyük", ardından "1,5 px kadar daha küçült").
+             gün sonu        22 -> 19 -> 17,5 px
+             gün başı, fark  18 -> 15,5 -> 14 px
+           Sıralama korundu: gün sonu en büyük, gün başı ve fark onun altında.
+           Silo adı 14,5 px'te kaldı. */
+        var sonu = YU.h("span", { metin: "—", stil: { font: "600 17.5px/1 var(--sayi)", letterSpacing: "-.02em", fontVariantNumeric: "tabular-nums" } });
         /* Bugünün farkı: +X yeşil / −X kırmızı; 0 iken gizli (kullanıcı isteği, 23.08.2026). */
-        var fark = YU.h("span", { metin: "", stil: { display: "none", font: "600 16px/1 var(--sayi)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } });
+        /* FARK SATIRI (kullanıcı isteği, 31.08.2026): rakam renkli, yanındaki
+           söz düz metin renginde — "+93.000 kg Artar". Giren/çıkan dökümü
+           KALDIRILDI; kartta tek satır kalır. Ayrıntı ipucunda durur. */
+        /* 16 -> 18 px (kullanıcı isteği, 31.08.2026). Gün sonu rakamı 22 px;
+           fark onun bir kademe altında kalır, sıralama bozulmaz. */
+        var farkSayi = YU.h("span", { stil: { font: "600 14px/1 var(--sayi)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } });
+        /* Söz, soldaki rakamla AYNI ölçüde (kullanıcı isteği, 31.08.2026):
+           ikisi birlikte 18 px / 600. Yazı tipi gövde fontu kalır — sayı
+           fontu rakam için. */
+        var farkSoz = YU.h("span", { stil: { font: "600 14px/1 var(--font)", color: "var(--metin)", whiteSpace: "nowrap" } });
+        var fark = YU.h("span", { stil: { display: "none", alignItems: "baseline", gap: "6px" } }, farkSayi, farkSoz);
         /* Gün başı ve ok ayrı düğüm: değişiklik yoksa ikisi de gizlenir,
            kartta yalnız gün sonu rakamı kalır (kullanıcı isteği, 26.08.2026).
            Başlangıç "none"; sayfa kurulurken çağrılan guncelle() doğrusunu yazar. */
         /* Gün başı rakamı ÜSTÜ ÇİZİLİ yazılır (kullanıcı isteği, 27.08.2026):
            "1.000 kg -> 8.000 kg" satırında hangisinin eski değer olduğu
            okumadan anlaşılsın. Çizgi rakamın kendisinden silik: --metin-5. */
+        /* 31.08.2026 akşamı bir ara kaldırılmıştı; kullanıcı aynı gün
+           "eski hâline al" dedi, geri getirildi. */
         var basi = YU.h("span", {
           sinif: "yu-mono", metin: YU.fmt.kgU(gunBasi[silo.Id]),
           stil: {
-            display: "none", fontSize: "18px", color: "var(--metin-3)",
+            display: "none", fontSize: "14px", color: "var(--metin-3)",
             textDecoration: "line-through", textDecorationColor: "var(--metin-5)",
             textDecorationThickness: "1.5px"
           }
         });
         var ok = YU.h("span", { metin: "→", stil: { display: "none", color: "var(--metin-5)" } });
-        var sayiSatiri = YU.h("div", { stil: { display: "flex", alignItems: "baseline", gap: "8px", flexWrap: "wrap" } }, basi, ok, sonu, fark);
+        /* SATIRDA YALNIZ GÜNCEL STOK (kullanıcı isteği, 02.09.2026: "sadece
+           anlık olarak siloların stoklarını göstersin, yani eklendi çıkarıldı
+           vs yazmasın"). basi / ok / fark düğümleri KURULUR ve gunSonuTazele
+           onlara yazmayı sürdürür — yalnız karta eklenmezler, bu yüzden
+           ekranda görünmezler. Geri istenirse tek satırlık değişiklik. */
+        var sayiSatiri = YU.h("div", { stil: { display: "flex", alignItems: "baseline", gap: "8px", flexWrap: "wrap" } }, sonu);
         var cubukKap = YU.h("div");
         var kart = YU.h("div", {
           stil: {
@@ -1049,14 +1119,21 @@
           cubukKap
         );
         siloIzgara.appendChild(kart);
-        siloOzetleri.push({ silo: silo, kapasite: kapasite, sonu: sonu, fark: fark, cubukKap: cubukKap, basi: basi, ok: ok, sayiSatiri: sayiSatiri });
+        siloOzetleri.push({ silo: silo, kapasite: kapasite, sonu: sonu, fark: fark,
+                            farkSayi: farkSayi, farkSoz: farkSoz,
+                            cubukKap: cubukKap, basi: basi, ok: ok, sayiSatiri: sayiSatiri });
       })(silolar[i]);
     }
 
     /* ---------- 7. Durum satırı + eylemler (Adım 3'ün altı) ---------- */
 
     var durumIkon = YU.h("span", { stil: { display: "flex", flex: "none", alignSelf: "flex-start", marginTop: "1px" } });
-    var durumBaslik = YU.h("div", { stil: { font: "600 15.5px/1.35 var(--font)", color: "var(--metin)" } });
+    /* "Bu Gün Daha Önce Kaydedilmiş" kutusuyla AYNI ÖLÇÜ (kullanıcı isteği,
+       31.08.2026 akşamı): 15,5 -> 14 px. Alttaki madde listesi de 14'ten
+       13'e iner ki başlık ile liste arasındaki punto farkı korunsun. */
+    /* 600 -> 550 ağırlık ve hafif harf aralığı (02.09.2026): kalın renkli
+       başlık bağırıyordu; kurumsal ekranlarda durum satırı sakin okunur. */
+    var durumBaslik = YU.h("div", { stil: { font: "550 13.5px/1.4 var(--font)", letterSpacing: ".01em", color: "var(--metin)" } });
     /* HATA LİSTESİ HİZALI (kullanıcı isteği, 27.08.2026): madde imi ve
        serbest cümle yerine iki sütunlu ızgara. Sol sütun "Silo 1:" gibi
        önekleri taşır ve max-content olduğu için bütün satırlarda AYNI
@@ -1065,18 +1142,21 @@
     var durumListe = YU.h("div", {
       stil: {
         display: "none", gridTemplateColumns: "max-content 1fr",
-        columnGap: "8px", rowGap: "4px", margin: "6px 0 0",
-        font: "400 14px/1.5 var(--font)", color: "var(--metin-2)"
+        columnGap: "8px", rowGap: "4px", margin: "5px 0 0",
+        font: "400 13px/1.5 var(--font)", color: "var(--metin-2)"
       }
     });
 
+    /* İkon "+" değil onay işareti (02.09.2026): kaydetmek ekleme değil,
+       tamamlamadır. Artı işareti "yeni satır ekle" düğmelerinin dili. */
     var dugmeKaydet = YU.ui.dugme({
-      metin: "Kaydet", ikon: "#ic-plus", tur: "birincil",
+      metin: "Kaydet", ikon: "#ic-checklist", tur: "birincil",
       baslik: "Ctrl + Enter",
       onClick: kaydet
     });
-    dugmeKaydet.style.padding = "10px 20px";
-    dugmeKaydet.style.fontSize = "15px";
+    dugmeKaydet.className += " yu-kk-kaydet";
+    dugmeKaydet.style.padding = "11px 20px";
+    dugmeKaydet.style.fontSize = "14.5px";
 
     var dugmeSil = silinebilir ? YU.ui.dugme({
       /* "Günü Sil" -> "Günü Sıfırla" (kullanıcı isteği, 28.08.2026): gün
@@ -1084,20 +1164,33 @@
          iş aynı, adı yaptığı işi söylüyor. */
       metin: "Günü Sıfırla", ikon: "#ic-trash", tur: "tehlike", onClick: gunuSil
     }) : null;
+    if (dugmeSil) {
+      dugmeSil.className += " yu-kk-sifirla";
+      dugmeSil.style.padding = "11px 20px";
+      dugmeSil.style.fontSize = "14.5px";
+    }
 
-    dugmeKaydet.style.width = "100%";
-    if (dugmeSil) dugmeSil.style.width = "100%";
+    /* Tam genişlik kalktı (yan yana dizilim): ikisi de aynı ölçüde durur,
+       böylece satır dengeli okunur. */
+    dugmeKaydet.style.minWidth = "148px";
+    if (dugmeSil) dugmeSil.style.minWidth = "148px";
     /* DURUM KUTUSU (kullanıcı isteği, 27.08.2026): uyarı panelin dibinde,
        düğmenin hemen üstünde duruyordu; silo kartlarıyla arasında koca bir
        boşluk kalıyordu. Artık kendi kartı var ve O BOŞLUĞUN ORTASINA oturur:
        ne Silo 3'e yapışır ne düğmeye. Kart, durumun rengini alır — kırmızı
        engel, sarı uyarı, yeşil hazır. Boşluk yoksa (kısa panelde) kart
        kendiliğinden içeriği kadar kalır. */
+    /* RESMİ GÖRÜNÜM (kullanıcı isteği, 02.09.2026: "çok çocuk gibi duruyor,
+       resmi bir programa aitmiş gibi değil"). Dolgulu pastel zemin ve renkli
+       çerçeve kalktı; kutu nötr yüzeyde durur, durumun rengini SOL KENARDAKİ
+       ince şerit taşır. Renk hâlâ okunur (ikon ve başlık), ama ekranı
+       boyamaz. Köşe 10 -> 6 px: yumuşak balon yerine dosya kartı hissi. */
     var durumKutu = YU.h("div", {
       stil: {
         display: "flex", gap: "10px", alignItems: "flex-start", width: "100%",
-        boxSizing: "border-box", padding: "12px 14px", borderRadius: "var(--r-l)",
-        border: "1px solid var(--kenar)", background: "var(--yuzey-2)"
+        boxSizing: "border-box", padding: "11px 14px", borderRadius: "6px",
+        border: "1px solid var(--kenar)", borderLeft: "3px solid var(--kenar)",
+        background: "var(--yuzey-2)"
       }
     },
       durumIkon,
@@ -1110,77 +1203,78 @@
        söyler, "kim ne zaman girmiş" cümlesi düştü. Yalnız kayıtlı günde
        kurulur; yeni günde hiç çizilmez. */
     var kayitliKutu = kayit ? YU.h("div", {
+      /* Durum kutusuyla AYNI dil (02.09.2026): nötr zemin, sol kenarda uyarı
+         rengi şerit. Sarı dolgulu kutu resmi bir ekrana ait durmuyordu. */
       stil: {
         display: "flex", gap: "10px", alignItems: "flex-start", width: "100%",
-        boxSizing: "border-box", padding: "12px 14px", borderRadius: "var(--r-l)",
-        border: "1px solid var(--bekleyen)", background: "var(--bekleyen-zemin)"
+        boxSizing: "border-box", padding: "11px 14px", borderRadius: "6px",
+        border: "1px solid var(--kenar)", borderLeft: "3px solid var(--bekleyen)",
+        background: "var(--yuzey-2)"
       }
     },
       YU.h("span", {
         stil: { display: "flex", flex: "none", alignSelf: "flex-start", marginTop: "1px", color: "var(--bekleyen)" }
-      }, YU.svg("#ic-bell", 18)),
+      }, YU.svg("#ic-bell", 16)),
       YU.h("div", { stil: { minWidth: "0" } },
+        /* KUTU KÜÇÜLDÜ (kullanıcı isteği, 31.08.2026 akşamı): başlık
+           15,5 -> 14 px, altındaki cümle 14 -> 13 px, zil ikonu 18 -> 16.
+           Başlık ile cümle arasındaki punto farkı korundu; kutu bir bütün
+           olarak küçüldü, silo kartlarının önüne geçmiyor. */
         YU.h("div", {
           metin: "Bu Gün Daha Önce Kaydedilmiş",
-          stil: { font: "600 15.5px/1.35 var(--font)", color: "var(--bekleyen)" }
+          stil: { font: "600 14px/1.35 var(--font)", color: "var(--bekleyen)" }
         }),
         YU.h("div", {
           metin: "Kaydet'e basınca eski veriler silinir, yerine girdiklerin yazılır.",
-          stil: { margin: "5px 0 0", font: "400 14px/1.5 var(--font)", color: "var(--metin-2)" }
+          stil: { margin: "4px 0 0", font: "400 13px/1.5 var(--font)", color: "var(--metin-2)" }
         })
       )
     ) : null;
 
-    /* Serbest yüksekliği bu alan yutar; kartlar ALTA yaslanır (kullanıcı
-       revizesi, 27.08.2026: "üste koyma, alt kenarda kalsın"). Yani boşluk
-       silo kartlarının altında kalır, uyarı + durum kartı Kaydet'in hemen
-       üstünde durur. */
+    /* Serbest yüksekliği bu alan yutar. 27.08.2026'da kutular ALTA yaslıydı
+       çünkü üstlerinde silo kartları duruyordu. Kartlar gidince (02.09.2026)
+       hiza ÜSTE alındı: uyarı ve durum panelin başında okunur, boşluk onlarla
+       Kaydet'in arasında kalır, düğmeler dipte durur. */
     var durumAlani = YU.h("div", {
       stil: {
         flex: "1 1 auto", minHeight: "0", display: "flex",
-        alignItems: "flex-end", paddingTop: "14px"
+        alignItems: "flex-start", paddingTop: "4px"
       }
     }, YU.h("div", {
       stil: { display: "flex", flexDirection: "column", gap: "10px", width: "100%", minWidth: "0" }
     }, kayitliKutu, durumKutu));
 
-    var durumSatiri = YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "12px" } },
+    /* Düğmeler sağ blokta alt alta durur; panel tam genişliğe çıktığı için
+       blok sabit 240px kalır, yoksa Kaydet sayfa boyunca uzardı. */
+    /* DÜĞMELER YAN YANA, TEK SATIRDA (kullanıcı isteği, 02.09.2026).
+       SABİT KONUM da korunur (aynı gün, önceki istek: "kaydedilemez satırı
+       gelince butonların yeri aşağıya kayıyor"): blok hep tepeden başlar,
+       soldaki hata listesi uzasa da düğmeler yerinde durur. */
+    var durumSatiri = YU.h("div", {
+      stil: {
+        display: "flex", flexDirection: "row", gap: "10px",
+        flex: "none", alignItems: "flex-start"
+      }
+    },
       dugmeKaydet,
       dugmeSil
     );
 
-    var adim3 = adimPaneli([
-        adimBasligi(3, "notr", "Gün Sonu ve Kayıt"),
-        siloIzgara,
-        durumAlani,
-        YU.h("div", { sinif: "yu-ayrac yu-yatay" }),
-        durumSatiri
-    ]);
-    /* Panel sütun boyunca uzar; durum + Kaydet dibe yaslanır. */
-    adim3.style.display = "flex";
-    adim3.style.flexDirection = "column";
-    /* Yapışkan ve dinamik (kullanıcı isteği, 23.08.2026): boyu içeriği kadar,
-       ekrandan uzunsa ekrana sığar (silo listesi içte kayar), tepede yapışık. */
-    adim3.style.position = "sticky";
-    adim3.style.top = "78px";
-    adim3.style.boxSizing = "border-box";
-    adim3.style.maxHeight = "calc(100vh - 98px)";
-    /* Taban ② ile hizalı (kullanıcı isteği, 23.08.2026): panel en az sol yığın
-       (adım 1-2) kadar uzundur. guncelle() her çağrıldığında tazelenir —
-       gözlemci değil eşzamanlı ölçüm: arka plan sekmesinde de doğru kalır. */
-    function tabanHizala() {
-      /* Ekrandan uzun panel yapışamaz; taban hizası ekrana sığan kadarıyla sınırlı. */
-      adim3.style.minHeight = Math.min(govde.offsetHeight, window.innerHeight - 98) + "px";
-    }
-    var adim3Govde = adim3.querySelector(".yu-panel-govde");
-    adim3Govde.style.flex = "1";
-    adim3Govde.style.minHeight = "0";
-    /* Yer darsa yalnız silo kartları kayar; durum ve Kaydet hep görünür. */
-    siloIzgara.style.flex = "1 1 auto";
-    siloIzgara.style.minHeight = "0";
-    siloIzgara.style.overflowY = "auto";
-    siloIzgara.style.alignContent = "start";
-    sagKolon.appendChild(adim3);
+    /* ---------- 6. Kayıt alanı (panelsiz) ----------
+       KUTU KALKTI (kullanıcı isteği, 02.09.2026: "kayıt için ayrı panel gibi
+       olmasın, biraz daha sade olsun"). Önce sağ sütunda "Gün Sonu ve Kayıt"
+       paneliydi, sonra "3 Kayıt" adıyla en alta indi; şimdi çerçevesi ve adım
+       başlığı da yok. Geriye işin kendisi kalıyor: solda durum kutuları,
+       sağda Kaydet ile Günü Sıfırla. Kutular durumu zaten söylediği için
+       üstlerinde ayrı bir başlığa gerek kalmadı (KURAL 11).
+
+       SİLO STOKLARI PANELİ KALDIRILDI (aynı istek): siloIzgara ve kartlar
+       KURULMAYA devam eder ve gunSonuTazele onlara yazar — yalnız hiçbir
+       yere eklenmezler, ekranda görünmezler. Geri istenirse tek satır. */
+    var kayitAlani = YU.h("div", {
+      stil: { display: "flex", gap: "18px", alignItems: "stretch", flexWrap: "wrap" }
+    }, durumAlani, durumSatiri);
+    govde.appendChild(kayitAlani);
 
     /* "Günün Silo Hareketleri" paneli kaldırıldı (kullanıcı isteği, 25.08.2026);
        aynı bilgi Program Hareketleri ekranında duruyor. Yerleşim artık tek
@@ -1191,10 +1285,9 @@
       return {
         tarih: tarih,
         uretilenDokme: uretilenAlan.deger(),
-        /* cuvalKg — operatörün YAZDIĞI değer; D2 hatayı bu dille yazsın diye
-           gider. cuvalAdet ondan türer ve depoya o girer. */
+        /* cuvalKg — operatörün YAZDIĞI değer, tek dil (02.09.2026).
+           Adet gönderilmez; depoda türetilmiş alan olarak kalır. */
         cuvalKg: cuvalAlan.deger(),
-        cuvalAdet: cuvalAdedi(),
         satilanDokme: satilanAlan.deger(),
         yerlestirmeler: kalemUretim.degerler(),
         cekisler: kalemCuvallama.degerler(),
@@ -1360,10 +1453,24 @@
 
         var f = YU.yuvarla(sonu - gunBasi[id]);
         var degisti = Math.abs(f) > tol;
+        var giren = YU.yuvarla(yer[id] || 0);
+        var cuval = YU.yuvarla(cek[id] || 0);
+        var satis = YU.yuvarla(sat[id] || 0);
+        var cikan = YU.yuvarla(cuval + satis);
+
         if (degisti) {
-          so.fark.textContent = (f > 0 ? "+" : "\u2212") + YU.fmt.kgU(Math.abs(f));
-          so.fark.style.color = f > 0 ? "var(--olumlu)" : "var(--olumsuz)";
-          so.fark.style.display = "inline";
+          so.farkSayi.textContent = (f > 0 ? "+" : "−") + YU.fmt.kgU(Math.abs(f));
+          so.farkSayi.style.color = f > 0 ? "var(--olumlu)" : "var(--olumsuz)";
+          /* "Eklenir / Çıkarılır" -> "Artar / Azalır" (kullanıcı isteği,
+             01.09.2026: "yoksa yanlış anlaşılır"). Yanındaki rakam NET
+             değişimdir (gün sonu − gün başı). Aynı gün hem giren hem çıkan
+             varsa "Eklenir" o rakamı "siloya bu kadar girdi" diye
+             okutuyordu: 150.000 girip 25.000 çıkan bir günde satır
+             "+125.000 Eklenir" yazıyor, oysa siloya giren 150.000.
+             "Artar" bakiyenin ne kadar değiştiğini söyler, ne kadar
+             girdiğini değil — döküm Silo Bazında Stok tablosunda. */
+          so.farkSoz.textContent = f > 0 ? "Artar" : "Azalır";
+          so.fark.style.display = "inline-flex";
         } else {
           so.fark.style.display = "none";
         }
@@ -1373,6 +1480,15 @@
         so.basi.style.display = degisti ? "inline" : "none";
         so.ok.style.display = degisti ? "inline" : "none";
         so.sayiSatiri.title = degisti ? "gün başı → gün sonu" : "gün boyunca değişmedi";
+
+        /* Giren/çıkan dökümü ekrandan KALDIRILDI (kullanıcı isteği,
+           31.08.2026): kartta tek satır kalsın. Rakamlar ipucuna taşındı
+           (KURAL 8) — isteyen fareyle bakar, ekran kalabalıklaşmaz. */
+        so.fark.title = (giren > tol ? "Siloya giren " + YU.fmt.kgU(giren) : "") +
+          (giren > tol && cikan > tol ? " · " : "") +
+          (cuval > tol ? "çuvallama için çekilen " + YU.fmt.kgU(cuval) : "") +
+          (cuval > tol && satis > tol ? " · " : "") +
+          (satis > tol ? "satış için çekilen " + YU.fmt.kgU(satis) : "");
       }
     }
 
@@ -1398,6 +1514,20 @@
         if (negatifler[i2].tarih === tarih && d7Silolar[negatifler[i2].siloId]) continue;
         hatalar.push({ kod: "D14", mesaj: YU.dogrula.d14Mesaji(negatifler[i2]) });
       }
+
+      /* SERVİSİN İLERİ GÜN ENGELLERİ BURADA DA SORULUR (denetim bulgusu
+         BUG-002, 30.08.2026). Bu iki kural — ileri günlerin kapasite aşımı ve
+         çuvallı küspenin ileri negatifi — yalnız 04-servis'te koşuyordu:
+         ekran "Kaydedilebilir" diyor, Kaydet açık kalıyor, servis reddediyor ve
+         sebep hiçbir yerde yazmıyordu (ölçüldü: 01.08'i yükseltmek 02.08'i
+         3.100.000 kg'a çıkarıyor, kapasite 3.000.000).
+
+         Kural kopyalanmadı; ikisi de aynı fonksiyonu çağırır. Hata kodları D15
+         ve D14 olduğu için ozetTazele'deki sertEngel bunları zaten tanır ve
+         Kaydet kendiliğinden kapanır. */
+      hatalar = hatalar.concat(
+        YU.dogrula.kuruKuspeIleriEngeller(db, girdi, taslakHareketler(girdi)));
+
       return { hatalar: hatalar, uyarilar: d.uyarilar };
     }
 
@@ -1408,23 +1538,30 @@
        kalır (kullanıcı isteği, 27.08.2026). Engel kalmayınca sıfırlanır. */
     var kaydetDenendi = false;
 
-    var DURUM_KARTI = {
-      "var(--olumsuz)":  { zemin: "var(--olumsuz-zemin)",  kenar: "var(--olumsuz)" },
-      "var(--olumlu)":   { zemin: "var(--olumlu-zemin)",   kenar: "var(--olumlu)" },
-      "var(--bekleyen)": { zemin: "var(--bekleyen-zemin)", kenar: "var(--bekleyen)" },
-      notr:              { zemin: "var(--yuzey-2)",        kenar: "var(--kenar)" }
+    /* Kutu zemini HER DURUMDA nötr kalır; değişen yalnız sol şeridin rengi
+       (02.09.2026 · resmi görünüm). Eski pastel zeminler kaldırıldı. */
+    var DURUM_SERIDI = {
+      "var(--olumsuz)":  "var(--olumsuz)",
+      "var(--olumlu)":   "var(--olumlu)",
+      "var(--bekleyen)": "var(--bekleyen)",
+      notr:              "var(--kenar)"
     };
 
+    /* Söylenecek bir şey yoksa kutu ekranda yer kaplamaz (02.09.2026). */
+    function durumGizle() {
+      durumKutu.style.display = "none";
+    }
+
     function durumYaz(ikon, renk, baslik, maddeler) {
-      YU.bos(durumIkon).appendChild(YU.svg(ikon, 18));
+      durumKutu.style.display = "flex";
+      YU.bos(durumIkon).appendChild(YU.svg(ikon, 16));
       durumIkon.style.color = renk;
       durumBaslik.textContent = baslik;
       durumBaslik.style.color = renk;
-      /* Kart, durumun rengini alır (27.08.2026). Bilinmeyen renkte nötr
-         kalır — "henüz giriş yok" gibi hâllerde kutu sessiz durur. */
-      var kart = DURUM_KARTI[renk] || DURUM_KARTI.notr;
-      durumKutu.style.background = kart.zemin;
-      durumKutu.style.borderColor = kart.kenar;
+      /* Durumun rengini SOL ŞERİT taşır; zemin ve çerçeve nötr kalır
+         (02.09.2026). Bilinmeyen renkte şerit de nötrleşir — "henüz giriş
+         yok" gibi hâllerde kutu tümüyle sessiz durur. */
+      durumKutu.style.borderLeftColor = DURUM_SERIDI[renk] || DURUM_SERIDI.notr;
       YU.bos(durumListe);
       /* MADDE İMİ HER SATIRDA (kullanıcı isteği, 28.08.2026: "bir nokta
          koydum demiştin fakat yok bir nokta"). Önce yalnız iki ve üzeri
@@ -1464,7 +1601,7 @@
        olsa da değişmiş sayılır — net değil brüt bakılır. */
     function girisVarMi(girdi) {
       function poz(n) { return isFinite(n) && n > 0; }
-      if (poz(girdi.uretilenDokme) || poz(girdi.cuvalAdet) || poz(girdi.satilanDokme)) return true;
+      if (poz(girdi.uretilenDokme) || poz(girdi.cuvalKg) || poz(girdi.satilanDokme)) return true;
       var listeler = [girdi.yerlestirmeler, girdi.cekisler, girdi.satisCekisleri], k, j;
       for (k = 0; k < listeler.length; k++) {
         for (j = 0; j < (listeler[k] || []).length; j++) if (poz(listeler[k][j].miktar)) return true;
@@ -1522,18 +1659,17 @@
          İSTİSNA: D14 (stok negatife düşer) ve D15 (kapasite aşılır) sert
          engellerinde düğme KAPALI kalır — 27.08.2026 direktifi: "negatif
          kayıt kesinlikle engellenmeli, kaydet yasak olmalı". */
-      /* D2 DE SERT ENGEL (kullanıcı isteği, 28.08.2026: "501 kilo yazılamasın,
-         kaydet tuşu pasif kalsın"). Çuvallanan kg 50'nin katı değilse çuval
-         adedi tam sayı çıkmaz — kayıt hiçbir koşulda yazılamaz. Bu yüzden
-         düğmeyi açık tutup "basınca hata alsın" mantığı burada geçmez:
-         alanın altındaki canlı satır sebebi zaten yazıyor, sağdaki panel de
-         "Kaydedilemez:" diye tekrar ediyor. */
+      /* D2 ARTIK SERT ENGEL DEĞİL (kullanıcı kararı, 02.09.2026): 50'nin katı
+         kuralı kaldırıldı, çuvallanan serbest kg oldu. Geriye kalan D2
+         denetimleri (sayı, negatif değil, tam sayı) öbür alanlarla aynı
+         davranır — düğme açık kalır, basınca doğrulama reddeder ve hatalı
+         alan kırmızıya döner. */
       /* D7 DE SERT ENGEL: aynı olayın D14 satırı yukarıda bilerek
          susturuldu (canliDenetim); D7 listede kalmasaydı düğme, eskiden
          D14'ün kapattığı durumda açık kalırdı. Silodan mevcudundan fazlası
          çekmek stoğu eksiye düşürür — KURAL 12 gereği kaydedilemez. */
       var sertEngel = kodVar(d.hatalar, "D14") || kodVar(d.hatalar, "D15") ||
-                      kodVar(d.hatalar, "D2") || kodVar(d.hatalar, "D7");
+                      kodVar(d.hatalar, "D7");
       dugmeKaydet.disabled = sertEngel || (!girisVar && !kayit) || kaydedildi || yazacakYok;
       dugmeKaydet.title = sertEngel
         /* Engel hangisiyse onun kendi cümlesi yazılır — eskiden üç durum için
@@ -1564,10 +1700,13 @@
         if (kayit) durumYaz("#ic-alert", "var(--bekleyen)", "Tüm değerler 0 — kaydedersen bu günün kayıtlı hareketleri silinir.", null);
         else durumYaz("#ic-doc", "var(--metin-4)", "Henüz giriş yok — rakam yazınca durum burada görünür.", null);
       } else {
-        /* "Her şey tamam — kaydedebilirsin." -> "Kaydedilebilir." (kullanıcı
-           isteği, 27.08.2026): iki cümlelik teselli yerine tek kelimelik
-           durum. Öbür başlıklarla da aynı dil: "Kaydedilemez:" / "Kaydedilebilir." */
-        durumYaz("#ic-checklist", "var(--olumlu)", "Kaydedilebilir.", null);
+        /* SORUNSUZ DURUMDA KUTU HİÇ ÇİZİLMEZ (kullanıcı isteği, 02.09.2026:
+           "kaydedilebilir olunca zaten kaydet butonu aktif oluyor, eğer aktif
+           değilse de hata veriyor zaten"). 27.08.2026'da burada
+           "Kaydedilebilir." yazıyordu; aynı bilgiyi düğmenin kendisi
+           söylüyor (KURAL 11: karara dönüşmeyen satır yazılmaz).
+           Hata, uyarı ve kayıt sonucu dalları olduğu gibi duruyor. */
+        durumGizle();
       }
     }
 
@@ -1582,21 +1721,14 @@
           YU.fmt.tarih(tarih) + ' günü için girilen değerler henüz kaydedilmedi.');
       }
       var ilk = girdiTopla();
-      var h = YU.hesap.kuruKuspe(ilk.uretilenDokme, ilk.cuvalAdet, ilk.satilanDokme);
-      var uretim = ilk.uretilenDokme, adet = ilk.cuvalAdet;
+      var h = YU.hesap.kuruKuspe(ilk.uretilenDokme, ilk.cuvalKg, ilk.satilanDokme);
+      var uretim = ilk.uretilenDokme;
 
-      /* Kutu kg ister, iş çuvalla yürür: karşılığı ANINDA yazılır (kullanıcı
-         kararı, 28.08.2026). 50'nin katı değilse kaydetmeden önce burada
-         söylenir — operatör Kaydet'e basıp hata almayı beklemez. */
-      var yazilanKg = ilk.cuvalKg;
-      if (isFinite(yazilanKg) && yazilanKg > 0 && yazilanKg % YU.hesap.CUVAL_KG !== 0) {
-        cuvalYardim.textContent = YU.fmt.sayi(YU.hesap.CUVAL_KG) + "'nin katı olmalı — 1 çuval = " +
-          YU.fmt.sayi(YU.hesap.CUVAL_KG) + " kg.";
-      } else {
-        cuvalYardim.textContent = (isFinite(adet) && adet > 0)
-          ? YU.fmt.sayi(adet) + " çuval · Çuvallı stoğa yazılır, siloya girmez."
-          : CUVAL_YARDIM;
-      }
+      /* YARDIM SATIRI BOŞ (02.09.2026). 31.08.2026'da tanıtım cümlesi
+         kaldırılmış, geriye yalnız "50'nin katı olmalı" engeli kalmıştı;
+         o kural da kaldırıldığı için satırın söyleyeceği bir şey yok.
+         Düğüm yerinde durur — ileride bir engel doğarsa buraya yazılır. */
+      cuvalYardim.textContent = CUVAL_YARDIM;
 
       /* Siloya giren: blok pasifken yönlendirme cümlesi YOK (kullanıcı isteği,
          23.08.2026); yalnız gerçekten bilgi taşıyan iki durum yazılır. */
@@ -1611,18 +1743,19 @@
          üretimden fazla çuvallanan günde (Şartname §4 Durum B) belirir. */
       kalemSatis.tazele(h.satilanDokme, null, null);
       cuvallamaAyraci.style.display = h.silodanCekilecek > tol ? "block" : "none";
-      kalemCuvallama.tazele(h.silodanCekilecek, null,
-        h.silodanCekilecek > tol
-          /* Kısaltıldı (kullanıcı isteği, 25.08.2026): rakamlar zaten üstteki
-             büyük sayıda ve girdi alanlarında duruyor, cümlede tekrarlanmaz. */
-          ? "Fazlası önceki günlerin silo stoğundan çıkar."
-          : null);
+      /* AÇIKLAMA CÜMLESİ KALDIRILDI (kullanıcı isteği, 31.08.2026):
+         "Fazlası önceki günlerin silo stoğundan çıkar." satırı bloğu
+         "Satış için çıkacak" bloğundan 22 px yükseltiyordu; kullanıcı iki
+         bloğun eş boyda durmasını istedi. Aynı bilgi zaten yukarıda
+         "Siloya Giren" panelinde yazıyor: "Bugün üretilenden fazla
+         çuvallanmış; siloya giriş yok. Aradaki fark aşağıda silodan çıkar."
+         (KURAL 8 · KURAL 11: bilgi bir kez, okunduğu yerde.) */
+      kalemCuvallama.tazele(h.silodanCekilecek, null, null);
 
       /* Kalemler gereksiz alanları boşaltmış olabilir; özet güncel değerle kurulur. */
       var girdi = girdiTopla();
       gunSonuTazele(girdi);
       ozetTazele(girdi);
-      tabanHizala();
       /* Sol-panel kapısı EN SONDA (28.08.2026): kalemler yukarıda kendi
          kurallarıyla kutu açıp kapatıyor; kapı başta çalışsaydı onun kilidi
          eziliyor ve panel "pasif" görünürken kutular açık kalıyordu
@@ -1707,7 +1840,7 @@
       var bugun = YU.tarih.bugun();
       var gecmis = tarih < bugun;
       var g = girdiTopla();
-      var hesap = YU.hesap.kuruKuspe(g.uretilenDokme, g.cuvalAdet, g.satilanDokme);
+      var hesap = YU.hesap.kuruKuspe(g.uretilenDokme, g.cuvalKg, g.satilanDokme);
       var f = YU.tarih.fark(tarih, bugun);
       var gunEtiketi = YU.fmt.tarih(tarih) + " " + YU.fmt.gunAdi(tarih) +
         (gecmis ? (f === 1 ? " (dün)" : " (" + YU.fmt.sayi(f) + " gün önce)") : " (bugün)");
@@ -1722,16 +1855,15 @@
         );
       }
 
-      function ozetListesi(uretilen, adet, satilan) {
+      function ozetListesi(uretilen, cuvallanan, satilan) {
         var u = isFinite(uretilen) ? uretilen : 0;
-        var a2 = isFinite(adet) ? adet : 0;
+        var cuvalKg = isFinite(cuvallanan) ? YU.yuvarla(cuvallanan) : 0;
         var sa = isFinite(satilan) ? satilan : 0;
-        var cuvalKg = YU.yuvarla(a2 * YU.hesap.CUVAL_KG);
         return YU.h("div", { stil: { display: "flex", flexDirection: "column", gap: "6px" } },
           ozetSatiri("Üretilen dökme", (u > 0 ? "+" : "") + YU.fmt.kgU(u), u > 0 ? "arti" : null),
-          /* Sıra değişti (kullanıcı kararı, 28.08.2026): girilen büyüklük
-             artık kg, adet onun karşılığı — özet de aynı sırayla okunur. */
-          ozetSatiri("Çuvallanan", (a2 > 0 ? "+" : "") + YU.fmt.kgU(cuvalKg) + " (" + YU.fmt.sayi(a2) + " çuval)", a2 > 0 ? "arti" : null),
+          /* Adet karşılığı kaldırıldı (kullanıcı kararı, 02.09.2026): tek
+             büyüklük kg'dır, parantez içi çuval sayısı artık yazılmaz. */
+          ozetSatiri("Çuvallanan", (cuvalKg > 0 ? "+" : "") + YU.fmt.kgU(cuvalKg), cuvalKg > 0 ? "arti" : null),
           ozetSatiri("Satılan dökme", (sa > 0 ? "\u2212" : "") + YU.fmt.kgU(sa), sa > 0 ? "eksi" : null)
         );
       }
@@ -1749,7 +1881,7 @@
               stil: { font: "600 13.5px/1.5 var(--font)", color: "var(--olumsuz)" }
             }) : null,
             YU.h("div", { stil: { padding: "10px 12px", border: "1px solid var(--kenar)", borderRadius: "var(--r)", background: "var(--yuzey-2)" } },
-              ozetListesi(g.uretilenDokme, g.cuvalAdet, g.satilanDokme)),
+              ozetListesi(g.uretilenDokme, g.cuvalKg, g.satilanDokme)),
             YU.h("div", { metin: "Yeni kayıt eklenecek. Emin misin?", stil: { font: "400 14px/1.55 var(--font)", color: "var(--metin-2)" } })
           )],
           dugmeler: [
@@ -1810,8 +1942,8 @@
           metin: "DİKKAT: bu tarih bugün değil, GEÇMİŞ ÜZERİNDE işlem yapıyorsun. Sonraki günlerin silo bakiyeleri yeniden hesaplanır.",
           stil: { font: "600 13.5px/1.5 var(--font)", color: "var(--olumsuz)" }
         }) : null,
-        veriBlogu("Kayıtlı veriler — SİLİNECEK", ozetListesi(Number(kayit.UretilenDokme) || 0, Number(kayit.CuvalAdet) || 0, Number(kayit.SatilanDokme) || 0), "var(--olumsuz)"),
-        veriBlogu("Senin girdiklerin — YERİNE YAZILACAK", ozetListesi(g.uretilenDokme, g.cuvalAdet, g.satilanDokme), "var(--olumlu)"),
+        veriBlogu("Kayıtlı veriler — SİLİNECEK", ozetListesi(Number(kayit.UretilenDokme) || 0, YU.hesap.kayitCuvalKg(kayit), Number(kayit.SatilanDokme) || 0), "var(--olumsuz)"),
+        veriBlogu("Senin girdiklerin — YERİNE YAZILACAK", ozetListesi(g.uretilenDokme, g.cuvalKg, g.satilanDokme), "var(--olumlu)"),
         YU.h("div", {
           metin: "O güne ait eski silo hareketleri de silinip yenileri yazılacak. Kabul ediyor musun, emin misin?",
           stil: { font: "400 14px/1.55 var(--font)", color: "var(--metin-2)" }
@@ -1915,8 +2047,24 @@
         baslik: "Günü Sıfırla",
         tehlike: true,
         onayMetni: "Günü Sıfırla",
-        metin: YU.fmt.tarih(tarih) + " gününe girilen her şey silinir: kuru küspe kaydı, silo hareketleri ve " +
-          "malzeme hareketleri. Geri alınamaz. Sonraki günlerden birinin silo stoğu eksiye düşecekse yapılmaz."
+        /* Metin, servisin GERÇEKTE yaptığı işi söyler (kullanıcı kararı,
+           31.08.2026): Malzeme Girişi'nin öbür satırları artık silinmiyor,
+           onay penceresi de öyle demiyor.
+           KISALTILDI (kullanıcı isteği, 02.09.2026: "x tarihli, bu sayfadaki
+           veriler sıfırlanır malzeme girişi sıfırlanamaz gibi yaz"). Kalem
+           kalem döküm kalktı — "bu sayfadaki veriler" hepsini kapsıyor.
+           İki uyarı korundu: geri alınamazlık ve negatif stok engeli. */
+        /* İKİ PARAGRAF (kullanıcı isteği, 02.09.2026: "alt alta olsun
+           paragrafı"). Ne olacağı üstte, uyarılar altta. İkinci paragraf
+           onay penceresinin hazır "ayrıntı" yuvasına konur — ortak bileşene
+           dokunmadan satır ayrımı böyle kurulur; aradaki boşluğu pencerenin
+           kendi 12px'i verir. Yazı ölçüsü ilk paragrafla aynı tutuldu. */
+        metin: YU.fmt.tarih(tarih) + " tarihli, bu sayfadaki veriler sıfırlanır. " +
+          "Malzeme Girişi sıfırlanmaz.",
+        ayrinti: YU.h("div", {
+          metin: "Geri alınamaz; sonraki bir günün silosu eksiye düşerse yapılmaz.",
+          stil: { font: "400 15px/1.6 var(--font)", color: "var(--metin-3)" }
+        })
       }).then(function (evet) {
         if (!evet) return;
         var s = YU.servis.gunSil(db, tarih, YU.oturum.kullanici);
@@ -1953,7 +2101,18 @@
       }
     });
 
+    /* KİLİTLİ KAMPANYA GÜNÜ (kullanıcı kararı, 01.09.2026): ekran salt
+       okunur olur. Şerit tarih satırının hemen altına girer, kutular ve
+       Kaydet / Günü Sıfırla kapanır; tarih şeridi açık kalır ki başka bir
+       güne geçilebilsin. guncelle()'den SONRA çalışır — o çağrı Kaydet'i
+       kendi kuralına göre açıp kapatıyor, kilit son sözü söyler. */
+    var gunKilidi = (YU.servis && YU.servis.tarihKilitDurumu)
+      ? YU.servis.tarihKilitDurumu(db, tarih) : null;
+
     guncelle();
-    if (!kayit) uretilenAlan.odakla();
+    if (gunKilidi) {
+      kap.insertBefore(YU.ui.kilitliGunSeridi(gunKilidi, tarih), yerlesim);
+      YU.ui.girisleriKapat([yerlesim]);
+    } else if (!kayit) uretilenAlan.odakla();
   }
 })();

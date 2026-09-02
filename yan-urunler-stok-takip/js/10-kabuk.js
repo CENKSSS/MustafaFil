@@ -11,8 +11,21 @@
   var GRUP_SIRA = ['Giriş', 'Takip', 'Yönetim'];
   /* Menüde görünen grup başlıkları (kullanıcı isteği, 21.08.2026). Sayfaların
      'grup' anahtarları (SOZLESME §6) değişmedi; yalnız görünen ad farklı. */
-  var GRUP_BASLIK = { 'Giriş': 'Veri Girişi', 'Takip': 'Raporlar', 'Yönetim': 'Yönetim Paneli' };
+  /* 'Takip' grubunun adı 31.08.2026'da "Raporlar" -> "Özet ve Geçmiş" oldu
+     (kullanıcı isteği: "raporlar adı güzel değil"). İçindeki iki sayfa
+     Aylık Özet ve Geçmiş İşlemler; ad ikisini de söylüyor. Sayfaların
+     'grup' anahtarı ('Takip') DEĞİŞMEDİ, yalnız görünen ad farklı. */
+  var GRUP_BASLIK = { 'Giriş': 'Günlük İşlemler', 'Takip': 'Özet ve Geçmiş', 'Yönetim': 'Yönetim Paneli' };
   var MENU_USTU = 'anasayfa';           /* §7: ana sayfa gruplardan önce tek başına durur */
+
+  /* Açılır-kapanır menü grupları (kullanıcı isteği, 31.08.2026). Anahtarlar
+     sayfaların 'grup' değerleridir.
+
+     'Giriş' (Veri Girişi) LİSTEDE YOKTUR: aynı gün önce eklendi, sonra
+     kullanıcı "veri girişi hep açık kalacak" dedi. Başlığı düz metindir,
+     + / − işareti almaz, sayfaları her zaman görünür. */
+  var KATLANIR = { 'Takip': true, 'Yönetim': true };
+  var MENU_ACIK_ANAHTAR = 'yu.menu.acik';
 
   /* GİRİŞ KENDİ ADRESİNDE (kullanıcı kararı, 26.08.2026). Eskiden giriş
      ekranı, o an hangi rota açıksa onun ÜSTÜNE perde gibi çiziliyordu; adres
@@ -33,6 +46,10 @@
   var KURUM_ADI = 'Doğuş Afyon Şeker Fabrikası';
   var TEMA_ANAHTAR = 'yu.tema';
   var OTURUM_ANAHTAR = 'yu.oturum';
+  /* "Beni Hatırla" kutusunun SON DURUMU (31.08.2026) — oturumun kendisi değil,
+     yalnız kutunun bir sonraki açılışta işaretli gelip gelmeyeceği. Varsayılan
+     KAPALI: fabrikada makine paylaşılıyor, hatırlamayı kişi kendisi seçer. */
+  var HATIRLA_ANAHTAR = 'yu.hatirla';
   var DONEM_ANAHTAR = 'yu.donem';
 
   /* Servis katmanı bir sorguda patlarsa kabuğun tamamı çökmesin; eksik veriyi
@@ -124,6 +141,14 @@
   function yaz(anahtar, deger) { try { localStorage.setItem(anahtar, deger); } catch (e) { /* özel mod */ } }
   function oku(anahtar) { try { return localStorage.getItem(anahtar); } catch (e) { return null; } }
   function sil(anahtar) { try { localStorage.removeItem(anahtar); } catch (e) { /* yoksay */ } }
+
+  /* SEKME ÖMÜRLÜ DEPO — "Beni Hatırla" işaretlenmediğinde oturumun yazıldığı
+     yer (kullanıcı isteği, 31.08.2026). sessionStorage sekme kapanınca kendisi
+     silinir; localStorage silinmez. Tema ve dönem tercihleri bu ayrımın
+     dışındadır, onlar her zaman localStorage'da kalır. */
+  function seansYaz(anahtar, deger) { try { sessionStorage.setItem(anahtar, deger); } catch (e) { /* özel mod */ } }
+  function seansOku(anahtar) { try { return sessionStorage.getItem(anahtar); } catch (e) { return null; } }
+  function seansSil(anahtar) { try { sessionStorage.removeItem(anahtar); } catch (e) { /* yoksay */ } }
 
   YU.tema = {
     al: function () {
@@ -259,10 +284,20 @@
      Id de yazılır (26.08.2026): eskiden yalnız KullaniciAdi vardı ve kişi
      kendi kullanıcı adını değiştirince bir sonraki açılışta satır bulunamayıp
      dışarı atılıyordu. Ad okunabilirlik ve eski oturumlarla uyum için durur. */
-  YU.oturumAc = function (kullanici) {
+  /* BENİ HATIRLA (kullanıcı isteği, 31.08.2026: "bu buton aktif olursa her
+     açılışta loginleşmiş olsun").
+
+     İşaretliyse oturum localStorage'a yazılır — tarayıcı kapanıp açılsa da
+     kişi içeride başlar. İşaretli değilse sessionStorage'a yazılır: sekme
+     kapanınca oturum kendiliğinden düşer. İki depo aynı anda dolu kalmasın
+     diye her yazma öbürünü siler; yoksa "hatırlama" kapatıldıktan sonra eski
+     localStorage kaydı geri giriş yaptırırdı. */
+  YU.oturumAc = function (kullanici, hatirla) {
     if (!kullanici) return;
     YU.oturum.kullanici = kullanici;
-    yaz(OTURUM_ANAHTAR, JSON.stringify({ Id: kullanici.Id, KullaniciAdi: kullanici.KullaniciAdi }));
+    var paket = JSON.stringify({ Id: kullanici.Id, KullaniciAdi: kullanici.KullaniciAdi });
+    if (hatirla) { seansSil(OTURUM_ANAHTAR); yaz(OTURUM_ANAHTAR, paket); }
+    else { sil(OTURUM_ANAHTAR); seansYaz(OTURUM_ANAHTAR, paket); }
   };
 
   /* Kayıtlı oturum silinir, giriş perdesine dönülür (SOZLESME §8). Giriş
@@ -276,6 +311,7 @@
     cikistaOnay(function () {
       YU.oturum.kullanici = null;
       sil(OTURUM_ANAHTAR);
+      seansSil(OTURUM_ANAHTAR);
       girisSonrasiHedef = null;
       /* Adres de giriş sayfasına döner; ciz() zaten oturumsuzluğu görüp
          giriş ekranını çizer. Aynı adresteysek doğrudan çizilir. */
@@ -284,7 +320,12 @@
   };
 
   YU.oturumYukle = function () {
+    /* Önce kalıcı depo ("Beni Hatırla" işaretliydi), sonra sekme ömürlü depo.
+       Tazeleme, oturumun BULUNDUĞU depoya geri yazılır; yoksa hatırlanmayan
+       bir oturum sessizce kalıcıya terfi ederdi. */
+    var hatirlanan = true;
     var ham = oku(OTURUM_ANAHTAR);
+    if (!ham) { ham = seansOku(OTURUM_ANAHTAR); hatirlanan = false; }
     if (!ham) return null;
     var k = null;
     try { k = JSON.parse(ham); } catch (e) { k = null; }
@@ -297,11 +338,13 @@
       YU.oturum.kullanici = satir;
       /* Ad değişmişse kayıtlı oturum tazelenir. */
       if (!k || k.Id !== satir.Id || k.KullaniciAdi !== satir.KullaniciAdi) {
-        yaz(OTURUM_ANAHTAR, JSON.stringify({ Id: satir.Id, KullaniciAdi: satir.KullaniciAdi }));
+        var paket = JSON.stringify({ Id: satir.Id, KullaniciAdi: satir.KullaniciAdi });
+        if (hatirlanan) yaz(OTURUM_ANAHTAR, paket); else seansYaz(OTURUM_ANAHTAR, paket);
       }
       return satir;
     }
     sil(OTURUM_ANAHTAR);
+    seansSil(OTURUM_ANAHTAR);
     return null;
   };
 
@@ -492,13 +535,23 @@
     liste.sort();
     if (!liste.length) return [];
 
+    /* Gruplama ve AD servisten okunur (04-servis · kampanyaGruplari): kampanya
+       adı artık tarihten değil, kullanıcının yazdığı başlıktan gelir
+       (31.08.2026) ve kural tek yerde durur. Servis yoksa (tek dosya testi)
+       eski sezon adlandırması devreye girer. */
     var gruplar = [];
-    for (i = 0; i < liste.length; i++) {
-      var ad = kampanyaAdi(liste[i]);
-      var son = gruplar.length ? gruplar[gruplar.length - 1] : null;
-      if (son && son.ad === ad) { if (liste[i] < son.bas) son.bas = liste[i]; }
-      else gruplar.push({ ad: ad, bas: liste[i] });
+    var kaynak = (YU.servis && YU.servis.kampanyaGruplari) ? YU.servis.kampanyaGruplari(db) : null;
+    if (kaynak) {
+      for (i = 0; i < kaynak.length; i++) gruplar.push({ ad: kaynak[i].ad, bas: kaynak[i].bas });
+    } else {
+      for (i = 0; i < liste.length; i++) {
+        var ad = kampanyaAdi(liste[i]);
+        var son = gruplar.length ? gruplar[gruplar.length - 1] : null;
+        if (son && son.ad === ad) { if (liste[i] < son.bas) son.bas = liste[i]; }
+        else gruplar.push({ ad: ad, bas: liste[i] });
+      }
     }
+    if (!gruplar.length) return [];
 
     /* Kampanya, kayıt girilmeyi bıraktığı gün BİTMEZ — yeni kampanya
        açılana kadar sürer (kullanıcı kararı, 25.08.2026 — M33). Bu yüzden
@@ -535,20 +588,33 @@
     return donemOnbellek;
   }
 
+  /* KAMPANYA SEÇİMİ KALDIRILDI (kullanıcı kararı, 01.09.2026):
+     "kampanyalar seçilemesin ve seçili kampanyaların verileri anasayfada vs
+     görme olayını kaldır — zaten eski kayıtlara erişebiliyoruz anasayfadan."
+
+     Bakış artık HER ZAMAN en yeni kampanyadır. Bunun üç sonucu var ve üçü de
+     kendiliğinden gelir, çağıran dosyalarda tek satır değişmez:
+       · gorunumSonu() hep bugüne döner — ekranlar bugünün verisini gösterir,
+       · gecmisMi() hep false — "geçmiş kampanyaya bakıyorsunuz" şeridi çizilmez,
+       · kaydedilmiş seçim (yu.donem) okunmaz; eski kurulumda kalmışsa yok sayılır.
+     Geçmiş veriye erişim kaybolmaz: her ekran kendi TARİH kutusuyla istenen
+     güne gider.
+
+     GERİ ALMAK İÇİN: aşağıdaki iki satırın yorumunu kaldır, sabit dönüşü sil. */
   function donemAktif() {
     var l = donemler();
     if (!l.length) return null;
-    var secili = oku(DONEM_ANAHTAR);
-    for (var i = 0; i < l.length; i++) if (l[i].ad === secili) return l[i];
+    /* var secili = oku(DONEM_ANAHTAR);
+       for (var i = 0; i < l.length; i++) if (l[i].ad === secili) return l[i]; */
     return l[l.length - 1];
   }
 
   YU.donem = {
     liste: function () { return donemler(); },
     aktif: function () { return donemAktif(); },
-    ayarla: function (ad) {
-      var l = donemler();
-      for (var i = 0; i < l.length; i++) if (l[i].ad === ad) { yaz(DONEM_ANAHTAR, ad); break; }
+    /* Seçim kalktığı için bu işlev artık hiçbir şey seçmez; yalnız ekranı
+       tazeler. Çağıranlar kırılmasın diye duruyor (01.09.2026). */
+    ayarla: function () {
       donemBaslikTazele();
       YU.yenile();
       return donemAktif();
@@ -923,12 +989,20 @@
     var isaret = logolu
       ? [
           YU.h('img', {
-            sinif: 'yu-marka-logo acik', src: 'LOGO.png', alt: 'Doğuş Afyon',
-            width: '1024', height: '1536', draggable: 'false'
+            sinif: 'yu-marka-logo acik', src: 'LOGO.png?s=2', alt: 'Doğuş Afyon',
+            width: '1666', height: '944', draggable: 'false'
           }),
           YU.h('img', {
-            sinif: 'yu-marka-logo koyu', src: 'LOGO-koyu.png', alt: '',
-            'aria-hidden': 'true', width: '1024', height: '1536', draggable: 'false'
+            sinif: 'yu-marka-logo koyu', src: 'LOGO-koyu.png?s=2', alt: '',
+            'aria-hidden': 'true', width: '1666', height: '944', draggable: 'false'
+          }),
+          /* 58px ikon rayında tam logo 33px'e iner ve "DOĞUŞ AFYON" yazısı
+             okunmaz olur. Rayda yalnız amblem gösterilir; yazısı olmadığı
+             için tek dosya iki temada da doğru görünür. Hangisinin görüneceğine
+             CSS karar verir (kullanıcı isteği, 31.08.2026). */
+          YU.h('img', {
+            sinif: 'yu-marka-amblem', src: 'LOGO-amblem.png?s=2', alt: '',
+            'aria-hidden': 'true', width: '240', height: '189', draggable: 'false'
           })
         ]
       : YU.h('div', { sinif: 'yu-marka-kare', metin: 'Y' });
@@ -974,6 +1048,16 @@
     return kokEl;
   }
 
+  /* MENÜDE KISA AD (kullanıcı isteği, 31.08.2026).
+
+     ÖLÇÜLDÜ: menünün metin sütunu 203px; 9 sayfanın 3'ü iki satıra sarıyordu
+     ("Kuru Küspe Günlük Giriş ve Çıkış" 32 harf, "Devir Stok ve Kampanya
+     Yönetimi" 31, "Malzeme ve Silo Yönetimi" 24). Satır yükseklikleri
+     34-52-34-34-34-52-52-34-34 gidiyor, ritim kırılıyordu.
+
+     Sayfa tanımına menuAd verilirse menüde O yazılır; verilmezse baslik
+     kullanılır. SAYFANIN KENDİ BAŞLIĞI (üstteki büyük yazı) HER ZAMAN
+     baslik'tir — kısaltma yalnız menüdedir. Tam ad ipucunda durur. */
   function menuOgesi(tanim) {
     var a = YU.h('a', {
       sinif: 'yu-menu-oge',
@@ -981,7 +1065,7 @@
       title: tanim.baslik,
       stil: { textDecoration: 'none' },
       veri: { kod: tanim.kod }
-    }, YU.svg(tanim.ikon || '#ic-dots', 17), YU.h('span', { metin: tanim.baslik }));
+    }, YU.svg(tanim.ikon || '#ic-dots', 17), YU.h('span', { metin: tanim.menuAd || tanim.baslik }));
     return a;
   }
 
@@ -993,29 +1077,98 @@
      TAMAMEN SİLİNDİ — kullanıcı kararı, 25.08.2026: "direkt sil".
      Üç rapor ekranı sol menüde Raporlar başlığı altında zaten duruyor. */
 
+  /* Hangi grup açık: {'Takip': true, ...}. Kayıt yoksa BOŞ döner, yani
+     hepsi kapalı başlar (kullanıcı isteği, 31.08.2026). */
+  function acikGruplar() {
+    try {
+      var d = JSON.parse(oku(MENU_ACIK_ANAHTAR) || '{}');
+      return (d && typeof d === 'object') ? d : {};
+    } catch (e) { return {}; }
+  }
+
   function menuKur() {
     var menu = YU.h('div', { sinif: 'yu-menu' });
+    /* ANA SAYFA ARTIK "VERİ GİRİŞİ" GRUBUNUN ALTINDA (kullanıcı isteği,
+       31.08.2026). Eskiden gruplardan önce en üstte tek başına duruyordu.
+       Aşağıdaki döngü 'Giriş' grubunu yazdıktan hemen sonra ekler; grup
+       hiç çizilmezse (görünür sayfası yoksa) menünün sonuna düşer, böylece
+       ana sayfa bağlantısı hiçbir durumda kaybolmaz. */
     var ust = YU.sayfalar[MENU_USTU];
-    if (ust && gorunur(ust)) menu.appendChild(menuOgesi(ust));
+    var ustOge = (ust && gorunur(ust)) ? menuOgesi(ust) : null;
 
     var liste = sayfaListesi();
     for (var g = 0; g < GRUP_SIRA.length; g++) {
       var grupAdi = GRUP_SIRA[g];
-      var ogeler = [];
+      var grupTanimlari = [];
       for (var i = 0; i < liste.length; i++) {
         var t = liste[i];
         if (!t || t.kod === MENU_USTU || t.grup !== grupAdi) continue;
         if (!gorunur(t)) continue;          /* Yönetici sayfaları operatöre gösterilmez */
-        ogeler.push(menuOgesi(t));
+        grupTanimlari.push(t);
       }
-      if (!ogeler.length) continue;
+      if (!grupTanimlari.length) continue;
+      /* MENÜ SIRASI (31.08.2026): varsayılan sıra, sayfaların index.html'de
+         yüklenme sırasıdır. Bir sayfa tanımına menuSira verilirse grup içinde
+         öne çekilir. Değeri olmayanlar 100 sayılır ve kendi aralarında
+         yüklenme sırasını korur (Array.sort kararlıdır). */
+      grupTanimlari.sort(function (a, b) {
+        return (a.menuSira === undefined ? 100 : a.menuSira) -
+               (b.menuSira === undefined ? 100 : b.menuSira);
+      });
+      var ogeler = [];
+      for (i = 0; i < grupTanimlari.length; i++) ogeler.push(menuOgesi(grupTanimlari[i]));
+      /* ANA SAYFA "GÜNLÜK İŞLEMLER" GRUBUNUN İLK SIRASINDA (kullanıcı isteği,
+         31.08.2026). Önce menünün en üstünde tek başınaydı, sonra grubun
+         altına alındı, en son grubun içine girdi. Grup adı da bu yüzden
+         "Veri Girişi" değil: içinde bir giriş ekranı olmayan sayfa var. */
+      if (ustOge && grupAdi === 'Giriş') { ogeler.unshift(ustOge); ustOge = null; }
       /* Grup başlıkları düz metindir. "Raporlar" başlığına bağlı RAPOR
          MERKEZİ penceresi KALDIRILDI (kullanıcı kararı, 25.08.2026): üç
          rapor zaten başlığın hemen altında menüde duruyordu, pencere
          fazladan bir adımdı. */
-      var grupBas = YU.h('div', { sinif: 'yu-menu-grup-bas', metin: GRUP_BASLIK[grupAdi] || grupAdi });
-      menu.appendChild(YU.h('div', { sinif: 'yu-menu-grup' }, grupBas, ogeler));
+      var grupAd = GRUP_BASLIK[grupAdi] || grupAdi;
+
+      /* AÇILIR-KAPANIR GRUPLAR (kullanıcı isteği, 31.08.2026): "Raporlar" ve
+         "Yönetim Paneli" başlıklarına tıklanınca altındaki sayfalar açılıp
+         kapanır. VARSAYILAN KAPALIDIR — kullanıcı kendisi açar. Tercih
+         tarayıcıda saklanır, sayfa yenilenince kaybolmaz.
+
+         "Veri Girişi" DIŞARIDADIR: kullanıcı yalnız bu iki grubu istedi,
+         günlük giriş ekranları her zaman görünür kalır. */
+      if (!KATLANIR[grupAdi]) {
+        var duzBas = YU.h('div', { sinif: 'yu-menu-grup-bas', metin: grupAd });
+        menu.appendChild(YU.h('div', { sinif: 'yu-menu-grup' }, duzBas, ogeler));
+        continue;
+      }
+
+      var acik = acikGruplar()[grupAdi] === true;
+      var grup = YU.h('div', { sinif: acik ? 'yu-menu-grup' : 'yu-menu-grup kapali' });
+      /* Açık/kapalı işareti + ve − (kullanıcı isteği, 31.08.2026). İşaretin
+         kendisi CSS'ten gelir (.yu-menu-grup-ok::before), böylece durum
+         değişince JS metin güncellemek zorunda kalmaz. */
+      var ok = YU.h('span', { sinif: 'yu-menu-grup-ok', 'aria-hidden': 'true' });
+      var grupBas = YU.h('button', {
+        tip: 'button',
+        sinif: 'yu-menu-grup-bas yu-menu-grup-dugme',
+        'aria-expanded': acik ? 'true' : 'false',
+        title: grupAd + ' — aç / kapat'
+      }, YU.h('span', { metin: grupAd }), ok);
+
+      (function (grupEl, dugme, anahtar) {
+        dugme.addEventListener('click', function () {
+          var kapaliMi = grupEl.classList.toggle('kapali');
+          dugme.setAttribute('aria-expanded', kapaliMi ? 'false' : 'true');
+          var d = acikGruplar();
+          d[anahtar] = !kapaliMi;
+          yaz(MENU_ACIK_ANAHTAR, JSON.stringify(d));
+        });
+      })(grup, grupBas, grupAdi);
+
+      grup.appendChild(grupBas);
+      for (var o = 0; o < ogeler.length; o++) grup.appendChild(ogeler[o]);
+      menu.appendChild(grup);
     }
+    if (ustOge) menu.appendChild(ustOge);     /* 'Giriş' grubu çizilmediyse */
     return menu;
   }
 
@@ -1314,16 +1467,8 @@
      Servis katmanı depo.kaydet() dönüşünü okumadığı için tek doğru nokta
      bildirim çıkışıdır. */
   var yazmaDurdu = false;
-
-  function kabukSeridiDugum(tip, dugum) {
-    if (!kabukKurulu || !dom.icerik) {
-      YU.ui.bildir(dugum.textContent || '', 'hata');
-      return;
-    }
-    if (gosterilenSeritler[tip]) return;
-    gosterilenSeritler[tip] = true;
-    dom.icerik.insertBefore(dugum, dom.icerik.firstChild);
-  }
+  var cakismaAcik = false;         /* sekme çakışması penceresi ekranda mı */
+  var cakismaKok = null;           /* o pencerenin perdesi — DOM'dan düştü mü diye bakılır */
 
   function kabukSeridi(tip, ayar) {
     if (!kabukKurulu || !dom.icerik) {
@@ -1347,29 +1492,67 @@
       return;
     }
     if (tip === 'cakisma') {
-      /* KIRMIZI ve sert (kullanıcı isteği, 25.08.2026): sarı "uyarı" şeridi
-         bu durumun ciddiyetini anlatmıyordu — bu sekmeden artık HİÇBİR kayıt
-         diske yazılmıyor. yazmaDurdu bayrağı, "kaydedildi" bildirimlerinin
-         yalan söylemesini engeller (aşağıda YU.ui.bildir). */
+      /* ŞERİT DEĞİL MİNİ PENCERE (kullanıcı isteği, 31.08.2026): uyarı
+         sayfanın üstünde bir şeritti, kaydırılan ekranda gözden kaçıyordu.
+         Artık ekranın ortasına kapatılamaz bir pencere olarak gelir ve tek
+         çıkışı Yenile düğmesidir — bu sekmeden artık HİÇBİR kayıt diske
+         yazılmıyor. yazmaDurdu bayrağı, "kaydedildi" bildirimlerinin yalan
+         söylemesini engeller (aşağıda YU.ui.bildir). */
       yazmaDurdu = true;
-      var cs = YU.ui.serit({
-        tur: 'hata', ikon: '#ic-alert',
-        baslik: 'Veriler Başka Bir Sekmede Değişti',
-        metin: 'Bu sekmedeki görünüm eski kaldı; diğer sekmenin verisi korunsun diye bu ' +
-          'sekmeden diske yazma durduruldu. Çalışmaya devam etmek için sayfayı yenileyin.',
-        eylem: { metin: 'Yenile', onClick: function () { location.reload(); } }
-      });
-      cs.className += ' yu-cetin';
-      kabukSeridiDugum('cakisma', cs);
+      cakismaPenceresi();
     }
   };
 
-  /* Başka sekme kaydettiğinde bu sekme anında haberdar olur (M3). 'storage'
-     yalnız DİĞER sekmelerde tetiklenir; kendi yazmamız şerit üretmez. */
-  window.addEventListener('storage', function (e) {
-    if (e && e.key && e.key !== 'yu.veri.v1' && e.key !== 'yu.veri.sayac') return;
-    if (YU.depoUyari) YU.depoUyari('cakisma');
-  });
+  /* Sekme çakışması penceresi — HER SAYFADA (kullanıcı isteği, 31.08.2026).
+     Pencere document.body'ye asılır, kabuğun içeriğine değil; bu yüzden sayfa
+     değişse de yerinde kalır. Açıkken yenisi açılmaz, ama ekrandan herhangi
+     bir sebeple düşerse (kabuk yeniden kurulur, başka bir pencere temizler)
+     bir sonraki çizimde geri gelir: yazma durmuşken kullanıcı uyarısız
+     kalmamalı. Kontrol ciz() içinde. */
+  function cakismaPenceresi() {
+    if (!yazmaDurdu || cakismaAcik) return;
+    if (!YU.ui || !YU.ui.modal) {
+      YU.ui.bildir('Veriler başka bir sekmede değişti — sayfayı yenileyin.', 'hata');
+      return;
+    }
+    cakismaAcik = true;
+    cakismaKok = YU.ui.modal({
+      /* Kaynak artık sunucu: değişiklik başka bilgisayardan da gelebilir,
+         başlık 'sekme'ye bağlanmaz (31.08.2026). */
+      baslik: 'Veriler Değişti',
+      genislik: 440,
+      kapatilamaz: true,
+      govde: YU.h('div', { stil: { display: 'flex', gap: '12px', alignItems: 'flex-start' } },
+        YU.h('span', { stil: { display: 'flex', color: 'var(--olumsuz)', flex: 'none', marginTop: '2px' } },
+          YU.svg('#ic-alert', 20)),
+        YU.h('div', {
+          stil: { font: '400 15px/1.6 var(--font)', color: 'var(--metin-3)' },
+          /* Tek cümle (kullanıcı isteği, 31.08.2026): iki gerçek kalır —
+             görünüm eski, yazma durdu. "Sayfayı yenileyin" düşürüldü;
+             düğme zaten Yenile diyor (KURAL 11). */
+          metin: 'Bu ekran eski veriyi gösteriyor; kaydınız sunucuya yazılamadı.'
+        })),
+      dugmeler: [
+        { metin: 'Yenile', ikon: '#ic-swap', tur: 'birincil', onClick: function () { location.reload(); } }
+      ],
+      onKapat: function () { cakismaAcik = false; }
+    }).kok;
+  }
+
+  /* Pencere hâlâ ekranda mı? Değilse yeniden açılır. */
+  function cakismaTazele() {
+    if (!yazmaDurdu) return;
+    if (cakismaAcik && cakismaKok && cakismaKok.parentNode) return;
+    cakismaAcik = false;
+    cakismaPenceresi();
+  }
+
+  /* 'storage' DİNLEYİCİSİ KALDIRILDI (31.08.2026): veri artık tarayıcıda
+     değil SUNUCUDA durur (06-uzak köprüsü), localStorage'a veri anahtarı
+     yazılmıyor ki olay tetiklensin. Başka bilgisayar/sekme kaydedince haber
+     sunucu sürüm yoklamasından gelir — kurulum 99-baslat'ta. Kaydedilmemiş
+     alan varken ekran sessizce tazelenmesin diye kilit durumu dışarı açılır. */
+  YU.cikisKilidiAcikMi = function () { return cikisKilidiAcik; };
 
   /* --- geçmiş kampanya kilitsiz uyarısı (kullanıcı isteği, 25.08.2026) ---
      Sezonun bittiğini kullanıcı KİLİTLEyerek belirtir (M31 revize); bunun
@@ -1530,166 +1713,35 @@
   /* --- test veri düğmeleri (kullanıcı isteği, 21.08.2026) ---
      Prototipe özel: örnek veriyi silip boş sistemle denemek ve sistem boşken
      aynı deterministik veriyi geri yüklemek için. Gerçek uygulamaya girmez. */
+  /* ÜST ŞERİT DÜĞMELERİ KALDIRILDI (kullanıcı isteği, 31.08.2026):
+     "Verileri Sıfırla", "Örnek Veri Yükle" ve "Veri Yükle" artık çizilmiyor
+     ve işlevleri de kaldırıldı. İlk ikisi prototip test düğmesiydi (21.08.2026);
+     canlı kullanımda tek tıkla bütün veriyi silebilmek risktir. "Veri Yükle"
+     de aynı şeritten gitti.
+
+     KAYBOLMAYAN YETENEKLER — yalnız ekrandaki giriş kapısı kapandı:
+       · Günlük JSON yedeği (07-yedekci) tıklamasız yazmaya devam eder.
+       · Geri yükleme servisleri duruyor: YU.servis.gunYedektenYukle ve
+         YU.db.iceAktar. Gerekirse bir yönetim ekranına düğme konur.
+       · Depo boşaltma: YU.db.bosla().
+
+     "Günlük yedek yazılamıyor" ROZETİ KALIR: yalnız sunucuya yazma
+     başarısızken görünür ve o an gerçekten bilinmesi gereken tek şeydir. */
   function testDugmeleri() {
-    function veriVar() {
-      var db = YU.db;
-      return !!(db.kuruKuspeGunluk.length || db.gunlukHareket.length ||
-                db.siloHareket.length || db.devirStok.length || db.siloDevirStok.length);
-    }
-    var sifirla = YU.ui.dugme({
-      metin: 'Verileri Sıfırla', ikon: '#ic-trash', tur: 'tehlike', kucuk: true,
-      baslik: 'Test — tüm kayıtları siler; malzeme, silo ve kullanıcı tanımları kalır',
-      onClick: function () {
-        if (!veriVar()) { YU.ui.bildir('Silinecek kayıt yok — veri zaten boş.', 'bilgi'); return; }
-        YU.ui.onay({
-          baslik: 'Verileri Sıfırla',
-          metin: 'Tüm günlük kayıtlar, silo hareketleri, devirler ve değişiklik geçmişi silinecek. ' +
-            'Malzeme, silo ve kullanıcı tanımları kalır. Örnek veri "Örnek Veri Yükle" ile geri gelir.',
-          onayMetni: 'Sıfırla', tehlike: true
-        }).then(function (evet) {
-          if (!evet) return;
-          YU.db.bosla();
-          YU.ui.bildir('Tüm kayıtlar silindi — sistem boş.', 'basari');
-          YU.yenile();
-        });
-      }
-    });
-    var yukle = YU.ui.dugme({
-      metin: 'Örnek Veri Yükle', ikon: '#ic-download', tur: 'ikincil', kucuk: true,
-      baslik: 'Test — sistem boşken deterministik örnek kampanya verisini geri yükler',
-      onClick: function () {
-        if (veriVar()) {
-          YU.ui.bildir('Kayıtlı veri varken örnek veri yüklenmez — önce "Verileri Sıfırla".', 'uyari');
-          return;
-        }
-        YU.tohumla(YU.db);
-        YU.db.kaydet();
-        YU.ui.bildir('Örnek kampanya verisi yüklendi.', 'basari');
-        YU.yenile();
-      }
-    });
-    /* --- yedekleme (DUZELTME-PLANI M5) --- tek kalıcılık localStorage; tarayıcı
-       verisi temizlenince her şey giderdi. Doğrulama ve paket biçimi 01-cekirdek'te
-       (depo.disaAktar / depo.iceAktar); burada yalnız dosya alışverişi var. */
-    var yedekIndir = YU.ui.dugme({
-      metin: 'Yedek İndir', ikon: '#ic-download', tur: 'ikincil', kucuk: true,
-      baslik: 'Tüm veriyi JSON dosyası olarak indirir',
-      onClick: function () {
-        var ad = 'yan-urunler-yedek-' + YU.tarih.bugun() + '.json';
-        var url = URL.createObjectURL(new Blob([YU.db.disaAktar()], { type: 'application/json' }));
-        var a = YU.h('a', { href: url, download: ad, stil: { display: 'none' } });
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
-        YU.ui.bildir('Yedek indirildi: ' + ad, 'basari');
-      }
-    });
-
-    var dosyaGirdisi = YU.h('input', {
-      tip: 'file', accept: '.json,application/json', stil: { display: 'none' },
-      onChange: function () {
-        var dosya = dosyaGirdisi.files && dosyaGirdisi.files[0];
-        if (!dosya) return;
-        var okuyucu = new FileReader();
-        okuyucu.onload = function () {
-          var metin = okuyucu.result;
-          dosyaGirdisi.value = ''; // aynı dosya yeniden seçilebilsin
-          /* Önce KURU DENEME: paket doğrulanır, bütünlüğü taranır, özet çıkar.
-             Bozuk paket burada reddedilir — mevcut veriye hiç dokunulmaz. */
-          var inceleme = YU.db.iceAktar(metin, { kuruDeneme: true });
-          if (!inceleme.ok) { YU.ui.bildir('Yedek yüklenemedi: ' + inceleme.hata, 'hata'); return; }
-          var oz = inceleme.ozet || {};
-          var aralik = oz.ilkGun && oz.sonGun
-            ? ' (' + YU.fmt.tarih(oz.ilkGun) + ' – ' + YU.fmt.tarih(oz.sonGun) + ')' : '';
-          YU.ui.onay({
-            baslik: 'Yedeği Geri Yükle',
-            metin: 'İçeride ' + YU.fmt.sayi(oz.mevcutGunSayisi || 0) + ' gün kayıtlı; "' + dosya.name +
-              '" paketinde ' + YU.fmt.sayi(oz.gunSayisi || 0) + ' gün' + aralik + ' ve ' +
-              YU.fmt.sayi(oz.hareketSayisi || 0) + ' hareket var' +
-              (oz.donusum ? ' · şema dönüştürüldü: ' + oz.donusum : '') +
-              '. Paket buradaki TÜM verinin üzerine yazılacak; bu işlem geri alınamaz. Emin misiniz?',
-            onayMetni: 'Üzerine Yaz', tehlike: true
-          }).then(function (evet) {
-            if (!evet) return;
-            var s = YU.db.iceAktar(metin);
-            if (!s.ok) { YU.ui.bildir('Yedek yüklenemedi: ' + s.hata, 'hata'); return; }
-            YU.ui.bildir('Yedek geri yüklendi — sayfa yenileniyor.', 'basari');
-            setTimeout(function () { location.reload(); }, 600);
-          });
-        };
-        okuyucu.onerror = function () {
-          dosyaGirdisi.value = '';
-          YU.ui.bildir('Dosya okunamadı.', 'hata');
-        };
-        okuyucu.readAsText(dosya);
-      }
-    });
-
-    var yedekYukle = YU.ui.dugme({
-      metin: 'Yedek Yükle', ikon: '#ic-up', tur: 'ikincil', kucuk: true,
-      baslik: 'Daha önce indirilen JSON yedeğini geri yükler (mevcut verinin üzerine yazar)',
-      onClick: function () { dosyaGirdisi.click(); }
-    });
-
-    /* --- günlük yedekler (GUNLUK-YEDEK-PLANI · REVİZE 27.08.2026) ---
-       Yazma TIKLAMASIZDIR: sunucu gunluk-veriler\ klasörünü kendisi açar,
-       07-yedekci her kayıtta değişen gün dosyalarını gönderir. Burada yalnız
-       geri yükleme düğmesi ve "yazılamıyor" rozeti var; ikisi de sunucu yedek
-       ucunu tanıyorsa görünür (eski salt statik sunucuda hiç çizilmezler). */
-    var klasorYukle = YU.ui.dugme({
-      metin: 'Günlük Yedekten Geri Yükle', ikon: '#ic-up', tur: 'ikincil', kucuk: true,
-      baslik: 'Sunucudaki gunluk-veriler klasöründeki _tam-paket.json ile TÜM veriyi geri yükler',
-      onClick: function () {
-        YU.yedekci.tamPaketOku().then(function (metin) {
-          /* Plan §5.11: geri yüklemeden ÖNCE mevcut durum otomatik indirilir —
-             yanlış yedeğe basılırsa dönüş yolu hazır olsun. */
-          yedekIndir.click();
-          var inceleme = YU.db.iceAktar(metin, { kuruDeneme: true });
-          if (!inceleme.ok) { YU.ui.bildir('Klasördeki paket bozuk: ' + inceleme.hata, 'hata'); return; }
-          var oz = inceleme.ozet || {};
-          var aralik = oz.ilkGun && oz.sonGun
-            ? ' (' + YU.fmt.tarih(oz.ilkGun) + ' – ' + YU.fmt.tarih(oz.sonGun) + ')' : '';
-          YU.ui.onay({
-            baslik: 'Günlük Yedekten Geri Yükle',
-            metin: 'İçeride ' + YU.fmt.sayi(oz.mevcutGunSayisi || 0) + ' gün kayıtlı; klasördeki pakette ' +
-              YU.fmt.sayi(oz.gunSayisi || 0) + ' gün' + aralik + ' ve ' +
-              YU.fmt.sayi(oz.hareketSayisi || 0) + ' hareket var. Mevcut verinin yedeği az önce indirildi. ' +
-              'Paket buradaki TÜM verinin üzerine yazılacak; bu işlem geri alınamaz. Emin misiniz?',
-            onayMetni: 'Üzerine Yaz', tehlike: true
-          }).then(function (evet) {
-            if (!evet) return;
-            var s = YU.db.iceAktar(metin);
-            if (!s.ok) { YU.ui.bildir('Geri yükleme başarısız: ' + s.hata, 'hata'); return; }
-            YU.ui.bildir('Günlük yedek geri yüklendi — sayfa yenileniyor.', 'basari');
-            setTimeout(function () { location.reload(); }, 600);
-          });
-        }).catch(function (e) {
-          YU.ui.bildir('Yedek okunamadı: ' + (e && e.message ? e.message : e), 'hata');
-        });
-      }
-    });
-    klasorYukle.style.display = 'none';
-
-    /* Sarı uyarı rozeti: sunucuya yazılamazsa yanar; katman kendiliğinden
-       yeniden dener, rozet yalnız haber verir. Sorun yokken görünmez (KURAL 11). */
     var rozet = YU.h('span', {
       sinif: 'yu-yardim',
       metin: 'Günlük yedek yazılamıyor',
       stil: { margin: '0', color: 'var(--bekleyen)', whiteSpace: 'nowrap', display: 'none' }
     });
     if (YU.yedekci) {
-      YU.yedekci.dinle(function (durum, hata, klasorYolu) {
-        klasorYukle.style.display = durum === 'yok' ? 'none' : '';
+      YU.yedekci.dinle(function (durum, hata) {
         rozet.style.display = durum === 'hata' ? '' : 'none';
         rozet.title = hata ? 'Yazma hatası: ' + hata + ' — kendiliğinden yeniden denenecek' : '';
-        if (klasorYolu) klasorYukle.title = 'Klasör: ' + klasorYolu + ' — _tam-paket.json ile TÜM veri geri yüklenir';
       });
     }
-
-    return YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '8px', flex: 'none' } },
-      sifirla, yukle, yedekIndir, yedekYukle, klasorYukle, rozet, dosyaGirdisi);
+    return YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '8px', flex: 'none' } }, rozet);
   }
+
 
   /* --- kabuk kurulumu --- */
 
@@ -1713,7 +1765,9 @@
       },
         testDugmeleri(),
         temaDugmesi(),
-        unlemDugmesi(),
+        /* Ünlem (uyarı) düğmesi kaldırıldı (kullanıcı isteği, 28.08.2026).
+           unlemDugmesi/unlemPaneliAc kodu duruyor; uyarılar YU.uyarilar()
+           üzerinden hâlâ üretiliyor, yalnız üst şeritte gösterilmiyor. */
         kullaniciKarti()
       )
     );
@@ -1829,6 +1883,7 @@
     donemBaslikTazele();
     ustSayaclariTazele();
     kilitUyariTazele();     /* geçmiş sezon kilitsizse üstte kalıcı şerit */
+    cakismaTazele();        /* yazma durduysa uyarı penceresi her sayfada durur */
     menuIsaretle(kod);
     YU.bos(dom.eylemler);
     var kap = YU.bos(dom.kap);
@@ -2002,6 +2057,25 @@
     });
     girisDugmesi.style.width = '100%';
 
+    /* BENİ HATIRLA (kullanıcı isteği, 31.08.2026). İşaretliyse oturum
+       localStorage'a yazılır ve tarayıcı kapanıp açılınca kişi içeride başlar;
+       işaretsizse sessionStorage'a yazılır ve sekme kapanınca düşer.
+       Uygulama yeri: YU.oturumAc / YU.oturumYukle. */
+    var hatirlaKutusu = YU.h('input', { tip: 'checkbox' });
+    hatirlaKutusu.checked = oku(HATIRLA_ANAHTAR) === '1';
+    var hatirlaSatiri = YU.h('label', { sinif: 'yu-onay-cip yu-giris-hatirla' },
+      hatirlaKutusu, YU.h('span', { metin: 'Beni Hatırla' }));
+    hatirlaSatiri.title = 'Bu tarayıcı açılışında oturumunuz açık gelsin.';
+
+    var kayitDugmesi = YU.ui.dugme({
+      metin: 'Kayıt Ol', ikon: '#ic-plus', tur: 'ikincil',
+      baslik: 'Kendi hesabınızı açın',
+      onClick: function () {
+        kayitPenceresi(function (yeniKullanici) { iceriAl(yeniKullanici, hatirlaKutusu.checked); });
+      }
+    });
+    kayitDugmesi.style.width = '100%';
+
     function hataYaz(mesaj) {
       adAlani.hataGoster('');
       parolaAlani.hataGoster(mesaj || '');
@@ -2025,8 +2099,8 @@
       /* Parolası olmayan hesap önce parolasını kurar (Şartname §10).
          Güvenli bağlam yoksa (file://) kurulamaz; eski davranış sürer. */
       if (!YU.parola.varMi(kul)) {
-        if (!YU.parola.kurulabilirMi()) { iceriAl(kul); return; }
-        parolaKurmaPenceresi(kul, function () { iceriAl(kul); });
+        if (!YU.parola.kurulabilirMi()) { iceriAl(kul, hatirlaKutusu.checked); return; }
+        parolaKurmaPenceresi(kul, function () { iceriAl(kul, hatirlaKutusu.checked); });
         return;
       }
 
@@ -2057,7 +2131,7 @@
           parolaAlani.ayarla('').odakla();
           return;
         }
-        iceriAl(kul);
+        iceriAl(kul, hatirlaKutusu.checked);
       }, function () {
         girisDugmesi.disabled = false;
         hataYaz('Giriş denenemedi; sayfayı yenileyip tekrar deneyin.');
@@ -2068,22 +2142,18 @@
     adAlani.girdi.addEventListener('keydown', tusIsle);
     parolaAlani.girdi.addEventListener('keydown', tusIsle);
 
-    /* PROTOTİP YARDIMI: hiçbir hesapta parola YOKKEN kullanıcı adları
-       gösterilir — örnek veriyle açılan prototipte kimse adları bilemez ve
-       kimse içeri giremezdi. İlk parola kurulur kurulmaz bu satır kaybolur;
-       parolalı bir sistemde kullanıcı adı listelemek deneme yanılmayı
-       kolaylaştırır. */
-    var liste = (YU.db && YU.db.kullanicilar) || [];
-    var hicParolaYok = true, adlar = [], i;
-    for (i = 0; i < liste.length; i++) {
-      if (YU.parola.varMi(liste[i])) hicParolaYok = false;
-      if (liste[i].Aktif !== false) adlar.push(liste[i].KullaniciAdi);
-    }
+    /* PROTOTİP ADRES LİSTESİ KALDIRILDI (31.08.2026). "Kayıtlı adresler: …"
+       satırı, kodda tanımlı üç örnek hesabın adreslerini kimse bilmediği için
+       vardı. Artık kodda hesap yok; herkes kendi hesabını "Kayıt Ol" ile açıyor
+       ve kendi adresini biliyor. Satırın tek işlevi, parola sıfırlandığı anda
+       o hesabın adresini ekrana yazmak kalmıştı — yardım değil sızıntı. */
 
     var form = YU.h('div', { sinif: 'yu-giris-form' },
       adAlani.kok,
       parolaAlani.kok,
-      girisDugmesi
+      hatirlaSatiri,
+      girisDugmesi,
+      kayitDugmesi
     );
 
     /* MARKA BLOĞU KALDIRILDI (kullanıcı isteği, 26.08.2026): "Y" karesi ve
@@ -2119,12 +2189,7 @@
         metin: 'Bu adres güvenli değil (HTTPS yok). Parola doğrulaması çalışmaz; ' +
           'parolası kurulu hesaplar giriş yapamaz.'
       }),
-      hicParolaYok && adlar.length
-        ? YU.h('div', {
-            sinif: 'yu-giris-not',
-            metin: 'Prototip — henüz parola kurulmamış. Kayıtlı adresler: ' + adlar.join(' · ')
-          })
-        : null
+      null
     );
 
     k.appendChild(YU.h('div', { sinif: 'yu-giris', stil: { position: 'relative' } },
@@ -2153,8 +2218,11 @@
     var ICERI = 0.09;       /* logonun kenardan içeri çekildiği pay */
     var kap = YU.h('div', { sinif: 'yu-giris-desen', 'aria-hidden': 'true' });
 
+    /* Giriş perdesinin deseni kendi dosyasını kullanır: LOGO-giris.png
+       (1024x1536, eski kurum görseli). Kenar çubuğu 31.08.2026'da yatay
+       görsele geçti; kullanıcı bu ekranın eski hâlinde kalmasını istedi. */
     function logo(sol, ust, en, boy) {
-      var im = YU.h('img', { src: 'LOGO.png', alt: '' });
+      var im = YU.h('img', { src: 'LOGO-giris.png', alt: '' });
       im.style.left = Math.round(sol) + 'px';
       im.style.top = Math.round(ust) + 'px';
       im.style.width = Math.round(en) + 'px';
@@ -2193,8 +2261,10 @@
     return kap;
   }
 
-  function iceriAl(kullanici) {
-    YU.oturumAc(kullanici);
+  function iceriAl(kullanici, hatirla) {
+    YU.oturumAc(kullanici, hatirla);
+    /* Kutunun durumu bir SONRAKİ açılış için saklanır; oturumun kendisi değil. */
+    yaz(HATIRLA_ANAHTAR, hatirla ? '1' : '0');
     kabukKurulu = false;      /* menü role göre kurulduğu için sıfırdan çizilir */
     var hedef = girisSonrasiHedef;
     girisSonrasiHedef = null;
@@ -2202,6 +2272,145 @@
        bir sayfaysa ciz() zaten kendi yetki denetimine takar (Test 7). */
     if (hedef && hedef.kod && hedef.kod !== GIRIS_KODU) YU.git(hedef.kod, hedef.param);
     else YU.git(MENU_USTU);
+  }
+
+  /* ------------------------------------------------------------------
+     KAYIT OL — kendi hesabını açma (kullanıcı direktifi, 31.08.2026)
+
+     Kullanıcının sözü: "login kısmına bir adet register butonu koy… burada
+     mail girilsin isim soy isim girilsin ve rol girilsin yonetici mi operator
+     mu diye birde şifre ve şifre tekrarı."
+
+     ŞARTNAMEDEN AYRILMA (KURAL 6): §3 (Demirbaş) hesap açmayı yalnız
+     yöneticiye veriyordu. Kullanıcı açık kaydı istedi; kullanıcının kararı
+     geçerlidir. Pratikte zorunlu da oldu — kodda tanımlı hesap kalmadığı için
+     (01-cekirdek · KULLANICI_TANIMI boş) ilk hesabı açacak bir yönetici yok.
+
+     Rolü kişi KENDİSİ seçer, kayıt sırasında onay yoktur. Yani bu ekran bir
+     yetki kapısı değildir; yetkiyi rol taşır ve rolü kullanıcı belirler.
+     Sonradan rol değiştirme yine yalnız yöneticidedir (Kullanıcı Yönetimi).
+
+     Parola PBKDF2-SHA256 ile hash'lenir (YU.parola.olustur); düz metin hiçbir
+     yere yazılmaz. Güvenli bağlam (https ya da localhost) yoksa hash
+     üretilemez ve kayıt açılmaz — sebebi yazılır.
+     ------------------------------------------------------------------ */
+  function kayitPenceresi(bittiginde) {
+    var m = null;
+
+    var epostaAlan = YU.ui.alan({ etiket: 'E-posta', tip: 'metin' });
+    epostaAlan.girdi.type = 'email';
+    epostaAlan.girdi.spellcheck = false;
+    epostaAlan.girdi.autocomplete = 'username';
+
+    var adSoyadAlan = YU.ui.alan({ etiket: 'Ad Soyad', tip: 'metin' });
+    adSoyadAlan.girdi.autocomplete = 'name';
+
+    var rolAlan = YU.ui.alan({
+      etiket: 'Rol', tip: 'secim',
+      secenekler: [{ deger: 'Operator', metin: 'Operatör' }, { deger: 'Yonetici', metin: 'Yönetici' }],
+      deger: 'Operator'
+    });
+
+    var parolaAlan = gozEkle(YU.ui.alan({
+      etiket: 'Parola', tip: 'parola',
+      yardim: 'En az ' + YU.parola.enAz + ' karakter.'
+    }));
+    var tekrarAlan = gozEkle(YU.ui.alan({ etiket: 'Parola (Tekrar)', tip: 'parola' }));
+    parolaAlan.girdi.autocomplete = 'new-password';
+    tekrarAlan.girdi.autocomplete = 'new-password';
+
+    var hataKap = YU.h('div');
+
+    /* AD SOYAD'DAN ADRES ÖNERİSİ: kişi adını yazınca e-posta alanı boşsa
+       doldurulur (YU.ePosta.adres). Kişi kendi adresini yazdıysa dokunulmaz —
+       öneri bir kez çalışır, üstüne yazmaz. */
+    var epostaElleYazildi = false;
+    epostaAlan.girdi.addEventListener('input', function () { epostaElleYazildi = true; });
+    adSoyadAlan.girdi.addEventListener('input', function () {
+      if (epostaElleYazildi) return;
+      epostaAlan.ayarla(YU.ePosta.adres(adSoyadAlan.deger()));
+    });
+
+    function dugmeyiKilitle(kilit) {
+      var d = m && m.modal ? m.modal.querySelector('.yu-modal-alt .yu-dugme.birincil') : null;
+      if (d) d.disabled = !!kilit;
+    }
+
+    function kaydet() {
+      var eposta = String(epostaAlan.deger() || '').trim();
+      var adSoyad = String(adSoyadAlan.deger() || '').trim();
+      var p = parolaAlan.deger(), t = tekrarAlan.deger();
+
+      epostaAlan.hataGoster('');
+      adSoyadAlan.hataGoster('');
+      YU.bos(hataKap);
+
+      if (!eposta) { epostaAlan.hataGoster('E-posta adresinizi yazın.'); epostaAlan.odakla(); return; }
+      if (!YU.ePosta.gecerliMi(eposta)) {
+        epostaAlan.hataGoster('Geçerli bir e-posta adresi yazın — ad.soyad@' + YU.ePosta.alanAdi + ' gibi.');
+        epostaAlan.odakla();
+        return;
+      }
+      if (!adSoyad) { adSoyadAlan.hataGoster('Ad soyad boş olamaz.'); adSoyadAlan.odakla(); return; }
+
+      var d = YU.parola.denetle(p, t);
+      parolaAlan.hataGoster(d.hata || '');
+      tekrarAlan.hataGoster(d.tekrarHata || '');
+      if (!d.ok) { (d.hata ? parolaAlan : tekrarAlan).odakla(); return; }
+
+      /* Hash üretilemeyen bağlamda hesap AÇILMAZ: parolasız bir hesap yazıp
+         "kaydoldunuz" demek, güvenlik yokken var sanmaktan kötüdür. */
+      if (!YU.parola.kurulabilirMi()) {
+        hataKap.appendChild(YU.ui.hataListesi([{ kod: 'Parola', mesaj:
+          'Bu adres güvenli değil (HTTPS yok), parola şifrelenemiyor; hesap açılmadı. ' +
+          'Sunucuya HTTPS kurulmalı ya da uygulama http://localhost adresiyle açılmalı.' }], 'hata'));
+        return;
+      }
+
+      dugmeyiKilitle(true);
+      YU.parola.olustur(p).then(function (hash) {
+        var sonuc = YU.servis.kullaniciKayitOl(YU.db, {
+          KullaniciAdi: eposta, AdSoyad: adSoyad, Rol: rolAlan.deger(), ParolaHash: hash
+        });
+        if (!sonuc.ok) {
+          dugmeyiKilitle(false);
+          YU.bos(hataKap).appendChild(YU.ui.hataListesi(sonuc.hatalar, 'hata'));
+          return;
+        }
+        m.kapat();
+        YU.ui.bildir(sonuc.kayit.AdSoyad + ' hesabı açıldı.', 'basari');
+        bittiginde(sonuc.kayit);
+      }, function (e) {
+        dugmeyiKilitle(false);
+        YU.bos(hataKap).appendChild(YU.ui.hataListesi(
+          [{ kod: 'Parola', mesaj: (e && e.message) || 'Parola şifrelenemedi; hesap açılmadı.' }], 'hata'));
+      });
+    }
+
+    function tusIsle(e) { if (e.key === 'Enter') { e.preventDefault(); kaydet(); } }
+    epostaAlan.girdi.addEventListener('keydown', tusIsle);
+    adSoyadAlan.girdi.addEventListener('keydown', tusIsle);
+    parolaAlan.girdi.addEventListener('keydown', tusIsle);
+    tekrarAlan.girdi.addEventListener('keydown', tusIsle);
+
+    m = YU.ui.modal({
+      baslik: 'Kayıt Ol',
+      genislik: 470,
+      /* KİRLİ PENCERE KİLİDİ YOK (kullanıcı isteği, 31.08.2026: "böyle bildirim
+         gelmesin"). Pencerenin dışına tıklayınca "Kaydedilmemiş Değişiklik Var"
+         sorusu çıkıyordu. Burada kaybolan bir VERİ yok — henüz açılmamış bir
+         hesabın formu; kişi Kayıt Ol'a basıp yeniden doldurur. Soru, gerçek
+         kayıp riski olan pencerelerde (malzeme girişi, kullanıcı düzenleme)
+         duruyor; oralara dokunulmadı. */
+      govde: [hataKap, epostaAlan.kok, adSoyadAlan.kok, rolAlan.kok, parolaAlan.kok, tekrarAlan.kok],
+      dugmeler: [
+        { metin: 'Vazgeç', tur: 'sade', onClick: function () { m.kapat(); } },
+        { metin: 'Hesabı Aç', tur: 'birincil', onClick: kaydet }
+      ]
+    });
+
+    epostaAlan.odakla();
+    return m;
   }
 
   /* ------------------------------------------------------------------
@@ -2213,33 +2422,39 @@
      uzunluk ve yaygın-parola listesi vardır. Hash'leme PBKDF2-SHA256 ile
      YU.parola.olustur'da; düz metin hiçbir yere yazılmaz.
      ------------------------------------------------------------------ */
+  /* Göster/Gizle her satırın KENDİ sağında (kullanıcı isteği, 26.08.2026).
+     Eskiden iki alanın altında tek ortak düğme vardı; hangi satırı açtığı
+     belli olmuyordu. Artık her alan kendi başına açılıp kapanır.
+     Modül kapsamına alındı (31.08.2026): Kayıt Ol penceresi de kullanıyor. */
+  function gozDugmesi(alan) {
+    var d = YU.h('button', { sinif: 'yu-girdi-goz', tip: 'button', metin: 'Göster' });
+    d.title = 'Yazdığınız parolayı görün';
+    d.addEventListener('click', function () {
+      var acik = alan.girdi.type === 'text';
+      alan.girdi.type = acik ? 'password' : 'text';
+      d.textContent = acik ? 'Göster' : 'Gizle';
+      alan.girdi.focus();
+    });
+    return d;
+  }
+
+  /* Parola alanının sağına Göster/Gizle düğmesini yerleştirir. */
+  function gozEkle(alan) {
+    alan.kok.querySelector('.yu-girdi-sar').appendChild(
+      YU.h('span', { sinif: 'yu-girdi-sag yu-girdi-sag-eylem' }, gozDugmesi(alan)));
+    return alan;
+  }
+
   function parolaKurmaPenceresi(kullanici, bittiginde) {
     var m = null;
-
-    /* Göster/Gizle her satırın KENDİ sağında (kullanıcı isteği, 26.08.2026).
-       Eskiden iki alanın altında tek ortak düğme vardı; hangi satırı açtığı
-       belli olmuyordu. Artık her alan kendi başına açılıp kapanır. */
-    function gozDugmesi(alan) {
-      var d = YU.h('button', { sinif: 'yu-girdi-goz', tip: 'button', metin: 'Göster' });
-      d.title = 'Yazdığınız parolayı görün';
-      d.addEventListener('click', function () {
-        var acik = alan.girdi.type === 'text';
-        alan.girdi.type = acik ? 'password' : 'text';
-        d.textContent = acik ? 'Göster' : 'Gizle';
-        alan.girdi.focus();
-      });
-      return d;
-    }
 
     var yeni = YU.ui.alan({
       etiket: 'Yeni Parola', tip: 'parola',
       yardim: 'En az ' + YU.parola.enAz + ' karakter.'
     });
     var tekrar = YU.ui.alan({ etiket: 'Yeni Parola (Tekrar)', tip: 'parola' });
-    yeni.kok.querySelector('.yu-girdi-sar').appendChild(
-      YU.h('span', { sinif: 'yu-girdi-sag yu-girdi-sag-eylem' }, gozDugmesi(yeni)));
-    tekrar.kok.querySelector('.yu-girdi-sar').appendChild(
-      YU.h('span', { sinif: 'yu-girdi-sag yu-girdi-sag-eylem' }, gozDugmesi(tekrar)));
+    gozEkle(yeni);
+    gozEkle(tekrar);
 
     /* Tarayıcı kayıtlı bir parolayı buraya doldurmasın. */
     yeni.girdi.autocomplete = 'new-password';
@@ -2559,7 +2774,7 @@
       govde: [YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '10px' } },
         YU.h('div', { metin: bulunan.mesaj, stil: { font: '400 14px/1.6 var(--font)', color: 'var(--metin)' } }),
         YU.h('div', {
-          metin: 'Kilidi yalnız yönetici, Devir Stok & Kampanya Yönetimi ekranından açabilir.',
+          metin: 'Kilidi yalnız yönetici, Devir Stok ve Kampanya Yönetimi ekranından açabilir.',
           stil: { font: '400 13px/1.55 var(--font)', color: 'var(--metin-3)' }
         })
       )],
@@ -2664,7 +2879,13 @@
      böylece kg / ton / adet ayrımı tek bakışta okunur. Parçalar dar kolonda
      satır sarar, hizalama çağıranın hizasını izler. */
   YU.ui.olcu = function (parcalar, hiza) {
+    /* yu-olcu + data-parca (28.08.2026): Excel dışa aktarımı sayı hücresini
+       yu-mono sınıfından tanıyordu; ölçülü hücreler (sayı + birim) bu sınıfı
+       taşımadığı için "1.000 kg" METİN olarak gidiyor, Excel'de toplanamıyordu.
+       Kök kendini tanıtır: tek ölçülü hücre sayıya çözülür, çift ölçülü
+       ("1.000 kg / 40 adet") metin kalır — iki değerden biri seçilemez. */
     var kap = YU.h('span', {
+      sinif: 'yu-olcu',
       stil: {
         display: 'inline-flex', flexWrap: 'wrap', alignItems: 'baseline',
         justifyContent: hiza === 'sol' ? 'flex-start' : 'flex-end',
@@ -2686,6 +2907,7 @@
       if (p.birim) oge.appendChild(YU.h('span', { metin: p.birim, stil: kucuk }));
       kap.appendChild(oge);
     }
+    kap.setAttribute('data-parca', String(kap.children.length));
     return kap;
   };
 
@@ -3166,6 +3388,36 @@
     return sar;
   };
 
+  /* KİLİTLİ KAMPANYA GÜNÜ — SALT OKUNUR (kullanıcı kararı, 01.09.2026:
+     "kilitli kampanyanın tarihine girilirse burası kilitli gibi uyarı gelsin,
+     değiştirilmesin, sadece okuma olayı geçerli olsun").
+
+     Yazma tarafı zaten kapalıydı: 04-servis · yazmaEngeli kilitli kampanyanın
+     gününe yazmayı reddediyor. Eksik olan, operatörün bunu KAYDETMEYİ
+     DENEMEDEN görmesiydi — kutular doluyor, düğmeye basılıyor, sonra hata
+     alınıyordu. Bu iki yardımcı giriş ekranlarında o boşluğu kapatır. */
+  YU.ui.kilitliGunSeridi = function (kilit, tarih) {
+    return YU.ui.serit({
+      tur: 'hata', ikon: '#ic-kilit',
+      baslik: 'Bu Gün Kilitli — Yalnız Okunur',
+      metin: '"' + kilit.Kampanya + '" kampanyası kilitli. ' + YU.fmt.tarih(tarih) +
+        ' günü görüntülenebilir ama değiştirilemez; kayıt için kilidi bir ' +
+        'yöneticinin açması gerekir.'
+    });
+  };
+
+  /* Verilen kapların içindeki bütün girdi ve düğmeleri kapatır. Tarih
+     şeridi bilerek DIŞARIDA bırakılır (çağıran onu listeye koymaz):
+     kilitli günden başka bir güne geçebilmek gerekir. */
+  YU.ui.girisleriKapat = function (kaplar) {
+    var i, j, ogeler;
+    for (i = 0; i < kaplar.length; i++) {
+      if (!kaplar[i]) continue;
+      ogeler = kaplar[i].querySelectorAll('input, button, select, textarea');
+      for (j = 0; j < ogeler.length; j++) ogeler[j].disabled = true;
+    }
+  };
+
   YU.ui.alan = function (s) {
     s = s || {};
     var tip = s.tip || 'metin';
@@ -3561,9 +3813,14 @@
       return s.kilitMesaji || 'Bu pencerede kaydedilmemiş değişiklik var.';
     }
 
+    /* KAPATILAMAZ PENCERE (kullanıcı isteği, 31.08.2026): perdeye tıklama ve
+       Esc iş görmez; çıkış yalnız penceredeki düğmededir. Sekmeler arası
+       çakışma uyarısı böyle açılır — kapatılabilseydi yazma durmuşken uyarı
+       ekrandan silinir, kullanıcı boşuna çalışırdı. Bayrak verilmezse
+       pencereler eskisi gibi davranır. */
     var perde = YU.h('div', {
       sinif: 'yu-perde',
-      onMouseDown: function (e) { if (e.target === perde) kapat(); }
+      onMouseDown: function (e) { if (e.target === perde && !s.kapatilamaz) kapat(); }
     }, modal);
     if (s.kirliMi) {
       modal.addEventListener('input', kilidiTazele);
@@ -3577,7 +3834,7 @@
     function tusIsle(e) {
       /* Onay penceresi açıkken Esc onu kapatır; alttaki pencere karışmasın. */
       if (soruAcik) return;
-      if (e.key === 'Escape') { e.preventDefault(); kapat(); return; }
+      if (e.key === 'Escape') { e.preventDefault(); if (!s.kapatilamaz) kapat(); return; }
       if (e.key !== 'Tab') return;
       var o = odaklanabilirler();
       if (!o.length) return;

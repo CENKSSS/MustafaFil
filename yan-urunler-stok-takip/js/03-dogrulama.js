@@ -352,23 +352,11 @@
     return n.siloAd + ": " + tr(n.tarih) + " günü stok " + kg(n.bakiye) + " oluyor.";
   }
 
-  /* PAKETLİ SATILAN MALZEMELER — miktar paket boyutunun katı olmalıdır
-     (kullanıcı kararı, 27.08.2026).
-
-     Çuvallı kuru küspe ÖZEL TİPTEN tanınır: 1 çuval = 50 kg, Şartname §4
-     Demirbaş. Yaş küspenin 25'liği ise özel tipsiz, sıradan bir malzemedir;
-     Şartname §2 "25 kg'lık poşette satılır" diyor ama veri modelinde paket
-     boyutunu tutan bir alan YOK (§6, sekiz tablo). Bu yüzden AD ile eşlenir.
-
-     BİLİNEN SINIR: malzemenin adı Malzeme & Silo Yönetimi'nden değiştirilirse
-     eşleşme düşer ve o malzemede miktar yeniden serbest kalır. Kalıcı çözüm
-     Malzemeler tablosuna paket boyutu alanı eklemektir; şartname değişikliği
-     gerektirdiği için yapılmadı. */
-  /* Paket adı ("çuval" / "poşet") mesajdan çıkınca kullanılmıyor; tanımda
-     yalnız KG kaldı (27.08.2026). */
-  var PAKET_TANIMI = {
-    "Yaş Küspe (25'lik)": { kg: 25 }
-  };
+  /* PAKET KATI KURALI KALDIRILDI (kullanıcı kararı, 02.09.2026:
+     "25 ve 50 kiloluk değer girilsin veya çıkılsın kuralını da kaldır").
+     27.08.2026'da çuvallı kuru küspenin 50'nin, Yaş Küspe (25'lik)'in 25'in
+     katı olması zorunluydu; artık her miktar serbesttir. Tam sayı kuralı
+     (tamSayiDenetle) yerinde durur — kaldırılan yalnız KAT kuralıdır. */
 
   /* BUÇUKLU DEĞER YASAĞI (kullanıcı kararı, 27.08.2026): tüm miktarlar tam
      sayıdır — terazi kg altını ölçmez, çuval 50/25 kg'dır. Tam sayı girdide
@@ -393,37 +381,12 @@
     hatalar.push(kayit(ALAN, etiket + " tam sayı olmalı. Girilen " + sayiKisa(deger) + "."));
   }
 
-  function paketBoyu(malzeme) {
-    if (malzeme.OzelTip === "CuvalKuruKuspe") return { kg: YU.hesap.CUVAL_KG };
-    return PAKET_TANIMI[malzeme.Ad] || null;
-  }
-
-  /* Miktar paketin katı mı? Değilse en yakın iki geçerli değer söylenir —
-     operatör hangi rakama çekeceğini aramasın. */
-  function paketKatiDenetle(hatalar, malzeme, kalemAdi, deger, paket) {
-    var K = paket.kg;
-    if (!isFinite(deger) || deger <= 0) return;
-    var adet = deger / K;
-    if (Math.abs(adet - Math.round(adet)) * K <= tolerans()) return;
-    /* SADELEŞTİRİLDİ (kullanıcı isteği, 27.08.2026): tırnak, uzun tire ve
-       "en yakınları …" kuyruğu atıldı. Kalan iki bilgi karar için yeterli:
-       kaç kg'ın katı olmalı ve ne girilmiş. Doğru rakamı operatör zaten
-       biliyor — 90 yazan 50 mi 100 mü yapacağını kendi seçer. */
-    /* Malzeme adı ÖNEK oldu (28.08.2026): hata şeridinde satırlar hizalı
-       okunsun. "Girilen …" burada KALIR — kaç kg'a çekileceğini seçmek için
-       yazılan rakam gerekiyor (Kuru Küspe ekranındaki 50'nin katı kuralıyla
-       aynı karar). */
-    hatalar.push(kayit(ALAN, malzeme.Ad + ": " + kalemAdi + " " + kg(K) +
-      "'ın katı olmalı. Girilen " + kg(deger) + "."));
-  }
-
   /* ---------- Kuru küspe günlük kaydı: D1–D7, D13, D15, D16 ---------- */
 
   function kuruKuspeKaydi(depo, girdi) {
     var hatalar = [], uyarilar = [];
     var tarih = girdi.tarih;
     var uretilen = oku(girdi.uretilenDokme);
-    var cuvalAdet = oku(girdi.cuvalAdet);
     var satilan = oku(girdi.satilanDokme);
 
     if (!gecerliTarih(tarih)) {
@@ -444,38 +407,22 @@
       hatalar.push(kayit("D1", "Üretilen dökme negatif olamaz. Girilen " + kg(uretilen) + "."));
     }
 
-    /* D2 — EKRAN ARTIK KG İSTİYOR (kullanıcı kararı, 28.08.2026: "kaç adet
-       çuval üretildi değil, çuvalların toplamı kaç kg oldu; 50 ve katı
-       olmalı"). Depoda saklanan alan CuvalAdet olarak KALIR (Şartname §6
-       sekiz tablo); adet, girilen kg'dan türetilir.
+    /* D2 — ÇUVALLANAN YALNIZ KG (kullanıcı kararı, 02.09.2026: "50 ve katları
+       kuralını kaldır, 238 kg de yazılabilsin; hiçbir yerde adet yazmasın").
 
-       Kural kg gönderen çağrıda kg dilinde konuşur — operatör kg yazdı, hata
-       da kg cinsinden okunmalı. cuvalKg göndermeyen çağrılar (tohum verisi,
-       kabul testleri) eski adet dilinde doğrulanır; o yollar adet üretir ve
-       50'nin katı olma sorunu doğmaz. */
-    var cuvalKg = (girdi.cuvalKg === undefined || girdi.cuvalKg === null)
-      ? null : oku(girdi.cuvalKg);
+       28.08.2026'da ekran kg'a geçmişti ama değerin 50'nin katı olması
+       şartı duruyordu ve adet ara birim olarak yaşıyordu. İkisi de kalktı:
+       çuvallanan serbest kg'dır, adet hiçbir katmanda okunmaz.
+       Kalan denetimler öbür miktar alanlarıyla aynı — sayı, negatif değil,
+       tam sayı. */
+    var cuvalKg = YU.hesap.girdiCuvalKg(girdi);
 
-    if (cuvalKg !== null) {
-      if (isNaN(cuvalKg)) {
-        hatalar.push(kayit("D2", "Çuvallanan kg sayı olmalı."));
-      } else if (cuvalKg < 0) {
-        hatalar.push(kayit("D2", "Çuvallanan kg negatif olamaz. Girilen " + kg(cuvalKg) + "."));
-      } else if (cuvalKg % YU.hesap.CUVAL_KG !== 0) {
-        /* "Girilen: … kg" eki KALIR (kullanıcı kararı, 28.08.2026): bu cümle
-           sağdaki "Kaydedilemez:" panelinde okunur, orada rakamın tekrarı
-           bilgi taşır. Kutunun ALTINDAKİ satıra bu mesaj yazılmaz — orası
-           kısa canlı ipucunda kalır (21-kuru-kuspe-giris · alanlariBoya). */
-        hatalar.push(kayit("D2", "Çuvallanan kg " + YU.fmt.sayi(YU.hesap.CUVAL_KG) +
-          "'nin katı olmalı (1 çuval = " + YU.fmt.sayi(YU.hesap.CUVAL_KG) + " kg). Girilen: " +
-          kg(cuvalKg) + "."));
-      }
-    } else if (isNaN(cuvalAdet)) {
-      hatalar.push(kayit("D2", "Çuval adedi sayı olmalı. Girilen: \"" + String(girdi.cuvalAdet) + "\"."));
-    } else if (cuvalAdet < 0) {
-      hatalar.push(kayit("D2", tr(tarih) + " — çuval adedi negatif olamaz. Girilen: " + YU.fmt.sayi(cuvalAdet) + " adet."));
-    } else if (cuvalAdet !== Math.round(cuvalAdet)) {
-      hatalar.push(kayit("D2", "Çuval adedi tam sayı olmalı. Girilen: " + YU.fmt.sayi(cuvalAdet, 3) + " adet."));
+    if (isNaN(cuvalKg)) {
+      hatalar.push(kayit("D2", "Çuvallanan sayı olmalı."));
+    } else if (cuvalKg < 0) {
+      hatalar.push(kayit("D2", "Çuvallanan negatif olamaz. Girilen " + kg(cuvalKg) + "."));
+    } else {
+      tamSayiDenetle(hatalar, "Çuvallanan", cuvalKg);
     }
 
     tamSayiDenetle(hatalar, "Üretilen dökme küspe", uretilen);
@@ -491,7 +438,7 @@
     /* Ham girdi bozuksa türetilmiş kontroller anlamsız sayı üretir; burada durulur. */
     if (hatalar.length) return { hatalar: hatalar, uyarilar: uyarilar };
 
-    var h = YU.hesap.kuruKuspe(uretilen, cuvalAdet, satilan);
+    var h = YU.hesap.kuruKuspe(uretilen, cuvalKg, satilan);
     var topYerlestirme = toplamMiktar(girdi.yerlestirmeler);
     var topCekis = toplamMiktar(girdi.cekisler);
     var topSatisCekis = toplamMiktar(girdi.satisCekisleri);
@@ -680,6 +627,16 @@
 
   /* ---------- Gün silme: D14 ---------- */
 
+  /* Özel tipli malzemeyi bulur (dökme / çuvallı kuru küspe). Şartname §6
+     filtreli tekil indeks gereği bu tipten en çok bir satır olur. */
+  function ozelTipli(depo, tip) {
+    var i;
+    for (i = 0; i < depo.malzemeler.length; i++) {
+      if (depo.malzemeler[i].OzelTip === tip) return depo.malzemeler[i];
+    }
+    return null;
+  }
+
   function gunSilme(depo, tarih) {
     var hatalar = [], i, n, negatifler;
 
@@ -687,10 +644,26 @@
       return { hatalar: [kayit(ALAN, "Tarih geçersiz: \"" + String(tarih) + "\".")] };
     }
 
+    /* "Silinecek kayıt var mı" ölçüsü DARALDI (kullanıcı kararı, 31.08.2026):
+       Günü Sıfırla artık yalnız bu ekranın verisini siliyor, o günün her
+       malzeme satırını değil. Bu yüzden yalnız yaş küspe/kuyruk gibi başka
+       malzemelere satır girilmiş bir günde düğme "silinecek bir şey var"
+       demez — çünkü gerçekten yok. */
+    var dokmeMz = ozelTipli(depo, 'DokmeKuruKuspe');
+    var cuvalMz = ozelTipli(depo, 'CuvalKuruKuspe');
     var varMi = kuruKuspeGunuBul(depo, tarih) !== null;
     if (!varMi) {
+      for (i = 0; i < depo.siloHareket.length; i++) {
+        if (depo.siloHareket[i].Tarih === tarih) { varMi = true; break; }
+      }
+    }
+    if (!varMi) {
       for (i = 0; i < depo.gunlukHareket.length; i++) {
-        if (depo.gunlukHareket[i].Tarih === tarih) { varMi = true; break; }
+        var kh = depo.gunlukHareket[i];
+        if (kh.Tarih !== tarih) continue;
+        if (dokmeMz && kh.MalzemeId === dokmeMz.Id &&
+            ((Number(kh.Uretim) || 0) !== 0 || (Number(kh.Satis) || 0) !== 0)) { varMi = true; break; }
+        if (cuvalMz && kh.MalzemeId === cuvalMz.Id && (Number(kh.Uretim) || 0) !== 0) { varMi = true; break; }
       }
     }
     if (!varMi) {
@@ -722,16 +695,21 @@
        düşüren silme kabul ediliyordu (ölçüldü). Dökme kuru küspe dışarıda:
        stoğu siloların toplamı, üstteki silo yürüyüşü onu zaten kapsıyor.
        Çuvallı DAHİL: stoğu kendi hareketlerinden hesaplanır. */
-    for (i = 0; i < depo.gunlukHareket.length; i++) {
-      var satir = depo.gunlukHareket[i];
-      if (satir.Tarih !== tarih) continue;
-      var mz = satirBul(depo.malzemeler, satir.MalzemeId);
-      if (!mz || mz.OzelTip === "DokmeKuruKuspe") continue;
-      var negatif = malzemeIlkNegatifGun(depo, mz, tarih, 0, 0);
-      if (negatif) {
-        hatalar.push(kayit(ALAN, "\"" + mz.Ad + "\" stoğu " + tr(tarih) + " silinirse " +
-          tr(negatif.tarih) + " günü " + kg(negatif.bakiye) + "'a düşerdi. Stok hiçbir gün " +
-          "eksiye inemez; gün silinemez. Önce sonraki günleri düzeltin."));
+    /* Yalnız ÇUVALLI taranır (31.08.2026): silme başka malzemenin satırına
+       artık dokunmuyor, onların bakiyesi değişmiyor. Dökme dışarıda —
+       stoğu siloların toplamı, üstteki silo yürüyüşü onu kapsıyor.
+       Taslak: çuvallının Üretim'i sıfırlanır, Satış'ı OLDUĞU GİBİ kalır. */
+    if (cuvalMz) {
+      for (i = 0; i < depo.gunlukHareket.length; i++) {
+        var satir = depo.gunlukHareket[i];
+        if (satir.Tarih !== tarih || satir.MalzemeId !== cuvalMz.Id) continue;
+        if ((Number(satir.Uretim) || 0) === 0) continue;      /* zaten sıfır: bakiye değişmez */
+        var negatif = malzemeIlkNegatifGun(depo, cuvalMz, tarih, 0, Number(satir.Satis) || 0);
+        if (negatif) {
+          hatalar.push(kayit(ALAN, "\"" + cuvalMz.Ad + "\" stoğu " + tr(tarih) + " silinirse " +
+            tr(negatif.tarih) + " günü " + kg(negatif.bakiye) + "'a düşerdi. Stok hiçbir gün " +
+            "eksiye inemez; gün silinemez. Önce sonraki günleri düzeltin."));
+        }
       }
     }
     return { hatalar: hatalar };
@@ -852,21 +830,6 @@
     tamSayiDenetle(hatalar, malzeme.Ad + ": üretim", uretim);
     tamSayiDenetle(hatalar, malzeme.Ad + ": satış", satis);
     tamSayiDenetle(hatalar, malzeme.Ad + ": iade", iade);
-
-    /* ÇUVALLI KURU KÜSPE 50'NİN KATI OLMALI (kullanıcı kararı, 27.08.2026).
-       Şartname §2: çuvallama, dökmenin 50 kg'lık çuvala doldurulmasıdır ve
-       "1 çuval = 50 Kg sabittir" (§4, Demirbaş). Bu malzeme çuvalla girer,
-       çuvalla çıkar; 120 kg satış diye bir şey yoktur. Üretim kolonu zaten
-       kilitli ve çuval adedinden hesaplanıyor — kural SATIŞ ve İADE içindir.
-       Öbür malzemeler dökme ölçülür, onlara dokunulmaz. */
-    var paket = paketBoyu(malzeme);
-    if (paket) {
-      /* Çuvallının ÜRETİMİ zaten kilitli ve çuval adedinden hesaplandığı için
-         hep katıdır; 25'liğin üretimi elle girilir, asıl denetlenen odur. */
-      paketKatiDenetle(hatalar, malzeme, "üretim", uretim, paket);
-      paketKatiDenetle(hatalar, malzeme, "satış", satis, paket);
-      if (iade !== null) paketKatiDenetle(hatalar, malzeme, "iade", iade, paket);
-    }
 
     if (hatalar.length) return { hatalar: hatalar, uyarilar: uyarilar };
 
@@ -989,6 +952,62 @@
     }
     liste.sort(function (a, b) { return a.tarih < b.tarih ? -1 : (a.tarih > b.tarih ? 1 : 0); });
     return liste;
+  }
+
+  /* ---------- Kuru küspe kaydının İLERİ GÜN engelleri ----------
+
+     Kayıt anında servisin koştuğu iki ek kontrol. Buraya TAŞINDI (denetim
+     bulgusu BUG-002, 30.08.2026): kural yalnız 04-servis'te durduğu için
+     ekranın canlı denetimi bunları göremiyordu — Kaydet açık kalıyor, servis
+     reddediyor ve hata metni hiçbir yerde görünmüyordu (ölçüldü: ekran
+     "Kaydedilebilir" derken servis D15 ile reddetti).
+
+     Artık 04-servis ve 21-kuru-kuspe-giris AYNI fonksiyonu çağırır; kural
+     kopyalanmaz. D14 (ileriBakiye) BİLEREK dışarıdadır: ekran onu aynı-gün D7
+     susturmasıyla birlikte kendisi işler (21 · canliDenetim).
+
+     yeniHareketler: [{siloId, GirenKg, CikanKg}] — çağıranın taslak listesi. */
+  function kuruKuspeIleriEngeller(depo, girdi, yeniHareketler) {
+    var hatalar = [], tarih = girdi.tarih, i;
+    if (!gecerliTarih(tarih)) return hatalar;
+
+    var taslak = {
+      tarih: tarih,
+      kuruKuspeSilTarihi: tarih,
+      yeniHareketler: yeniHareketler || []
+    };
+
+    /* D15 — ileri günler. Düzenlenen gün ELENİR: onu kuruKuspeKaydi kendi
+       ayrıntılı mesajıyla zaten söylüyor, iki kez yazılmasın. */
+    var ileriKap = ileriKapasite(depo, tarih, taslak);
+    for (i = 0; i < ileriKap.length; i++) {
+      if (ileriKap[i].tarih === tarih) continue;
+      hatalar.push(kayit("D15", d15IleriMesaji(ileriKap[i])));
+    }
+
+    /* Çuvallı kuru küspe — ileri negatif. Bu kayıt çuvallı ÜRETİMİ yeniden
+       yazar; geçmiş günün miktarını düşürmek ileri günün çuvallı satışını
+       açıkta bırakabilir. Satış bu yoldan DEĞİŞMEZ (Malzeme Girişi'nin
+       kolonu) — mevcut satır neyse o simüle edilir. Dökme dışarıda: stoğu
+       siloların toplamı, D14 silo yürüyüşü onu zaten kapsıyor.
+       02.09.2026: üretim artık doğrudan kg, adet × 50 çarpımı kalktı. */
+    var cuvalMlz = null;
+    for (i = 0; i < depo.malzemeler.length; i++) {
+      if (depo.malzemeler[i].OzelTip === "CuvalKuruKuspe") { cuvalMlz = depo.malzemeler[i]; break; }
+    }
+    var cuvallananKg = YU.hesap.girdiCuvalKg(girdi);
+    if (cuvalMlz && !isNaN(cuvallananKg)) {
+      var cuvalSatiri = gunlukHareketBul(depo, tarih, cuvalMlz.Id);
+      var cuvalNegatif = malzemeIlkNegatifGun(depo, cuvalMlz, tarih,
+        YU.yuvarla(cuvallananKg),
+        cuvalSatiri ? Number(cuvalSatiri.Satis) || 0 : 0);
+      if (cuvalNegatif) {
+        hatalar.push(kayit("D14", "\"" + cuvalMlz.Ad + "\" stoğu " +
+          tr(cuvalNegatif.tarih) + " günü " + kg(cuvalNegatif.bakiye) + " oluyor."));
+      }
+    }
+
+    return hatalar;
   }
 
   /* ---------- Kullanıcı: D9, D10, D11, D12 ---------- */
@@ -1203,6 +1222,7 @@
   YU.dogrula = {
     KURALLAR: KURALLAR,
     kuruKuspeKaydi: kuruKuspeKaydi,
+    kuruKuspeIleriEngeller: kuruKuspeIleriEngeller,
     gunSilme: gunSilme,
     malzemeHareketi: malzemeHareketi,
     manuelHareket: manuelHareket,

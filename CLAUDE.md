@@ -397,6 +397,126 @@ reddederdi. Devri ARTIRMAK hiçbir zaman engellenmez.
 
 ---
 
+## KURAL 13 — JSON günlük yedek kalıcıdır; SQLite onu kaldırmaz
+(kullanıcı direktifi, 31.08.2026)
+
+Kullanıcının sözü: *"sql lite a geçilirse dahi bilgisayarda anlık verilerin
+json olarak tutulmasını istiyorum."*
+
+Anlık verinin makinede **JSON olarak** tutulması vazgeçilmezdir. Veritabanı
+SQLite'a (ileride SQL Server'a) taşınsa bile bu katman kaldırılmaz,
+"artık gereksiz" diye sadeleştirilmez, isteğe bağlı hâle getirilmez.
+
+* **Yazma tıklamasız sürer.** `js/07-yedekci.js` her başarılı kayıttan sonra
+  değişen gün dosyalarını yazar. Sunucu uçları (`/api/gunluk-yedek/*`) hem
+  python hem .NET tarafında ayakta kalır.
+* **Klasör:** `gunluk-veriler/` — YALNIZ tekil gün dosyaları
+  (`31.08.2026.json`). Toplu dosya üretilmez (kullanıcı direktifi,
+  31.08.2026 akşamı: *"komple veri seti olmasın, tekil günler olsun"*) —
+  `_tam-paket.json` ve `_tanimlar.json` kaldırıldı, eski kurulumda
+  kalmışlarsa sunucu siler.
+* **Gün dosyasının İÇERİĞİ TAM biçimdir ve DEĞİŞTİRİLMEZ** (aynı gün
+  öğleden önce tek tek denenerek doğrulanan sürüm 4): kuru küspe kaydı,
+  silo/malzeme hareketleri, işlem geçmişi, silinen kayıt kopyaları, olay
+  günlüğü, stok fotoğrafı, kampanyanın devirleri, kampanya adı ve kilidi —
+  kim/ne zaman damgaları dâhil. Saklama kuralı değişse de bu biçim bozulmaz.
+* **14 GÜN PENCERESİ** (aynı direktif): dosya adındaki tarihe göre en yeni
+  14 gün tutulur; 15. gün yazılınca en eski gün silinir. Budama iki sunucuda
+  da yazma ucundadır (`GunlukJsonYedek.Buda` · `yan-urunler-sunucu.py
+  gunleri_buda`). Bu madde, aynı sabahki "geriye dönük dosyalar korunur"
+  kararının YERİNE geçer (KURAL 6).
+* **Gecelik SQLite yedeği bunun YERİNE GEÇMEZ.** `C:\YanUrunler\yedek\`
+  altındaki `.db` kopyaları (son 7) tam kurtarma yoludur; JSON katmanı son
+  14 günün okunabilir güvenlik ağıdır. İkisi birlikte durur.
+
+Kısacası: veritabanı nereye giderse gitsin, makinede okunabilir JSON kopya
+her zaman bulunur.
+
+---
+
+## KURAL 14 — Kaynağı O AN oku; hafızadan konuşma yasak
+(kullanıcı direktifi, 31.08.2026)
+
+Kullanıcının sözü: *"tekrardan incele demişim sana buradaki ss leri, sen ise
+incelemeden konuşuyorsun"* ve *"tahmine dayalı bir daha sakın konuşma, kesin
+konuşacaksın"*.
+
+Yaşanan: kullanıcı ekran görüntülerini yenilemişti (8 dosya → 9 dosya, hepsi
+yeni saatlerle). Konuşma geçmişindeki ESKİ okumaya dayanıp karşılaştırma
+yapıldı ve "veriler tutmuyor" denildi. Dosyalar yeniden okununca hepsinin
+tuttuğu görüldü. Hata veride değil, okumadan konuşmaktaydı.
+
+### 14.1 — "İncele" her seferinde yeniden okumaktır
+
+`incele`, `bak`, `kontrol et`, `karşılaştır` dendiğinde kaynak **o an** açılır.
+Aynı dosyaya daha önce bakılmış olması sayılmaz: dosya değişmiş olabilir.
+Klasör ise önce **listelenir** — dosya sayısı, adları ve zaman damgaları
+okunur; sonra içerik açılır.
+
+### 14.2 — Karşılaştırma tek tek ve makineyle yapılır
+
+Göz kararı "tutuyor/tutmuyor" denmez. Beklenen değerler yazılır, gerçek
+değerler kaynaktan okunur, karşılaştırma **çalıştırılır** ve çıktısı olduğu
+gibi aktarılır. Kaç nokta karşılaştırıldığı söylenir.
+
+### 14.3 — Karşılaştırılan şeyin ne olduğu doğrulanır
+
+Ekrandaki bir rakamın hangi kayıttan geldiği **koda bakılarak** bulunur.
+(Örnek: "Kayıt Bilgisi" paneli tek kaydın damgasını değil, kuru küspe kaydı
+ile 8 malzeme satırının en erken/en geç dokunuşunu gösterir —
+`25-gunluk-rapor.js · kayitPaneli`. Bunu bilmeden yapılan karşılaştırma iki
+sahte fark üretti.)
+
+### 14.4 — Test, kullanıcının bastığı düğmenin kod yolunu çağırır
+
+Benzerini elle kurmak sayılmaz. Örnek: "Verileri Sıfırla" `depo.bosla()`
+çağırır ve `devirStok` dâhil tüm hareket tablolarını siler; testte üç tabloyu
+elle silmek bu davranışı taklit etmez ve gerçek hatayı gizler (31.08.2026'da
+yaşandı — devir kaybı bu yüzden testten kaçtı).
+
+Bu kural KURAL 4 (tahmin yasağı) ve KURAL 5.2'nin üstüne biner ve onları
+somutlaştırır: 4 "tahmin etme" der, 14 "ne zaman ve nasıl okuyacağını" söyler.
+
+---
+
+## KURAL 15 — Sade konuş; kendi hatanı anlatma
+(kullanıcı direktifi, 31.08.2026)
+
+Kullanıcının sözü: *"kısa yalın türkçe cümleler kur, detaya girme, terimleri
+kullanmayı azalt."*
+
+### 15.1 — Terim kullanma
+
+Günlük Türkçe yeter. Teknik kelime ancak başka türlü anlatılamıyorsa girer,
+o zaman da aynı cümlede karşılığı yazılır. Kod adı, dosya adı, tablo adı,
+alan adı cevabın gövdesine girmez; gerekiyorsa en sona tek satır link olur.
+
+### 15.2 — Kendi sürecini anlatma
+
+Kullanıcı sonucu ister. Nereye baktığın, kaç kez denediğin, hangi ölçümü
+yanlış kurduğun, sonra nasıl düzelttiğin **yazılmaz**. Yanlış ölçüm bir bulgu
+değildir; düzeltilir ve doğru sonuç söylenir.
+
+Yaşanan: karşılaştırmada iki fark çıktı, ikisi de ölçümün yanlış kurulmasından
+geliyordu. Bunlar kullanıcıya "iki sahte fark çıktı" diye anlatıldı; kullanıcı
+haklı olarak "bu ne demek" diye sordu. Doğrusu tek cümleydi: *fark yok.*
+
+### 15.3 — Önce cevap
+
+İlk satır sorunun cevabıdır: var/yok, oldu/olmadı, şu kadar. Ayrıntı isterse
+kullanıcı sorar. Tablo ancak gerçekten kısaltıyorsa kullanılır.
+
+### 15.4 — Sınır
+
+Bu kural doğruluğu kısmaz. Bir şey doğrulanmadıysa "doğrulanmadı" denir
+(KURAL 4.4), veriyi bozacak bir durum varsa söylenir. Kısalık, gerçeği
+gizlemenin gerekçesi değildir.
+
+KURAL 5.3 dili sadeleştirir, KURAL 9 uzunluğu keser, KURAL 15 ise **neyin
+hiç yazılmayacağını** söyler: terim ve kendi süreç dökümün.
+
+---
+
 ## Klasör düzeni
 
 ```

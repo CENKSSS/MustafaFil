@@ -164,7 +164,7 @@
     },
 
     /* Depodaki mevcut paketi olduğu gibi gönderir.
-       İlk tohumlama ve "Yedek Yükle" bu yolu kullanır. */
+       İlk açılış paketi ve "Yedek Yükle" bu yolu kullanır. */
     gonder: function () {
       return gonder().then(function (c) {
         if (c.durum === 'ok') return { ok: true, surum: c.surum };

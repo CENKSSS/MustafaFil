@@ -125,12 +125,34 @@
     );
   }
 
-  /* Eski değer güncelinden farklıysa döner, değilse null. */
+  /* Eski değer güncelinden farklıysa döner, değilse null.
+
+     SIFIR BİR "ÖNCEKİ DEĞER" DEĞİLDİR (kullanıcı direktifi, 31.08.2026):
+     GunlukHareket satırı üç alan taşır ve satır doğduğu an girilmeyen alanlar
+     0 olur. Kullanıcı o boş alanı sonradan ilk kez doldurunca ekranda
+     "0 → +10.000 · Değiştirildi" yazıyordu; oysa değiştirilen bir rakam yok,
+     alan İLK KEZ giriliyor. Servis katmanı 31.08.2026'dan sonra bunu zaten
+     "Ekle" olarak yazıyor (04-servis · logHareketAlanlari); bu satır ESKİ
+     kayıtları da düzeltir — o tarihten önce yazılmış loglar hâlâ
+     "Guncelle · eski 0" taşıyor.
+
+     Ters yön korunur: 10.000 → 0 gerçek bir silmedir, üstü çizili 10.000
+     görünmeye devam eder. */
   function eskiDegerVarsa(depo, kayitId, alanAdi, deger) {
     var eski = ilkEskiDeger(depo, kayitId, alanAdi);
     if (eski === null || eski === undefined || eski === '') return null;
+    if (YU.parse.sayi(eski) === 0) return null;
     if (eski === YU.fmt.kg(Number(deger) || 0)) return null;
     return eski;
+  }
+
+  /* Bu KALEM gerçekten değişti mi? Kaydın GuncellemeTarihi'si "satırda bir
+     şey değişti" der, hangi alanın değiştiğini söylemez — üç kalemin üçüne
+     birden "Değiştirildi" rozeti basılıyordu (kullanıcı bildirimi,
+     31.08.2026). Ölçü artık kalemin kendi eski değeridir. */
+  function kalemDegisti(depo, kayitId, alanAdi, deger, guncellendi) {
+    if (!guncellendi || !alanAdi) return false;
+    return eskiDegerVarsa(depo, kayitId, alanAdi, deger) !== null;
   }
 
   function miktarVeEskisi(depo, deger, kayitId, alan, yon) {
@@ -178,6 +200,20 @@
     });
   }
 
+  /* CSV'nin "Hareket" kolonu ekrandaki rozetle AYNI dili konuşur (denetim
+     bulgusu BUG-008, 30.08.2026). Eskiden üçlü koşul yalnız üretim ve satışa
+     bakıyordu: yalnız iade girilmiş bir satır "Satış" yazıp miktarını 0
+     gösteriyor, iade rakamı dosyaya hiç girmiyordu (ölçüldü: 100 kg iade,
+     CSV'de "Satış · 0"). Sıra ve boş hâlin karşılığı aşağıdaki
+     malzemeHareketRozeti ile birebir aynıdır. */
+  function csvHareketAdi(uretim, satis, iade) {
+    var par = [];
+    if (uretim > 0) par.push('Üretim');
+    if (iade > 0) par.push('İade');
+    if (satis > 0) par.push('Satış');
+    return par.length ? par.join(' + ') : 'Sıfırlandı';
+  }
+
   /* Malzeme satırının hareket rozeti: üretim/iade/satış hangileri varsa
      birlikte okunur (M25 — iade rozeti yoktu; yalnız iadeli satır yanlışça
      "Sıfırlandı" görünüyordu). */
@@ -188,7 +224,7 @@
     /* Tekil satış SARI değil KIRMIZI (kullanıcı isteği, 26.08.2026):
        "bekleyen" sarısı satışı bekleyen bir iş gibi gösteriyordu. */
     if (satis > 0) par.push({ metin: 'Satış', renk: 'var(--olumsuz)', tur: 'olumsuz' });
-    if (!par.length) return YU.ui.rozet('Sıfırlandı', 'notr');
+    if (!par.length) return durumRozeti('Sıfırlandı', 'notr');
     /* TEK GÜN görünümünde kalemler BİRLEŞTİRİLMEZ (kullanıcı isteği,
        27.08.2026: "iadeyi başka bir etiketle birleştirme, iade direkt iade
        olarak kalsın"): her kalem kendi rozetiyle durur. Liste görünümü
@@ -247,9 +283,19 @@
     }, ust, iade);
   }
 
+  /* DURUM ROZETİ — "Değiştirildi", "Silindi", "Sıfırlandı". Hareketin ADI
+     değil, o kayda ne olduğunu söyleyen etikettir. Ek sınıfı yalnız Program
+     Hareketleri gün panelinde biçim alır (tema.css: ince çerçeve, renksiz);
+     Tüm Hareketler ekranında hiçbir şey değişmez (KURAL 10.5). */
+  function durumRozeti(metin, tur) {
+    var r = YU.ui.rozet(metin, tur);
+    r.className += ' yu-durum-rozet';
+    return r;
+  }
+
   function hareketVeSilindi(rozetIcerigi) {
     return YU.h('span', { stil: { display: 'inline-flex', alignItems: 'center', gap: '8px', minWidth: '0' } },
-      rozetIcerigi, YU.ui.rozet('Silindi', 'olumsuz'));
+      rozetIcerigi, durumRozeti('Silindi', 'olumsuz'));
   }
 
   /* ------------------------------------------------------------------
@@ -460,6 +506,107 @@
      değer orada bilerek duruyor (KURAL 5.1). */
   var tekGunGorunumu = false;
 
+  /* ==================================================================
+     TEK GÜN PANELİ — BÖLÜMLÜ DÜZEN (kullanıcı isteği, 01.09.2026)
+
+     ÖNCE denenen düzen geri alındı. Kullanıcının sözü: "şu özelliklerin
+     hariç geriye al; kampanya devrine tıklayınca açılan kısım kalsın… +
+     silolar ve malzemeler değişikliği diye ayıralım, silo değişimleri üstte
+     olsun, malzeme değişimleri altta olsun."
+
+     GERİ ALINANLAR (bir denendi, kullanıcı istemedi): kayıt anına göre grup
+     başlıkları, silo satırlarının malzemenin yavrusu olması, silinen + yeni
+     hareketin "eski → yeni" tek satırda birleşmesi, alt satırlarda Kaydeden
+     kolonunun boşalması.
+
+     KALAN İKİ ŞEY:
+       1. DEVİRLER TEK SATIRDA. "Kampanya Devri · N kalem" satırına tıklanınca
+          kalemler açılır. Devir bir gün hareketi değil, hesabın tabanıdır;
+          11 satırla günün 4 hareketini bastırıyordu.
+       2. İKİ BÖLÜM. Önce "Silo Hareketleri", sonra "Malzeme Hareketleri"
+          (adlar 02.09.2026'da "… Değişimleri"nden çevrildi).
+          Satırların kendisi ESKİSİ GİBİ kurulur; yalnız sıraları değişti ve
+          araya bölüm başlığı girdi. Her bölümün içinde eskiden yeniye sıra
+          korunur.
+
+     KAPSAM: yalnız Program Hareketleri (tek gün görünümü). Tüm Hareketler
+     ekranı denetim listesidir, aynen kalır (KURAL 5.1).
+
+     GERİ ALMAK İÇİN: aşağıdaki YENI_GUN_DUZENI'yi false yap — panel eski
+     tek listesine döner. css/tema.css'teki "PROGRAM HAREKETLERİ GÜN PANELİ"
+     bloğu da silinebilir; yalnız bu düzenin satırlarını biçimler.
+     ================================================================== */
+  var YENI_GUN_DUZENI = true;
+
+  /* Malzeme satırının ham verisi. Bölümlere ayırmak için tur yeter; malzeme
+     kimliği ileride gerekirse diye duruyor. */
+  function malzemeBilgisi(depo, h, guncellendi, degerKolonu) {
+    return {
+      tur: 'malzeme',
+      malzemeId: h.MalzemeId,
+      degerKolonu: degerKolonu || null,
+      kullaniciId: guncellendi ? h.GuncelleyenKullaniciId : h.OlusturanKullaniciId
+    };
+  }
+
+  /* AÇ/KAPAT KALDIRILDI (kullanıcı isteği, 01.09.2026: "kampanya devri her
+     seferinde açıkmış gibi olsun, solundaki noktayı da kaldır"). Üç bölüm
+     başlığı da artık birebir aynı: düz yazı, ok yok, tıklama yok. */
+  function bolumSatiri(baslik) {
+    return {
+      sinif: 'yu-gun-bolum',
+      hucreler: [YU.h('span', { sinif: 'yu-guclu', metin: baslik }), '', '', '']
+    };
+  }
+
+  /* Beş hücrelik satır dört hücreye iner: Giren ve Çıkan tek DEĞER kolonunda
+     birleşir. Hangisinin taşındığını bilgi.degerKolonu söyler; bilinmiyorsa
+     dolu olan hücre alınır ("—" boş sayılır). */
+  function dortHucre(oge) {
+    var h = oge.satir, b = oge.bilgi || {}, deger;
+    if (b.degerKolonu === 'cikan') deger = h[3];
+    else if (b.degerKolonu === 'giren') deger = h[2];
+    else {
+      var cikanMetni = h[3] && h[3].textContent ? h[3].textContent.trim() : '';
+      deger = (cikanMetni && cikanMetni !== '—') ? h[3] : h[2];
+    }
+    return [h[0], h[1], deger, h[4]];
+  }
+
+  function gunDuzeni(depo, tarih, zamanli) {
+    var satirlar = [], devirler = [], silolar = [], malzemeler = [], i, tur;
+
+    for (i = 0; i < zamanli.length; i++) {
+      tur = (zamanli[i].bilgi || {}).tur;
+      if (tur === 'devir') devirler.push(zamanli[i]);
+      else if (tur === 'silo' || tur === 'silo-silinen') silolar.push(zamanli[i]);
+      else malzemeler.push(zamanli[i]);
+    }
+
+    /* Devirler en üstte ve AÇIK; bölüm öbür ikisiyle birebir aynı. */
+    if (devirler.length) {
+      satirlar.push(bolumSatiri('Kampanya Devri'));
+      for (i = 0; i < devirler.length; i++) {
+        satirlar.push({ sinif: 'yu-devir-satiri', hucreler: dortHucre(devirler[i]) });
+      }
+    }
+
+    if (silolar.length) {
+      /* "Silo Değişimleri" -> "Silo Hareketleri" (kullanıcı isteği,
+         02.09.2026): bölüm bir günün silo hareketlerini listeliyor; satırlar
+         hareket, "değişim" değil. */
+      satirlar.push(bolumSatiri('Silo Hareketleri'));
+      for (i = 0; i < silolar.length; i++) satirlar.push({ hucreler: dortHucre(silolar[i]) });
+    }
+
+    if (malzemeler.length) {
+      satirlar.push(bolumSatiri('Malzeme Hareketleri'));
+      for (i = 0; i < malzemeler.length; i++) satirlar.push({ hucreler: dortHucre(malzemeler[i]) });
+    }
+
+    return satirlar;
+  }
+
   function gunPaneli(depo, tarih, g, sayacGizle) {
     var satirlar = [], i, h, u, s;
     /* KRONOLOJİK AKIŞ (kullanıcı direktifi, 28.08.2026: "günlük işlemlerin
@@ -470,15 +617,26 @@
        basılmadan önce eskiden yeniye dizilir; damgası eş satırlar bölüm
        sırasını korur (kararlı sıralama). */
     var zamanli = [];
-    function ekle(an, satir) {
-      zamanli.push({ an: String(an || ''), sira: zamanli.length, satir: satir });
+    /* bilgi: YENI_GUN_DUZENI icin satirin ham verisi (tur, silo, malzeme,
+       miktarlar). Eski duzende hic okunmaz; anahtar kapaliyken olu yuktur. */
+    function ekle(an, satir, bilgi) {
+      zamanli.push({ an: String(an || ''), sira: zamanli.length, satir: satir, bilgi: bilgi || null });
     }
     /* Rozet GERÇEK hareket sayısını söyler, satır sayısını değil: silo
        satırları birleştiği için ikisi artık aynı sayı değil. */
     var hareketSayisi = g.silo.length + g.malzeme.length +
       (g.devir || []).length + (g.silinen || []).length;
 
-    var siloGruplari = siloSatirlariniTopla(g.silo);
+    /* SİLO SATIRLARI BİRLEŞMEZ (kullanıcı isteği, 01.09.2026: "üretim ayrı
+       satış ayrı olsun"). Tek değer kolonu var; bir satırda hem giren hem
+       çıkan taşınamaz. Tüm Hareketler ekranında birleşme sürer. */
+    var siloGruplari;
+    if (YENI_GUN_DUZENI && tekGunGorumu()) {
+      siloGruplari = [];
+      for (i = 0; i < g.silo.length; i++) siloGruplari.push(siloSatiri(g.silo[i]));
+    } else {
+      siloGruplari = siloSatirlariniTopla(g.silo);
+    }
     for (i = 0; i < siloGruplari.length; i++) {
       h = siloGruplari[i];
       ekle(h.an, [
@@ -487,7 +645,9 @@
         miktarHucresi(h.giren, false, 'giren'),
         miktarHucresi(h.cikan, false, 'cikan'),
         kaydedenHucresi(depo, h.kullaniciId, h.an, tarih)
-      ]);
+      ], { tur: 'silo', siloId: h.siloId, tipler: h.tipler, giren: h.giren,
+           cikan: h.cikan, kullaniciId: h.kullaniciId,
+           degerKolonu: h.giren > 0 ? 'giren' : 'cikan' });
     }
 
     for (i = 0; i < g.malzeme.length; i++) {
@@ -501,92 +661,98 @@
         ? kaydedenHucresi(depo, h.GuncelleyenKullaniciId, h.GuncellemeTarihi, tarih)
         : kaydedenHucresi(depo, h.OlusturanKullaniciId, h.OlusturmaTarihi, tarih);
 
-      /* DÖKME KURU KÜSPE TEK SATIRDA (kullanıcı isteği, 28.08.2026:
-         "Dökme Kuru Küspe'yi de aynı satıra al, Silo 1 gibi; üretim ve
-         satışı aynı satırda yaz"). Bu malzemenin üretimi de satışı da TEK
-         ekrandan (Kuru Küspe Günlük Giriş) gelir ve silo satırının malzeme
-         karşılığıdır — silo satırı "Dökme Üretim + Dökme Satış" diye tek
-         satırda okunurken bunun iki satıra bölünmesi aynı kaydı iki kez
-         gösteriyordu. 27.08'deki "her kalem kendi satırında" kararı ÖBÜR
-         malzemelerde aynen sürer (KURAL 5.1). İade ayrı satırda kalır:
-         üretimle aynı Giren kolonunu paylaşamaz. */
-      var mlzTanim = null;
-      for (var mt = 0; mt < depo.malzemeler.length; mt++) {
-        if (depo.malzemeler[mt].Id === h.MalzemeId) { mlzTanim = depo.malzemeler[mt]; break; }
-      }
-      if (tekGunGorumu() && mlzTanim && mlzTanim.OzelTip === 'DokmeKuruKuspe' && (u > 0 || s > 0)) {
-        var dkRozet = YU.h('span', { stil: { display: 'inline-flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' } });
-        if (u > 0) dkRozet.appendChild(YU.ui.rozet('Üretim', 'olumlu'));
-        if (s > 0) dkRozet.appendChild(YU.ui.rozet('Satış', 'olumsuz'));
-        if (guncellendi) dkRozet.appendChild(YU.ui.rozet('Değiştirildi', 'bekleyen'));
-        ekle(hareketAni, [
-          YU.h('span', { sinif: 'yu-guclu', metin: malzemeAdi(depo, h.MalzemeId) }),
-          dkRozet,
-          u > 0 ? eskisiyleHucre(depo, h.Id, 'Üretim', u, 'giren', guncellendi) : bosHucre(),
-          s > 0 ? eskisiyleHucre(depo, h.Id, 'Satış', s, 'cikan', guncellendi) : bosHucre(),
-          kaydedenH
-        ]);
-        /* İade varsa kendi satırında — Giren kolonu üretimde dolu. */
-        if (iadeH > 0) {
+      /* TEK GÜN GÖRÜNÜMÜ — ÜRETİM + SATIŞ TEK SATIRDA, İADE KENDİ SATIRINDA
+         (kullanıcı direktifi, 31.08.2026).
+
+         Kullanıcının sözü: "iade ayrı etiket ve satırda kalsın. üretim+satışta
+         ise aynı etiket kalabilir ama üretim 1000 | satış 2500 → 5000 gibi
+         olsun; ana yapı böyle zaten."
+
+         DOĞRU: bu düzen Dökme Kuru Küspe'de 28.08.2026'dan beri vardı; artık
+         BÜTÜN malzemeler için geçerli. Üretim ve satış aynı kaydın iki
+         yönüdür ve tabloda zaten iki ayrı kolonu var (Giren / Çıkan) — ayrı
+         satırlara bölmek aynı kaydı iki kez gösteriyordu. İade ayrı kalır:
+         Giren kolonunu üretimle paylaşamaz.
+
+         Bu, 27.08.2026'daki "her kalem kendi satırında" kararının yerine
+         geçer; o karar iadenin satışla aynı hücrede yığılmasını çözmek
+         içindi ve iade zaten ayrı satırda kalıyor. */
+      if (tekGunGorumu()) {
+        /* Kalem, RAKAMI VARSA ya da sonradan SIFIRLANMIŞSA görünür:
+           50 kg satış silinip 0'a çekildiyse üstü çizili okunmalı, yoksa
+           değişiklik büsbütün kaybolurdu. */
+        function gorunur(alanAdi, deger) {
+          return deger > 0 || !!(guncellendi && eskiDegerVarsa(depo, h.Id, alanAdi, deger));
+        }
+
+        /* Tek kalemin satırı. Rozet KAYDIN değil bu KALEMİN durumunu söyler
+           (31.08.2026): ilk kez girilen rakam değişiklik sayılmaz. */
+        function kalemSatiri(alanAdi, tur, deger, gorunsun, yon) {
+          if (!gorunsun) return;
+          var rozetKutu = YU.h('span', {
+            stil: { display: 'inline-flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }
+          }, YU.ui.rozet(alanAdi, tur));
+          if (kalemDegisti(depo, h.Id, alanAdi, deger, guncellendi)) {
+            rozetKutu.appendChild(durumRozeti('Değiştirildi', 'bekleyen'));
+          }
           ekle(hareketAni, [
             YU.h('span', { sinif: 'yu-guclu', metin: malzemeAdi(depo, h.MalzemeId) }),
-            YU.ui.rozet('İade', 'notr'),
+            rozetKutu,
+            yon === 'giren' ? eskisiyleHucre(depo, h.Id, alanAdi, deger, 'giren', guncellendi) : bosHucre(),
+            yon === 'cikan' ? eskisiyleHucre(depo, h.Id, alanAdi, deger, 'cikan', guncellendi) : bosHucre(),
+            kaydedenH.cloneNode(true)
+          ], malzemeBilgisi(depo, h, guncellendi, yon));
+        }
+        var uVar = gorunur('Üretim', u);
+        var sVar = gorunur('Satış', s);
+        var iVar = gorunur('İade', iadeH);
+
+        /* ÜRETİM VE SATIŞ AYRI SATIRDA (kullanıcı isteği, 01.09.2026:
+           "üretim + satışı artık ayır, üretim ayrı satış ayrı olsun").
+           31.08.2026'da ikisi tek satıra alınmıştı; o karar bu istekle
+           değişti. Tek değer kolonuna geçildiği için zaten zorunlu:
+           bir satır tek rakam taşır. */
+        kalemSatiri('Üretim', 'olumlu', u, uVar, 'giren');
+        kalemSatiri('Satış', 'olumsuz', s, sVar, 'cikan');
+
+        if (iVar) {
+          var iadeDegisti = kalemDegisti(depo, h.Id, 'İade', iadeH, guncellendi);
+          ekle(hareketAni, [
+            YU.h('span', { sinif: 'yu-guclu', metin: malzemeAdi(depo, h.MalzemeId) }),
+            iadeDegisti
+              ? YU.h('span', { stil: { display: 'inline-flex', alignItems: 'center', gap: '8px', minWidth: '0' } },
+                  YU.ui.rozet('İade', 'notr'), durumRozeti('Değiştirildi', 'bekleyen'))
+              : YU.ui.rozet('İade', 'notr'),
             eskisiyleHucre(depo, h.Id, 'İade', iadeH, 'giren', guncellendi),
             bosHucre(),
             kaydedenH.cloneNode(true)
-          ]);
+          ], malzemeBilgisi(depo, h, guncellendi, 'giren'));
+        }
+
+        /* Üç alanın üçü de boş: kayıt sıfırlanmış demektir, satır yine görünür. */
+        if (!uVar && !sVar && !iVar) {
+          ekle(hareketAni, [
+            YU.h('span', { sinif: 'yu-guclu', metin: malzemeAdi(depo, h.MalzemeId) }),
+            durumRozeti('Sıfırlandı', 'notr'),
+            bosHucre(),
+            bosHucre(),
+            kaydedenH
+          ], malzemeBilgisi(depo, h, guncellendi));
         }
         continue;
       }
 
-      if (tekGunGorumu()) {
-        /* TEK GÜN görünümünde HER KALEM KENDİ SATIRINDA (kullanıcı isteği,
-           27.08.2026: "iade ile sadece Değiştirildi yan yana olmalı,
-           değerleriyle; iade + satış olmamalı"). Bir malzemenin üretimi,
-           iadesi ve satışı tek hücrede üç rozet olarak yığılıyordu; artık
-           satır başına tek kalem, tek rozet ve o kalemin kendi rakamı düşer.
-           "Değiştirildi" rozeti kaydın tamamına aittir, her satırda durur.
-           Tüm Hareketler listesi DEĞİŞMEZ — orada satır çok, yer dar
-           (KURAL 5.1). */
-        var kalemler = [];
-        /* Kalem, RAKAMI VARSA ya da sonradan SIFIRLANMIŞSA satır açar:
-           50 kg satış silinip 0'a çekildiyse satır yine görünür ve eski
-           değer üstü çizili okunur — yoksa değişiklik büsbütün kaybolurdu. */
-        function kalemEkle(ad, tur, alanAdi, deger, yon) {
-          if (!(deger > 0) && !(guncellendi && eskiDegerVarsa(depo, h.Id, alanAdi, deger))) return;
-          kalemler.push({ ad: ad, tur: tur, alan: alanAdi, deger: deger, yon: yon });
-        }
-        kalemEkle('Üretim', 'olumlu', 'Üretim', u, 'giren');
-        kalemEkle('İade', 'notr', 'İade', iadeH, 'giren');
-        kalemEkle('Satış', 'olumsuz', 'Satış', s, 'cikan');
-        if (!kalemler.length) kalemler.push({ ad: 'Sıfırlandı', tur: 'notr', alan: null, deger: 0, yon: null });
-
-        for (var kk = 0; kk < kalemler.length; kk++) {
-          (function (kalem) {
-            var rozetKap = guncellendi
-              ? YU.h('span', { stil: { display: 'inline-flex', alignItems: 'center', gap: '8px', minWidth: '0' } },
-                  YU.ui.rozet(kalem.ad, kalem.tur), YU.ui.rozet('Değiştirildi', 'bekleyen'))
-              : YU.ui.rozet(kalem.ad, kalem.tur);
-            var hucre = kalem.alan
-              ? eskisiyleHucre(depo, h.Id, kalem.alan, kalem.deger, kalem.yon, guncellendi)
-              : bosHucre();
-            ekle(hareketAni, [
-              YU.h('span', { sinif: 'yu-guclu', metin: malzemeAdi(depo, h.MalzemeId) }),
-              rozetKap,
-              kalem.yon === 'giren' ? hucre : bosHucre(),
-              kalem.yon === 'cikan' ? hucre : bosHucre(),
-              kaydedenH.cloneNode(true)
-            ]);
-          })(kalemler[kk]);
-        }
-        continue;
-      }
-
+      /* Çok günlü listede satır üç kalemi birlikte taşır; rozet ancak
+         kalemlerden biri GERÇEKTEN değiştiyse çıkar (31.08.2026 — tek gün
+         panelindeki ölçünün aynısı, iki yerde ayrı davranmasın). */
+      var satirDegisti = kalemDegisti(depo, h.Id, 'Üretim', u, guncellendi) ||
+                         kalemDegisti(depo, h.Id, 'Satış', s, guncellendi) ||
+                         kalemDegisti(depo, h.Id, 'İade', iadeH, guncellendi);
       ekle(hareketAni, [
         YU.h('span', { sinif: 'yu-guclu', metin: malzemeAdi(depo, h.MalzemeId) }),
-        guncellendi
+        satirDegisti
           ? YU.h('span', { stil: { display: 'inline-flex', alignItems: 'center', gap: '8px', minWidth: '0' } },
-              malzemeHareketRozeti(u, s, iadeH), YU.ui.rozet('Değiştirildi', 'bekleyen'))
+              malzemeHareketRozeti(u, s, iadeH), durumRozeti('Değiştirildi', 'bekleyen'))
           : malzemeHareketRozeti(u, s, iadeH),
         girenHucresi(depo, h, guncellendi),
         guncellendi ? miktarVeEskisi(depo, s, h.Id, 'Satış', 'cikan') : miktarHucresi(s, false, 'cikan'),
@@ -604,13 +770,20 @@
         var tur = l.Islem === 'Ekle' ? 'olumlu' : (l.Islem === 'Sil' ? 'olumsuz' : 'bekleyen');
         var rozetAdi = l.Islem === 'Ekle' ? 'Devir Eklendi'
           : (l.Islem === 'Sil' ? 'Devir Silindi' : 'Devir Değişti');
-        var adKutu = YU.h('div', null,
-          YU.h('div', { sinif: 'yu-guclu', metin: sahip.ad }),
-          YU.h('div', {
-            sinif: 'yu-yardim',
-            metin: 'Kampanya devri' + (sahip.devirTarihi ? ' · ' + YU.fmt.tarih(sahip.devirTarihi) : '')
-          })
-        );
+        /* "Kampanya devri · 01.09.2026" alt satırı TEK GÜN görünümünde
+           YAZILMAZ (kullanıcı isteği, 01.09.2026). Satır zaten "Kampanya
+           Devri" bölümünün altında duruyor ve tarih panelin başlığında —
+           aynı şey üç kez yazılıyordu (KURAL 11). Tüm Hareketler ekranında
+           kalır: orada bölüm başlığı yok, gün gün liste var (KURAL 5.1). */
+        var adKutu = YENI_GUN_DUZENI && tekGunGorumu()
+          ? YU.h('span', { sinif: 'yu-guclu', metin: sahip.ad })
+          : YU.h('div', null,
+              YU.h('div', { sinif: 'yu-guclu', metin: sahip.ad }),
+              YU.h('div', {
+                sinif: 'yu-yardim',
+                metin: 'Kampanya devri' + (sahip.devirTarihi ? ' · ' + YU.fmt.tarih(sahip.devirTarihi) : '')
+              })
+            );
         var degisim;
         if (l.Alan && l.EskiDeger !== null && l.EskiDeger !== undefined && l.EskiDeger !== '') {
           degisim = YU.h('span', { stil: { whiteSpace: 'nowrap' } },
@@ -632,14 +805,21 @@
           }
           degisim = YU.h('span', { sinif: 'yu-zayif', metin: deger });
         }
+        /* Devir rakamı DEĞER kolonuna geçti (kullanıcı isteği, 01.09.2026:
+           "devirdeki değerleri de değer kısmına koy ama renksiz olsun").
+           Hareket kolonunda yalnız "Devir Eklendi" kalır. Tüm Hareketler
+           ekranında rakam eskisi gibi rozetin yanında durur (KURAL 5.1). */
+        var yeniDuzenDevir = YENI_GUN_DUZENI && tekGunGorumu();
         ekle(l.Tarih, [
           adKutu,
-          YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' } },
-            YU.ui.rozet(rozetAdi, tur), degisim),
-          bosHucre(),
+          yeniDuzenDevir
+            ? YU.ui.rozet(rozetAdi, tur)
+            : YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' } },
+                YU.ui.rozet(rozetAdi, tur), degisim),
+          yeniDuzenDevir ? degisim : bosHucre(),
           bosHucre(),
           kaydedenHucresi(depo, l.KullaniciId, l.Tarih, tarih)
-        ]);
+        ], { tur: 'devir', kullaniciId: l.KullaniciId, degerKolonu: 'giren' });
       })(g.devir[i]);
     }
 
@@ -654,7 +834,9 @@
           miktarHucresi(k.GirenKg, true),
           miktarHucresi(k.CikanKg, true),
           kaydedenHucresi(depo, sk.KullaniciId, sk.SilmeTarihi, tarih)
-        ]);
+        ], { tur: 'silo-silinen', siloId: k.SiloId, tipler: [k.HareketTipi],
+             tip: k.HareketTipi, giren: Number(k.GirenKg) || 0,
+             cikan: Number(k.CikanKg) || 0, kullaniciId: sk.KullaniciId });
       } else {
         u = Number(k.Uretim) || 0;
         s = Number(k.Satis) || 0;
@@ -674,7 +856,7 @@
                 : miktarHucresi(u, true)),
           miktarHucresi(s, true),
           kaydedenHucresi(depo, sk.KullaniciId, sk.SilmeTarihi, tarih)
-        ]);
+        ], { tur: 'malzeme-silinen', malzemeId: k.MalzemeId, kullaniciId: sk.KullaniciId });
       }
     }
 
@@ -683,7 +865,11 @@
       if (a.an !== b.an) return a.an < b.an ? -1 : 1;
       return a.sira - b.sira;
     });
-    for (i = 0; i < zamanli.length; i++) satirlar.push(zamanli[i].satir);
+    if (YENI_GUN_DUZENI && tekGunGorumu()) {
+      satirlar = gunDuzeni(depo, tarih, zamanli);
+    } else {
+      for (i = 0; i < zamanli.length; i++) satirlar.push(zamanli[i].satir);
+    }
 
     var panel = YU.ui.panel({
       baslik: YU.fmt.tarih(tarih) + ' · ' + YU.fmt.gunAdi(tarih),
@@ -697,7 +883,17 @@
            kenardan uzaklaşıp ortaya doğru geliyor. Çıkan kolonu Giren'den
            geniş: iki rakam arasındaki boşluk oradan doğuyor. Aralarındaki
            ince çizgi 'yu-kolon-ayrac' ile gelir (tema.css). */
-        sutunlar: [
+        /* TEK DEĞER KOLONU (kullanıcı isteği, 01.09.2026: "giren çıkan
+           olarak değil de sadece değer kolonu koy"). Yön artık rakamın
+           kendi işaretinde ve renginde: giren +yeşil, çıkan −kırmızı.
+           Her satır tek rakam taşır — üretim, satış ve iade ayrı satırlarda.
+           Tüm Hareketler ekranı iki kolonlu kalır (KURAL 5.1). */
+        sutunlar: (YENI_GUN_DUZENI && tekGunGorumu()) ? [
+          { baslik: 'Silo / Malzeme', genislik: 380 },
+          { baslik: 'Hareket', genislik: 360 },
+          { baslik: 'Değer', hiza: 'sag', mono: true, genislik: 220, sinif: 'yu-kolon-ayrac' },
+          { baslik: 'Kaydeden', hiza: 'sag' }
+        ] : [
           /* 260/240 -> 320/300: Giren/Çıkan bir kademe SAĞA alındı
              (kullanıcı isteği, 27.08.2026). Sayı çifti kolonların genişliği
              kadar kayar; Kaydeden yine artan yeri emer. */
@@ -708,6 +904,11 @@
           { baslik: 'Kaydeden', hiza: 'sag' }
         ],
         satirlar: satirlar,
+        /* ŞERİT KAPALI (kullanıcı isteği, 01.09.2026): "aynı kategoride
+           bunlar hep aynı". Bölümlü düzende satırlar bir zeminli bir
+           zeminsiz gitmez; ayrımı bölüm başlıkları taşır. Tüm Hareketler
+           ekranında şerit AYNEN kalır — orası bölümsüz tek listedir. */
+        serit: !(YENI_GUN_DUZENI && tekGunGorumu()),
         kompakt: true,
         /* Satır ve kolon çizgileri bir ton sert (27.08.2026) — bkz. tema.css. */
         sinif: 'yu-tablo-sert-ayrac',
@@ -720,7 +921,12 @@
        (ölçüldü: 981px kapta 127px'e indi). Alt sınır konur, kap gerekirse
        yatay kaydırır — .yu-tablo-sar zaten overflow-x: auto. */
     var tabloEl = panel.querySelector('table');
-    if (tabloEl) tabloEl.style.minWidth = '1350px';   /* 380+360+140+170+300 */
+    if (tabloEl) {
+      tabloEl.style.minWidth = (YENI_GUN_DUZENI && tekGunGorumu())
+        ? '1260px'    /* 380+360+220+300 */
+        : '1350px';   /* 380+360+140+170+300 */
+    }
+    if (YENI_GUN_DUZENI && tekGunGorumu()) panel.className += ' yu-gun-paneli';
     return panel;
   }
 
@@ -840,8 +1046,12 @@
       metin: 'CSV İndir', ikon: '#ic-download', tur: 'ikincil',
       baslik: 'Bütün hareketleri (silinenler dahil) Excel uyumlu CSV olarak indirir',
       onClick: function () {
-        var v = gunler(depo), i, j, t, g, h, u, s, sk, k;
-        var satirlar = [['Tarih', 'Tür', 'Silo / Malzeme', 'Hareket', 'Giren (kg)', 'Çıkan (kg)', 'Durum']];
+        var v = gunler(depo), i, j, t, g, h, u, s, ia, sk, k;
+        /* İade KENDİ KOLONUNDA (BUG-008): ekranda ayrı satırda duran iade,
+           CSV'de tek satırlık kayda sığsın diye kolon olarak yazılır — üretim
+           ya da satış kolonuna katılsaydı toplamlar bozulurdu (iade stoğa
+           girmez, 04-servis · malzemeHesapla). */
+        var satirlar = [['Tarih', 'Tür', 'Silo / Malzeme', 'Hareket', 'Giren (kg)', 'Çıkan (kg)', 'İade (kg)', 'Durum']];
         for (i = 0; i < v.tarihler.length; i++) {
           t = v.tarihler[i];
           g = v.harita[t];
@@ -849,15 +1059,16 @@
             h = g.silo[j];
             satirlar.push([YU.fmt.tarih(t), 'Silo', siloAdi(depo, h.SiloId),
               TIP_ADI[h.HareketTipi] || h.HareketTipi,
-              YU.csvSayi(h.GirenKg), YU.csvSayi(h.CikanKg), '']);
+              YU.csvSayi(h.GirenKg), YU.csvSayi(h.CikanKg), '', '']);
           }
           for (j = 0; j < g.malzeme.length; j++) {
             h = g.malzeme[j];
             u = Number(h.Uretim) || 0;
             s = Number(h.Satis) || 0;
+            ia = Number(h.Iade) || 0;
             satirlar.push([YU.fmt.tarih(t), 'Malzeme', malzemeAdi(depo, h.MalzemeId),
-              u > 0 && s > 0 ? 'Üretim + Satış' : (u > 0 ? 'Üretim' : 'Satış'),
-              YU.csvSayi(u), YU.csvSayi(s),
+              csvHareketAdi(u, s, ia),
+              YU.csvSayi(u), YU.csvSayi(s), YU.csvSayi(ia),
               h.GuncellemeTarihi ? 'Değiştirildi' : '']);
           }
           for (j = 0; j < g.silinen.length; j++) {
@@ -866,10 +1077,13 @@
             if (sk.Tablo === 'SiloHareket') {
               satirlar.push([YU.fmt.tarih(t), 'Silo', siloAdi(depo, k.SiloId),
                 TIP_ADI[k.HareketTipi] || k.HareketTipi,
-                YU.csvSayi(k.GirenKg), YU.csvSayi(k.CikanKg), 'Silindi']);
+                YU.csvSayi(k.GirenKg), YU.csvSayi(k.CikanKg), '', 'Silindi']);
             } else {
-              satirlar.push([YU.fmt.tarih(t), 'Malzeme', malzemeAdi(depo, k.MalzemeId), '',
-                YU.csvSayi(k.Uretim), YU.csvSayi(k.Satis), 'Silindi']);
+              /* Silinen malzeme satırında da iade okunur — ekran zaten
+                 okuyordu (M25), CSV okumuyordu. */
+              satirlar.push([YU.fmt.tarih(t), 'Malzeme', malzemeAdi(depo, k.MalzemeId),
+                csvHareketAdi(Number(k.Uretim) || 0, Number(k.Satis) || 0, Number(k.Iade) || 0),
+                YU.csvSayi(k.Uretim), YU.csvSayi(k.Satis), YU.csvSayi(k.Iade), 'Silindi']);
             }
           }
         }

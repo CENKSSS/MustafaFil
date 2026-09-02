@@ -599,7 +599,8 @@
 
   YU.sayfaTanimla({
     kod: 'malzeme-yonetimi',
-    baslik: 'Malzeme & Silo Yönetimi',   /* sol menü de bu alandan besleniyor (kullanıcı isteği, 25.08.2026) */
+    baslik: 'Malzeme ve Silo Yönetimi',
+    menuAd: 'Malzeme ve Silo',        /* menüde kısa ad (31.08.2026) */
     /* Alt başlıktaki "8 malzeme · 8 aktif · 3 silo · Malzemeler sekmesi"
        cümlesi kaldırıldı (26.08.2026): sayılar iki tablonun kendisinden
        okunuyor (KURAL 11) ve sekme kalmadığı için son kısım artık yanlıştı. */

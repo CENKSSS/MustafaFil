@@ -135,16 +135,15 @@
      üretim) o gün silodan çekilir, ertesi günün üretimiyle mahsuplaşmaz. */
   function kuruKuspeAyi(depo, ay, sinirGun) {
     var t = {
-      uretilenDokme: 0, cuvalAdet: 0, cuvalKg: 0, netDokmeUretim: 0,
+      uretilenDokme: 0, cuvalKg: 0, netDokmeUretim: 0,
       silodanCekilen: 0, satilanDokme: 0, siloNetDegisim: 0, durumB: 0, gun: 0
     }, i, k, h;
     for (i = 0; i < depo.kuruKuspeGunluk.length; i++) {
       k = depo.kuruKuspeGunluk[i];
       if (ayAnahtari(k.Tarih) !== ay) continue;
       if (sinirGun && gunNo(k.Tarih) > sinirGun) continue;
-      h = YU.hesap.kuruKuspe(k.UretilenDokme, k.CuvalAdet, k.SatilanDokme);
+      h = YU.hesap.kuruKuspe(k.UretilenDokme, YU.hesap.kayitCuvalKg(k), k.SatilanDokme);
       t.uretilenDokme = YU.yuvarla(t.uretilenDokme + (Number(k.UretilenDokme) || 0));
-      t.cuvalAdet += Number(k.CuvalAdet) || 0;
       t.cuvalKg = YU.yuvarla(t.cuvalKg + h.cuvalKg);
       t.netDokmeUretim = YU.yuvarla(t.netDokmeUretim + h.netDokmeUretim);
       t.silodanCekilen = YU.yuvarla(t.silodanCekilen + h.silodanCekilecek);
@@ -411,6 +410,12 @@
       if (devirIcinde) devirliVar = true;
       ozet.push({
         malzeme: liste[i],
+        /* DEVİR (kullanıcı isteği, 31.08.2026: "aylık özet tablosunun en
+           soluna sadece devir kolonu koy"). Kampanya açılış rakamıdır — aya
+           göre değişmez, Stok Durumu'ndaki "Devir" kolonuyla aynı kaynaktan
+           (YU.stok.malzemeStok) gelir. Tablo böylece muhasebe sırasını tam
+           okur: devir → ay başı → hareketler → kapanış. */
+        devir: kapanis.devir,
         basStok: basStok,
         uretim: m ? m.uretim : 0,
         iade: m ? m.iade : 0,
@@ -426,59 +431,67 @@
        seçildiği, ayların yazdığı yerde duruyor. Seçim SAYFANIN TAMAMINI
        değiştirir, yalnız o paneli değil. */
     YU.ui.sayfaEylemleri(
+      /* GERÇEK .xlsx (kullanıcı isteği, 31.08.2026: "csv çok kötü... direkt
+         bu tarzda olmalı, üstte de tarih vs olsun" · "csv indir butonunun
+         adını da Excel indir olarak değiştir").
+
+         Eski çıktı düz CSV'ydi: kolon genişliği, kalın başlık ve sayı biçimi
+         taşımıyordu; Excel başlıkları kırpıp "Olası veri kaybı" uyarısı
+         veriyordu. Artık Stok Durumu'yla AYNI motor (36-excel-indir ·
+         YU.excelSayfaIndir): üstte başlık + tarih satırı, donuk başlık
+         şeridi, ölçülü kolonlar, gerçek sayı hücreleri.
+
+         ÜÇ SAYFA — hiçbir bilgi kaybolmasın (KURAL 10.4): ekrandaki tablo,
+         ürün grubu karşılaştırması ve gün gün döküm. Son ikisi ekranda yok,
+         eski CSV'de vardı; ayrı sayfalarda duruyorlar. */
       YU.ui.dugme({
-        metin: 'CSV İndir', ikon: '#ic-download', tur: 'ikincil',
-        baslik: 'Ay özetini Excel uyumlu CSV olarak indirir (M17)',
+        metin: 'Excel İndir', ikon: '#ic-download', tur: 'ikincil',
+        baslik: 'Ay özetini Excel dosyası (.xlsx) olarak indirir',
         onClick: function () {
-          var satirlar = [['Aylık Özet', ayAdi(ay)]];
-          satirlar.push([]);
-          satirlar.push(['Ürün Grubu Karşılaştırması', ayAdi(ay), 'önceki ay: ' + ayAdi(oncekiAyKodu)]);
-          satirlar.push(['Ürün Grubu', 'Üretim (kg)', 'Önceki Ay Üretim (kg)', 'Satış (kg)',
-            'Önceki Ay Satış (kg)', 'İade (kg)', 'Stok Değişimi (kg)']);
-          var gk, gb, go;
+          var tablo = kap.querySelector('.yu-tablo-sar table.yu-tablo');
+          if (!tablo) { YU.ui.bildir('Dışa aktarılacak veri yok.', 'uyari'); return; }
+
+          /* 1 — ekrandaki tablo, altına TOPLAM satırı. Devir/stok kolonları
+             toplanmaz: devir kampanya açılışıdır, stok da ay toplamı değil. */
+          var t2 = v.toplam;
+          var toplamSatiri = ['AYLIK TOPLAM', '', '', t2.iade, '', '', t2.uretim, t2.satis, '', ''];
+
+          /* 2 — ürün grubu karşılaştırması */
           var GRUP_KODLARI = ['kuru', 'yas', 'diger'];
+          var grupSatirlari = [], gk, gb, go;
           for (gk = 0; gk < GRUP_KODLARI.length; gk++) {
             gb = buGrup[GRUP_KODLARI[gk]];
             go = oncekiGrup[GRUP_KODLARI[gk]];
-            satirlar.push([GRUP_ADLARI[GRUP_KODLARI[gk]],
-              YU.csvSayi(gb.uretim), YU.csvSayi(go.uretim),
-              YU.csvSayi(gb.satis), YU.csvSayi(go.satis),
-              YU.csvSayi(gb.iade), YU.csvSayi(YU.yuvarla(gb.son - gb.bas))]);
+            grupSatirlari.push([GRUP_ADLARI[GRUP_KODLARI[gk]],
+              gb.uretim, go.uretim, gb.satis, go.satis, gb.iade,
+              YU.yuvarla(gb.son - gb.bas)]);
           }
-          satirlar.push([]);
-          satirlar.push(['Aylık Malzeme Özeti']);
-          satirlar.push(['Malzeme', 'Ay Başı Stok (kg)', 'Aylık İade (kg)',
-            'Günlük Ort. Üretim (kg)', 'Günlük Ort. Satış (kg)',
-            'Aylık Üretim Toplamı (kg)', 'Aylık Satış Toplamı (kg)',
-            'Stok Değişimi (kg)', kapanisBaslik + ' (kg)']);
-          var j, o, ortUretim, ortSatis;
-          for (j = 0; j < ozet.length; j++) {
-            o = ozet[j];
-            ortUretim = v.gunSayisi && o.uretim ? YU.yuvarla(o.uretim / v.gunSayisi) : 0;
-            ortSatis = v.gunSayisi && o.satis ? YU.yuvarla(o.satis / v.gunSayisi) : 0;
-            satirlar.push([o.malzeme.Ad, YU.csvSayi(o.basStok), YU.csvSayi(o.iade),
-              YU.csvSayi(ortUretim), YU.csvSayi(ortSatis),
-              YU.csvSayi(o.uretim), YU.csvSayi(o.satis),
-              YU.csvSayi(o.fark), YU.csvSayi(o.sonStok)]);
-          }
-          var t2 = v.toplam;
-          satirlar.push(['AYLIK TOPLAM', '', YU.csvSayi(t2.iade), '', '',
-            YU.csvSayi(t2.uretim), YU.csvSayi(t2.satis), '', '']);
-          satirlar.push([]);
-          /* Gün gün döküm ekrandan kaldırıldı ama CSV'de KALIYOR: indirilen
-             dosya Excel'de incelenecek, orada gün ayrıntısı işe yarar. */
-          satirlar.push(['Gün Gün Toplamlar']);
-          satirlar.push(['Tarih', 'Günlük Üretim (kg)', 'Günlük İade (kg)', 'Günlük Satış (kg)']);
-          var gunlerT = gunAraligi(v.gunler), g2, gv;
-          for (j = 0; j < gunlerT.length; j++) {
-            g2 = gunlerT[j];
+
+          /* 3 — gün gün döküm (ekranda yok, dosyada var) */
+          var gunSatirlari = [], gunlerT = gunAraligi(v.gunler), gj, g2, gv;
+          for (gj = 0; gj < gunlerT.length; gj++) {
+            g2 = gunlerT[gj];
             gv = v.gunler[g2];
-            satirlar.push([YU.fmt.tarih(g2),
-              YU.csvSayi(gv ? gv.uretim : 0),   /* iade zaten dahil değil */
-              YU.csvSayi(gv ? gv.iade : 0),
-              YU.csvSayi(gv ? gv.satis : 0)]);
+            gunSatirlari.push([YU.fmt.tarih(g2),
+              gv ? gv.uretim : 0,   /* iade zaten dahil değil */
+              gv ? gv.iade : 0,
+              gv ? gv.satis : 0]);
           }
-          YU.csvIndir('aylik-ozet-' + ay + '.csv', satirlar);
+
+          var altBaslik = ayAdi(ay) + ' · ' + kapsamMetni;
+          YU.excelSayfaIndir('aylik-ozet-' + ay + '.xlsx', [
+            { ad: 'Aylık Malzeme Özeti', baslik: 'Aylık Malzeme Özeti',
+              altBaslik: altBaslik, tablo: tablo, ekSatirlar: [toplamSatiri] },
+            { ad: 'Ürün Grubu Karşılaştırması', baslik: 'Ürün Grubu Karşılaştırması',
+              altBaslik: ayAdi(ay) + ' · önceki ay: ' + ayAdi(oncekiAyKodu),
+              basliklar: ['Ürün Grubu', 'Üretim (kg)', 'Önceki Ay Üretim (kg)', 'Satış (kg)',
+                'Önceki Ay Satış (kg)', 'İade (kg)', 'Stok Değişimi (kg)'],
+              satirlar: grupSatirlari },
+            { ad: 'Gün Gün Toplamlar', baslik: 'Gün Gün Toplamlar',
+              altBaslik: altBaslik,
+              basliklar: ['Tarih', 'Günlük Üretim (kg)', 'Günlük İade (kg)', 'Günlük Satış (kg)'],
+              satirlar: gunSatirlari }
+          ]);
         }
       }),
       /* Ana Sayfa'daki yazdırma düğmesinin aynısı (kullanıcı isteği, 27.08.2026). */
@@ -565,6 +578,7 @@
           stil: { whiteSpace: 'nowrap' },
           metin: sat.malzeme.Ad
         }),
+        kgYaTire(sat.devir),
         kgYaTire(sat.basStok),
         kgYaTire(sat.iade),
         sat.uretim ? kgOlcu(gunlukOrt(sat.uretim)) : tire(),
@@ -615,24 +629,48 @@
              çizgisi adlardan çok uzağa düşüyordu. Ölçü küçük tutulur (150 px):
              tablo genişleyince artan yer kolonlara ORANLI dağıldığı için bu
              kolonun payı da küçük kalır, çizgi adlara yakın durur. */
+          /* Sıra kullanıcı tarafından verildi (31.08.2026, son hâli):
+             Malzeme · Devir · Ay Başı Stok · Aylık İade · günlük ortalamalar ·
+             aylık toplamlar · Stok Değişimi · Bugünkü Stok. Devir, sayı
+             kolonlarının ilkidir; etiket kolonu en solda kalır. */
           { baslik: 'Malzeme', genislik: 150 },
+          { baslik: 'Devir', hiza: 'sag', mono: true, genislik: 120, sinif: 'yu-baslik-sarar' },
           /* Kolon sırası kullanıcı tarafından verildi (26.08.2026): önce
              açılış ve iade, sonra GÜNLÜK ortalamalar, sonra AYLIK toplamlar,
              en sonda değişim ve kapanış. */
-          { baslik: 'Ay Başı Stok', hiza: 'sag', mono: true, genislik: 120 },
-          { baslik: 'Aylık İade', hiza: 'sag', mono: true, genislik: 110 },
-          { baslik: 'Günlük Ort. Üretim', hiza: 'sag', mono: true, genislik: 140 },
-          { baslik: 'Günlük Ort. Satış', hiza: 'sag', mono: true, genislik: 140 },
-          { baslik: 'Aylık Üretim Toplamı', hiza: 'sag', mono: true, genislik: 150 },
-          { baslik: 'Aylık Satış Toplamı', hiza: 'sag', mono: true, genislik: 145 },
-          { baslik: 'Stok Değişimi', hiza: 'sag', mono: true, genislik: 125 },
-          { baslik: kapanisBaslik, hiza: 'sag', mono: true, genislik: 120 }
+          /* BAŞLIKLAR ALT ALTA SARAR (kullanıcı bildirimi, 31.08.2026:
+             "sağ kolon gözükmüyor bile"). ÖLÇÜLDÜ: tablo 1.698 px, panel
+             1.634 px — son kolon (Bugünkü Stok) kabın dışında kalıyordu.
+             Sebep sayı değil BAŞLIK genişliği: "Aylık Üretim Toplamı" tek
+             satırda 150 px'lik kolonu 211 px'e şişiriyordu. yu-baslik-sarar
+             başlığı iki satıra indirir; kolon bildirilen ölçüsünde kalır,
+             rakamlar tek satırda durur (KURAL 10.1). Aynı sınıf Silo ve
+             Malzeme Bazında Stok'ta da bu iş için kullanılıyor. */
+          { baslik: 'Ay Başı Stok', hiza: 'sag', mono: true, genislik: 110, sinif: 'yu-baslik-sarar' },
+          { baslik: 'Aylık İade', hiza: 'sag', mono: true, genislik: 105, sinif: 'yu-baslik-sarar' },
+          { baslik: 'Günlük Ort. Üretim', hiza: 'sag', mono: true, genislik: 125, sinif: 'yu-baslik-sarar' },
+          { baslik: 'Günlük Ort. Satış', hiza: 'sag', mono: true, genislik: 125, sinif: 'yu-baslik-sarar' },
+          { baslik: 'Aylık Üretim Toplamı', hiza: 'sag', mono: true, genislik: 130, sinif: 'yu-baslik-sarar' },
+          { baslik: 'Aylık Satış Toplamı', hiza: 'sag', mono: true, genislik: 130, sinif: 'yu-baslik-sarar' },
+          { baslik: 'Stok Değişimi', hiza: 'sag', mono: true, genislik: 120, sinif: 'yu-baslik-sarar' },
+          { baslik: kapanisBaslik, hiza: 'sag', mono: true, genislik: 115, sinif: 'yu-baslik-sarar' }
         ],
         satirlar: ozetSatirlar,
         /* Karşılaştırma tablosuyla aynı iri ölçü (kullanıcı isteği,
            25.08.2026): satırlar biraz uzar, yazılar bir kademe büyür. */
         sik: false,
-        sinif: 'yu-tablo-iri yu-tablo-ilk-ayrac',
+        /* Ayraç çizgisi ETİKET kolonunun (Malzeme) sağında durur.
+
+           BASKI (kullanıcı bildirimi, 31.08.2026: "yazdır kısmı bozuk,
+           hizalı değiller"). Bu tablo kâğıda sığmıyordu — ölçüldü: 935 px,
+           kâğıt 792 px, son üç kolon dışarıdaydı. yu-baski-sig tabloyu
+           sığdırır: ölçü küçülür, genişlik %100'e iner, sarma hakkı ilk
+           kolona (malzeme adı) geçer; rakam hücreleri tek satırda kalır. */
+        /* yu-ay-tablo: satir YUKSEKLIGI kisilir (kullanici istegi,
+           01.09.2026: "cok genis ve ferah duruyor"). Yazi olculeri
+           yu-tablo-iri'den gelmeye devam eder; kisalan yalniz hucre
+           dolgusu. Olcu css/tema.css icindeki ayni adli blokta. */
+        sinif: 'yu-tablo-iri yu-ay-tablo yu-tablo-ilk-ayrac yu-baski-sig',
         bos: 'Bu ay için kayıt yok.'
       })]
     }));
@@ -654,6 +692,7 @@
     baskiBasligi: 'Aylık Stok ve Üretim Raporu',
     ikon: '#ic-calendar-dots',
     grup: 'Takip',
+    menuSira: 1,          /* "Özet ve Geçmiş" grubunda en üstte (31.08.2026) */
     rol: 'Hepsi',
     altBaslik: function (param) {
       var depo = YU.db;

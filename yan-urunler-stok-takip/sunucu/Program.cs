@@ -38,7 +38,21 @@ var gunlukJsonKlasoru = GunlukJsonYedek.KlasoruBul(builder.Configuration, builde
 builder.Services.AddSingleton(sp => new PaketDeposu(
     veriDosyasi, sp.GetRequiredService<ILogger<PaketDeposu>>()));
 
-builder.Services.AddHostedService<GunlukYedek>();
+// GECELİK YEDEK MUTLAK YOLLA KURULUR (BUG-013, 30.08.2026). Servis eskiden
+// yolu kendi IConfiguration'ından okuyordu ve ayar boşsa "yedek" göreli yoluna
+// düşüyordu; çalışma dizini sabitlenmediği için Windows servisi olarak
+// C:\Windows\System32\yedek'e yazıyordu. Elle yedek ucu (POST /api/yedek)
+// yukarıdaki mutlak yolu kullandığı için iki mekanizma iki ayrı klasöre
+// yazıyor, budama da yanlış klasörü buduyordu. Yol artık elden veriliyor.
+var gunlukYedekSaati = TimeSpan.TryParse(ayar["GunlukYedekSaati"], CultureInfo.InvariantCulture, out var yedekSaati)
+    ? yedekSaati
+    : new TimeSpan(22, 0, 0);
+
+builder.Services.AddHostedService(sp => new GunlukYedek(
+    sp.GetRequiredService<PaketDeposu>(),
+    yedekKlasoru,
+    gunlukYedekSaati,
+    sp.GetRequiredService<ILogger<GunlukYedek>>()));
 
 // Posta gönderimi (kullanıcı kararı, 28.08.2026). Ayarlar boşsa nesne yine
 // kurulur ama Hazir=false döner; ekran o zaman eski mailto yoluna düşer.
@@ -62,6 +76,12 @@ var statikAyar = new StaticFileOptions
     OnPrepareResponse = k =>
         k.Context.Response.Headers.CacheControl = "no-cache, must-revalidate"
 };
+
+// SÜRÜM DAMGASI (kullanıcı isteği, 31.08.2026): index.html'deki js/css
+// bağlantılarına dosya değişiklik zamanı "?s=" olarak eklenir. Yeni sürüm
+// yayınlandığında adresler değişir ve tarayıcılar eski kopyayı atmak zorunda
+// kalır. Statik ara katmandan ÖNCE durmalı — IndexDamgaci notu.
+IndexDamgaci.Bagla(app);
 
 app.UseDefaultFiles();
 app.UseStaticFiles(statikAyar);
@@ -438,16 +458,17 @@ public sealed class GunlukYedek : BackgroundService
     private readonly string _klasor;
     private readonly TimeSpan _saat;
 
-    public GunlukYedek(PaketDeposu depo, IConfiguration yapilandirma, ILogger<GunlukYedek> gunluk)
+    /// <summary>
+    /// Klasör ve saat Program.cs'ten MUTLAK olarak verilir (BUG-013). Yapılandırma
+    /// buradan okunmaz: göreli yol, Windows servisi kipinde çalışma dizini
+    /// C:\Windows\System32 olduğu için yanlış klasöre yazıyordu.
+    /// </summary>
+    public GunlukYedek(PaketDeposu depo, string klasor, TimeSpan saat, ILogger<GunlukYedek> gunluk)
     {
         _depo = depo;
         _gunluk = gunluk;
-
-        var ayar = yapilandirma.GetSection("YanUrunler");
-        _klasor = ayar["YedekKlasoru"] ?? "yedek";
-        _saat = TimeSpan.TryParse(ayar["GunlukYedekSaati"], CultureInfo.InvariantCulture, out var s)
-            ? s
-            : new TimeSpan(22, 0, 0);
+        _klasor = klasor;
+        _saat = saat;
     }
 
     protected override async Task ExecuteAsync(CancellationToken dur)
@@ -469,14 +490,20 @@ public sealed class GunlukYedek : BackgroundService
 
             try
             {
-                _depo.Yedekle(_klasor, DateTimeOffset.Now);
+                var uretilen = _depo.Yedekle(_klasor, DateTimeOffset.Now);
 
-                var d = _depo.Denetle();
+                // DENETİM ÜRETİLEN YEDEK DOSYASINDA KOŞAR (BUG-013/014,
+                // 30.08.2026). Eskiden Yedekle'nin döndürdüğü yol atılıyor ve
+                // Denetle() canlı veritabanını açıyordu — yedeğin kendisi hiç
+                // sınanmıyordu. Bozuk bir yedek "sağlam" görünüp rotasyonda
+                // sağlam kopyaları düşürebiliyordu.
+                var d = _depo.Denetle(uretilen);
                 // Bozuk yedek eskisini düşürmez: sonuç 'ok' değilse budama
                 // yapılmaz ve önceki yedekler korunur.
                 if (d.Butunluk != "ok")
                 {
-                    _gunluk.LogError("Yedek sonrası bütünlük kusuru: {Sonuc} — eski yedekler korunuyor", d.Butunluk);
+                    _gunluk.LogError("Yedek dosyası bozuk ({Dosya}): {Sonuc} — eski yedekler korunuyor",
+                        uretilen, d.Butunluk);
                     continue;
                 }
 

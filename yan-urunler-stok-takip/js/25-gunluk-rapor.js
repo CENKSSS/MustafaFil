@@ -59,14 +59,8 @@
 
   /* GÜNÜN ÖZETİ — sayfanın ilk paneli (kullanıcı seçimi, 21.08.2026):
      günün üç sonuç rakamı iri ve renkli; sağda yalnız iri tarih durur.
-  /* Kaynak bilgisi ikincildir: rozet yerine soluk metin (sadelik, 21.08.2026). */
-  function malzemeKaynagi(malzeme) {
-    if (!malzeme) return YU.ui.rozet('Malzeme Bulunamadı', 'olumsuz');
-    var metin = malzeme.OzelTip === 'DokmeKuruKuspe' ? 'Otomatik · kuru küspe girişi'
-      : malzeme.OzelTip === 'CuvalKuruKuspe' ? 'Üretim otomatik · satış elle'
-      : 'Elle girildi';
-    return YU.h('span', { sinif: 'yu-zayif', metin: metin });
-  }
+  /* malzemeKaynagi KALDIRILDI (kullanıcı isteği, 31.08.2026): Kaynak
+     kolonu tablodan çıktı, yardımcı da onunla gitti — ölü kod bırakılmadı. */
 
   /* Kim, saat kaçta — son dokunan (güncelleyen yoksa oluşturan); gün
      yazılmaz, ekran zaten tek güne ait (kullanıcı isteği, 21.08.2026). */
@@ -156,13 +150,14 @@
         /* nowrap: ad kolonda kırılıp satırı 3 kata çıkarıyordu (24.08.2026). */
         YU.h('span', { sinif: 'yu-guclu', metin: s.malzeme ? s.malzeme.Ad : ('Malzeme #' + s.hareket.MalzemeId), stil: { whiteSpace: 'nowrap' } }),
         basi === null ? YU.h('span', { sinif: 'yu-zayif', metin: '—' }) : YU.fmt.kg(basi),
-        uretimHucresi,
+        /* Sıra kullanıcı tarafından verildi (31.08.2026): Gün Başı · İade ·
+           Üretim · Satış. İade üretimden ÖNCE gelir. */
         yonluHucre(iade, 'giren'),
+        uretimHucresi,
         yonluHucre(s.satis, 'cikan'),
         sonu === null
           ? YU.h('span', { sinif: 'yu-zayif', metin: '—' })
           : YU.h('span', { sinif: 'yu-guclu', metin: YU.fmt.kg(sonu) }),
-        malzemeKaynagi(s.malzeme),
         kaydedenMetni(depo, s.hareket)
       ]);
     }
@@ -173,12 +168,16 @@
       sutunlar: [
         { baslik: 'Tarih · Saat', genislik: 120 },
         { baslik: 'Malzeme' },
+        /* Sıra kullanıcı tarafından verildi (31.08.2026): Gün Başı · İade ·
+           Üretim · Satış · Gün Sonu.
+           KAYNAK KOLONU KALDIRILDI (aynı istek): "Elle girildi / Otomatik ·
+           kuru küspe girişi" satırı her satırda tekrarlanan sabit bir
+           etiketti, bir karara dönüşmüyordu (KURAL 11). */
         { baslik: 'Gün Başı', hiza: 'sag', mono: true, genislik: 125 },
-        { baslik: 'Üretim', hiza: 'sag', mono: true, genislik: 110 },
         { baslik: 'İade', hiza: 'sag', mono: true, genislik: 100 },
+        { baslik: 'Üretim', hiza: 'sag', mono: true, genislik: 110 },
         { baslik: 'Satış', hiza: 'sag', mono: true, genislik: 110 },
         { baslik: 'Gün Sonu', hiza: 'sag', mono: true, genislik: 125 },
-        { baslik: 'Kaynak', genislik: 160 },
         { baslik: 'Kaydeden', genislik: 160 }
       ],
       satirlar: satirlar,
@@ -198,7 +197,7 @@
     /* Kolon araları için tablo kendi genişliğini korur (kullanıcı isteği,
        24.08.2026); dar pencerede kap yatay kaydırır. */
     var tabloEl = tablo.querySelector('table');
-    if (tabloEl) tabloEl.style.minWidth = '1180px';   /* Tarih · Saat kolonu eklendi */
+    if (tabloEl) tabloEl.style.minWidth = '1020px';   /* Kaynak kolonu kalkınca 160px daraldı */
 
     /* Stok Durumu'ndaki panel diliyle (kullanıcı isteği, 24.08.2026):
        dolgusuz panel — tablo kenara oturur, panel daha derli durur. */
@@ -247,7 +246,7 @@
       return x !== y ? x - y : (a.Id || 0) - (b.Id || 0);
     });
 
-    var liste = [], toplam = { basi: 0, giren: 0, cikan: 0, sonu: 0 };
+    var liste = [], toplam = { devir: 0, basi: 0, giren: 0, cikan: 0, sonu: 0 };
     for (i = 0; i < silolar.length; i++) {
       var s = silolar[i];
       o = toplamlar[s.Id] || { giren: 0, cikan: 0 };
@@ -257,7 +256,12 @@
          silo toplamından kopuyordu (ölçüldü: 240 ton fark). */
       if (s.Aktif === false && !o.giren && !o.cikan && !basi) continue;
       var sonu = YU.yuvarla(basi + o.giren - o.cikan);
-      liste.push({ silo: s, basi: basi, giren: o.giren, cikan: o.cikan, sonu: sonu });
+      /* Kampanya devri: o güne geçerli EN SON devir kaydı (Şartname §5).
+         Devri olmayan silo 0 döner — "—" ile yazılır. */
+      var devirK = YU.stok.enSonDevir(depo, 'Silo', s.Id, tarih);
+      var devirM = devirK ? say(devirK.Miktar) : 0;
+      liste.push({ silo: s, devir: devirM, basi: basi, giren: o.giren, cikan: o.cikan, sonu: sonu });
+      toplam.devir = YU.yuvarla(toplam.devir + devirM);
       toplam.basi = YU.yuvarla(toplam.basi + basi);
       toplam.giren = YU.yuvarla(toplam.giren + o.giren);
       toplam.cikan = YU.yuvarla(toplam.cikan + o.cikan);
@@ -281,6 +285,7 @@
           sinif: 'yu-guclu', stil: { whiteSpace: 'nowrap' },
           metin: r.silo.Ad + (r.silo.Aktif === false ? ' (pasif)' : '')
         }),
+        r.devir ? YU.fmt.kg(r.devir) : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
         YU.fmt.kg(r.basi),
         yonluHucre(r.giren, 'giren'),
         yonluHucre(r.cikan, 'cikan'),
@@ -290,6 +295,7 @@
     if (satirlar.length > 1) {
       satirlar.push({ toplam: true, hucreler: [
         YU.h('span', { sinif: 'yu-guclu', metin: 'TOPLAM' }),
+        YU.h('span', { sinif: 'yu-mono yu-guclu', metin: YU.fmt.kg(siloOzet.toplam.devir) }),
         YU.h('span', { sinif: 'yu-mono yu-guclu', metin: YU.fmt.kg(siloOzet.toplam.basi) }),
         yonluHucre(siloOzet.toplam.giren, 'giren'),
         yonluHucre(siloOzet.toplam.cikan, 'cikan'),
@@ -300,6 +306,10 @@
     var tablo = YU.ui.tablo({
       sutunlar: [
         { baslik: 'Silo' },
+        /* DEVİR en solda (kullanıcı isteği, 28.08.2026) — sayısal kolonların
+           ilki, Ana Sayfa'daki "Silo Bazında Stok" tablosuyla aynı sıra:
+           Silo · Devir · Gün Başı · … */
+        { baslik: 'Devir', hiza: 'sag', mono: true, genislik: 140 },
         { baslik: 'Gün Başı', hiza: 'sag', mono: true, genislik: 140 },
         { baslik: 'Giren', hiza: 'sag', mono: true, genislik: 130 },
         { baslik: 'Çıkan', hiza: 'sag', mono: true, genislik: 130 },
@@ -378,8 +388,7 @@
      Günün İşlem Geçmişi — adım adım denetim izi (kullanıcı isteği,
      21.08.2026): bu günün verisine dokunan HER işlem kronolojik sırayla,
      kim / saat kaçta / neyi hangi değerden hangi değere çevirdi.
-     Kaynak: DegisiklikLog (Şartname §6 v2). Örnek verinin çoğu gününde
-     boştur — tohumlama denetim izi bırakmaz; gerçek kullanımda dolar.
+     Kaynak: DegisiklikLog (Şartname §6 v2). Veri girilmemiş günde boştur.
      ------------------------------------------------------------------ */
 
   /* Değerler tablolardaki gibi kalın/mono vurgulanır (kullanıcı isteği,
@@ -422,8 +431,27 @@
        değişikliğin yapıldığı güne düşer. */
     var devirDokunusu = typeof YU.gunDevirLogSayisi === 'function'
       ? YU.gunDevirLogSayisi(depo, tarih) : 0;
+    /* SİLİNMİŞ KAYIT DA O GÜNÜN İZİDİR (kullanıcı isteği, 28.08.2026:
+       "23'ündeki veri ekleme çıkarması yapıldı, buraya da koy"). Gün
+       silindiğinde ya da düzeltmede hareket silindiğinde canlı tablolar
+       boşalıyor, sayfa "kayıt yok" deyip çıkıyordu — oysa alttaki hareket
+       paneli o çizili "Silindi" satırlarını zaten çizebiliyor ve satırın
+       künyesi işlemi KİMİN, HANGİ GÜN yaptığını söylüyor (silme 28.08'de
+       yapıldıysa satırda 28.08 yazar).
+
+       Yalnız YÖNETİCİ için sayılır: silinmiş kayıt panelde de yalnız ona
+       çiziliyor (Şartname §7). Operatörde sayılsaydı sayfa açılır ama panel
+       boş kalırdı. */
+    var silinmisSayisi = 0;
+    if (YU.yonetici()) {
+      var sk = depo.silinenKayitlar || [];
+      for (var si = 0; si < sk.length; si++) {
+        if ((sk[si].Tablo === 'SiloHareket' || sk[si].Tablo === 'GunlukHareket') &&
+            sk[si].Kayit && sk[si].Kayit.Tarih === tarih) silinmisSayisi++;
+      }
+    }
     var bosGun = !ozet.kuruKuspe && !ozet.malzemeSatirlari.length &&
-      !ozet.siloHareketleri.length && !devirDokunusu;
+      !ozet.siloHareketleri.length && !devirDokunusu && !silinmisSayisi;
     if (bosGun) {
       kap.appendChild(YU.ui.bosDurum({
         ikon: '#ic-calendar',
@@ -454,15 +482,31 @@
        tablodan zaten görülüyor, üst şeritteki eylem düğmeleri arasında da
        "Kuru Küspe Girişi" duruyor (KURAL 11). */
 
-    /* Kayıt Bilgisi EN TEPEDE (kullanıcı isteği, 24.08.2026): güne kimin
-       dokunduğu ilk bakışta görünsün. */
-    /* SİLO GÜNLÜK DEĞİŞİMİ EN ÜSTTE (kullanıcı isteği, 28.08.2026:
-       "en üste koy"): 24.08'de Kayıt Bilgisi en tepedeydi, artık silo
-       özeti onun da üstünde — günün stok tablosu ilk bakışta okunur. */
-    var siloOzet = siloGunlukOzet(depo, ozet, tarih);
-    kap.appendChild(siloDegisimPaneli(siloOzet));
-    kap.appendChild(kayitPaneli(depo, ozet));
-    kap.appendChild(malzemePaneli(depo, ozet, tarih, siloOzet));
+    /* PANEL SIRASI — üç kez değişti, geçerli olan sonuncusudur:
+         24.08.2026  Kayıt Bilgisi en tepede ("güne kimin dokunduğu ilk
+                     bakışta görünsün")
+         28.08.2026  Silo Günlük Değişimi onun da üstüne alındı ("en üste koy")
+         01.09.2026  Kayıt Bilgisi yeniden EN TEPEYE alındı (kullanıcı isteği:
+                     "bu sayfadaki kayıt bilgisi panelini sayfanın en üstüne
+                     al"). Silo Günlük Değişimi hemen altında kalır.
+       Panellerin İÇERİĞİ değişmedi; yalnız sıra değişti. */
+    /* KAYIT BİLGİSİ paneli de EKRANDAN KALDIRILDI (kullanıcı isteği,
+       01.09.2026, aynı gün içinde: önce en üste alınmıştı, sonra
+       "bu kayıt bilgisi kısmını da kaldır"). kayitPaneli fonksiyonu YEDEK
+       duruyor; geri istenirse aşağıdaki satırın yorumu kaldırılır.
+       Kim ne zaman dokunmuş bilgisi gün panelindeki Kaydeden kolonunda
+       satır satır duruyor — bilgi kaybolmadı. */
+    /* kap.appendChild(kayitPaneli(depo, ozet)); */
+    /* SİLO GÜNLÜK DEĞİŞİMİ ve MALZEME GÜNLÜK DEĞİŞİMİ panelleri EKRANDAN
+       KALDIRILDI (kullanıcı isteği, 01.09.2026: "en üstteki silo günlük
+       değişim ve malzeme günlük değişim tablolarını kaldır"). Aynı gün
+       aşağıdaki gün panelinde silo ve malzeme değişimleri kendi bölümlerine
+       ayrıldı; iki tablo aynı şeyi iki kez anlatıyordu.
+       siloGunlukOzet, siloDegisimPaneli ve malzemePaneli fonksiyonları YEDEK
+       duruyor — geri istenirse aşağıdaki üç satırın yorumu kaldırılır. */
+    /* var siloOzet = siloGunlukOzet(depo, ozet, tarih); */
+    /* kap.appendChild(siloDegisimPaneli(siloOzet)); */
+    /* kap.appendChild(malzemePaneli(depo, ozet, tarih, siloOzet)); */
     /* Silo Hareketleri + İşlem Geçmişi panelleri, Tüm Hareketler'deki gün
        paneliyle DEĞİŞTİRİLDİ (kullanıcı isteği, 24.08.2026): tek tabloda
        silo + malzeme hareketleri, "Değiştirildi" rozetleri ve — yalnız

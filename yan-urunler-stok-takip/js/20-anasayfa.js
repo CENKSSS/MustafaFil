@@ -246,7 +246,7 @@
     });
     var grafikGovde = g.govde, notEl = g.notEl;
 
-    return YU.ui.panel({
+    var grafikPanel = YU.ui.panel({
       baslik: 'Dökme Üretim – Dökme Satış',
       ikon: '#ic-chart',
       sag: son.length
@@ -256,6 +256,10 @@
         : null,
       govde: grafikGovde
     });
+    /* yu-grafik-kucult: panel %8 küçülür (kullanıcı isteği, 01.09.2026).
+       Ölçü css/tema.css içindeki aynı adlı blokta. */
+    grafikPanel.className += ' yu-grafik-kucult';
+    return grafikPanel;
   }
 
   /* ==================================================================
@@ -344,9 +348,9 @@
       });
     }
 
-    /* Tohum verisi denetim izi bırakmaz (04-servis: tohumlamada log kapalı);
-       liste boş kalmasın diye kayıtlı günlerden tamamlanır. Bildirim modunda
-       tamamlanmaz: temizlenen liste yeniden dolmasın. */
+    /* Denetim izi olmayan günler için liste kayıtlı günlerden tamamlanır
+       (eski veride ya da izin tavana takılıp düştüğü günlerde boş kalmasın).
+       Bildirim modunda tamamlanmaz: temizlenen liste yeniden dolmasın. */
     if (minLogId) return liste;
     for (i = 0; i < o.tumGunler.length && liste.length < toplamUst; i++) {
       /* Gün süzgeci tamamlama satırlarını da bağlar: "Bugünkü Hareketler"
@@ -385,14 +389,6 @@
      ------------------------------------------------------------------ */
   var SILO_GORSELI = true;
 
-  /* Silo Durumu kartındaki "Kalan kapasite" notunun aynısı (24-silo-durumu). */
-  function kalanKapasiteNotu(mevcut, kapasite, oran) {
-    if (kapasite <= 0) return 'Kapasite tanımlı değil';
-    if (oran > 1) return 'Kapasite ' + YU.fmt.kgU(YU.yuvarla(mevcut - kapasite)) + ' aşıldı';
-    var kalan = YU.fmt.kgU(YU.yuvarla(kapasite - mevcut));
-    return oran > 0.9 ? 'Kalan kapasite ' + kalan + ' · D15 eşiğine yaklaşıldı' : 'Kalan kapasite ' + kalan;
-  }
-
   /* Bir silonun en son giriş (ya da çıkış) gördüğü gün ve o günün toplamı.
      Aynı gün birden çok kayıt olabilir (çuvallama çekişi + satış çekişi);
      gün toplamı alınır. Hiç yoksa null. */
@@ -428,20 +424,21 @@
 
     /* Silo Durumu ekranındaki kart düzeni (kullanıcı isteği, 21.08.2026) —
        oradan farkı: "mevcut · … ton" ve "Kapasite … kg · … ton" satırları YOK;
-       kapasiteyi yalnız "Kalan kapasite" satırı anlatır. Devir tarihi de
-       oradaki gibi en son devirden okunur. */
-    var devir = SILO_GORSELI
-      ? YU.stok.enSonDevir(YU.db, 'Silo', s.silo.Id, YU.donem.gorunumSonu()) : null;
+       kapasiteyi yalnız "Kalan kapasite" satırı anlatır.
+       Devir tarihi sorgusu (enSonDevir) 28.08.2026'da KALDIRILDI: kartta
+       tarih satırı kalmadığı için sonucu kullanılmıyordu; her silo kartı
+       için boşuna devir taraması yapıyordu. Tarih, Silo Bazında Stok
+       tablosunun kendi kolonundan gelir. */
 
     /* Eski düz görünüm (SILO_GORSELI=false): değer + çubuk + kapasite satırı. */
     var govde = SILO_GORSELI
-      ? YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '14px' } },
+      ? YU.h('div', { stil: { display: 'flex', alignItems: 'center', gap: '11px' } },
           /* Huni (konik alt) kaldırıldı (kullanıcı isteği, 25.08.2026):
              düz tabanlı silindir biçimine dönüldü — Silo Durumu ile aynı.
              Geri istenirse üçüncü argüman yine true yapılır. */
           YU.ui.siloSekli(oran, tur),
           YU.h('div', {
-            stil: { display: 'flex', flexDirection: 'column', gap: '10px', flex: '1', minWidth: '0' }
+            stil: { display: 'flex', flexDirection: 'column', gap: '8px', flex: '1', minWidth: '0' }
           },
             YU.h('div', null,
               /* Mevcut / kapasite göstergesi (kullanıcı isteği — kaldırılmayacak). */
@@ -450,12 +447,23 @@
                 birimEki('/ ' + YU.fmt.kg(s.kapasite) + ' kg')
               ]),
               /* Yatay doluluk çubuğu (kullanıcı isteği — kaldırılmayacak). */
-              YU.h('div', { stil: { margin: '8px 0 6px' } }, YU.ui.cubuk(oran, tur)),
-              YU.h('div', { sinif: 'yu-kpi-alt', metin: kalanKapasiteNotu(s.mevcut, s.kapasite, oran) })
+              /* "Kalan kapasite …" satiri KALDIRILDI (kullanici istegi,
+                 01.09.2026). Ayni bilgi bir ust satirdaki "mevcut / kapasite"
+                 gostergesinde ve doluluk cubugunda zaten okunuyor. Silo Durumu
+                 ekranindaki ayni satira DOKUNULMADI (24-silo-durumu). */
+              YU.h('div', { stil: { margin: '6px 0 0' } }, YU.ui.cubuk(oran, tur))
             ),
             YU.h('hr', { sinif: 'yu-ayrac yu-yatay' }),
-            YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '8px' } },
-              siloSatiri(devir ? 'Devir · ' + YU.fmt.tarih(devir.DevirTarihi) : 'Devir', YU.fmt.kgU(s.devir)),
+            /* Satır arası 8 -> 5 px (kullanıcı isteği, 01.09.2026: "En Son
+               Çıkan yazısını biraz yukarıya al, En Son Giren'in altına daha
+               da yaklaştır"). Yazı ölçüleri ve satır yükseklikleri aynı;
+               kısalan yalnız aralarındaki boşluk. */
+            YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '5px' } },
+              /* Kartta yalnız DEVİR RAKAMI (kullanıcı isteği, 28.08.2026):
+                 tarih satırı "fazlalık" olduğu için kaldırıldı. Devir tarihi
+                 aynı sayfadaki Silo Bazında Stok tablosunda kendi kolonunda
+                 duruyor — bilgi kaybolmadı, tekrarı kalktı. */
+              siloSatiri('Devir', YU.fmt.kgU(s.devir)),
               /* Kampanya toplamı değil, EN SON hareket: o silonun en son giriş
                  aldığı günün toplam girişi ve en son çıkış yaptığı günün toplam
                  çıkışı, tarihiyle (kullanıcı isteği, 23.08.2026). */
@@ -476,7 +484,11 @@
     /* Silo kartı TIKLANMAZ (kullanıcı isteği, 24.08.2026): üstüne basınca
        Silo Durumu ekranının açılması istenmiyor. Kart yalnız göstergedir;
        Silo Durumu'na sol menüden gidilir. */
-    var kart = YU.h('div', { sinif: 'yu-kpi' },
+    /* yu-silo-kart: kartin CERCEVESI daraltilir (kullanici istegi,
+       01.09.2026: "sinirlari kucultulsun, az ama"). Yazi, ikon ve sayi
+       olculeri AYNEN kalir; kisalan yalniz dolgu ve bosluk. Olculer
+       css/tema.css icindeki ayni adli blokta. */
+    var kart = YU.h('div', { sinif: 'yu-kpi yu-silo-kart' },
       YU.h('div', { sinif: 'yu-kpi-bas' },
         YU.h('div', { sinif: 'yu-kpi-ikon' }, YU.svg('#ic-building', 15)),
         YU.h('div', { sinif: 'yu-kpi-etiket', metin: s.silo.Ad }),
@@ -577,7 +589,7 @@
       { no: '1', baslik: 'Devir Stok Tanımla', kod: 'devir-stok', yoneticiGerek: true,
         alt: 'Kampanya başı açılış stoğu — malzeme ve silo bazında.' },
       { no: '2', baslik: 'Kuru Küspe Gününü Gir', kod: 'kuru-kuspe',
-        alt: 'Üretilen dökme, çuval adedi, satılan dökme ve silo dağıtımı.' },
+        alt: 'Üretilen dökme, çuvallanan, satılan dökme ve silo dağıtımı.' },
       { no: '3', baslik: 'Malzeme Girişini Tamamla', kod: 'malzeme-girisi',
         alt: 'Yaş küspe, kuyruk, toprak ve çuvallı satış.' }
     ];
@@ -642,10 +654,11 @@
          başlığının ortasında durur, hane sayısı artsa da ortalı kalır. */
       /* birimli (28.08.2026): rakamın yanında "kg" yazar, Malzeme Bazında
          Stok tablosundaki dille aynı olur. */
-      ? YU.siloStokPaneli(null, { devirTarihiAyri: true, hizaOrta: true, birimli: true })
+      /* Bayraksız: Ana Sayfa düzeni 28.08.2026'dan beri VARSAYILAN. */
+      ? YU.siloStokPaneli()
       : null;
     var malzemePanel = typeof YU.malzemeStokPaneli === 'function'
-      ? YU.malzemeStokPaneli(null, { hizaOrta: true })   /* rakamlar kolon ortasında (28.08.2026) */
+      ? YU.malzemeStokPaneli()   /* bayraksız — varsayılan zaten bu düzen */
       : null;
 
     /* EYLEM ŞERİDİ — sayfa başlığının sağından ALINDI, grafik ile Silo Bazında

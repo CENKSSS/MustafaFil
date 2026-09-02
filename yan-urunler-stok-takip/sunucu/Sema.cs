@@ -241,7 +241,18 @@ public static class Sema
             new("Kampanya", KolonTipi.Metin, true),
             new("KullaniciId", KolonTipi.Tamsayi),
             new("Tarih", KolonTipi.Metin)
-        }, new[] { new[] { "Kampanya" } })
+        }, new[] { new[] { "Kampanya" } }),
+
+        // Kampanya başlıkları (kullanıcı kararı, 31.08.2026): kampanyanın adı
+        // tarihten türetilmez, kullanıcı yazar. DevirTarihi = kampanya başı.
+        new("kampanyaBasliklari", "KampanyaBasliklari", new Kolon[]
+        {
+            new("Id", KolonTipi.Tamsayi, true),
+            new("DevirTarihi", KolonTipi.Metin, true),
+            new("Baslik", KolonTipi.Metin, true),
+            new("KullaniciId", KolonTipi.Tamsayi),
+            new("Tarih", KolonTipi.Metin)
+        }, new[] { new[] { "DevirTarihi" } })
     };
 
     /// <summary>Yazma sırası — üst tablolar önce. defer_foreign_keys açık

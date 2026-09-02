@@ -94,15 +94,6 @@
     durum.tarih = l.length ? l[l.length - 1].tarih : YU.tarih.bugun();
   }
 
-  function tarihteKayitVar(tarih) {
-    var t, i;
-    for (t = 0; t < TIPLER.length; t++) {
-      var tablo = devirTablosu(TIPLER[t]);
-      for (i = 0; i < tablo.length; i++) if (tablo[i].DevirTarihi === tarih) return true;
-    }
-    return false;
-  }
-
   /* ------------------------------------------------------------------
      Önizleme — gerçek depo kirletilmeden hesaplanır
      ------------------------------------------------------------------ */
@@ -198,10 +189,12 @@
        basılana kadar hiçbir şey yazılmaz. */
     YU.ui.onay({
       baslik: 'Önceki Kampanyadan Devret',
-      metin: 'Kampanya ' + onceki.ad + ' kapanışındaki (' + YU.fmt.tarih(onceki.bit) +
-        ' gün sonu) stoklar aşağıdaki satırlara doldurulur; satırlarda yazılı ' +
-        'miktarların ÜZERİNE yazılır. Hiçbir şey hemen kaydedilmez — miktarları ' +
-        'kontrol edip Kaydet\'e basmanız gerekir. Devam edilsin mi?',
+      /* Metin kısaldı (kullanıcı isteği, 01.09.2026: "çok uzun yazmışsın,
+         sade yalın net bilgi ver"). Üç bilgi kaldı: nereden geliyor, ne
+         oluyor, kaydedilmiyor. "Satırları Doldur" düğmesi zaten ne
+         yapılacağını söylüyor (KURAL 9, KURAL 11). */
+      metin: onceki.ad + ' kapanışı (' + YU.fmt.tarih(onceki.bit) + ') satırlara ' +
+        'yazılır, eski miktarların üzerine geçer. Kaydet\'e basmadan hiçbir şey saklanmaz.',
       onayMetni: 'Satırları Doldur'
     }).then(function (ok) {
       if (!ok) return;
@@ -228,8 +221,12 @@
        Kampanya Yönetimi listesinden seçilir. */
     var kilitliAd = kilitliKampanya(tarih);
     var onceki = oncekiKampanya(tarih);
+    /* İkon KALDIRILDI ve yazı uzadı (kullanıcı isteği, 01.09.2026):
+       "solundaki ikonu da kaldır", "Önceki Kampanyadan Devretmek için
+       tıklayın yazısı olsun". Boş durum panelindeki aynı adlı düğme
+       (bosDurumPaneli) DEĞİŞMEDİ — orası ayrı bir ekran hâli. */
     var devretDugme = onceki ? YU.ui.dugme({
-      metin: 'Önceki Kampanyadan Devret', ikon: '#ic-wallet', tur: 'ikincil',
+      metin: 'Önceki Kampanyadan Devretmek İçin Tıklayın', tur: 'ikincil',
       baslik: kilitliAd
         ? kilitliAd + ' kampanyası kilitli — önce kilidi açın'
         : 'Kampanya ' + onceki.ad + ' kapanışını (' + YU.fmt.tarih(onceki.bit) + ') satırlara doldurur',
@@ -237,30 +234,25 @@
       onClick: function () { devret(onceki, false); }
     }) : null;
 
-    var ustSatir = YU.h('div', {
-      stil: { display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }
-    },
-      YU.h('div', {
-        sinif: 'yu-yardim',
-        stil: { flex: '1 1 auto', minWidth: '0', margin: '0' },
-        metin: 'Kampanya seçimi üstteki Kampanya Yönetimi listesinden yapılır.'
-      }),
-      devretDugme
-    );
+    /* İKİ YÖNLENDİRME CÜMLESİ KALDIRILDI (kullanıcı isteği, 31.08.2026 ·
+       KURAL 11): "Kampanya seçimi üstteki Kampanya Yönetimi listesinden
+       yapılır." ve "… tarihinde devir kaydı yok; girilen satırlar yeni
+       kampanya devri olarak açılır." Kampanya seçimi zaten üstteki listede
+       görünüyor; yeni kampanya kurulurken de "Yeni Kampanya Kaydedilmeyi
+       Bekliyor" şeridi aynı şeyi tam olarak söylüyor.
+       Şerit yalnız devret düğmesi için durur; düğme yoksa hiç çizilmez. */
+    if (!devretDugme) return null;
 
-    var yardim = tarihteKayitVar(tarih) ? null : YU.h('div', {
-      sinif: 'yu-yardim',
-      metin: tarih
-        ? YU.fmt.tarih(tarih) + ' tarihinde devir kaydı yok; girilen satırlar yeni kampanya devri olarak açılır.'
-        : 'Devir tarihi seçilmedi.'
-    });
-
-    return YU.h('div', {
-      stil: {
-        display: 'flex', flexDirection: 'column', gap: '10px',
-        padding: '16px 18px', borderBottom: '1px solid var(--ayrac)'
-      }
-    }, ustSatir, yardim);
+    /* Şerit daraldı: 35 px'lik düğme için 68 px yer kaplıyordu, dikey dolgu
+       16 -> 7 px ile 50 px'e indi (kullanıcı isteği, 01.09.2026:
+       "üst ve alt kenarlarını daralt, çok alan tanınmış").
+       AYRI ŞERİT KALKTI (kullanıcı isteği, 01.09.2026 — son adım: "Silo
+       Devirleri ile aynı satırda olsun"). Düğme kendi bandında duruyordu;
+       çizgisi kaldırıldı, payları 16 px'ten sıfıra kadar kısıldı, sonunda
+       band büsbütün gereksizleşti. Artık "Silo Devirleri" başlık satırının
+       sağ ucunda oturuyor — arada boşluk kalmadı, panel de bir satır kısaldı.
+       Bu işlev artık SARMALAYICI DEĞİL, düğmenin kendisini döndürür. */
+    return devretDugme;
   }
 
   /* Kampanya adı kabuğun dönem listesinden okunur; adlandırma kuralı orada
@@ -301,15 +293,6 @@
       }
     }
     return en || dn.bas;
-  }
-
-  function kampanyayaGec(dn) {
-    durum.tarih = donemDevirTarihi(dn);
-    durum.acikKal = false;
-    /* Kampanya seçimi kabuğa da taşınır: geçmiş kampanyada kabuk kendi
-       "Geçmiş Kampanyaya Bakıyorsunuz" şeridini açar. ayarla() sayfayı
-       yeniden çizer. */
-    YU.donem.ayarla(dn.ad);
   }
 
   /* ------------------------------------------------------------------
@@ -402,13 +385,11 @@
         alanlar.push(alanKaydi);
         bolumAlanlari.push(alanKaydi);
 
+        /* "Mevcut: … kg" satırı KALDIRILDI (kullanıcı isteği, 31.08.2026):
+           "devir zaten başlangıç mevcudu demek". Hücrede yalnız ad kalır. */
         var adHucre = YU.h('div', null,
           YU.h('div', { sinif: 'yu-guclu', metin: sahip.Ad },
-            sahip.Aktif === false ? YU.h('span', { stil: { marginLeft: '8px' } }, YU.ui.rozet('Pasif', 'notr')) : null),
-          YU.h('div', {
-            sinif: 'yu-yardim',
-            metin: 'Mevcut: ' + YU.fmt.kgU(mevcutlarOnbellek[tip][sahip.Id] === undefined ? 0 : mevcutlarOnbellek[tip][sahip.Id])
-          })
+            sahip.Aktif === false ? YU.h('span', { stil: { marginLeft: '8px' } }, YU.ui.rozet('Pasif', 'notr')) : null)
         );
 
         /* SON DOKUNUŞ gösterilir (kullanıcı bildirimi, 25.08.2026): devir
@@ -456,9 +437,15 @@
           ? YU.h('div', null,
               YU.h('div', { stil: { whiteSpace: 'nowrap' }, metin: YU.fmt.tarih(kayit.DevirTarihi) }),
               sonDevirSatiri)
+          /* "Kayıt yok — girilirse yeni satır açılır" cümlesi KALDIRILDI
+             (kullanıcı isteği, 31.08.2026): hücrede yalnız tarih durur.
+             Aynı bilgiyi bir sağdaki "KAYITLI DEVİR (KG)" sütunu zaten
+             "devir yok" diye söylüyordu (KURAL 8 · KURAL 11). Cümle iki
+             satıra sarıyor ve satırı 18 px uzatıyordu.
+             "son devir: …" satırı DURUYOR — o bir tarih, yönlendirme değil. */
           : YU.h('div', null,
               YU.h('div', { stil: { whiteSpace: 'nowrap' }, metin: tarih ? YU.fmt.tarih(tarih) : '—' }),
-              sonDevirSatiri || YU.h('div', { sinif: 'yu-yardim', metin: 'Kayıt yok — girilirse yeni satır açılır' })
+              sonDevirSatiri
             );
 
         /* Sayısal hücre tek satırda kalır (KURAL 10.1). */
@@ -566,11 +553,17 @@
       sik: false,
       /* Başlık şeridi vurgulu varyant (27.08.2026) — bkz. tema.css. */
       sinif: 'yu-tablo-baslik-guclu',
+      /* Devir Tarihi ORTALI (kullanıcı isteği, 01.09.2026: "devir tarihi
+         kısmına da aynısını yap") — Kampanya Yönetimi'ndeki Kayıtlı Gün /
+         Durum kolonlarıyla ve Ana Sayfa tablosuyla aynı yapı.
+         Son Dokunuş kolonuna yu-devir-son-kolon: sol dolgusu artar, böylece
+         "Kayıtlı Devir (Kg)" ile arasındaki 32 px'lik dar aralık açılır
+         (ölçüldü; ölçü css/tema.css içindeki aynı adlı kuralda). */
       sutunlar: [
         { baslik: siloMu(tip) ? 'Silo' : 'Malzeme' },
-        { baslik: 'Devir Tarihi', genislik: 170 },
+        { baslik: 'Devir Tarihi', genislik: 170, hiza: 'orta' },
         { baslik: 'Kayıtlı Devir (Kg)', hiza: 'sag', genislik: 280 },
-        { baslik: 'Son Dokunuş', genislik: 240 }
+        { baslik: 'Son Dokunuş', genislik: 240, sinif: 'yu-devir-son-kolon' }
       ],
       dolgu: '8px 16px',
       satirlar: satirlar,
@@ -583,19 +576,33 @@
     return tablo;
   }
 
-  /* mevcutlarOnbellek: iki bölüm de "Mevcut: …" yazdığı için stok haritaları
-     çizim başında bir kez hesaplanır. */
-  var mevcutlarOnbellek = { Silo: {}, Malzeme: {} };
-
-  function bolumBasligi(tip) {
+  /* ayracli: baslik kendi ust cizgisini tasir — bir onceki bolumden ayrilir.
+     ONCEDEN AYRI BIR ARA BLOK VARDI ve kullanici "garip bosluk, kotu
+     gozukuyor" dedi (01.09.2026). Sebebi olculdu: silo tablosunun alti ile
+     "Malzeme Devirleri" yazisi arasi 63 px'ti ve aradaki cizgi var(--ayrac)
+     ile (%10 saydam) ciziliyordu — pratikte gorunmuyordu, geriye bos bir
+     bant kaliyordu. Cizgi artik basligin kendi ust kenarligidir, rengi
+     var(--kenar-3) ve ara 32 px. */
+  /* sag: başlık satırının SAĞ ucuna oturan öge (kullanıcı isteği,
+     01.09.2026: "Silo Devirleri ile aynı satırda olsun"). "Önceki
+     Kampanyadan Devretmek İçin Tıklayın" düğmesi buraya gelir; eskiden
+     başlığın üstünde ayrı bir band vardı.
+     Dikey pay 16 -> 8 px: satır artık 35 px'lik düğmeyi taşıyor, eski payla
+     birlikte şişerdi. Başlık yazısı ve ikon aynı ölçüde. */
+  function bolumBasligi(tip, ayracli, sag) {
     return YU.h('div', {
       stil: {
         display: 'flex', alignItems: 'center', gap: '9px',
-        padding: '16px 18px 10px', font: '600 16px/1.2 var(--font)', color: 'var(--metin)'
+        padding: (ayracli ? '18px' : '8px') + ' 18px 2px',
+        borderTop: ayracli ? '1px solid var(--kenar-3)' : null,
+        font: '600 16px/1.2 var(--font)', color: 'var(--metin)'
       }
     },
       YU.h('span', { stil: { display: 'flex', color: 'var(--vurgu)' } }, YU.svg(siloMu(tip) ? '#ic-building' : '#ic-chart', 17)),
-      YU.h('span', { metin: bolumAdi(tip) })
+      YU.h('span', { metin: bolumAdi(tip) }),
+      /* Esneyen boşluk: sağdaki öge panelin sağ kenarına yaslanır. */
+      sag ? YU.h('div', { stil: { flex: '1', minWidth: '8px' } }) : null,
+      sag || null
     );
   }
 
@@ -603,8 +610,6 @@
     var tarih = seciliTarih();
     var kilitliAd = kilitliKampanya(tarih);
     var alanlar = [];
-
-    mevcutlarOnbellek = { Silo: mevcutHaritasi(YU.db, 'Silo'), Malzeme: mevcutHaritasi(YU.db, 'Malzeme') };
 
     var sayacMetin = YU.h('div', { stil: { font: '500 14px/1.3 var(--font)', color: 'var(--metin-2)' } });
     var kaydetDugmesi = YU.ui.dugme({
@@ -655,6 +660,14 @@
 
     var siloTablo = bolumTablosu('Silo', tarih, kilitliAd, alanlar, canliTazele);
     var malzemeTablo = bolumTablosu('Malzeme', tarih, kilitliAd, alanlar, canliTazele);
+    /* Başlık ile kolon adları arası kısıldı (kullanıcı isteği, 01.09.2026:
+       "Silo Devirleri ile altındaki Silo / Devir Tarihi / Kayıtlı Devir (Kg)
+       / Son Dokunuş yazısı arasındaki boşluğu azalt").
+       ÖLÇÜLDÜ: 30,6 px. İkisi birden kısıldı — başlığın alt payı 10 -> 2 px
+       (bolumBasligi) ve panel gövdesinin 13 px'lik kendi aralığı burada
+       kısmen geri alındı. Sonuç 15,6 px. Tablo ölçüleri değişmez. */
+    siloTablo.style.marginTop = '-7px';
+    malzemeTablo.style.marginTop = '-7px';
 
     /* Devretten / yeni kampanyadan gelen doldurma: alanlar kurulduktan sonra
        bir kez yazılır ve alanlar AÇIK bırakılır. */
@@ -685,6 +698,12 @@
 
     canliTazele();
 
+    /* Devret düğmesi "Silo Devirleri" başlık satırının sağına gider;
+       kilit ve yeni kampanya şeritleri gövdede kendi satırlarında durur. */
+    var devretDugmesi = tarihBlogu();
+    var kilitSerit = kilitSeridi(kilitliAd);
+    var yeniSerit = yeniKampanyaSeridi();
+
     return YU.ui.panel({
       baslik: 'Kampanya Devirleri',
       ikon: '#ic-wallet',
@@ -693,16 +712,13 @@
          cümlesi kaldırıldı (kullanıcı isteği, 26.08.2026 · KURAL 11):
          sayı tablodan, tarih ise hemen altındaki tarih bloğundan okunuyor. */
       govde: [
-        tarihBlogu(),
-        kilitSeridi(kilitliAd),
-        yeniKampanyaSeridi(),
-        bolumBasligi('Silo'),
+        kilitSerit,
+        yeniSerit,
+        bolumBasligi('Silo', false, devretDugmesi),
         siloTablo,
-        /* İki bölüm arasında nefes payı + SİLİK AYRAÇ (KURAL 10.2): boşluk tek
-           başına iki bölümü ayırmıyordu. */
-        YU.h('div', { stil: { padding: '20px 18px 0' } },
-          YU.h('hr', { sinif: 'yu-ayrac yu-yatay', stil: { margin: '0' } })),
-        bolumBasligi('Malzeme'),
+        /* Ayri ara blok KALDIRILDI (01.09.2026): cizgi artik "Malzeme
+           Devirleri" basliginin ust kenarligi. Bkz. bolumBasligi. */
+        bolumBasligi('Malzeme', true),
         malzemeTablo,
         altSatir
       ]
@@ -884,6 +900,27 @@
 
   function degisiklikleriYaz(tarih, degisiklikler) {
     var hatalar = [], uyarilar = [], basarili = 0, i, d, s, kilitGoruldu = false;
+
+    /* KAMPANYA BAŞLIĞI ÖNCE YAZILIR (kullanıcı isteği, 31.08.2026): başlık
+       kaydı bu tarihi yeni kampanyanın başı yapar; önceki kampanya kilitli
+       olsa bile ilk devir satırları kilide takılmaz. Başlık yazılamazsa
+       devir satırlarına hiç girilmez. */
+    var yk = durum.yeniKampanya;
+    var baslikYazildi = false;
+    if (yk && yk.baslik) {
+      var b = YU.servis.kampanyaBasligiKaydet(YU.db, { tarih: tarih, baslik: yk.baslik }, YU.oturum.kullanici);
+      if (!b.ok) {
+        YU.ui.modal({
+          baslik: 'Kampanya oluşturulamadı',
+          genislik: 600,
+          govde: [YU.ui.hataListesi({ hatalar: b.hatalar, uyarilar: b.uyarilar })],
+          dugmeler: [{ metin: 'Kapat', tur: 'ikincil' }]
+        });
+        return;
+      }
+      baslikYazildi = true;
+    }
+
     for (i = 0; i < degisiklikler.length; i++) {
       d = degisiklikler[i];
       s = siloMu(d.tip)
@@ -894,7 +931,12 @@
       else hatalar = hatalar.concat(etiketle(d.sahip.Ad, s.hatalar));
       uyarilar = uyarilar.concat(etiketle(d.sahip.Ad, s.uyarilar));
     }
-    if (kilitGoruldu) { cikisEngeli(false); YU.yenile(); return; }
+    /* Tek satır bile yazılamadıysa başlık geri alınır: devirsiz bir kampanya
+       listede durmaz. */
+    if (baslikYazildi && !basarili) {
+      YU.servis.kampanyaBasligiKaydet(YU.db, { tarih: tarih, baslik: '' }, YU.oturum.kullanici);
+    }
+    if (kilitGoruldu) { cikisEngeli(false); YU.donem.tazele(); YU.yenile(); return; }
 
     /* Önceki kampanyanın kilidi YALNIZ kayıt gerçekten yazıldıysa atılır. */
     var y = durum.yeniKampanya;
@@ -960,9 +1002,24 @@
      Gövde ve sayfa
      ------------------------------------------------------------------ */
 
-  /* Hiç devir yokken "0 kg" dolu tablo yerine yönlendiren boş durum. */
+  /* Ortada bir kampanya var mı? Kampanya, devir tarihlerinden ve başlık
+     kayıtlarından türer (04-servis · kampanyaBaslari). */
+  function kampanyaVarMi() {
+    return YU.donem.liste().length > 0;
+  }
+
+  /* Hiç devir yokken "0 kg" dolu tablo yerine yönlendiren boş durum.
+
+     KAMPANYASIZ DEVİR GİRİŞİ KAPATILDI (kullanıcı isteği, 02.09.2026:
+     "kampanya oluşturulmadan direkt elle oluşturma kısmı aktif, böyle
+     olmaması lazım"). Eskiden "Elle Gir" düğmesi kampanya hiç yokken de
+     devir tablosunu açıyordu; kaydedilen devrin kampanya BAŞLIĞI olmuyor,
+     adı sonradan tarihten uyduruluyordu (2026/2027). Artık ilk adım
+     kampanyayı adıyla kurmaktır — devir satırları o akışın içinde gelir.
+     Kampanya zaten varsa "Elle Gir" eskisi gibi durur. */
   function bosDurumPaneli() {
     var onceki = oncekiKampanya(null);
+    var kampanyaVar = kampanyaVarMi();
     var eylemler = [];
     if (onceki) {
       eylemler.push(YU.ui.dugme({
@@ -971,10 +1028,17 @@
         onClick: function () { devret(onceki, true); }
       }));
     }
-    eylemler.push(YU.ui.dugme({
-      metin: 'Elle Gir', ikon: '#ic-pencil', tur: onceki ? 'ikincil' : 'birincil',
-      onClick: function () { durum.elle = true; govdeyiCiz(); }
-    }));
+    if (kampanyaVar) {
+      eylemler.push(YU.ui.dugme({
+        metin: 'Elle Gir', ikon: '#ic-pencil', tur: onceki ? 'ikincil' : 'birincil',
+        onClick: function () { durum.elle = true; govdeyiCiz(); }
+      }));
+    } else {
+      eylemler.push(YU.ui.dugme({
+        metin: 'Yeni Kampanya Oluştur', ikon: '#ic-plus', tur: 'birincil',
+        onClick: yeniKampanyaModali
+      }));
+    }
 
     return YU.ui.panel({
       baslik: 'Kampanya Devirleri',
@@ -982,11 +1046,13 @@
       dolgusuz: true,
       govde: YU.ui.bosDurum({
         ikon: '#ic-wallet',
-        baslik: 'İlk Kampanya Devrini Oluşturun',
-        metin: 'Henüz devir kaydı yok. Devir, kampanya başındaki açılış stoğudur. ' +
-          (onceki
-            ? 'Önceki kampanyanın (' + onceki.ad + ') kapanış stoklarını tek tuşla devredebilir ya da elle girebilirsiniz.'
-            : 'Miktarları elle girebilirsiniz.'),
+        baslik: kampanyaVar ? 'İlk Kampanya Devrini Oluşturun' : 'Önce Kampanya Oluşturun',
+        metin: kampanyaVar
+          ? ('Henüz devir kaydı yok. Devir, kampanya başındaki açılış stoğudur. ' +
+             (onceki
+               ? 'Önceki kampanyanın (' + onceki.ad + ') kapanış stoklarını tek tuşla devredebilir ya da elle girebilirsiniz.'
+               : 'Miktarları elle girebilirsiniz.'))
+          : 'Devir, kampanya başındaki açılış stoğudur. Kampanyayı adı ve başlangıç tarihiyle kurun; devir satırları aynı adımda açılır.',
         eylemler: eylemler
       })
     });
@@ -1117,20 +1183,31 @@
     });
     var tarihNotu = YU.h('span', { sinif: 'yu-yardim', stil: { margin: '0 0 9px' } });
 
+    /* KAMPANYA BAŞLIĞI (kullanıcı isteği, 31.08.2026): kampanyanın adı artık
+       tarihten türetilmiyor, buraya yazılıyor. Kullanıcı elle yazana kadar
+       tarihten önerilen ad alanda durur ve tarih değişince tazelenir. */
+    var baslikElle = false;
+    var baslikAlan = YU.ui.alan({
+      etiket: 'Kampanya Başlığı', tip: 'metin', genislik: 260,
+      yerTutucu: 'Örn. 2026 Yaz Kampanyası',
+      onInput: function () { baslikElle = true; baslikAlan.hataGoster(''); }
+    });
+    baslikAlan.girdi.maxLength = 40;
+
     var tarihSatiri = YU.h('div', {
       stil: {
-        display: 'flex', alignItems: 'flex-end', gap: '12px',
+        display: 'flex', alignItems: 'flex-end', gap: '12px', flexWrap: 'wrap',
         padding: '14px 18px', border: '1px solid var(--kenar)',
         borderRadius: 'var(--r-l)', background: 'var(--vurgu-zemin)'
       }
     },
       YU.h('span', { stil: { display: 'flex', color: 'var(--vurgu)', flex: 'none', margin: '0 0 9px' } }, YU.svg('#ic-calendar', 18)),
       tarihAlan.kok,
-      tarihNotu
+      tarihNotu,
+      baslikAlan.kok
     );
 
     var girisMetni = YU.h('div', { stil: { font: '400 15px/1.6 var(--font)', color: 'var(--metin-2)' } });
-    var cakismaKap = YU.h('div', { stil: { display: 'none' } });
 
     var devretAciklama = YU.h('div', { sinif: 'yu-yardim', stil: { margin: '0' } });
     var devretSecim = evetHayirSecim(true, tazele);
@@ -1155,53 +1232,60 @@
       return o;
     }
 
-    /* Aynı sezona ikinci kampanya açılamaz: sezon adı servisin kuralından
-       okunur (YU.servis.kampanyaAdi), kural burada tekrar yazılmaz. */
-    function cakisanBul(tarih) {
-      var ad = YU.servis.kampanyaAdi ? YU.servis.kampanyaAdi(tarih) : null;
-      for (var i = 0; i < liste.length; i++) if (liste[i].ad === ad) return liste[i];
+    /* AYNI SEZON ENGELİ KALDIRILDI (kullanıcı kararı, 31.08.2026): kampanyalar
+       yılbaşında değil yazın açılıyor, aynı yıl içinde ikinci kampanya
+       açılabilir. Ad çakışması artık sezonda değil BAŞLIKTA aranır. */
+    function baslikVarMi(baslik) {
+      var k = String(baslik || '').toLowerCase();
+      for (var i = 0; i < liste.length; i++) if (String(liste[i].ad).toLowerCase() === k) return liste[i];
       return null;
+    }
+
+    /* O tarihte zaten bir kampanya başlıyorsa yenisi kurulmaz; devirler
+       tablodaki kalem düğmesiyle düzeltilir. */
+    function ayniGunKampanya(tarih) {
+      for (var i = 0; i < liste.length; i++) if (liste[i].bas === tarih) return liste[i];
+      return null;
+    }
+
+    /* Önerilen başlık: sezon adı; o ad alınmışsa sonuna sıra eklenir. */
+    function onerilenBaslik(tarih) {
+      var kok = (YU.servis.kampanyaAdi ? YU.servis.kampanyaAdi(tarih) : '') || 'Kampanya';
+      if (!baslikVarMi(kok)) return kok;
+      var n = 2;
+      while (baslikVarMi(kok + ' (' + n + ')')) n++;
+      return kok + ' (' + n + ')';
     }
 
     function tazele() {
       if (!hazir) return;
       var tarih = secilenTarih();
       var onceki = tarih ? oncekiBul(tarih) : null;
-      var cakisan = tarih ? cakisanBul(tarih) : null;
       var dun = tarih ? YU.tarih.ekle(tarih, -1) : null;
 
       tarihAlan.hataGoster('');
       tarihNotu.textContent = !tarih ? '' : (tarih === bugun ? 'bugün' : 'geçmiş tarih');
+      if (!baslikElle) baslikAlan.ayarla(tarih ? onerilenBaslik(tarih) : '');
 
-      girisMetni.textContent = 'Onaylarsanız seçilen tarihin devir satırları ekrana hazırlanır; ' +
-        'kampanya ancak KAYDET\'e bastığınızda oluşur.' +
-        (onceki && !cakisan ? ' ' + onceki.ad + ' kampanyası ' + YU.fmt.tarih(dun) + ' günü biter.' : '');
-
-      YU.bos(cakismaKap);
-      cakismaKap.style.display = cakisan ? '' : 'none';
-      if (cakisan) {
-        cakismaKap.appendChild(YU.ui.serit({
-          tur: 'hata', ikon: '#ic-alert',
-          baslik: cakisan.ad + ' Sezonu Zaten Açık',
-          metin: 'Seçilen tarih (' + YU.fmt.tarih(tarih) + ') ' + cakisan.ad + ' sezonuna düşüyor ve bu ' +
-            'sezonun kampanyası ' + YU.fmt.tarih(cakisan.bas) + ' tarihinde başlamış. Aynı sezona ikinci ' +
-            'kampanya açılamaz; başka bir tarih seçin ya da devir miktarlarını tablodaki kalem düğmesiyle düzeltin.'
-        }));
-      }
+      /* METİNLER SADELEŞTİ (kullanıcı isteği, 01.09.2026: "bu kısmı da biraz
+         sadeleştir, çok detaylı olmuş"). Kararı değiştiren bilgi kaldı,
+         gerisi düştü: düğmenin adı ("Satırları Hazırla") ne olacağını zaten
+         söylüyor (KURAL 9, KURAL 11). */
+      girisMetni.textContent = 'Kampanya, Kaydet\'e basınca oluşur.' +
+        (onceki ? ' ' + onceki.ad + ' ' + YU.fmt.tarih(dun) + ' günü biter.' : '');
 
       devretAciklama.textContent = devretSecim.deger()
         ? (onceki
-            ? onceki.ad + ' kapanış stokları (' + (dun ? YU.fmt.tarih(dun) : '—') + ' gün sonu) satırlara ' +
-              'yazılır; kontrol edip Kaydet\'e basarsınız.'
-            : 'Önceki kampanya yok; satırlar boş açılır.')
-        : 'Satırlar boş ve düzenlemeye açık gelir; miktarları elle girip Kaydet\'e basarsınız.';
+            ? onceki.ad + ' kapanışı (' + (dun ? YU.fmt.tarih(dun) : '—') + ') satırlara yazılır.'
+            : 'Önceki kampanya yok; satırlar boş gelir.')
+        : 'Satırlar boş gelir, miktarları siz girersiniz.';
 
       kilitSatir.style.display = onceki ? '' : 'none';
       if (onceki) {
         kilitSoru.textContent = onceki.ad + ' kampanyası kilitlensin mi?';
         kilitAciklama.textContent = kilitSecim.deger()
-          ? 'Kaydettikten sonra kilitlenir: kayıt girilemez, düzeltilemez, silinemez. Kilidi yalnız yönetici açar.'
-          : 'Kampanya açık kalır; geçmiş sezona yanlışlıkla kayıt girilebilir. Sonra listeden kilitleyebilirsiniz.';
+          ? 'Kilitli kampanya değiştirilemez; kilidi yalnız yönetici açar.'
+          : 'Açık kalır; sonra listeden kilitleyebilirsiniz.';
       }
     }
 
@@ -1211,8 +1295,7 @@
       govde: [YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '16px' } },
         girisMetni,
         tarihSatiri,
-        cakismaKap,
-        secimSatiri('Önceki kampanyanın kapanış stokları devir olarak yazılsın mı?',
+        secimSatiri('Önceki kampanyanın kapanış stokları yazılsın mı?',
           devretAciklama, devretSecim),
         kilitSatir
       )],
@@ -1224,8 +1307,14 @@
             var tarih = secilenTarih();
             if (!tarih) { tarihAlan.hataGoster('Geçerli bir tarih seçin.'); return; }
             if (tarih > bugun) { tarihAlan.hataGoster('Gelecek tarihe kampanya açılamaz.'); return; }
-            /* Çakışmada pencere kapanmaz: şerit sebebi zaten söylüyor. */
-            if (cakisanBul(tarih)) { tazele(); return; }
+            var ayniGun = ayniGunKampanya(tarih);
+            if (ayniGun) {
+              tarihAlan.hataGoster(ayniGun.ad + ' kampanyası zaten bu tarihte başlıyor. Devirleri tablodaki kalem düğmesiyle düzeltin.');
+              return;
+            }
+            var baslik = String(baslikAlan.deger() || '').replace(/\s+/g, ' ').trim();
+            if (!baslik) { baslikAlan.hataGoster('Kampanya başlığı yazın.'); return; }
+            if (baslikVarMi(baslik)) { baslikAlan.hataGoster('Bu başlıkta bir kampanya zaten var. Başka bir başlık yazın.'); return; }
             var onceki = oncekiBul(tarih);
             var dun = YU.tarih.ekle(tarih, -1);
             m.kapat();
@@ -1233,6 +1322,7 @@
             durum.elle = true;
             durum.acikKal = true;
             durum.yeniKampanya = {
+              baslik: baslik,
               onceki: onceki,
               devret: !!(devretSecim.deger() && onceki),
               kilitle: !!(onceki && kilitSecim.deger())
@@ -1249,46 +1339,173 @@
     tazele();
   }
 
+  /* ------------------------------------------------------------------
+     KAMPANYA DÜZELTME (kullanıcı isteği, 01.09.2026: "Kampanya yönetimine
+     bir adet de düzeltme kısmı koy, adını değiştirebilelim ve tarihini.
+     silme olmasın ama").
+
+     İki alan: başlık ve başlangıç tarihi. SİLME YOK — pencerede öyle bir
+     düğme bulunmaz. Kaydet'e basınca önce ad (kampanyaBasligiKaydet), sonra
+     tarih (kampanyaTarihiTasi) yazılır; ikisi de kendi kurallarını uygular
+     ve hata verirse o adım yazılmaz.
+
+     SIRA ÖNEMLİ: ad önce yazılır, çünkü tarih taşıma kilidi ADA bakarak
+     arar; tarih önce taşınsaydı ad kaydı yeni tarihte aranırdı.
+     ------------------------------------------------------------------ */
+  function kampanyaDuzeltModali(dn) {
+    var eskiTarih = dn.bas;
+    var baslikAlan = YU.ui.alan({
+      etiket: 'Kampanya Başlığı', tip: 'metin', genislik: '100%', deger: dn.ad
+    });
+    baslikAlan.girdi.maxLength = 40;
+    /* SEÇİLEBİLİR ARALIK (kullanıcı isteği, 01.09.2026: "eski kampanyadan
+       önceki kampanyaya gidemesin — 1 Ocak'ta 1. kampanya, 5 Ocak'ta 2.
+       kampanya varsa, 2.'si 1 Ocak'tan SONRAKİ günler için değiştirilebilsin").
+
+       En erken : önceki kampanyanın başlangıcının ERTESİ günü. Aynı güne ya
+                  da öncesine taşımak kampanyaların sırasını bozardı.
+       En geç   : sonraki kampanyanın başlangıcının BİR ÖNCEKİ günü; sonraki
+                  kampanya yoksa bugün (gelecek gün her yerde kapalı).
+       Aynı sınırlar servis katmanında da denetlenir (04-servis ·
+       kampanyaTarihiTasi) — takvim seçimi tek savunma hattı değildir. */
+    var liste = YU.donem.liste(), sira = -1, i2;
+    for (i2 = 0; i2 < liste.length; i2++) if (liste[i2].bas === eskiTarih) sira = i2;
+    var oncekiKmp = sira > 0 ? liste[sira - 1] : null;
+    var sonrakiKmp = (sira >= 0 && sira + 1 < liste.length) ? liste[sira + 1] : null;
+    var enErken = oncekiKmp ? YU.tarih.ekle(oncekiKmp.bas, 1) : null;
+    var enGec = sonrakiKmp ? YU.tarih.ekle(sonrakiKmp.bas, -1) : YU.tarih.bugun();
+
+    var tarihAlan = YU.ui.alan({
+      etiket: 'Başlangıç Tarihi', tip: 'tarih', genislik: 200, deger: eskiTarih,
+      yardim: oncekiKmp
+        ? 'En erken ' + YU.fmt.tarih(enErken) + ' — önceki kampanya ' +
+          YU.fmt.tarih(oncekiKmp.bas) + ' günü başlıyor.'
+        : null
+    });
+    if (enErken) tarihAlan.girdi.min = enErken;
+    tarihAlan.girdi.max = enGec;
+
+    var m = YU.ui.modal({
+      baslik: 'Kampanyayı Düzelt',
+      genislik: 520,
+      /* DÜZEN (kullanıcı isteği, 01.09.2026: "kampanya başlığı ve tarihi
+         üstte, altında ise açıklama yazısı olsun"). Önce iş yapılan alanlar,
+         sonra ne olacağını söyleyen cümle. İki alan yan yana ve ALT KENARDAN
+         hizalı; başlık esner, tarih sabit kalır. Kutu kalktı: pencerenin
+         kendi çerçevesi zaten var, içine ikinci çerçeve acemi duruyordu. */
+      govde: [YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '16px' } },
+        /* ÜST kenardan hizalı: tarih alanının altında yardım satırı var,
+           flex-end ile hizalanınca başlık alanı aşağı kayıyor ve iki kutu
+           farklı yükseklikte duruyordu (01.09.2026 ekran denemesi). */
+        YU.h('div', {
+          stil: { display: 'flex', alignItems: 'flex-start', gap: '14px', flexWrap: 'wrap' }
+        },
+          YU.h('div', { stil: { flex: '1 1 220px', minWidth: '200px' } }, baslikAlan.kok),
+          YU.h('div', { stil: { flex: '0 0 auto', maxWidth: '230px' } }, tarihAlan.kok)
+        ),
+        YU.h('hr', { sinif: 'yu-ayrac yu-yatay', stil: { margin: '0' } }),
+        YU.h('div', {
+          metin: 'Adı ve başlangıç tarihi değiştirilebilir. Devir satırları silinmez, ' +
+            'tarihleri birlikte taşınır.',
+          stil: { font: '400 14px/1.6 var(--font)', color: 'var(--metin-3)' }
+        })
+      )],
+      dugmeler: [
+        { metin: 'Vazgeç' },
+        {
+          metin: 'Kaydet', ikon: '#ic-wallet', tur: 'birincil',
+          onClick: function () {
+            var baslik = String(baslikAlan.deger() || '').replace(/\s+/g, ' ').trim();
+            var yeniTarih = String(tarihAlan.deger() || '').trim();
+            if (!baslik) { baslikAlan.hataGoster('Kampanya başlığı yazın.'); return; }
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(yeniTarih)) { tarihAlan.hataGoster('Geçerli bir tarih seçin.'); return; }
+
+            baslikAlan.hataGoster('');
+            tarihAlan.hataGoster('');
+
+            /* Servis sonucu 'ok' alanını taşır ('basarili' değil — ilk
+               yazımda yanlış okunuyordu ve başarılı çağrıda bile boş hata
+               dizisine gidip "Beklenmedik hata" veriyordu, 01.09.2026). */
+            function hataMetni(s) {
+              return (s && s.hatalar && s.hatalar.length && s.hatalar[0].mesaj) ||
+                'İşlem yapılamadı.';
+            }
+            if (baslik !== dn.ad) {
+              var s1 = YU.servis.kampanyaBasligiKaydet(YU.db, { tarih: eskiTarih, baslik: baslik }, YU.oturum.kullanici);
+              if (!s1.ok) { baslikAlan.hataGoster(hataMetni(s1)); return; }
+            }
+            if (yeniTarih !== eskiTarih) {
+              var s2 = YU.servis.kampanyaTarihiTasi(YU.db, { eskiTarih: eskiTarih, yeniTarih: yeniTarih }, YU.oturum.kullanici);
+              if (!s2.ok) { tarihAlan.hataGoster(hataMetni(s2)); return; }
+            }
+
+            m.kapat();
+            durum.tarih = yeniTarih;
+            YU.donem.tazele();
+            govdeyiCiz();
+            YU.yenile();
+            YU.ui.bildir('Kampanya güncellendi: ' + baslik + ' · ' + YU.fmt.tarih(yeniTarih) + '.', 'olumlu');
+          }
+        }
+      ]
+    });
+  }
+
   function kampanyaPaneli() {
     var liste = YU.donem.liste();
     var aktifAd = liste.length ? liste[liste.length - 1].ad : null;
-    var satirlar = [], i, seciliSira = -1;
+    var satirlar = [], i;
     for (i = liste.length - 1; i >= 0; i--) {
       (function (dn) {
         var kilit = YU.servis.kampanyaKilitDurumu(YU.db, dn.ad);
         var simdiki = dn.ad === aktifAd;
-        var bakilan = YU.donem.aktif && YU.donem.aktif() ? YU.donem.aktif().ad === dn.ad : false;
-        if (bakilan) seciliSira = satirlar.length;
         satirlar.push({
-          /* Satıra tıklamak o kampanyaya geçer: devir tabloları o kampanyanın
-             satırlarını gösterir. Kilitle/Kilidi Aç düğmeleri satır tıklamasını
-             tetiklemez. */
-          onClick: function (e) {
-            if (e && e.target && e.target.closest && e.target.closest('button')) return;
-            kampanyayaGec(dn);
-          },
-          ipucu: bakilan
-            ? dn.ad + ' kampanyası zaten açık'
-            : dn.ad + ' kampanyasının devirlerini aç',
+          /* SATIR TIKLANMAZ (kullanıcı kararı, 01.09.2026): kampanya seçme
+             kalktı. Liste artık yalnız hangi kampanyaların olduğunu ve kilit
+             durumlarını gösterir; Kilitle / Kilidi Aç düğmeleri çalışmaya
+             devam eder. Geçmiş veriye ekranların kendi tarih kutusundan
+             gidilir. */
           hucreler: [
-          YU.h('span', {
-            sinif: bakilan ? 'yu-guclu yu-secili-ad' : 'yu-guclu',
-            metin: bakilan ? '✓ ' + dn.ad : dn.ad
-          }),
-          YU.h('span', { sinif: 'yu-mono', metin: YU.fmt.tarih(dn.bas) + ' – ' + YU.fmt.tarih(dn.bit) }),
+          YU.h('span', { sinif: 'yu-guclu', metin: dn.ad }),
+          /* Süren kampanyada bitiş tarihi yerine "Günümüz" (kullanıcı isteği,
+             01.09.2026). dn.suruyor: ardından yeni kampanya açılmamış demektir;
+             kilitliyse kampanya kapanmış sayılır ve gerçek aralık yazılır. */
+          YU.h('span', { sinif: 'yu-mono',
+            metin: YU.fmt.tarih(dn.bas) + ' – ' +
+              ((dn.suruyor && !kilit) ? 'Günümüz' : YU.fmt.tarih(dn.bit)) }),
           YU.fmt.sayi(dn.kayitliGun) + ' gün',
-          YU.h('div', { stil: { display: 'flex', gap: '8px', alignItems: 'center' } },
-            simdiki ? YU.ui.rozet('Şu Anki', 'vurgu') : YU.ui.rozet('Geçmiş', 'notr'),
+          /* Kolon ortalandı; rozetler de kolonun ortasına yaslanır. */
+          YU.h('div', { stil: { display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'center' } },
+            /* "Şu Anki" -> "Güncel" (kullanıcı isteği, 01.09.2026). */
+            simdiki ? YU.ui.rozet('Güncel', 'vurgu') : YU.ui.rozet('Geçmiş', 'notr'),
+            /* İkon RENKSİZ (kullanıcı isteği, 01.09.2026: "kilitlerin de
+               rengini kaldır"). Eskiden kilitli kırmızı, açık yeşildi;
+               kolondaki etiketler renksizleşince tek renkli öge o kalmıştı.
+               Durumu yanındaki "Kilitli / Açık" yazısı ve ikonun biçimi
+               (kapalı / açık asma kilit) söylüyor. */
             YU.h('span', {
-              stil: { display: 'flex', color: kilit ? 'var(--olumsuz)' : 'var(--olumlu)', flex: 'none' },
-              title: kilit ? 'Kampanya kilitli' : 'Kampanya açık'
+              stil: { display: 'flex', color: 'var(--metin-3)', flex: 'none' },
+              /* Kilitleyen kolonu kalktı; kim ve ne zaman bilgisi buraya
+                 taşındı (01.09.2026) — bilgi kaybolmasın. */
+              title: kilit
+                ? 'Kampanya kilitli — ' + (kilitKullanicisi(kilit) || 'bilinmeyen kullanıcı') +
+                  ' · ' + YU.fmt.tarihSaat(kilit.Tarih)
+                : 'Kampanya açık'
             }, YU.svg(kilit ? '#ic-kilit' : '#ic-kilit-acik', 17)),
             kilit ? YU.ui.rozet('Kilitli', 'olumsuz') : YU.ui.rozet('Açık', 'olumlu')),
-          kilit ? YU.h('span', { sinif: 'yu-zayif', metin: (kilitKullanicisi(kilit) || '—') + ' · ' + YU.fmt.tarihSaat(kilit.Tarih) })
-                : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
-          kilit
-            ? YU.ui.dugme({ metin: 'Kilidi Aç', ikon: '#ic-kilit-acik', tur: 'tehlike', kucuk: true, onClick: function () { kilidiAcIste(dn); } })
-            : YU.ui.dugme({ metin: 'Kilitle', ikon: '#ic-kilit', tur: 'ikincil', kucuk: true, onClick: function () { kilitleIste(dn); } })
+          /* Düzelt + kilit düğmesi yan yana. Düzelt KİLİTLİ kampanyada
+             kapalıdır: kilitli kampanya değiştirilemez. */
+          YU.h('div', { stil: { display: 'flex', gap: '8px', justifyContent: 'flex-end' } },
+            YU.ui.dugme({
+              metin: 'Düzelt', ikon: '#ic-pencil', tur: 'ikincil', kucuk: true,
+              pasif: !!kilit,
+              baslik: kilit ? 'Kilitli kampanya değiştirilemez — önce kilidi açın'
+                            : 'Kampanyanın adını ve başlangıç tarihini değiştir',
+              onClick: function () { kampanyaDuzeltModali(dn); }
+            }),
+            kilit
+              ? YU.ui.dugme({ metin: 'Kilidi Aç', ikon: '#ic-kilit-acik', tur: 'tehlike', kucuk: true, onClick: function () { kilidiAcIste(dn); } })
+              : YU.ui.dugme({ metin: 'Kilitle', ikon: '#ic-kilit', tur: 'ikincil', kucuk: true, onClick: function () { kilitleIste(dn); } }))
           ]
         });
       })(liste[i]);
@@ -1299,13 +1516,28 @@
       dolgusuz: true,
       sag: YU.ui.dugme({ metin: 'Yeni Kampanya Oluştur', ikon: '#ic-plus', tur: 'birincil', kucuk: true, onClick: yeniKampanyaModali }),
       govde: YU.ui.tablo({
+        /* HEPSİNİ ortalamak denendi, kullanıcı beğenmedi ve geri alındı
+           (01.09.2026). Ardından YALNIZ İKİ KOLON ortalandı — aynı gün:
+           "Kayıtlı Gün ve Durum kolonlarının bilgileri kolonun en sağından
+           giriyor, hizalama yok; aynı Ana Sayfa'daki gibi olsun."
+           ÖLÇÜLDÜ (Ana Sayfa · Silo Bazında Stok): ilk kolon sola yaslı,
+           kalan dokuz kolon ORTALI — başlık da değer de kolonun ortasında.
+           Aynı yapı burada bu iki kolona uygulandı; ad ve metin kolonları
+           ile eylem kolonu değişmedi.
+
+           KİLİTLEYEN KOLONU KALDIRILDI (kullanıcı isteği, 01.09.2026:
+           "kilitleyen kolonunu direkt kaldır"). Kimin ne zaman kilitlediği
+           bilgisi kaybolmadı: Durum kolonundaki kilit ikonunun ipucunda ve
+           işlem geçmişinde duruyor. kilitKullanicisi yardımcısı yedek kalır.
+
+           Kampanya kolonu 120 -> 170: "deneme kampanyası" iki satıra sarıyor
+           ve o satırı 62 px'e çıkarıyordu; iki satır farklı yükseklikteydi. */
         sutunlar: [
-          { baslik: 'Kampanya', genislik: 120 },
-          { baslik: 'Aralık', genislik: 210 },
-          { baslik: 'Kayıtlı Gün', genislik: 110, hiza: 'sag', mono: true },
-          { baslik: 'Durum', genislik: 170 },
-          { baslik: 'Kilitleyen', genislik: 210 },
-          { baslik: '', hiza: 'sag', genislik: 130 }
+          { baslik: 'Kampanya', genislik: 170 },
+          { baslik: 'Aralık', genislik: 190 },
+          { baslik: 'Kayıtlı Gün', genislik: 110, hiza: 'orta', mono: true },
+          { baslik: 'Durum', genislik: 170, hiza: 'orta' },
+          { baslik: '', hiza: 'sag', genislik: 230 }
         ],
         satirlar: satirlar,
         dolgu: '9px 18px',
@@ -1313,10 +1545,6 @@
       })
     });
     pnl.className += ' yu-kampanya-tablo';
-    if (seciliSira >= 0) {
-      var trler = pnl.querySelectorAll('tbody tr');
-      if (trler[seciliSira]) trler[seciliSira].className += ' yu-secili-kampanya';
-    }
     return pnl;
   }
 
@@ -1324,14 +1552,22 @@
     if (!dom.govde) return;
     tarihiHazirla();
     YU.bos(dom.govde);
-    dom.govde.appendChild(
-      !devirTarihleri().length && !durum.elle ? bosDurumPaneli() : duzenlemePaneli()
-    );
+    /* Düzenleme paneli üç yoldan açılır: kayıtlı devir varsa, yeni kampanya
+       akışı başlatıldıysa, ya da mevcut bir kampanyada "Elle Gir" seçildiyse.
+       KAMPANYA YOKKEN "Elle Gir" ARTIK GEÇMEZ (kullanıcı isteği, 02.09.2026):
+       düğme boş durumdan kaldırıldı, burada da kapı kapalı tutulur —
+       eski bir durum.elle bayrağı takılı kalsa bile tablo açılmaz. */
+    var duzenlemeAcik = devirTarihleri().length > 0 ||
+                        !!durum.yeniKampanya ||
+                        (durum.elle && kampanyaVarMi());
+    if (!duzenlemeAcik) durum.elle = false;
+    dom.govde.appendChild(duzenlemeAcik ? duzenlemePaneli() : bosDurumPaneli());
   }
 
   YU.sayfaTanimla({
     kod: 'devir-stok',
-    baslik: 'Devir Stok & Kampanya Yönetimi',
+    baslik: 'Devir Stok ve Kampanya Yönetimi',
+    menuAd: 'Devir ve Kampanya',    /* menüde kısa ad (31.08.2026) */
     ikon: '#ic-wallet',
     grup: 'Yönetim',
     rol: 'Yonetici',
@@ -1360,7 +1596,11 @@
 
       kap.appendChild(kampanyaPaneli());
 
-      dom.govde = YU.h('div', { stil: { minWidth: '0' } });
+      /* Satır yüksekliği kuralının kapsamı (tema.css .yu-devir-ekran): silo ve
+         malzeme devir tablolarının satırları yalnız bu ekranda alçaltılır,
+         ortak .yu-tablo ölçüsü ezilmez (KURAL 10.5). Bu sarmalayıcı her
+         çizimde yeniden kurulduğu için sınıf başka ekrana taşınmaz. */
+      dom.govde = YU.h('div', { sinif: 'yu-devir-ekran', stil: { minWidth: '0' } });
       kap.appendChild(dom.govde);
 
       govdeyiCiz();

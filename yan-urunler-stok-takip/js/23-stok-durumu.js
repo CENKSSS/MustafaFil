@@ -33,44 +33,15 @@
     return YU.h('span', { sinif: 'yu-mono' + (soluk ? ' yu-zayif' : ''), metin: metin });
   }
 
-  /* Bir malzemenin paket büyüklüğü — adet karşılığı ancak bu biliniyorsa
-     yazılır. Çuval 50 kg ve poşet 25 kg şartnamede tanımlı; tonluk torbanın
-     kg'ı tanımlı değil, o yüzden tonluk satırında adet gösterilmez. */
-  function paketKg(malzeme) {
-    if (!malzeme) return 0;
-    if (malzeme.OzelTip === 'CuvalKuruKuspe') return YU.hesap.CUVAL_KG;
-    if (yasKuspeMi(malzeme) && /25/.test(String(malzeme.Ad || ''))) return YU.hesap.POSET_KG;
-    return 0;
-  }
-
-  /* kg değerini "kg / adet" parçalarına ayırır; adet yalnızca paket
-     büyüklüğü bilinen malzemede eklenir. Ton karşılığı bu ekranda hiç
-     gösterilmez — her şey kg (kullanıcı isteği, 21.08.2026). */
-  function olculer(kg, malzeme) {
-    var v = Number(kg) || 0;
-    var parcalar = [
-      { sayi: YU.fmt.kg(v), birim: 'kg' }
-    ];
-    var paket = paketKg(malzeme);
-    if (paket > 0) parcalar.push({ sayi: YU.fmt.sayi(Math.round(v / paket)), birim: 'adet' });
-    return parcalar;
-  }
-
-  function olcu(kg, malzeme) {
-    var parcalar = olculer(kg, malzeme);
-    if (parcalar.length < 2) return YU.ui.olcu(parcalar);
-    /* kg ve adet ALT ALTA (kullanıcı isteği, 24.08.2026): tek satırda
-       "2.500 kg / 100 adet" dar kolonda sıkışıyordu. Adet satırı küçük ve
-       soluk — kg birincil değer olarak kalır. */
-    return YU.h('span', {
-      stil: { display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }
-    },
-      YU.ui.olcu([parcalar[0]]),
-      YU.h('span', {
-        metin: parcalar[1].sayi + ' ' + parcalar[1].birim,
-        stil: { font: '400 .8em/1.2 var(--font)', color: 'var(--metin-4)', whiteSpace: 'nowrap' }
-      })
-    );
+  /* ADET SATIRI KALDIRILDI (kullanıcı kararı, 02.09.2026: "hiçbir yerde adet
+     yazmasın"). 24.08.2026'dan beri çuvallı küspe ve 25'lik yaş küspe
+     satırlarında kg'ın altına küçük bir "N adet" yazılıyordu; paket boyutunu
+     bulan paketKg da onun içindi. İkisi de gitti — her hücre tek büyüklük
+     gösterir: kg. Bu panel Ana Sayfa'da da aynen görünür (YU.malzemeStokPaneli),
+     değişiklik iki ekranı birden kapsar.
+     Ton karşılığı bu ekranda zaten gösterilmez (kullanıcı isteği, 21.08.2026). */
+  function olcu(kg) {
+    return YU.ui.olcu([{ sayi: YU.fmt.kg(Number(kg) || 0), birim: 'kg' }]);
   }
 
   function ozelMalzeme(tip) {
@@ -91,11 +62,6 @@
   /* ==================================================================
      2. Hesaplar
      ================================================================== */
-
-  /* Yaş küspenin özel tipi yok; iki satırı ayıran tek işaret adı (Şartname §2). */
-  function yasKuspeMi(malzeme) {
-    return String(malzeme.Ad || '').toLocaleLowerCase('tr').indexOf('yaş küspe') === 0;
-  }
 
   /* Çift sayım kontrolü — Şartname Test 6'nın ekrandaki karşılığı.
      Dökme + çuvallı toplamı, aynı pencerede ham dökme üretimden beklenen
@@ -313,7 +279,9 @@
       ust.firstChild.title = 'Dökme kuru küspe fiziksel olarak silolarda durur; stoğu ' +
         'üç silonun mevcutlarının toplamıdır, üretim/satış formülüyle hesaplanmaz (Şartname §5).';
     }
-    if (r.malzeme.OzelTip === 'CuvalKuruKuspe') ust.appendChild(YU.ui.rozet('Çuvallı', 'notr'));
+    /* "Çuvallı" rozeti KALDIRILDI (kullanıcı isteği, 28.08.2026): malzemenin
+       adı "Kuru Küspe (50 Kg Çuvallı)" oldu, rozet aynı kelimeyi ikinci kez
+       söylüyordu (KURAL 11.1 — durum tekrarı). */
     if (r.malzeme.Aktif === false) ust.appendChild(YU.ui.rozet('Pasif', 'bekleyen'));
     return ust;
   }
@@ -461,7 +429,9 @@
     /* İade kolonu ve "Stok" başlığı kullanıcı isteği (24.08.2026); iade,
        Malzeme Girişi'ndeki sırayla üretimin solunda durur. Günlük Üretim ve
        Günlük Satış seçili günün rakamlarıdır (kullanıcı isteği, 24.08.2026). */
-    var hz = d.hizaOrta ? 'orta' : 'sag';
+    /* Orta hiza VARSAYILAN (ortak payda, 28.08.2026) — Ana Sayfa, Stok
+       Durumu, Mail PDF'i ve Excel aynı görünür; kapatan hizaOrta:false geçer. */
+    var hz = d.hizaOrta === false ? 'sag' : 'orta';
     var sutunlar = [
       /* Malzeme kolonuna SABİT GENİŞLİK VERİLMEZ (26.08.2026): hücre içeriği
          nowrap olduğu için kolon zaten gerektiği kadar genişler; sabit
@@ -498,7 +468,7 @@
     function gunlukHucre(malzeme, alan) {
       var h = gunluk[malzeme.Id];
       if (!h) return YU.h('span', { sinif: 'yu-zayif', metin: '—', title: 'Bu güne giriş yok.' });
-      return olcu(Number(h[alan]) || 0, malzeme);
+      return olcu(Number(h[alan]) || 0);
     }
 
     /* Gün başı stok: dökme için siloların gün başı toplamı (Tarih < seçilen,
@@ -532,21 +502,21 @@
         vurgu: d.vurguId && r.malzeme.Id === d.vurguId ? 'vurgu' : null,
         hucreler: [
           malzemeHucresi(d, r),
-          olcu(r.devir, r.malzeme),
+          olcu(r.devir),
           r.devirTarihi ? mono(YU.fmt.tarih(r.devirTarihi), true) : YU.h('span', { sinif: 'yu-zayif', metin: '—' }),
-          olcu(gunBasi(r), r.malzeme),
+          olcu(gunBasi(r)),
           /* İade her malzemede izlenir (kullanıcı direktifi, 24.08.2026).
              REVİZE (26.08.2026): dökme kuru küspeye de iade girilebilir; iade
              hiçbir malzemede stoğa girmez, yalnız raporlanır. Siloya Manuel
              yazma davranışı kaldırıldı — Manuel yalnız Sayım Düzeltmesi
              ekranından girilir (M18). */
-          olcu(r.iade, r.malzeme),
+          olcu(r.iade),
           gunlukHucre(r.malzeme, 'Uretim'),
           gunlukHucre(r.malzeme, 'Satis'),
-          olcu(r.uretim, r.malzeme),
-          olcu(r.satis, r.malzeme),
+          olcu(r.uretim),
+          olcu(r.satis),
           (function () {
-            var h = olcu(r.mevcut, r.malzeme);
+            var h = olcu(r.mevcut);
             /* Yerleşik title yerine ortak ipucu kutusu (kullanıcı isteği,
                28.08.2026: "hesaplama panelini biraz daha büyüt"): tarayıcı
                title'ı küçük ve biçimsiz, kutu ise büyük yazılı ve çok
@@ -735,7 +705,7 @@
         vurguId: null,
         satirlar: [],
         kontrolsuz: true,
-        hizaOrta: !!(panelSecenek && panelSecenek.hizaOrta),
+        hizaOrta: panelSecenek ? panelSecenek.hizaOrta : undefined,   /* ham geçiş — !! varsayılanı ezerdi */
         tarihDegisti: ciz
       };
       d.tumSatirlar = YU.stok.tumMalzemeler(YU.db, tarih);
@@ -904,6 +874,12 @@
       tarih: gecerliTarih(param.tarih) ? param.tarih : YU.donem.gorunumSonu(),   /* kampanya bakışı */
       pasifGoster: String(param.pasif || '') === '1',
       vurguId: Number(param.malzeme) || null,
+      /* Rakamlar kolon başlığının ORTASINDA — Ana Sayfa'daki "Malzeme
+         Bazında Stok" tablosunun birebir aynısı (kullanıcı isteği,
+         28.08.2026: "anasayfadaki yapı gibi yap"). 28.08 sabahı bu hiza
+         yalnız Ana Sayfa'ya verilmişti (KURAL 5.1); kullanıcı iki ekranın
+         eşitlenmesini istedi. Kolon listesi ikisinde zaten aynı. */
+      hizaOrta: true,
       satirlar: []
     };
     var i, r;

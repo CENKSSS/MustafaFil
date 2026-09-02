@@ -24,6 +24,10 @@
   --kenar:          #e8eaee;
   --kenar-2:        #e3e6eb;
   --kenar-3:        #dfe3ea;
+  /* Marka plakasini menuden ayiran cizgi. Kenar jetonlarindan bilerek bir
+     kademe koyu: kenar cubugunun tek yapisal ayraci odur, silik kalmamali
+     (kullanici istegi, 31.08.2026). */
+  --marka-ayrac:    #ccd2db;
   --ayrac:          #eef0f3;
   --ayrac-2:        #f3f4f7;
 
@@ -131,6 +135,7 @@
     --kenar:          rgba(148,170,210,.14);
     --kenar-2:        rgba(148,170,210,.18);
     --kenar-3:        rgba(148,170,210,.24);
+    --marka-ayrac:    rgba(160,185,225,.34);
     --ayrac:          rgba(148,170,210,.10);
     --ayrac-2:        rgba(148,170,210,.08);
 
@@ -208,6 +213,7 @@ html[data-tema="koyu"] {
   --kenar:          rgba(148,170,210,.14);
   --kenar-2:        rgba(148,170,210,.18);
   --kenar-3:        rgba(148,170,210,.24);
+  --marka-ayrac:    rgba(160,185,225,.34);
   --ayrac:          rgba(148,170,210,.10);
   --ayrac-2:        rgba(148,170,210,.08);
 
@@ -378,18 +384,23 @@ svg { flex: none; vertical-align: middle; max-width: 100%; }
   white-space: nowrap;
 }
 
-/* Kenar çubuğu logo varyantı: dikey kurum logosu üstte, ad altında.
-   Görselin kendi zemini siyah olduğu için plaka gibi oturuyor; kenarlık
-   ve yarıçap onu kart diline bağlar. */
+/* Kenar çubuğu logo varyantı: kurum logosu üstte, uygulama adı altında.
+   Marka alanının AYRI ZEMİNİ YOKTUR (kullanıcı isteği, 31.08.2026): koyu
+   temada logonun arkası alttaki panelden açık kalıyordu. Ayrımı yalnız alt
+   çizgi kurar; zemin kenar çubuğunun kendi tonudur. */
 .yu-marka.logolu {
   flex-direction: column;
   align-items: stretch;
   gap: 0;
-  /* Kenar çubuğunun 22px 16px dolgusunu iptal eder: logo panelin tam
-     genişliğine oturur, kenarlarda boşluk kalmaz. Genişlik yüzdeyle
-     verildiği için kenar çubuğu daraldığında logo da kendiliğinden daralır. */
-  margin: calc(-1 * var(--yan-dolgu-y)) calc(-1 * var(--yan-dolgu-x)) 0;
-  padding: 0;
+  /* Kenar çubuğunun dolgusunu iptal eder: plaka rayın tam genişliğine
+     oturur. Genişlik yüzdeyle verildiği için ray daraldığında logo da
+     kendiliğinden daralır. */
+  margin: calc(-1 * var(--yan-dolgu-y)) calc(-1 * var(--yan-dolgu-x)) 10px;
+  /* Logo artık kenara yapışmıyor: yatay görselde "DOĞUŞ AFYON" yazısı iki
+     yanda ray kenarına değiyordu. Yan dolgu menü metin sütunuyla hizalı. */
+  padding: 16px 18px 13px;
+  /* Rayın tek yapısal ayracı; kendi jetonu var, kenar jetonlarından koyu. */
+  border-bottom: 1px solid var(--marka-ayrac);
 }
 
 .yu-marka-logo {
@@ -408,10 +419,19 @@ svg { flex: none; vertical-align: middle; max-width: 100%; }
   user-select: none;
 }
 
+/* Amblem yalnız 58px'lik ikon rayında görünür; geniş rayda tam logo vardır. */
+.yu-marka-amblem {
+  display: none;
+  width: 40px;
+  height: auto;
+  margin: 0 auto;
+  background: transparent;
+  user-select: none;
+}
+
 /* Logonun iki sürümü var: "DOĞUŞ AFYON" yazısı açık temada koyu, koyu temada
    beyaz. Görünürlük üç tema durumunun hepsinde ayrı ayrı karşılanır. */
 .yu-marka-logo.koyu { display: none; }
-
 @media (prefers-color-scheme: dark) {
   html:not([data-tema="acik"]) .yu-marka-logo.acik { display: none; }
   html:not([data-tema="acik"]) .yu-marka-logo.koyu { display: block; }
@@ -423,8 +443,14 @@ html[data-tema="acik"] .yu-marka-logo.koyu { display: none; }
 html[data-tema="koyu"] .yu-marka-logo.acik { display: none; }
 html[data-tema="koyu"] .yu-marka-logo.koyu { display: block; }
 
+/* Ad, ortalanmış logonun altında bir kilit (lockup) gibi durur: ortalı,
+   bir kademe küçük ve ikincil tonda — logo önde, ad arkasında okunur. */
 .yu-marka.logolu .yu-marka-ad {
-  padding: 7px var(--yan-dolgu-x) 0;
+  padding: 9px 0 0;
+  text-align: center;
+  font: 600 13.5px/1.25 var(--font);
+  letter-spacing: .04em;
+  color: var(--metin-3);
 }
 
 /* Kuru küspe giriş — silo dağıtım kartları.
@@ -483,43 +509,65 @@ html[data-tema="acik"] input[type="date"]::-webkit-calendar-picker-indicator { f
   /* Ölçü büyütüldü (kullanıcı isteği, 25.08.2026): bunlar KATEGORİ
      başlıkları, menü ögelerinden ayrışmaları gerekiyordu — 12,5 -> 15px,
      harf aralığı ve dolgu da bir kademe açıldı. */
-  font: 700 15px/1.15 var(--font);
-  letter-spacing: .07em;
+  /* SADELEŞTİRME (kullanıcı isteği, 31.08.2026 akşamı: "garip oldu,
+     daha estetik sade yap").
+
+     Önceki hâlde her şey aynı anda bağırıyordu: başlık 15,5px/800 + 2px
+     çizgi, ALTINDA her sayfa adının kendi 1px alt çizgisi. 236px'lik rayda
+     bir düzine çizgi ve baştan sona kalın yazı vardı.
+
+     Yeni denge: BAŞLIK KÜÇÜLÜR AMA AYRIŞIR — 13,5px, 800 ağırlık, geniş
+     harf aralığı, ikincil ton. Sayfalar (14,5px) artık başlıktan BÜYÜK
+     olduğu için hiyerarşi tersine döner: etiket küçük, içerik büyük.
+     Çizgi 1px'e iner; küçük bir etiketin altında ince çizgi keskin okunur,
+     2px kaba kalıyordu. */
+  font: 800 13.5px/1.2 var(--font);
+  letter-spacing: .1em;
   text-transform: uppercase;
-  color: var(--metin);
-  padding: 16px 10px 10px;
-  border-bottom: 1px solid var(--kenar-3);
-  margin-bottom: 2px;
+  color: var(--metin-3);
+  padding: 22px 10px 7px;
+  border-bottom: 1px solid var(--kenar-2);
+  margin-bottom: 6px;
 }
+
+/* İlk grup üst dolgusunu almaz: marka plakasının altında zaten boşluk var. */
+.yu-menu > .yu-menu-grup:first-child .yu-menu-grup-bas { padding-top: 10px; }
+
+/* Grup dışında tek başına duran öğe. Ana Sayfa 31.08.2026'da "Günlük
+   İşlemler" grubunun içine alındı; bu kural yalnız o grubun hiç çizilmediği
+   (görünür sayfası kalmadığı) yedek durumda iş görür. */
+.yu-menu > .yu-menu-oge { margin-top: 6px; }
 
 .yu-menu-oge {
   display: flex;
   align-items: center;
   gap: 11px;
   width: 100%;
-  padding: 9px 10px;
-  /* Kullanıcı eskizi (21.08.2026): grup başlığının altı ray boyunca tam
-     çizgi, öğelerin altı ise yalnız KELİME GENİŞLİĞİNDE çizgi. Bu yüzden
-     öğedeki tam genişlik defter çizgisi kaldırıldı; çizgiyi ad taşır. */
-  border-radius: 0;
-  font: 600 15px/1 var(--font);
-  color: var(--metin);
+  padding: 8px 10px;
+  /* Köşeler yuvarlandı (31.08.2026): üzerine gelince ve seçiliyken zemin
+     bir HAP gibi otursun. Eskiden köşe yoktu, zemin dikdörtgen doluyordu. */
+  border-radius: 8px;
+  /* 600 -> 500: bütün menü kalınken hiçbir şey öne çıkmıyordu. Seçili
+     sayfa 600 alır, fark oradan okunur. */
+  font: 500 14.5px/1.25 var(--font);
+  color: var(--metin-2);
   text-align: left;
   cursor: pointer;
   transition: background-color .12s, color .12s;
 }
-/* Öğe adının altı kelime kadar, İNCE ve yumuşak çizgili; sertlik yazının
-   kendisinde. Daraltılmış rayda yazıyla birlikte gizlenir. */
-.yu-menu-oge > span {
-  border-bottom: 1px solid var(--kenar-3);
-  padding-bottom: 2px;
-}
-.yu-menu-oge svg { opacity: .85; }
-.yu-menu-oge:hover { background: var(--yuzey-4); color: var(--metin); }
+/* SAYFA ADININ ALTINDAKİ ÇİZGİ KALDIRILDI (kullanıcı isteği, 31.08.2026):
+   9 sayfanın 9'unda ayrı bir alt çizgi vardı, grup çizgileriyle birlikte
+   ray çizgi doluyordu. Ayrım artık zeminle kurulur — hover ve seçili hâlde
+   hap biçiminde zemin gelir, boştayken hiçbir çizgi yoktur.
+   (Bu, 21.08.2026 tarihli "kelime genişliğinde çizgi" eskizinin yerine
+   geçer; o karar aynı gün sadeleştirme isteğiyle kaldırıldı.) */
+.yu-menu-oge svg { opacity: .55; transition: opacity .12s; }
+.yu-menu-oge:hover { background: var(--yuzey-3); color: var(--metin); }
+.yu-menu-oge:hover svg { opacity: .8; }
 .yu-menu-oge.aktif {
   background: var(--vurgu-zemin);
   color: var(--vurgu);
-  font-weight: 700;   /* taban 600; aktif bir kademe daha kalın */
+  font-weight: 600;   /* taban 500; seçili bir kademe daha kalın */
 }
 .yu-menu-oge.aktif svg { opacity: 1; }
 
@@ -755,8 +803,13 @@ html[data-tema="acik"] input[type="date"]::-webkit-calendar-picker-indicator { f
 
 .yu-icerik {
   /* Yoğunluk sıkılaştırıldı (kullanıcı isteği, 21.08.2026): paneller arası
-     boşluk 20 -> 12, kenar dolgusu 26/28 -> 20/24. */
-  padding: 20px 24px;
+     boşluk 20 -> 12, kenar dolgusu 26/28 -> 20/24.
+     ÜST DOLGU 20 -> 8 (kullanıcı isteği, 02.09.2026: "hepsi için yap o zaman,
+     sadece bu sayfa için geçerli olmasın"). Başlık ve altındaki paneller
+     birlikte 12 px yukarı gelir; aralarındaki boşluk değişmez. 26.08.2026'da
+     yalnız Ana Sayfa'ya verilen .yu-ust-dar varyantı artık aynı değeri
+     yazdığı için etkisiz kaldı — kural yerinde duruyor, zararsız. */
+  padding: 8px 24px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -973,6 +1026,38 @@ html[data-tema="koyu"] .yu-geri-bag { color: #ffffff; }
 
 .yu-dugme.tehlike {
   background: var(--olumsuz-zemin);
+  color: var(--olumsuz);
+}
+
+/* KURU KÜSPE KAYIT DÜĞMELERİ — resmi görünüm (kullanıcı isteği, 02.09.2026:
+   "kaydet ve günü sıfırlayı biraz daha resmiyet kazandırsana").
+   Ortak .birincil / .tehlike kuralları DEĞİŞMEDİ; bu iki sınıf yalnız Kuru
+   Küspe ekranındaki iki düğmeye takılır (KURAL 10.5 · varyant sınıfı).
+     - köşe 8 -> 5 px: yuvarlak hap yerine düz kurumsal düğme
+     - harf aralığı hafif açık, ağırlık 600: etiket net okunur
+     - Günü Sıfırla dolgusuz çerçeveye döndü: yıkıcı eylem sessiz durur,
+       niyet fare üstüne gelince kırmızıya döner */
+.yu-dugme.yu-kk-kaydet {
+  border-radius: 5px;
+  font-weight: 600;
+  letter-spacing: .012em;
+}
+.yu-dugme.yu-kk-sifirla {
+  /* KIRMIZI HEP AÇIK (kullanıcı isteği, 02.09.2026: "günü sıfırladaki
+     kırmızılık hep açık kalsın"). Önce nötr durup fare üstündeyken
+     kırmızıya dönüyordu; artık yıkıcı olduğunu ilk bakışta söyler.
+     Dolgu yok: çerçeve ve yazı kırmızı, zemin boş — Kaydet'in dolu mavisiyle
+     yarışmaz, resmi durur. */
+  background: transparent;
+  border-color: var(--olumsuz);
+  color: var(--olumsuz);
+  border-radius: 5px;
+  font-weight: 500;
+  letter-spacing: .012em;
+}
+.yu-dugme.yu-kk-sifirla:hover:not(:disabled) {
+  background: var(--olumsuz-zemin);
+  border-color: var(--olumsuz);
   color: var(--olumsuz);
 }
 .yu-dugme.tehlike:hover {
@@ -1658,7 +1743,80 @@ html[data-tema="koyu"] .yu-tablo-serit {
 .yu-kampanya-tablo .yu-secili-ad { color: var(--vurgu); font-weight: 700; }
 
 .yu-kampanya-tablo .yu-rozet { font-size: 14px; padding: 5px 11px; }
+
+/* DURUM KOLONU DÜZ YAZI (kullanıcı isteği, 01.09.2026: "Durum kısmındaki
+   geçmiş, şu anki, açık vs bunlar renkli olmasın, etiketleri renksiz yap,
+   background'u olmasın"). Kutusu ve rengi kalkar, yazı nötr tona düşer.
+   Program Hareketleri gün panelindeki Hareket kolonuyla aynı dil.
+
+   Yalnız 4. kolon: Kampanya Yönetimi'nin başka rozeti yok, ama kural
+   kolona bağlandı ki ileride eklenen bir rozet yanlışlıkla sönmesin.
+   Kutular kalkınca "Şu Anki" ile "Açık" birbirine yapışıyordu; araya orta
+   nokta girer. Kilit ikonu (yeşil/kırmızı) yerinde kalır — o bir etiket
+   değil, bakışta okunan işaret. */
+.yu-kampanya-tablo .yu-tablo tbody td:nth-child(4) .yu-rozet {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  /* Renk kalkınca yazı sönük kaldı; kalınlık ve tam metin rengi geri verir
+     (kullanıcı isteği, 01.09.2026: "yazılarını kalınlaştır"). */
+  color: var(--metin);
+  font-weight: 700;
+}
+
+.yu-kampanya-tablo .yu-tablo tbody td:nth-child(4) .yu-rozet + .yu-rozet::before {
+  content: "· ";
+  color: var(--metin-4);
+  margin-right: 2px;
+}
 .yu-kampanya-tablo .yu-dugme.kucuk { font-size: 14px; padding: 8px 12px; }
+
+/* SATIR DÜĞMELERİ EŞİT KUTUDA (kullanıcı isteği, 01.09.2026: "düzelt/kilitle,
+   düzelt/kilidi aç bunları hizalandır, en kötü kutularını eş yap, içindeki
+   yazılar değişsin").
+   ÖLÇÜLDÜ: Düzelt 85, Kilitle 78, Kilidi Aç 94 px — üç ayrı genişlik, iki
+   satırın düğmeleri birbirini tutmuyordu. Hepsi 100 px'e sabitlenir; yazı
+   ortalanır, kutu değişmez. */
+.yu-kampanya-tablo .yu-tablo tbody td:last-child .yu-dugme {
+  min-width: 100px;
+  justify-content: center;
+}
+
+/* --------------------------------------------------------------------------
+   KAMPANYA YÖNETİMİ: HÜCRE YAZILARI EŞİTLENİR (kullanıcı bildirimi,
+   01.09.2026: "satırların hepsi farklı boyutlarda, farklı yazı kalınlığında,
+   bir ortaklık yok").
+
+   ÖLÇÜLDÜ — kolon kolon eski hâli:
+     Kampanya    15,5 px / 500      Aralık      14,5 px / 600 (sayı fontu)
+     Kayıtlı Gün 14,5 px / 600      Durum         14 px / 700
+     Kilitleyen  15,5 px / 400      Düğme         14 px / 400
+   Üç ayrı punto, dört ayrı kalınlık.
+
+   YENİ ÖLÇÜ: bütün hücreler 14,5 px. Kalınlık 600; yalnız "Kilitleyen"
+   500'de kalır — o ikincil bilgidir, zaten soluk tonda. Düğme kendi ortak
+   ölçüsünde bırakıldı (14 px): o bir hücre yazısı değil.
+
+   Durum etiketleri 700'den 600'e indi; aynı gün "kalınlaştır" denmişti,
+   şimdi öbür kolonlarla eşitlendi — hepsi birlikte 600.
+   -------------------------------------------------------------------------- */
+.yu-kampanya-tablo .yu-tablo tbody td,
+.yu-kampanya-tablo .yu-tablo tbody td .yu-guclu,
+.yu-kampanya-tablo .yu-tablo tbody td .yu-mono,
+.yu-kampanya-tablo .yu-tablo tbody td .yu-zayif,
+/* Durum etiketleri de aynı puntoya gelir: yukarıdaki ortak
+   ".yu-kampanya-tablo .yu-rozet" kuralı onlara 14 px veriyordu ve tek
+   ayrık ölçü o kalmıştı (ölçüldü, 01.09.2026). */
+.yu-kampanya-tablo .yu-tablo tbody td:nth-child(4) .yu-rozet {
+  font-size: 14.5px;
+}
+
+.yu-kampanya-tablo .yu-tablo tbody td .yu-guclu,
+.yu-kampanya-tablo .yu-tablo tbody td .yu-mono,
+.yu-kampanya-tablo .yu-tablo tbody td:nth-child(4) .yu-rozet {
+  font-weight: 600;
+}
+
 
 /* Evet / Hayır seçimi — Devir Stok'taki "Yeni Kampanya Oluştur" penceresi.
    Seçilen taraf tıklandığı ANLAŞILSIN diye üç işaret birden taşır (kullanıcı
@@ -2164,6 +2322,8 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
 .yu-giris-kart .yu-sayfa-baslik { font-size: 24px; }
 .yu-giris-kart .yu-sayfa-alt { margin-top: 6px; }
 
+/* ANA SAYFA · SOL PANEL PNG ÇIKTISI (kullanıcı isteği, 31.08.2026).
+   Görsel yeniden oluşturulmaz; LOGO.png kendi oranıyla, taşmadan gösterilir. */
 /* GİRİŞ FORMU — kullanıcı adı + parola (26.08.2026). Rol kartlarının
    (.yu-giris-roller / .yu-giris-rol) kuralları buradan kaldırıldı: giriş
    artık Şartname §3'ün istediği gibi kimlikle yapılıyor, kartlar kalmadı.
@@ -2177,6 +2337,15 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
   text-align: left;
 }
 .yu-giris-form .yu-dugme { justify-content: center; margin-top: 4px; }
+/* İkinci düğme (Kayıt Ol) birincinin hemen altında dursun: form aralığı 14px,
+   düğmeler arasında o kadar boşluk ikisini ayrı iki karar gibi gösteriyordu.
+   Aynı kararın iki yolu — 6px yeter. */
+.yu-giris-form .yu-dugme + .yu-dugme { margin-top: -8px; }
+
+/* BENİ HATIRLA satırı (31.08.2026): parola alanı ile düğme arasında, sola
+   hizalı. Kendi zemini yok — .yu-onay-cip zaten zeminsiz. Üstteki alandan
+   biraz yaklaşır ki "parolaya ait bir seçenek" gibi okunsun. */
+.yu-giris-hatirla { margin-top: -4px; align-self: flex-start; }
 
 .yu-giris-not {
   font: 400 13.5px/1.6 var(--font);
@@ -2276,8 +2445,11 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
   gap: 6px;
 }
 .yu-kabuk.daralt .yu-marka { padding: 0; margin-bottom: 6px; }
-.yu-kabuk.daralt .yu-marka.logolu { align-items: stretch; gap: 0; }
-.yu-kabuk.daralt .yu-marka-logo { width: 100%; border-radius: 0; }
+/* 58px ikon rayı: tam logo yerine amblem. Yazı okunmayacak kadar
+   küçüldüğü için gizlenir, amblem ortalanır. */
+.yu-kabuk.daralt .yu-marka.logolu { align-items: stretch; gap: 0; padding: 11px 0 10px; }
+.yu-kabuk.daralt .yu-yan .yu-marka.logolu .yu-marka-logo { display: none; }
+.yu-kabuk.daralt .yu-marka.logolu .yu-marka-amblem { display: block; }
 .yu-kabuk.daralt .yu-marka-ad,
 .yu-kabuk.daralt .yu-secici,
 .yu-kabuk.daralt .yu-menu-grup-bas { display: none; }
@@ -2307,9 +2479,10 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
   }
   .yu-marka { padding: 0; margin-bottom: 6px; }
   .yu-marka-kare { width: 30px; height: 30px; border-radius: 8px; }
-  /* İkon rayında da tam genişlik: 58px'lik ray boyunca kenara sıfır oturur. */
-  .yu-marka.logolu { align-items: stretch; gap: 0; }
-  .yu-marka-logo { width: 100%; border-radius: 0; }
+  /* İkon rayında tam logo yerine amblem — yukarıdaki daralt kuralıyla aynı. */
+  .yu-marka.logolu { align-items: stretch; gap: 0; padding: 11px 0 10px; }
+  .yu-yan .yu-marka.logolu .yu-marka-logo { display: none; }
+  .yu-marka.logolu .yu-marka-amblem { display: block; }
   .yu-marka-ad,
   .yu-secici,
   .yu-menu-grup-bas { display: none; }
@@ -2580,6 +2753,12 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
   .yu-baski-ilk-tarih tbody td:nth-child(2),
   .yu-baski-ilk-tarih tbody td:nth-child(2) * { white-space: normal !important; }
 
+  /* Uzun kolon başlıkları kâğıtta ALT ALTA sarar. ÖLÇÜLDÜ (31.08.2026, tablo
+     792px kâğıt genişliğinde kurularak): sarmadan 935px — son üç kolon
+     dışarıda kalıyordu; başlıklar sarınca 790px, tam sığıyor. Rakam hücreleri
+     nowrap KALIR, yalnız başlık sarar. */
+  .yu-baski-sig thead th { white-space: normal !important; }
+
   /* YAVRU SATIR KÂĞITTA TEK SATIR (kullanıcı isteği, 28.08.2026): yukarıdaki
      sarma kuralı "Dökmeden Çuvallıya Çevrilen, Üretimden Düşülür" metnini beş
      satıra bölüyordu. Metin nowrap'e döner ama kolonu ŞİŞİRMEZ: sarmalayan
@@ -2599,6 +2778,9 @@ select.yu-girdi { cursor: pointer; padding-right: 8px; }
   }
 
   .yu-baski-sig table { min-width: 0 !important; width: 100%; table-layout: auto; }
+  /* Sınıf TABLONUN KENDİSİNDE de olabilir (25-gunluk-rapor, 34-aylik-ozet):
+     yukarıdaki kural yalnız sarmalayıcıya konduğunda tutuyordu (31.08.2026). */
+  table.yu-baski-sig { min-width: 0 !important; width: 100%; table-layout: auto; }
   .yu-baski-sig thead th { width: auto !important; min-width: 0 !important; }
   /* .yu-baski-sig'in kendi ölçüsü, aşağıdaki genel kuralla AYNI değere
      çekildi (26.08.2026): iki kural çakışıyordu ve daha özgül olan bu,
@@ -3108,4 +3290,925 @@ html[data-tema="acik"] .yu-kk-ekran .yu-girdi:not(:disabled):not(:focus) {
     background: var(--yuzey-3);
     border-color: var(--kenar-3);
   }
+}
+
+
+/* ==========================================================================
+   KURU KÜSPE GÜNLÜK GİRİŞ — NEFES DOKUNUŞU (kullanıcı isteği, 31.08.2026)
+
+   Sayfa sıkışıktı: panel dolgusu 10/16, blok araları 8px. Burada YALNIZ
+   BOŞLUK değişir — dolgu, aralık, kenar boşluğu. Hiçbir kolon, satır, panel
+   ya da yazı eklenmez/çıkarılmaz (KURAL 10.4). Ortak sınıflar ezilmez:
+   her kural bu ekranın .yu-kk-ekran kabına bağlıdır (KURAL 10.5).
+
+   JS'E HİÇ DOKUNULMAZ: sayfanın kapsayıcısı :has() ile bulunur, çünkü
+   .yu-kk-ekran yalnız sol yığundur; sağdaki "Gün Sonu ve Kayıt" onun kardeşi.
+   Böylece geri alma tek adım, ve JS önbellekte kalsa bile kural çalışır.
+
+   !important NEDEN VAR: bu ekranın yerleşim ölçüleri JS'te SATIR İÇİ stil
+   olarak veriliyor (21-kuru-kuspe-giris.js). Satır içi stili yalnız
+   !important geçer. Kapsam tek ekranla sınırlı olduğu için yayılma riski yok.
+
+   GERİ ALMAK İÇİN: bu bloğun tamamını sil. Başka hiçbir yerde iz yok.
+   ========================================================================== */
+
+/* Sol yığın ile sağ "Gün Sonu ve Kayıt" sütunu arası. */
+div:has(> .yu-kk-ekran) { gap: 22px !important; }
+
+/* Sol yığındaki bloklar (tarih şeridi, adım ızgarası) arası. */
+.yu-kk-ekran { gap: 22px !important; }
+
+/* Adım 1 ile adım 2 arası. YALNIZ satır aralığı: kolon aralığı 0 kalmalı,
+   çünkü soldaki dar panel ile sağdaki geniş panel tek bir kartın iki
+   yarısıdır (.yu-cift-sol / .yu-cift-sag) — aralarına boşluk girerse kart
+   ikiye ayrılmış görünür. */
+.yu-kk-ekran > div { row-gap: 22px !important; }
+
+/* Panel içi dolgu. Asıl nefes buradan geliyor: içerik kenarlığa yapışıktı. */
+div:has(> .yu-kk-ekran) .yu-panel {
+  padding-top: 16px !important;
+  padding-bottom: 16px !important;
+  padding-left: 18px;
+  padding-right: 18px;
+}
+
+/* Panel başlığı ile içerik arası, ve içerideki bloklar arası. */
+div:has(> .yu-kk-ekran) .yu-panel-govde { gap: 13px !important; }
+
+/* Etiket + kutu blokları arası. Kenar boşluğu kullanılır ki hem dikey
+   yığında (adım panelleri) hem de iki kolonlu silo ızgarasında aynı
+   ölçüde açılsın — aralık (gap) değeri her ikisinde farklıydı. */
+div:has(> .yu-kk-ekran) .yu-alan { margin-bottom: 4px; }
+
+/* --------------------------------------------------------------------------
+   ADIM PANELLERİ DAHA İNCE (kullanıcı isteği, 31.08.2026)
+
+   "Siloya Giren" ve "Silodan Çıkan" kartları alçaltılır. YALNIZ BOŞLUK
+   kısılır: yazı ölçüsü, kutu yüksekliği, düğme ölçüsü hiç değişmez.
+   Kartın iki yarısı da (dar sol + geniş sağ) aynı değeri alır ki
+   yükseklikleri eşit kalsın. Sağdaki "Gün Sonu ve Kayıt" paneli
+   bu kuralların DIŞINDADIR, ferah kalır.
+   -------------------------------------------------------------------------- */
+
+/* Kart dolgusu. 31.08.2026 akşamı 7 -> 4: "Silodan Çıkan" kartı zaten 4 px
+   almıştı, "Siloya Giren" 7 px'te kalmıştı; iki kart eşitlendi. */
+div:has(> .yu-kk-ekran) .yu-panel.yu-cift-sol,
+div:has(> .yu-kk-ekran) .yu-panel.yu-cift-sag {
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+}
+
+/* Başlık ile içerik arası. */
+div:has(> .yu-kk-ekran) .yu-cift-sol .yu-panel-govde,
+div:has(> .yu-kk-ekran) .yu-cift-sag .yu-panel-govde { gap: 3px !important; }
+
+/* Başlık satırının altındaki pay. */
+div:has(> .yu-kk-ekran) .yu-cift-sol .yu-panel-govde > div:first-child,
+div:has(> .yu-kk-ekran) .yu-cift-sag .yu-panel-govde > div:first-child {
+  padding-bottom: 0 !important;
+}
+
+/* Etiket + kutu blokları arası: bu iki kartta genel 4px kenar boşluğu
+   uygulanmaz, blok aralığı da bir tık kısılır. */
+div:has(> .yu-kk-ekran) .yu-cift-sol .yu-alan,
+div:has(> .yu-kk-ekran) .yu-cift-sag .yu-alan { margin-bottom: 0; }
+
+div:has(> .yu-kk-ekran) .yu-cift-sol .yu-panel-govde > div:last-child,
+div:has(> .yu-kk-ekran) .yu-cift-sag .yu-panel-govde > div:last-child {
+  gap: 3px !important;
+}
+
+/* Silo ızgarası: satır arası ve üstündeki pay kısılır. Kutuların GENİŞLİĞİ
+   ve yüksekliği aynı kalır. Kolon sayısına DOKUNULMAZ: ızgara auto-fit ile
+   ekrana göre kendi kendine 1/2/3 kolona iniyor; sabitlenirse dar ekranda
+   kutular birbirinin üstüne biniyor (denendi, 1250 px'te 151 px taşma).
+   Izgara sınıfsız ve JS'te satır içi kuruluyor (21-kuru-kuspe-giris.js:621),
+   o yüzden satır içi stilin kendisinden yakalanır. */
+div:has(> .yu-kk-ekran) .yu-cift-sag div[style*="minmax(200px"] {
+  gap: 8px !important;
+  margin-top: 8px !important;
+}
+
+/* --------------------------------------------------------------------------
+   "SİLODAN ÇIKAN" KARTI BİR TIK DAHA DAR (kullanıcı isteği, 31.08.2026)
+
+   Gerekçe kullanıcının sözü: bu kartta çoğu gün tek satır doluyor
+   ("Bugün Satılan Dökme Kuru Küspe"), o yüzden "Siloya Giren" kadar yer
+   kaplamasın. Ölçüldü (1920 px ekran): Siloya Giren 236 px, Silodan Çıkan
+   176 -> 164 px.
+
+   Kartın iki yarısı da aynı değeri alır ki yükseklikleri eşit kalsın; sağ
+   yarı .yu-serit-cikan'ın hemen ardından gelen kardeştir.
+   YİNE YALNIZ BOŞLUK: yazı, kutu ve düğme ölçüleri değişmez.
+   -------------------------------------------------------------------------- */
+div:has(> .yu-kk-ekran) .yu-serit-cikan,
+div:has(> .yu-kk-ekran) .yu-serit-cikan + .yu-cift-sag {
+  padding-top: 5px !important;
+  padding-bottom: 5px !important;
+}
+
+div:has(> .yu-kk-ekran) .yu-serit-cikan .yu-panel-govde,
+div:has(> .yu-kk-ekran) .yu-serit-cikan + .yu-cift-sag .yu-panel-govde {
+  gap: 4px !important;
+}
+
+div:has(> .yu-kk-ekran) .yu-serit-cikan .yu-panel-govde > div:last-child,
+div:has(> .yu-kk-ekran) .yu-serit-cikan + .yu-cift-sag .yu-panel-govde > div:last-child {
+  gap: 3px !important;
+}
+
+div:has(> .yu-kk-ekran) .yu-serit-cikan + .yu-cift-sag div[style*="minmax(200px"] {
+  margin-top: 4px !important;
+}
+
+/* --------------------------------------------------------------------------
+   "ÇUVALLAMA İÇİN ÇIKACAK" BLOĞU DA DAR (kullanıcı isteği, 31.08.2026)
+
+   Bu blok her gün görünmez: yalnız üretilenden fazla çuvallandığında
+   "Silolardan Çek" panelinin altında, kırmızı ayracın ardından açılır.
+   Açıldığında kart 166 -> 377 px'e çıkıyordu.
+
+   Yine YALNIZ BOŞLUK kısılır. Kırmızı ayraca, yazı ölçülerine, kutulara ve
+   "Temizle" düğmesine dokunulmaz.
+
+   SEÇİCİLER YAPISALDIR: bu bloğun sarmalayıcıları JS'te sınıfsız kuruluyor
+   (21-kuru-kuspe-giris.js · dagitimKutusu + kalemKur). 21-kuru-kuspe-giris.js
+   içinde "Silolardan Çek" panelinin iç yapısı değişirse burası da gözden
+   geçirilmeli.
+   -------------------------------------------------------------------------- */
+
+/* "Satış için çıkacak" / ayraç / "Çuvallama için çıkacak" arası. */
+div:has(> .yu-kk-ekran) .yu-serit-cikan + .yu-cift-sag
+  .yu-panel-govde > div:last-child > div { gap: 8px !important; }
+
+/* Kalem içi: başlık satırı / açıklama cümlesi / silo kutuları arası. */
+div:has(> .yu-kk-ekran) .yu-serit-cikan + .yu-cift-sag
+  .yu-panel-govde > div:last-child > div > div { gap: 6px !important; }
+
+/* Silo kutuları ile "Temizle" düğmesi arası. */
+div:has(> .yu-kk-ekran) .yu-serit-cikan + .yu-cift-sag
+  .yu-panel-govde > div:last-child > div > div > div:last-child { gap: 6px !important; }
+
+/* --------------------------------------------------------------------------
+   "SİLOLARA DAĞIT" İÇERİĞİ DİKEYDE ORTALANIR (kullanıcı isteği, 31.08.2026)
+
+   ÖLÇÜLDÜ (1920 px ekran, kart 236 px):
+     başlık altındaki bant  187 px
+     içerik                 120 px
+     üstte 6 px, ALTTA 61 px boşluk kalıyordu — içerik tepeye yapışıktı.
+   Ortalandıktan sonra: üstte 34, altta 32 px.
+
+   Kart yüksekliğini SOL yarı ("Siloya Giren", iki kutu) belirliyor; sağ
+   yarıda yalnız silo kutuları var, bu yüzden altta boşluk kalıyor.
+   "Silolardan Çek" panelinde bu sorun YOK (ölçüldü: altta 1 px boşluk),
+   oraya dokunulmadı.
+
+   -3px NEDEN: .yu-panel-govde'nin 6 px başlık aralığı ortalamanın üstüne
+   bindiği için üst boşluk alt boşluktan 6 px fazla çıkıyordu; yarısı geri
+   alınır. Aralık değiştirilirse bu değer de yarısı kadar güncellenmeli.
+
+   padding-top SIFIRLANIR: JS'teki ilkSatirHizala() sağ panelin ilk kutusunu
+   sol panelin ilk kutusuyla hizalamak için buraya satır içi dolgu yazıyor
+   (21-kuru-kuspe-giris.js:963). Kullanıcı hizalama yerine ORTALAMA istedi;
+   iki kural üst üste binmesin diye dolgu !important ile susturulur.
+
+   Dar ekranda (silolar alt alta düşünce) sağ yarı uzar, ortalanacak boşluk
+   kalmaz; o durumda başlık ile içerik arasında 3 px kalır (1250 px'te
+   ölçüldü), yapışma olmaz.
+   -------------------------------------------------------------------------- */
+div:has(> .yu-kk-ekran) .yu-serit-giren + .yu-cift-sag {
+  display: flex;
+  flex-direction: column;
+}
+
+div:has(> .yu-kk-ekran) .yu-serit-giren + .yu-cift-sag .yu-panel-govde { flex: 1; }
+
+div:has(> .yu-kk-ekran) .yu-serit-giren + .yu-cift-sag
+  .yu-panel-govde > div:last-child {
+  flex: 1;
+  justify-content: center;
+  padding-top: 0 !important;
+}
+
+div:has(> .yu-kk-ekran) .yu-serit-giren + .yu-cift-sag
+  .yu-panel-govde > div:last-child > * { margin-top: -3px; }
+
+/* --------------------------------------------------------------------------
+   SOL PANELDEKİ KUTU ETİKETLERİ FERAHLAR (kullanıcı isteği, 31.08.2026)
+
+   ÖLÇÜLDÜ (1900 px ekran): "Bugün Satılan Dökme Kuru Küspe" etiketinin
+   ÜSTÜNDE 4 px, ALTINDA 6 px boşluk vardı; "Bugün Üretilen Dökme Kuru
+   Küspe" için 6 ve 6. Yazı başlığa ve kutuya yapışık duruyordu.
+
+   Etikete üstten 4, alttan 3 px dolgu verilir — yazı ölçüsü, kutu ölçüsü
+   ve satır yüksekliği değişmez, yalnız etrafında yer açılır.
+
+   "Çuvallanan" etiketi de kapsama alınır: aynı yığında duran aynı türden
+   etiket, dışarıda kalsa iki satırın ritmi bozulurdu.
+
+   Kapsam SOL yarılardır (.yu-cift-sol). Sağdaki silo kutularının
+   "Silo 1 · gün başı X kg" etiketleri bu kuralın dışındadır.
+   -------------------------------------------------------------------------- */
+div:has(> .yu-kk-ekran) .yu-cift-sol .yu-alan > .yu-etiket {
+  padding-top: 4px;
+  padding-bottom: 3px;
+}
+
+/* --------------------------------------------------------------------------
+   SONUÇ SATIRI KARTIN ALTINA OTURUR (kullanıcı isteği, 31.08.2026)
+
+   ÖLÇÜLDÜ: "Satış için çıkacak · 0 kg" satırının ALTINDA 10 px boş yer
+   kalıyordu; satır havada duruyordu. Sebep, kartın yüksekliğini sağ yarının
+   ("Silolardan Çek") belirlemesi — sol yarının içeriği daha kısa.
+
+   Sonuç satırı margin-top:auto ile aşağı çekilir: boşluk üstüne geçer.
+   Sonrası: üstünde 12, altında 1 px. Kart boyu DEĞİŞMEZ (167 px).
+
+   "Siloya Giren" kartında da aynı kural yazılıdır ama orada boşluk zaten
+   1 px olduğu için hiçbir şey değişmez — iki kart aynı davranışta kalsın.
+   -------------------------------------------------------------------------- */
+div:has(> .yu-kk-ekran) .yu-cift-sol {
+  display: flex;
+  flex-direction: column;
+}
+
+div:has(> .yu-kk-ekran) .yu-cift-sol .yu-panel-govde { flex: 1; }
+
+div:has(> .yu-kk-ekran) .yu-cift-sol .yu-panel-govde > div:last-child { flex: 1; }
+
+div:has(> .yu-kk-ekran) .yu-cift-sol
+  .yu-panel-govde > div:last-child > *:last-child { margin-top: auto; }
+
+/* --------------------------------------------------------------------------
+   "SİLODAN ÇIKAN" KARTI SON KEZ DARALIR (kullanıcı isteği, 31.08.2026)
+
+   ÖLÇÜLDÜ (1900 px ekran): kart 186 px'ti ve bunun 23 PİKSELİ, sağdaki ilk
+   silo kutusunu soldaki "Bugün Satılan Dökme Kuru Küspe" kutusuyla aynı
+   satıra getirmek için JS'in koyduğu dolguydu (ilkSatirHizala,
+   21-kuru-kuspe-giris.js:963). Kutularda kullanılmayan, sırf hizalama için
+   harcanan yer.
+
+   "Siloya Giren" kartında bu hizalama zaten ortalamayla değiştirilmişti;
+   burada da aynısı yapılır. Sonuç: 186 -> 163 px. Yazı, kutu ve düğme
+   ölçüleri değişmez.
+
+   AYRICA DOLGU EŞİTLENİR: yukarıdaki "ADIM PANELLERİ DAHA İNCE" bloğundaki
+   .yu-panel.yu-cift-sol kuralı (üç sınıf) bu kartın sol yarısına ait iki
+   sınıflı kuralı özgüllükle yeniyordu; sol yarı 7 px, sağ yarı 5 px dolgu
+   alıyordu. Aynı kartın iki yarısı artık ikisi de 5 px.
+   -------------------------------------------------------------------------- */
+div:has(> .yu-kk-ekran) .yu-panel.yu-serit-cikan {
+  padding-top: 5px !important;
+  padding-bottom: 5px !important;
+}
+
+div:has(> .yu-kk-ekran) .yu-serit-cikan + .yu-cift-sag .yu-panel-govde { flex: 1; }
+
+div:has(> .yu-kk-ekran) .yu-serit-cikan + .yu-cift-sag
+  .yu-panel-govde > div:last-child {
+  flex: 1;
+  justify-content: center;
+  padding-top: 0 !important;
+}
+
+/* --------------------------------------------------------------------------
+   "SİLODAN ÇIKAN" KARTINDA KALAN BOŞLUKLAR (kullanıcı isteği, 31.08.2026)
+
+   ÖLÇÜLDÜ (1900 px): kart 163 px = 10 dolgu + 34 başlık + 4 aralık + 113
+   içerik. Kullanıcının işaret ettiği "Satış için çıkacak üstündeki boşluk"
+   9 px ve SOL yarıdadır; kartın boyunu SAĞ yarı belirlediği için onu
+   kısmak kartı kısaltmaz. Bu yüzden sağ yarıdaki paylar kısılır.
+
+   Kalan tek büyük kalem "Temizle" düğmesinin satırıdır (yaklaşık 34 px);
+   o bir düğmeyi yerinden oynatmak demek, kullanıcıya soruldu.
+   -------------------------------------------------------------------------- */
+div:has(> .yu-kk-ekran) .yu-panel.yu-serit-cikan,
+div:has(> .yu-kk-ekran) .yu-serit-cikan + .yu-cift-sag {
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+}
+
+div:has(> .yu-kk-ekran) .yu-serit-cikan .yu-panel-govde,
+div:has(> .yu-kk-ekran) .yu-serit-cikan + .yu-cift-sag .yu-panel-govde {
+  gap: 3px !important;
+}
+
+/* Silo ızgarasının üstündeki pay.
+   Başlığın alt çizgisi ile ilk silo satırı arası, iki adımda açıldı
+   (kullanıcı isteği, 31.08.2026): 5 px -> 8 px -> 11 px.
+   Üst pay değerleri sırasıyla 2 -> 5 -> 8 px; kalan 3 px gövde aralığıdır. */
+div:has(> .yu-kk-ekran) .yu-serit-cikan + .yu-cift-sag
+  div[style*="minmax(200px"] { margin-top: 8px !important; }
+
+div:has(> .yu-kk-ekran) .yu-serit-cikan + .yu-cift-sag
+  .yu-panel-govde > div:last-child > div > div > div:last-child { gap: 4px !important; }
+
+/* --------------------------------------------------------------------------
+   SONUÇ SATIRI YUKARI ALINIR (kullanıcı isteği, 31.08.2026 — önceki kararın
+   yerine geçer)
+
+   Daha önce "Satış için çıkacak · 0 kg" satırı margin-top:auto ile kartın
+   ALTINA yaslanmıştı (aynı gün, "bu yazıyı biraz aşağıya çekebilirsin").
+   Kullanıcı şimdi tersini istedi: satır YUKARI itilir, altındaki boşluk
+   aşağıda toplanır. Bu blok, yukarıdaki "SONUÇ SATIRI KARTIN ALTINA OTURUR"
+   kuralını iptal eder — o blok tarihçe olarak yerinde durur.
+
+   Ölçüldü: "Satış için çıkacak" 9 px yukarı çıkar. "Siloya girecek" satırında
+   zaten boşluk yoktu, orada bir şey değişmez.
+
+   NOT: kartın ALT KENARI bu değişiklikle yukarı gelmez; kartın boyunu sağ
+   yarı ("Silolardan Çek") belirliyor.
+   -------------------------------------------------------------------------- */
+div:has(> .yu-kk-ekran) .yu-cift-sol
+  .yu-panel-govde > div:last-child > *:last-child { margin-top: 0; }
+
+/* --------------------------------------------------------------------------
+   BOŞ İPUCU SATIRI YER KAPLAMASIN (kullanıcı isteği, 31.08.2026)
+
+   ÖLÇÜLDÜ: "Çuvallanan" alanı 83 px, "Bugün Üretilen" alanı 77 px'ti. Fark,
+   içi BOŞKEN de akışta duran ipucu satırı: kendi yüksekliği 0 ama .yu-alan'ın
+   6 px aralığından bir pay alıyordu. Rakam girilince ("1.000 çuval · …")
+   satır dolar ve kural kendiliğinden devre dışı kalır.
+   -------------------------------------------------------------------------- */
+div:has(> .yu-kk-ekran) .yu-alan > .yu-yardim:empty,
+div:has(> .yu-kk-ekran) .yu-alan > .yu-alan-hata:empty { display: none; }
+
+/* --------------------------------------------------------------------------
+   DEĞER KUTULARI %10 ALÇALIR (kullanıcı isteği, 31.08.2026)
+
+   ÖLÇÜLDÜ (1900 px), yükseklikler kenarlık dâhil:
+     sol panel kutusu  44,7 px = 9 + 9 dolgu + 24,7 satır + 2 kenarlık
+     silo kutusu       41,8 px = 8 + 8 dolgu + 23,8 satır + 2 kenarlık
+
+   %10 YALNIZ DİKEY DOLGUDAN alınır — yazı ölçüsü, satır yüksekliği ve
+   kenarlık aynı kalır, GENİŞLİK hiç değişmez (yan dolgulara dokunulmuyor).
+     sol panel  9   -> 6,75 px  => 44,7 -> 40,2 px  (%90)
+     silo       8   -> 5,90 px  => 41,8 -> 37,6 px  (%90)
+
+   Kutunun içindeki "kg" eki ve "Hepsini Ekle" düğmesi kutunun yüksekliğine
+   bağlı olduğu için onlar da birlikte iner; ayrı kural gerekmez.
+
+   Kapsam bu ekranla sınırlıdır; ortak .yu-girdi ölçüsü ezilmez (KURAL 10.5).
+   Tarih kutusu dışarıdadır — o bir denetim, değer satırı değil.
+   -------------------------------------------------------------------------- */
+/* !important: sol paneldeki kutuların dikey dolgusu JS'te SATIR İÇİ
+   veriliyor (9px), satır içi stili yalnız !important geçer. */
+div:has(> .yu-kk-ekran) .yu-cift-sol .yu-alan .yu-girdi {
+  padding-top: 6.75px !important;
+  padding-bottom: 6.75px !important;
+}
+
+div:has(> .yu-kk-ekran) .yu-cift-sag .yu-alan .yu-girdi {
+  padding-top: 5.9px;
+  padding-bottom: 5.9px;
+}
+
+/* --------------------------------------------------------------------------
+   "GÜN SONU VE KAYIT" PANELİ BİR TIK SIKIŞIR (kullanıcı isteği, 01.09.2026)
+
+   Kullanıcının sözü: "içeridekileri biraz daha boşluklara doğru sıkıştır az
+   ama, mesela silo 1'i üste doğru yaklaştır, alttakileri de silo 1'e doğru."
+
+   ÖLÇÜLDÜ (1500 px ekran, panel 654 px):
+     başlık çizgisi -> Silo 1      13 px
+     Silo 3 -> uyarı kutusu        27 px   (13 gövde aralığı + 14 üst dolgu)
+     uyarı -> ayraç -> Kaydet      13 + 13 px
+
+   Yalnız BOŞLUK kısılır: silo kartları, uyarı kutusu, ayraç ve düğmeler
+   aynı ölçüde kalır.
+     gövde aralığı              13 -> 9 px
+     başlık alt payı             5 -> 3 px
+     durum alanı üst dolgusu    14 -> 6 px   (JS'te satır içi verildiği için
+                                              !important şart)
+
+   Yukarıdaki "ADIM PANELLERİ DAHA İNCE" bloğundaki "Gün Sonu ve Kayıt paneli
+   bu kuralların DIŞINDADIR, ferah kalır" notu bilerek gevşetilir; panel yine
+   sol kartlardan ferah durur.
+
+   SEÇİCİ: bu ekranın sınıfsız tek paneli odur — sol kartların hepsi
+   .yu-cift-sol / .yu-cift-sag taşır.
+   -------------------------------------------------------------------------- */
+div:has(> .yu-kk-ekran) .yu-panel:not(.yu-cift-sol):not(.yu-cift-sag)
+  .yu-panel-govde { gap: 9px !important; }
+
+/* Başlık satırının altındaki pay: Silo 1 yukarı gelir. */
+div:has(> .yu-kk-ekran) .yu-panel:not(.yu-cift-sol):not(.yu-cift-sag)
+  .yu-panel-govde > div:first-child { padding-bottom: 3px !important; }
+
+/* Silo ızgarası ile altındaki durum alanı arası: uyarı, durum kutusu ve
+   düğmeler Silo 3'e yaklaşır. */
+div:has(> .yu-kk-ekran) .yu-panel:not(.yu-cift-sol):not(.yu-cift-sag)
+  .yu-panel-govde > div:nth-child(3) { padding-top: 6px !important; }
+
+/* --------------------------------------------------------------------------
+   "SİLOLARA DAĞIT" / "SİLOLARDAN ÇEK" BAŞLIKLARI SERTLEŞİR
+   (kullanıcı isteği, 01.09.2026: "bu yazılar biraz silik, bunları sertleştir")
+
+   ÖNCE: 600 ağırlık, var(--metin-3) — koyu temada #c0c7d0, açık temada
+   #3d434e. Soldaki "Siloya Giren" / "Silodan Çıkan" başlıklarının yanında
+   sönük kalıyordu.
+
+   SONRA: var(--metin) — koyu temada #ecf0f3, açık temada #14171c. Kartın iki
+   yarısının başlığı artık aynı tonda.
+
+   KALINLIK 600 -> 700 -> 800 (kullanıcı istekleri, 01.09.2026:
+   "sertleştir", "biraz daha arttır").
+
+   ARA KALINLIK YOK: gövde yazı tipinin (Helvetica Neue / Arial) 700 ile 800
+   arasında kademesi yoktur. ÖLÇÜLDÜ — "Silolara Dağıt" metninin genişliği:
+     700 · 720 · 750 · 780  ->  120,94 px  (dördü de birebir aynı)
+     800 · 900              ->  132,94 px
+   Yani "font-weight: 750" yazmak 700'e döner.
+
+   KONTUR DENENDİ, GERİ ALINDI: ara kalınlığı taklit etmek için 700'ün
+   üstüne 0,3 px -webkit-text-stroke çizilmişti. Kullanıcı bildirdi
+   ("gölgeli gibi duruyor, arkasından takip ediyormuş gibi", "3d gibi
+   duruyor"): kontur harfin dış çizgisinin ORTASINA oturuyor, alt piksel
+   yumuşatmayla ikinci bir siluet gibi okunuyor. Kaldırıldı — bu ekranda
+   ara kalınlık taklit edilmez, ya 700 ya 800.
+
+   YAZI ÖLÇÜSÜ, büyük harf ve harf aralığı AYNEN kalır; değişen yalnız
+   renk ve kalınlık. Başlık şeridinin yüksekliği sabit (34 px), etkilenmez.
+
+   !important: renk ve yazı JS'te satır içi veriliyor
+   (21-kuru-kuspe-giris.js · altEtiket).
+   -------------------------------------------------------------------------- */
+div:has(> .yu-kk-ekran) .yu-cift-sag .yu-panel-govde > div:first-child > div {
+  color: var(--metin) !important;
+  font-weight: 800 !important;
+}
+
+/* --------------------------------------------------------------------------
+   EKRANDAKİ SİLİK YAZILAR SERTLEŞİR (kullanıcı isteği, 01.09.2026:
+   "Silo 1 2 3 yazıları da silik", "Hepsini Ekle ve Temizle düğmelerini de
+   beyazlaştır", "tüm sayfayı bir incele, silik olmasın")
+
+   SAYFANIN TAMAMI TARANDI: her yazının rengi ile arkasındaki zemin
+   ölçülüp karşıtlık oranı hesaplandı. Aşağıdakiler bir kademe yukarı
+   çıkar. YALNIZ RENK VE KALINLIK değişir; hiçbir yazı, kolon ya da
+   düğme eklenmez/çıkarılmaz (KURAL 10.4).
+
+   DIŞARIDA BIRAKILANLAR (bilerek):
+     · "Kaydet", "Bugün", "Sonraki Gün" — bunlar KAPALI (disabled) düğmeler;
+       soluklukları durumun kendisidir, açıkken zaten parlak.
+     · "Önceki Gün" — bağlantı mavisi, kendi rengiyle okunur.
+   -------------------------------------------------------------------------- */
+
+/* 1) "Silolara Dağıt" / "Silolardan Çek" kutularının üstündeki Silo 1-2-3
+      adları. 600/13,5px/var(--metin-2) idi.
+
+      01.09.2026 (kullanıcı isteği): "2 px büyüt ve Siloya Giren / Silodan
+      Çıkan yazılarının fontunda, stilinde, sertliğinde olsun; sadece boyutu
+      farklı olsun." O başlıkların ölçüsü 700 20px/1.2 var(--font),
+      harf aralığı -.014em, renk var(--metin)
+      (21-kuru-kuspe-giris.js · adimBasligi). Buradaki fark yalnız BOY:
+      13,5 -> 15,5 px, aynı gün kullanıcı isteğiyle 14,5 px'e indi.
+
+      !important: renk ve yazı JS'te satır içi (dagitimKutusu · adEl). */
+div:has(> .yu-kk-ekran) .yu-cift-sag
+  div[style*="minmax(200px"] > div > div:first-child > span {
+  color: var(--metin) !important;
+  font-weight: 700 !important;
+  font-size: 14.5px !important;
+  line-height: 1.2 !important;
+  letter-spacing: -.014em !important;
+}
+
+/* 2) "Hepsini Ekle" ve "Temizle" düğmeleri. Ortak .yu-dugme.sade kuralı
+      var(--metin-3) veriyor; bu ekranda tam metin rengine çıkar ve
+      kalınlaşır. !important: "Hepsini Ekle"nin yazı ölçüsü JS'te satır içi
+      veriliyor (font: 500 13px), satır içi stili yalnız !important geçer.
+      Kenarlıklara DOKUNULMAZ: ikisinin de çizgisi satır içi tanımlı. */
+div:has(> .yu-kk-ekran) .yu-dugme.sade {
+  color: var(--metin) !important;
+  font-weight: 600 !important;
+}
+
+/* 3) Kutuların içindeki "kg" eki: var(--metin-5) -> var(--metin-3).
+      Bir kademe yukarı; rakamla yarışmaz ama okunur. */
+div:has(> .yu-kk-ekran) .yu-girdi-sag { color: var(--metin-3); }
+
+/* 4) "3" rozeti. Ötekiler yeşil/kırmızı ve okunuyordu; mavi rozetin
+      karşıtlığı 2,4'te kalıyordu (ölçüldü). var(--vurgu-koyu) iki temada da
+      zemininden uzaklaşır: koyuda daha açık, açıkta daha koyu mavi. */
+div:has(> .yu-kk-ekran) .yu-panel:not(.yu-cift-sol):not(.yu-cift-sag)
+  .yu-panel-govde > div:first-child > span:first-child {
+  color: var(--vurgu-koyu) !important;
+}
+
+/* --------------------------------------------------------------------------
+   "GÜN SONU VE KAYIT" RAKAMLARI BİRAZ BÜYÜR (kullanıcı isteği, 01.09.2026:
+   "sayı değerlerini birazcık büyüt, az ama")
+
+   Bu ölçüler daha önce iki kez KÜÇÜLTÜLMÜŞTÜ (31.08.2026: 22 -> 19 -> 17,5).
+   Şimdi bir tık geri alınır; eski 19'a çıkılmaz.
+     gün sonu rakamı            17,5 -> 18,5 px
+     gün başı (üstü çizili)       14 -> 15 px
+     fark ("+100.000 kg Eklenir") 14 -> 15 px
+   Sıralama korunur: gün sonu en büyük. Kart dolgusu ve aralıkları değişmez.
+
+   Üstü çizili gün başı bir de renk alır: var(--metin-3) -> var(--metin-2).
+   Aradaki "→" oku da var(--metin-5) -> var(--metin-3).
+
+   SEÇİCİLER YAPISALDIR: kart = [silo adı] [sayı satırı] [doluluk çubuğu];
+   sayı satırı = [gün başı] [ok] [gün sonu] [fark]. Kartın iç yapısı
+   değişirse (21-kuru-kuspe-giris.js · siloIzgara döngüsü) burası da
+   gözden geçirilmeli. !important: ölçüler JS'te satır içi veriliyor.
+   -------------------------------------------------------------------------- */
+div:has(> .yu-kk-ekran) .yu-panel:not(.yu-cift-sol):not(.yu-cift-sag)
+  .yu-panel-govde > div:nth-child(2) > div > div:nth-child(2) > span:nth-child(3) {
+  font-size: 18.5px !important;
+}
+
+div:has(> .yu-kk-ekran) .yu-panel:not(.yu-cift-sol):not(.yu-cift-sag)
+  .yu-panel-govde > div:nth-child(2) > div > div:nth-child(2) > span:nth-child(1) {
+  font-size: 15px !important;
+  color: var(--metin-2) !important;
+}
+
+div:has(> .yu-kk-ekran) .yu-panel:not(.yu-cift-sol):not(.yu-cift-sag)
+  .yu-panel-govde > div:nth-child(2) > div > div:nth-child(2) > span:nth-child(2) {
+  color: var(--metin-3) !important;
+}
+
+div:has(> .yu-kk-ekran) .yu-panel:not(.yu-cift-sol):not(.yu-cift-sag)
+  .yu-panel-govde > div:nth-child(2) > div > div:nth-child(2) > span:nth-child(4) > span {
+  font-size: 15px !important;
+}
+
+
+
+/* --------------------------------------------------------------------------
+   ANA SAYFA SİLO KARTLARI DARALIR (kullanıcı isteği, 01.09.2026:
+   "sınırı daraltılsın, küçültülsün, az ama")
+
+   YALNIZ KARTIN ÇERÇEVESİ kısılır. Yazı, ikon ve sayı ölçüleri AYNEN kalır —
+   silo çizimi de (104×151 px) dokunulmadan durur.
+     dolgu    13/15 -> 10/12 px
+     başlık ile gövde arası  11 -> 9 px
+   Kartın içindeki iki boşluk daha JS'te kısıldı (js/20-anasayfa.js ·
+   siloKarti): çizim ile yazı sütunu arası 14 -> 11, sütun içi 10 -> 8 px.
+   Ayrıca "Kalan kapasite …" satırı kaldırıldı — aynı istekte.
+
+   Kapsam yalnız bu üç karttır: sınıf JS'te bu karta veriliyor, ortak
+   .yu-kpi ölçüsü ezilmez (KURAL 10.5) — Günlük Stok Durumu ve öbür
+   ekranlardaki KPI kartları eski ölçüsünde kalır.
+   -------------------------------------------------------------------------- */
+.yu-kpi.yu-silo-kart {
+  /* Alt dolgu 10 -> 7 px (kullanıcı isteği, 01.09.2026: "alt kenarını biraz
+     yukarı çek 3 px kadar, ama silo ikonu vs sabit kalsın").
+     YALNIZ ALT KENAR gelir: üst dolgu, başlık, gövde ve aradaki boşluk aynı
+     kaldığı için içerideki hiçbir öğe yerinden oynamaz — kartın altındaki
+     boş şerit kısalır. Aynı gün bir kez daha 7 -> 4 px indi. */
+  padding: 10px 12px 4px;
+  gap: 9px;
+}
+
+/* Kart başlığı (Silo 1 · Silo 2 · Silo 3) 2 px büyür (kullanıcı isteği,
+   01.09.2026). Başlık şeridinin yüksekliğini yanındaki ikon kutusu
+   belirliyor; yazı büyüse de satır yerinden oynamaz. */
+.yu-kpi.yu-silo-kart .yu-kpi-etiket { font-size: 16px; }
+
+/* --------------------------------------------------------------------------
+   ANA SAYFA: SİLO KARTLARI %5, GRAFİK PANELİ %8 KÜÇÜLÜR
+   (kullanıcı isteği, 01.09.2026: "en üstteki silo 1-2-3'ü çok az küçült %5
+   kadar + Dökme Üretim – Dökme Satış kısmını da %8 civarında küçült")
+
+   zoom KULLANILDI çünkü istenen ORANSAL küçülme: yazı, ikon, silo çizimi,
+   çubuk, dolgu ve boşluk hepsi aynı oranda iner. Tek tek ölçü düşürmek
+   oranı bozar (yazı 5 küçülürken dolgu 5 küçülmez).
+
+   zoom bir DÜZEN ölçüsüdür, transform gibi görsel bir taşıma değil: kart
+   kabını doldurmaya devam eder, altındaki içerik yukarı kayar, boşluk
+   kalmaz. Chromium ve Safari'de eskiden beri var; Firefox 126'dan beri
+   standart. Bu ekran Windows'ta Edge/Chrome ile açılıyor.
+
+   GERİ ALMAK İÇİN: bu iki kuralı sil. Kartların ve grafiğin kendi ölçüleri
+   hiç değişmedi, oldukları gibi duruyor.
+   -------------------------------------------------------------------------- */
+.yu-kpi.yu-silo-kart { zoom: .95; }
+
+/* Kartın alt satırlarındaki rakamlar (Devir · En Son Giren · En Son Çıkan)
+   AZ BÜYÜR (kullanıcı isteği, 01.09.2026: "sayı boyutlarını büyütsene, şu
+   anda küçükler okunması zor — az büyüt"). 14,5 -> 15,5 px; kartın %5
+   küçülmesiyle birlikte ekranda 13,8 -> 14,7 px eder.
+   Etiketler (13,5 px), büyük rakam (26 px) ve doluluk yüzdesi (19 px)
+   AYNEN kalır; satır yüksekliği değişmez. */
+.yu-kpi.yu-silo-kart .yu-mono { font-size: 15.5px; }
+
+/* Kartın büyük rakamı ve yanındaki kapasite eki 4'er px büyür (kullanıcı
+   isteği, 01.09.2026): 26 -> 30 px ve 15 -> 19 px. Kartın %5 küçülmesiyle
+   ekranda 24,7 -> 28,5 ve 14,3 -> 18,1 px eder.
+   !important: kapasite eki JS'te SATIR İÇİ yazı ölçüsü taşıyor
+   (js/20-anasayfa.js · birimEki). */
+.yu-kpi.yu-silo-kart .yu-kpi-deger { font-size: 30px; }
+
+.yu-kpi.yu-silo-kart .yu-kpi-deger > span:last-child { font-size: 19px !important; }
+
+.yu-panel.yu-grafik-kucult {
+  zoom: .92;
+  /* Üst ve alt dolgu 14 -> 11 px (kullanıcı isteği, 01.09.2026: "alt ve üst
+     değerlerini biraz sıkıştır, 3 px kadar"). Panel %8 küçük olduğu için
+     ekranda 12,9 -> 10,1 px eder; panel 5,5 px kısalır.
+     YAN dolgu (16 px) aynı: grafiğin genişliği ve eksen yerleşimi oynamaz.
+     İçerideki hiçbir ölçü değişmiyor — başlık, ikon, efsane, çubuklar ve
+     aralarındaki boşluklar olduğu gibi duruyor. */
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+
+/* --------------------------------------------------------------------------
+   AYLIK ÖZET: SATIRLAR ALÇALIR (kullanıcı isteği, 01.09.2026:
+   "satırların yüksekliğini biraz azalt, çok geniş ve ferah duruyor")
+
+   ÖLÇÜLDÜ (1500 px): veri satırı 51 px, başlık satırı 81 px.
+   Yükseklik tek yerden geliyor — hücrenin dikey dolgusu:
+     veri hücresi   14 -> 9 px   => satır 51 -> 41 px
+     başlık hücresi 13 -> 9 px   => başlık 81 -> 73 px
+
+   AYNI GÜN BİR KEZ DAHA (kullanıcı isteği): 9 -> 6 px. Aradan veri arttı;
+   "Stok Değişimi" hücresi ikinci satır ("devir dahil") taşıdığı için satır
+   53,7 px'e çıkmıştı, artık 47,7 px.
+
+   YAZI ÖLÇÜLERİ AYNEN KALIR: 25.08.2026'da kullanıcı bu tabloyu bilerek
+   "iri" yapmıştı (yu-tablo-iri · 15,5 px hücre, 13,5 px başlık). O karar
+   duruyor; kısalan yalnız boşluk. Yan dolgu (18 px) da değişmez, kolon
+   genişlikleri oynamaz.
+
+   Kapsam tek tablodur: sınıf JS'te oraya veriliyor (js/34-aylik-ozet.js),
+   ortak .yu-tablo-iri ölçüsü ezilmez (KURAL 10.5) — Devir Stok ve öbür
+   iri tablolar eski yüksekliğinde kalır.
+   -------------------------------------------------------------------------- */
+.yu-tablo-iri.yu-ay-tablo .yu-tablo th {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.yu-tablo-iri.yu-ay-tablo .yu-tablo td {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+/* --------------------------------------------------------------------------
+   MALZEME GİRİŞİ: İKİ SATIR TONU ARASINDAKİ FARK AÇILIR
+   (kullanıcı isteği, 01.09.2026: "birisi koyu gri birisi açık gri ya, o koyu
+   gri kısmını biraz daha koyu yap")
+
+   HANGİSİ KOYU, TEMAYA GÖRE DEĞİŞİR — ikisi de ele alınır:
+     KOYU TEMA  şeritli satır beyazın %5'i (AÇIK olan), şeritsiz satır panel
+                zemini (KOYU olan). Koyu olan satırın altına siyahın %20'si
+                serilir.
+     AÇIK TEMA  şeritli satır #f1f3f7 (KOYU olan), şeritsiz satır beyaz.
+                Şerit tonu bir kademe koyulaşır: #f1f3f7 -> #e6eaf1,
+                hover #e2e7ef -> #d8dee9.
+
+   Hover ve kendi zemini olan satırlar (TOPLAM, yavru) dışarıda bırakıldı;
+   imleç hangi satırdaysa yine o satır öne çıkar.
+
+   Kapsam tek tablodur: sınıf JS'te oraya veriliyor (js/22-malzeme-girisi.js),
+   ortak .yu-tablo-serit tonu ezilmez (KURAL 10.5).
+   -------------------------------------------------------------------------- */
+.yu-tablo-serit.yu-mg-tablo { --serit-zemin: #e6eaf1; --serit-hover: #d8dee9; }
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-tema="acik"]) .yu-tablo-serit.yu-mg-tablo { --serit-zemin: rgba(255,255,255,.05); }
+  html:not([data-tema="acik"]) .yu-tablo-serit.yu-mg-tablo .yu-tablo tbody
+    tr:not(.yu-satir-serit):not(.yu-satir-toplam):not(.yu-satir-yavru):not(:hover) {
+    background: rgba(0,0,0,.20);
+  }
+}
+
+html[data-tema="koyu"] .yu-tablo-serit.yu-mg-tablo { --serit-zemin: rgba(255,255,255,.05); }
+html[data-tema="koyu"] .yu-tablo-serit.yu-mg-tablo .yu-tablo tbody
+  tr:not(.yu-satir-serit):not(.yu-satir-toplam):not(.yu-satir-yavru):not(:hover) {
+  background: rgba(0,0,0,.20);
+}
+
+/* --------------------------------------------------------------------------
+   MALZEME GİRİŞİ: GİRİŞ KUTUSU İNCELİR (kullanıcı isteği, 01.09.2026:
+   "veri yazılan slotu da birazcık küçültebilirsin — inceIt yani")
+
+   ÖLÇÜLDÜ: kutu 38,3 px = 8 + 8 dolgu + 20,3 satır + 2 kenarlık.
+   YALNIZ DİKEY DOLGU kısılır. Önce 8 -> 5,5 px denendi (kutu 33,3 px);
+   kullanıcı fazla buldu ("yok olmadı, yaptığın değişimin yarısı kadar
+   olsun"), o yüzden inen 2,5 px'in yarısı geri verildi: 8 -> 6,75 px,
+   kutu 35,8 px.
+   Yazı ölçüsü (14,5 px), satır yüksekliği, kenarlık ve GENİŞLİK aynı kalır —
+   yan dolgulara dokunulmuyor. Satır yüksekliğini bu kutu belirler.
+
+   Kapsam bu tablodur; ortak .yu-girdi ölçüsü ezilmez (KURAL 10.5).
+   -------------------------------------------------------------------------- */
+.yu-mg-tablo .yu-tablo .yu-girdi {
+  padding-top: 6.75px;
+  padding-bottom: 6.75px;
+}
+
+/* --------------------------------------------------------------------------
+   PROGRAM HAREKETLERİ GÜN PANELİ (kullanıcı istekleri, 01.09.2026)
+
+   Bu blok YALNIZ js/32-tum-hareketler.js içindeki YENI_GUN_DUZENI açıkken
+   çizilen satırları biçimler. Anahtar false yapılırsa bu sınıflar hiç
+   üretilmez ve blok silinebilir — başka hiçbir yerde kullanılmaz.
+
+     .yu-gun-bolum    bölüm başlığı ("Silo Değişimleri", "Kampanya Devri")
+     .yu-devir-ozet   tıklanınca kalemleri açan bölüm başlığı
+     .yu-gun-alt      devir kalemi satırı (kapalı gelir, tıklanınca açılır)
+   -------------------------------------------------------------------------- */
+
+/* Bölüm başlığı: KOYU GRİ zemin + üst çizgi (kullanıcı isteği, 01.09.2026:
+   "kampanya devrinin arkası koyu gri"). var(--yuzey-3) koyu temada beyazın
+   %6'sı, yani zeminden AÇIK kalıyordu; artık iki temada da gerçekten koyu
+   bir gri. Altındaki satırlar zeminsiz gider — şerit kapalı (32-tum-hareketler
+   · serit), böylece bir kategorinin bütün satırları aynı görünür. */
+.yu-gun-paneli .yu-tablo tbody tr.yu-gun-bolum > td {
+  background: #e8ecf2;
+  border-top: 2px solid var(--kenar-3);
+  border-bottom: 1px solid var(--kenar-2);
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-tema="acik"]) .yu-gun-paneli .yu-tablo tbody tr.yu-gun-bolum > td {
+    background: rgba(0,0,0,.24);
+  }
+}
+
+html[data-tema="koyu"] .yu-gun-paneli .yu-tablo tbody tr.yu-gun-bolum > td {
+  background: rgba(0,0,0,.24);
+}
+
+/* Bölüm adı bir tık büyük ve kalın (kullanıcı isteği, 01.09.2026:
+   "bu yazıları da kalınlaştır, biraz büyüt"). Satır yüksekliği değişmez. */
+.yu-gun-paneli .yu-tablo tbody tr.yu-gun-bolum .yu-guclu {
+  font-size: 15.5px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  color: var(--metin);
+}
+
+/* İlk bölüm başlığının üstünde tablo başlığı var; çift çizgi olmasın. */
+.yu-gun-paneli .yu-tablo tbody tr.yu-gun-bolum:first-child > td { border-top: 0; }
+
+/* Devir bölümünün AÇ/KAPAT DÜZENEĞİ KALDIRILDI (kullanıcı isteği,
+   01.09.2026: "kampanya devri her seferinde açıkmış gibi olsun, solundaki
+   noktayı da kaldır"). Ok işareti ve tıklama gitti; üç bölüm başlığı da
+   birebir aynı. Kalemler de öbür bölümlerin satırlarıyla aynı ölçüde. */
+
+/* Devir rakamı DEĞER kolonunda RENKSİZ okunur (aynı isteğin ikinci yarısı:
+   "değer kısmına koy ama renksiz olsun"). Hareket rakamları yönlerine göre
+   yeşil/kırmızı kalır; devir bir hareket değil, hesabın tabanıdır. */
+.yu-gun-paneli .yu-tablo tbody tr.yu-devir-satiri td:nth-child(3),
+.yu-gun-paneli .yu-tablo tbody tr.yu-devir-satiri td:nth-child(3) .yu-zayif {
+  color: var(--metin-2);
+}
+
+/* --------------------------------------------------------------------------
+   HAREKET KOLONU DÜZ YAZI (kullanıcı isteği, 01.09.2026: "etiketleri renkli
+   olmasın, Hareket kolonundaki her şey siyah olsun ve bir background olmasın,
+   direkt yazı olsun — 'Satış' yazsın, arkasında bir şey olmasın")
+
+   Rozetin kutusu ve rengi yalnız BU panelin ikinci kolonunda kalkar; rozet
+   ortak sınıfı ve başka ekranlar aynen kalır (KURAL 10.5).
+
+   !important: "Dökme Üretim + Dökme Satış" birleşik rozeti iç parçalarına
+   SATIR İÇİ renk yazıyor (32-tum-hareketler.js · parcaliRozet).
+
+   Yan yana iki ayrı rozet ("Üretim" ve "Satış") arasına orta nokta girer:
+   kutular kalkınca iki kelime birbirine yapışıyordu.
+   -------------------------------------------------------------------------- */
+.yu-gun-paneli .yu-tablo tbody td:nth-child(2) .yu-rozet {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--metin);
+  font-weight: 500;
+}
+
+.yu-gun-paneli .yu-tablo tbody td:nth-child(2) .yu-rozet span { color: var(--metin) !important; }
+
+.yu-gun-paneli .yu-tablo tbody td:nth-child(2) .yu-rozet + .yu-rozet::before {
+  content: "· ";
+  color: var(--metin-4);
+  margin-right: 2px;
+}
+
+/* DURUM ETİKETİ ÇERÇEVELİ (kullanıcı isteği, 01.09.2026: "değiştirildinin
+   etrafına bir adet buton gibi, etiket gibi ince bir sınır koy — renksiz
+   olsun"). Hareketin ADI düz yazı kalır; o kayda NE OLDUĞUNU söyleyen
+   "Değiştirildi / Silindi / Sıfırlandı" ince bir çerçeve alır. Renk yok:
+   çerçeve de yazı da nötr tonda.
+
+   Sınıfı JS veriyor (32-tum-hareketler · durumRozeti); yalnız bu panelde
+   biçimleniyor. Önündeki orta nokta ayracı kalkar — çerçeve zaten ayırıyor. */
+.yu-gun-paneli .yu-tablo tbody td:nth-child(2) .yu-durum-rozet {
+  padding: 1px 8px;
+  border: 1px solid var(--kenar-3);
+  border-radius: 5px;
+  color: var(--metin-2);
+  font-weight: 400;
+}
+
+.yu-gun-paneli .yu-tablo tbody td:nth-child(2) .yu-rozet + .yu-durum-rozet::before {
+  content: none;
+}
+
+/* --------------------------------------------------------------------------
+   DEVİR TABLOLARI: SATIRLAR ALÇALIR (kullanıcı isteği, 31.08.2026)
+
+   Yer: Devir Stok & Kampanya Yönetimi > "Silo Devirleri" ve
+   "Malzeme Devirleri" giriş tabloları.
+
+   ÖLÇÜLDÜ (1900 px): satır 74,2 px. Yüksekliği en uzun hücre belirliyor —
+   "DEVİR TARİHİ" sütunu: tarih 20,3 + iki satıra sarmış ipucu 36,4 + 16 dolgu.
+
+   İki yerden kısılır, ikisi de yalnız boşluk:
+     hücre dolgusu   8 -> 5 px        (yan dolgu 16 px AYNI, sütun genişliği
+                                       değişmez)
+     ipucu satır ar. 1,4 -> 1,25      (13 px yazı; ölçü değil satır aralığı)
+
+   Yazı boyları, kutu ölçüleri ve sütun genişlikleri değişmez.
+   -------------------------------------------------------------------------- */
+/* !important: hücre dolgusu JS'te SATIR İÇİ veriliyor (8px 16px),
+   satır içi stili yalnız !important geçer. */
+.yu-devir-ekran .yu-tablo th,
+.yu-devir-ekran .yu-tablo td {
+  padding-top: 5px !important;
+  padding-bottom: 5px !important;
+}
+
+.yu-devir-ekran .yu-tablo .yu-yardim { line-height: 1.25; }
+
+/* "Son Dokunuş" kolonu bir tık sağa (kullanıcı isteği, 01.09.2026: "Kayıtlı
+   Devir (Kg) ile Son Dokunuş kolonlarının arasındaki mesafeyi biraz arttır").
+   ÖLÇÜLDÜ: iki yazı arası 32 px'ti — soldaki rakam sağa, sağdaki yazı sola
+   yaslı olduğu için ikisi ortada buluşuyordu. Sol dolgu 16 -> 46 px; başlık
+   ve hücre birlikte kayar, hizaları bozulmaz. Kolon genişliği aynı.
+   !important: hücre dolgusu JS'te satır içi veriliyor (8px 16px). */
+.yu-devir-ekran .yu-tablo th.yu-devir-son-kolon,
+.yu-devir-ekran .yu-tablo td.yu-devir-son-kolon {
+  padding-left: 46px !important;
+}
+
+/* --------------------------------------------------------------------------
+   AÇILIR-KAPANIR MENÜ GRUPLARI (kullanıcı isteği, 31.08.2026)
+
+   "Raporlar" ve "Yönetim Paneli" başlıkları düğmedir; tıklanınca altındaki
+   sayfalar açılıp kapanır. Varsayılan KAPALI, tercih tarayıcıda saklanır
+   (10-kabuk.js · acikGruplar / yu.menu.acik).
+
+   Başlığın GÖRÜNÜŞÜ .yu-menu-grup-bas ile aynı kalır; burada yalnız düğme
+   varsayılanları sıfırlanır ve sağa bir ok eklenir. "Veri Girişi" başlığı
+   düz metin olmaya devam eder, oku yoktur.
+   -------------------------------------------------------------------------- */
+.yu-menu-grup-dugme {
+  /* Düğme varsayılanlarını sıfırla; alt çizgi ve dolgu üst kuraldan gelir. */
+  appearance: none;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--kenar-2);
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  /* Dar pay: başlık ile işaret arası kısıldı ki uzun başlık ("YÖNETİM
+     PANELİ") 236px'lik rayda tek satırda kalsın. */
+  gap: 6px;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Kapalıyken de üzerine gelince tıklanabilir olduğu belli olsun. */
+/* Üzerine gelince yalnız YAZI renk alır; çizgi yerinde kalır ki menü
+   gezinirken alt çizgiler yanıp sönmesin. */
+.yu-menu-grup-dugme:hover { color: var(--vurgu); }
+.yu-menu-grup-dugme:hover .yu-menu-grup-ok { color: var(--vurgu); opacity: 1; }
+
+/* İşaret + / − (kullanıcı isteği, 31.08.2026): açıkken eksi, kapalıyken
+   artı. Metin CSS'ten geldiği için JS'in durum değişiminde işi kalmaz.
+   Sabit genişlik, iki işaret farklı genişlikte olduğu için başlık oynamasın. */
+.yu-menu-grup-ok {
+  flex: none;
+  width: 12px;
+  text-align: center;
+  /* İşaret sessiz: başlıkla aynı tonda ve ondan küçük. Bağıran bir + ile
+     bağıran bir başlık yan yana durunca ikisi de okunmuyordu. */
+  font: 600 15px/1 var(--font);
+  color: var(--metin-5);
+  opacity: .8;
+}
+
+.yu-menu-grup-ok::before { content: "−"; }            /* eksi imi U+2212 */
+.yu-menu-grup.kapali .yu-menu-grup-ok::before { content: "+"; }
+
+.yu-menu-grup-dugme:hover .yu-menu-grup-ok { opacity: 1; }
+
+/* Kapalı grubun sayfaları gizlenir. */
+.yu-menu-grup.kapali .yu-menu-oge { display: none; }
+
+/* İKON RAYI İSTİSNASI: 58px'lik dar rayda grup başlıkları zaten gizli
+   (.yu-menu-grup-bas display:none), açma düğmesi de görünmez. Orada sayfalar
+   kapalı kalsaydı menüye hiç ulaşılamazdı — o yüzden hepsi görünür. */
+.yu-kabuk.daralt .yu-menu-grup.kapali .yu-menu-oge { display: flex; }
+
+@media (max-width: 900px) {
+  .yu-menu-grup.kapali .yu-menu-oge { display: flex; }
 }
