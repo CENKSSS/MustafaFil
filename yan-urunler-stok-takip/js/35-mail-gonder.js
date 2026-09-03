@@ -675,9 +675,14 @@
      Tablolarda aynı kusur yok: onların stili setAttribute ile konur,
      tarayıcı serileştirirken tırnağı kendisi kaçışlar.
 
-     Ölçü kullanıcı isteğidir: Helvetica Neue, 12px, düz siyah. */
+     ÖLÇÜ PUNTO (pt) İLE YAZILIR, PİKSEL (px) İLE DEĞİL (kullanıcı
+     bildirimi, 03.09.2026: "9 px olarak boyutlandırmışsın, 12 px olacak").
+     Stil 12px yazıyordu ve doğruydu; ama Outlook yazı boyunu PUNTO gösterir
+     ve 12px = 9pt olduğu için kutuda "9" okunuyordu. Kullanıcının ekranda
+     gördüğü sayı 12 olsun diye ölçü doğrudan punto verilir: 12pt (=16px).
+     Böylece Outlook'un yazı boyu kutusunda 12 yazar. */
   var MESAJ_STIL = "margin:0 0 10px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;" +
-    'font-size:12px;font-weight:400;line-height:1.5;color:#000000';
+    'font-size:12pt;font-weight:400;line-height:1.5;color:#000000';
 
   function mesajHtml(metin) {
     var m = String(metin || '').replace(/\r\n?/g, '\n').replace(/\s+$/, '');
