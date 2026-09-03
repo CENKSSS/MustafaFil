@@ -21,7 +21,11 @@
     baslik: 'Mail Hesabı',
     altBaslik: 'Günlük rapor postası için ortak hesap',
     ikon: '#ic-doc',
-    grup: 'Yönetim',
+    /* MENÜDEN KALDIRILDI (kullanıcı kararı, 03.09.2026): posta artık
+       sunucudan (SMTP) değil, bilgisayardaki Outlook'tan taslak olarak
+       gönderiliyor (35-mail-gonder.js). Bu ekran yalnız doğrudan adresle
+       (#/mail-hesabi) açılır; kod yedek olarak duruyor. */
+    grup: null,
     rol: 'Yonetici',
 
     ciz: function (kap) {

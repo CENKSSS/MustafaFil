@@ -349,46 +349,27 @@ app.MapPost("/api/mail", async (HttpRequest istek, Postaci postaci,
     }
 });
 
-/// OUTLOOK TASLAK PENCERESİ — rapor PDF'i EKLİ olarak açılır (kullanıcı
-/// direktifi, 28.08.2026: "raporu manuel eklemek istemiyorum"). Simple MAPI
-/// pencereyi sunucunun makinesinde açtığı için uç yalnız loopback kabul
-/// eder; uzak istekler 403 alır ve istemci PDF-indirme yoluna düşer.
-app.MapPost("/api/mail/pencere", async (HttpContext baglam, HttpRequest istek,
-                                        ILogger<Program> gunluk) =>
+/// OUTLOOK TASLAĞI (kullanıcı direktifi, 03.09.2026): tarayıcının kurduğu
+/// .eml diske yazılır ve yeni Outlook'a verilir (EmlTaslak). Pencere
+/// sunucunun makinesinde açıldığı için uç yalnız loopback kabul eder; uzak
+/// istekler 403 alır ve istemci dosyayı kendisi indirir. Önceki hâli (PDF
+/// ekli MAPI/.eml penceresi, 28.08.2026) kaldırıldı.
+var taslakAdi = new System.Text.RegularExpressions.Regex(@"^[A-Za-z0-9._-]{1,120}\.eml$");
+app.MapPost("/api/mail/taslak", async (HttpContext baglam, HttpRequest istek, ILogger<Program> gunluk) =>
 {
     if (baglam.Connection.RemoteIpAddress is not { } ip || !System.Net.IPAddress.IsLoopback(ip))
-        return Results.Json(new { hata = "Taslak penceresi yalnız sunucu makinesinde açılabilir." }, statusCode: 403);
+        return Results.Json(new { hata = "Taslak yalnız sunucu makinesinde açılabilir." }, statusCode: 403);
 
-    MailIstegi? g;
-    try { g = await istek.ReadFromJsonAsync<MailIstegi>(); }
+    TaslakIstegi? g;
+    try { g = await istek.ReadFromJsonAsync<TaslakIstegi>(); }
     catch (Exception e) { return Results.BadRequest(new { hata = e.Message }); }
-    if (g is null || g.Alicilar is null || g.Alicilar.Length == 0)
-        return Results.BadRequest(new { hata = "Alıcı yok." });
+    if (g is null || string.IsNullOrWhiteSpace(g.Eml))
+        return Results.BadRequest(new { hata = "Taslak içeriği yok." });
+    var ad = string.IsNullOrWhiteSpace(g.DosyaAdi) ? "rapor.eml" : g.DosyaAdi!;
+    if (!taslakAdi.IsMatch(ad))
+        return Results.BadRequest(new { hata = "Dosya adı geçersiz." });
 
-    byte[]? pdf = null;
-    if (!string.IsNullOrWhiteSpace(g.Html)) pdf = HtmlPdf.Uret(g.Html!, gunluk);
-    if (pdf is null && g.Bolumler is { Length: > 0 })
-    {
-        var bolumler = g.Bolumler.Select(b => new RaporPdf.Bolum(
-            b.Ad ?? string.Empty,
-            b.Sutunlar ?? Array.Empty<string>(),
-            b.Satirlar ?? Array.Empty<string[]>(),
-            b.SagaYasli)).ToList();
-        pdf = RaporPdf.Uret(g.Baslik ?? "Rapor", g.AltBaslik ?? string.Empty, bolumler);
-    }
-    if (pdf is null) return Results.Json(new { hata = "PDF üretilemedi." }, statusCode: 502);
-
-    // Ek, posta uygulaması okuyana kadar diskte kalmalı; kullanıcı profili
-    // temp klasörüne yazılır. Aynı ada üst üste yazılır — birikinti olmaz.
-    var klasor = Path.Combine(Path.GetTempPath(), "YanUrunlerRapor");
-    Directory.CreateDirectory(klasor);
-    var ekYolu = Path.Combine(klasor,
-        string.IsNullOrWhiteSpace(g.DosyaAdi) ? "rapor.pdf" : g.DosyaAdi!);
-    await File.WriteAllBytesAsync(ekYolu, pdf);
-
-    // MAPI DEĞİL .eml: bu makinede MAPI profili yok ve kullanıcı yeni
-    // Outlook'u kullanıyor (EmlTaslak notu, 28.08.2026).
-    var hata = EmlTaslak.Ac(g.Alicilar, g.Konu ?? "Rapor", g.Mesaj ?? string.Empty, ekYolu, gunluk);
+    var hata = EmlTaslak.Ac(ad, g.Eml!, gunluk);
     return hata is null
         ? Results.Ok(new { acildi = true })
         : Results.Json(new { hata }, statusCode: 502);
@@ -430,6 +411,9 @@ internal sealed record MailIstegi(
     string[]? Alicilar, string? Konu, string? Mesaj,
     string? Baslik, string? AltBaslik, string? DosyaAdi,
     string? Html, MailBolum[]? Bolumler);
+
+/// Outlook taslağı isteği (03.09.2026): tarayıcının kurduğu .eml metni.
+internal sealed record TaslakIstegi(string? DosyaAdi, string? Eml);
 
 /// Mail hesabı giriş isteği.
 internal sealed record HesapIstegi(

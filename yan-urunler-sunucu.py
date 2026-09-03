@@ -13,6 +13,7 @@
 #        POST   /api/mail/hesap/sina
 #        POST   /api/mail
 #        GET    /api/mail/teslimsiz?alicilar=&gun=   (31.08.2026, .NET'te yok)
+#        POST   /api/mail/taslak   (03.09.2026: .eml'i yeni Outlook'ta taslak acar)
 #      Uclar .NET sunucusundakiyle AYNI sozlesmeyi tutar; is
 #      yanurunler_mail.py icinde. Eskiden bu uclar yoktu ve Yonetim Paneli >
 #      Mail Hesabi ekrani "Sunucuya ulasilamiyor" diyordu.
@@ -23,8 +24,11 @@
 import json
 import os
 import re
+import subprocess
 import sys
+import tempfile
 import threading
+import time
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
@@ -47,6 +51,51 @@ EN_BUYUK_GOVDE = 50 * 1024 * 1024  # 50 MB - tam paket ~1 MB, bol pay
 AD_DESENI = re.compile(r"^(\d{2}\.\d{2}\.\d{4}|_tam-paket|_tanimlar)\.json$")
 
 kilit = threading.Lock()
+
+# OUTLOOK TASLAGI (kullanici direktifi, 03.09.2026): posta programdan degil,
+# bilgisayardaki Outlook'tan gonderilir. Tarayici .eml'i kurar (X-Unsent: 1
+# basligi = taslak), sunucu yalniz diske yazar ve YENI Outlook'a (olk.exe)
+# verir. Dosya iliskisine guvenilmez: bu makinede .eml KLASIK Outlook'a
+# bagli ve klasik Outlook'ta posta profili yok - "profil olusturun"
+# penceresine dusuyordu (28.08.2026). Olculdu (03.09.2026, Outlook
+# 1.2026.818): taslak alici, konu ve HTML tablolarla duzenlenebilir aciliyor.
+TASLAK_AD_DESENI = re.compile(r"^[A-Za-z0-9._-]{1,120}\.eml$")
+
+
+def olk_yolu():
+    """Yeni Outlook'un komut satiri takma adi (WindowsApps altindaki olk.exe); yoksa None."""
+    kok = os.environ.get("LOCALAPPDATA") or ""
+    yol = os.path.join(kok, "Microsoft", "WindowsApps", "olk.exe")
+    return yol if kok and os.path.isfile(yol) else None
+
+
+def eski_taslaklari_sil(klasor):
+    """Bir saatten eski .eml'ler silinir; Outlook'un kilitledigi atlanir."""
+    sinir = time.time() - 3600
+    try:
+        for ad in os.listdir(klasor):
+            tam = os.path.join(klasor, ad)
+            if ad.lower().endswith(".eml") and os.path.getmtime(tam) < sinir:
+                try:
+                    os.remove(tam)
+                except OSError:
+                    pass
+    except OSError:
+        pass
+
+
+def taslagi_ac(dosya):
+    """.eml'i once yeni Outlook'la, o yoksa Windows'un varsayilan uygulamasiyla
+    acar. Sorun varsa sebebi doner, olmazsa None."""
+    olk = olk_yolu()
+    try:
+        if olk:
+            subprocess.Popen([olk, dosya], close_fds=True)
+        else:
+            os.startfile(dosya)
+        return None
+    except Exception as e:
+        return "Taslak açılamadı: " + str(e)
 
 
 def paket_oku():
@@ -226,6 +275,34 @@ class Istekci(SimpleHTTPRequestHandler):
             return
         return super().do_GET()
 
+    def _mail_taslak(self):
+        """Tarayicinin kurdugu .eml'i diske yazar ve yeni Outlook'ta acar
+        (taslagi_ac). Pencere SUNUCUNUN makinesinde acilir; o yuzden yalniz
+        yerel istek kabul edilir, uzak istemci 403 alir ve dosyayi kendisi
+        indirir (35-mail-gonder.js · sunucudaAc)."""
+        if self.client_address[0] not in ("127.0.0.1", "::1", "::ffff:127.0.0.1"):
+            return self._json(403, {"hata": "Taslak yalnız sunucu makinesinde açılabilir."})
+        govde, hata = self._govde_oku()
+        if hata:
+            return self._json(400, {"hata": hata})
+        ad = str((govde or {}).get("dosyaAdi") or "rapor.eml")
+        eml = (govde or {}).get("eml")
+        if not TASLAK_AD_DESENI.match(ad) or not isinstance(eml, str) or not eml:
+            return self._json(400, {"hata": "Beklenen biçim: {dosyaAdi:'x.eml', eml:'…'}"})
+        klasor = os.path.join(tempfile.gettempdir(), "YanUrunlerRapor")
+        try:
+            os.makedirs(klasor, exist_ok=True)
+            eski_taslaklari_sil(klasor)
+            tam = os.path.join(klasor, ad)
+            with open(tam, "wb") as f:
+                f.write(eml.encode("utf-8"))
+        except OSError as e:
+            return self._json(502, {"hata": "Taslak dosyası yazılamadı: " + str(e)})
+        hata = taslagi_ac(tam)
+        if hata:
+            return self._json(502, {"hata": hata})
+        return self._json(200, {"acildi": True})
+
     def _govde_oku(self):
         """Istek govdesini JSON olarak okur. Hata varsa (None, hata_metni)."""
         boy = int(self.headers.get("Content-Length") or 0)
@@ -249,6 +326,8 @@ class Istekci(SimpleHTTPRequestHandler):
             return self._json(200, mail.sina())
         if yol == "/api/mail":
             return self._mail_gonder()
+        if yol == "/api/mail/taslak":
+            return self._mail_taslak()
         if yol == "/api/paket":
             govde, hata = self._govde_oku()
             if hata:

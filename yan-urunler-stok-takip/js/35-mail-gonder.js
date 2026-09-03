@@ -6,25 +6,26 @@
    Hiçbir hesap, doğrulama kuralı ya da tabloya dokunmaz — yalnız okur.
 
    ---------------------------------------------------------------------
-   TEKNİK GERÇEK — panelin bütün tasarımı buradan çıkar
+   GÖNDERİM BİÇİMİ (kullanıcı direktifi, 03.09.2026 — önceki hâllerin
+   yerine geçer)
    ---------------------------------------------------------------------
-   Program arka uçsuzdur; tarayıcı kendi başına posta gönderemez, şartname
-   de ek bağımlılık yasaklar (§10). Elde yalnız mailto: vardır ve mailto ile
-   açılan postanın GÖVDESİ DÜZ METİNDİR:
-     · görsel, tablo çizgisi, yazı tipi taşımaz,
-     · DOSYA EKLEYEMEZ.
-   Bu yüzden rapor postaya ek olarak ancak KULLANICI ELİYLE girer.
-
-   Akış buna göre kurulmuştur (kullanıcı kararı, 26.08.2026 —
-   "metin düşmeyecek, pdf koyulacak altına da bizim mesajımız"):
-     1) Bej kâğıdın ÜSTÜNDE rapor kartı durur: mini görsel + tarih. Kart
-        hep açıktır, "Raporu Ekle" düğmesi yoktur.
-     2) Kart tıklanınca rapor tam boy açılır (yazdırma görünümü, Ctrl+P ile
-        PDF olarak kaydedilir).
-     3) Altında ayraç çizgi, onun altında mesaj alanı — kullanıcı yalnız
-        kendi yazısını yazar. Gövdeye rapor METNİ yazılmaz.
-     4) Gönder: rapor sekmesi açılır ve posta uygulaması mesajla açılır;
-        kullanıcı kaydettiği PDF'i postaya iliştirir.
+   Posta PROGRAM tarafından gönderilmez; bilgisayardaki posta uygulaması
+   (Outlook) TASLAK olarak açılır, Gönder'e kullanıcı orada basar.
+     · seçili adresler taslağın "Kime" satırına girer,
+     · konu ve kullanıcının mesajı olduğu gibi durur,
+     · rapor PDF değil HTML'dir: Ana Sayfa'nın Yazdır çıktısıyla BİREBİR
+       aynı görünen künye + iki tablo postanın gövdesinde durur,
+     · "Gönderen : Ad Soyad" imzası KALKTI,
+     · "gönderildi" bildirimi YOK — son adım postada.
+   NASIL: RFC 822 biçiminde bir .eml dosyası kurulur (X-Unsent: 1 başlığı
+   "taslak" demektir). Sunucu aynı makinedeyse dosya yeni Outlook'a
+   (olk.exe) verilir; değilse dosya iner, kullanıcı açar. mailto:
+   kullanılmaz — o yol HTML gövde taşıyamaz (protokol sınırı).
+   ÖLÇÜLDÜ (03.09.2026): yeni Outlook 1.2026.818, HTML gövdeli .eml'i
+   düzenlenebilir taslak olarak açıyor; alıcı, konu, tablo çizgileri,
+   renkler ve Türkçe harfler doğru geliyor.
+   28.08.2026 tarihli "outlook hiç açılmamalı" direktifi bu kararla
+   kaldırıldı; SMTP gönderimi ve PDF eki artık kullanılmıyor.
 
    ALICI LİSTESİ: Kullanicilar tablosunda e-posta alanı yok ve sekiz tablo
    sözleşmesine (Şartname §6) dokunulmaz. Adresler bu yüzden ayrı bir
@@ -169,30 +170,12 @@
   }
 
   /* ------------------------------------------------------------------
-     SUNUCUDAN GÖNDERİM (kullanıcı kararı, 28.08.2026)
-     ------------------------------------------------------------------
-     mailto: dosya ekleyemez — bu, protokolün sınırıdır, eksik kod değil
-     (dosya başındaki nota bak). Kullanıcı "mailde raporun PDF hali olsun"
-     dediği için postayı SUNUCU gönderir: tarayıcı ekrandaki tabloların
-     METNİNİ yollar, sunucu onu PDF'e dizip SMTP ile postalar.
-
-     HESAP YİNE İSTEMCİDE: sunucuya rakam değil, ekranda ne yazıyorsa o
-     gider. Kural iki yerde durmaz (06-uzak.js'teki aynı gerekçe).
-
-     Sunucu yoksa (ör. dosyadan ya da basit bir statik sunucudan açıldıysa)
-     /api/mail/durum'a ulaşılamaz; o zaman rapor PDF olarak İNDİRİLİR,
-     hiçbir posta uygulaması AÇILMAZ (kullanıcı direktifi, 28.08.2026:
-     "outlook hiç açılmamalı") — kullanıcı dosyayı kendi programına ekler. */
-
-  /* Sunucu durumu ÜÇ HÂLDEN biridir (28.08.2026):
-       postali   — SMTP ayarlı: posta doğrudan sunucudan, PDF ekli gider.
-       pdfli     — sunucu var ama SMTP ayarı yok: PDF'i sunucu üretir,
-                   tarayıcı indirir, kullanıcı Outlook'a sürükler.
-       yok       — arka uç hiç yok (ör. basit statik sunucu): eski akış,
-                   rapor sekmesi açılır, Ctrl+P ile PDF kaydedilir.
-     ÖNEMLİ: kullanıcı hangi hâlde olduğunu ekranda GÖRÜR. Eskiden program
-     sessizce "yok" hâline düşüyor, Outlook eksiz açılıyor ve sebebi hiçbir
-     yerde yazmıyordu (kullanıcı bildirimi, 28.08.2026). */
+     MAIL HESABI API'Sİ — YALNIZ Yönetim Paneli › Mail Hesabı ekranı için
+     (js/37-mail-hesabi.js) duruyor. O ekran menüden kaldırıldı (kullanıcı
+     kararı, 03.09.2026), doğrudan adresle açılınca yine bu işlevleri
+     çağırır. Gönderme paneli bunların HİÇBİRİNİ kullanmaz: posta taslak
+     olarak Outlook'ta açılır (dosya başındaki not).
+     ------------------------------------------------------------------ */
   var sunucuDurumu = null;   /* null = sorulmadı */
   var mailHesabi = null;     /* bağlıysa { adres, sunucu, port, ssl } */
 
@@ -272,46 +255,512 @@
     sina: mailHesapSina
   };
 
-  /* Tablodan düz veri: başlıklar, satırlar ve hiza. Gizlenmiş satır
-     (ör. kapatılmış yavru satır) ATLANIR — kâğıtta da görünmemeli. */
-  function tabloVerisi(tablo) {
-    var sutunlar = [], sagaYasli = [], satirlar = [];
-    var basSatir = tablo.querySelector('thead tr');
-    var i, j, h, tr, td, satir;
-    if (basSatir) {
-      for (i = 0; i < basSatir.cells.length; i++) {
-        h = basSatir.cells[i];
-        sutunlar.push(duzMetin(h));
-        sagaYasli.push(String(h.className).indexOf('yu-sag') >= 0);
+  /* ------------------------------------------------------------------
+     KÂĞITTAKİ RAPORUN HTML KOPYASI (kullanıcı direktifi, 03.09.2026:
+     "yazdırda nasıl gözüküyor öyle gözükecek, birebir")
+     ------------------------------------------------------------------
+     Ana Sayfa'nın Yazdır çıktısı üç parçadır: rapor künyesi (.yu-baski-bas:
+     kurum, rapor adı, tarih, kampanya), Silo Bazında Stok paneli, Malzeme
+     Bazında Stok paneli — hepsi tema.css'in @media print kurallarıyla.
+     Aynı parçalar GİZLİ bir çerçevede (iframe) yeniden kurulur; @media
+     print blokları sarmalından çıkarılıp sıradan kural gibi eklenir, böylece
+     çerçeve kâğıt gibi dizilir. Sonra her öğenin HESAPLANMIŞ stili satır
+     içi style'a yazılır: posta programı <style> bloğunu, sınıfı ve CSS
+     değişkenini tanımaz, satır içi stili tanır. Birebir görünüm ancak
+     böyle taşınır. Ölçüldü (03.09.2026): yeni Outlook satır içi stilli
+     tabloyu çizgi, renk ve hizasıyla aynen çiziyor. */
+
+  var KAGIT_GENISLIK = 792;   /* A4'te kullanılabilir genişlik (px) — tema.css print ölçümleriyle aynı */
+
+  /* YAZI BİR KADEME BÜYÜK (kullanıcı isteği, 03.09.2026: "maildeki rapor
+     kısmındaki yazılar ve değerler çok ufak, büyüt").
+
+     Kâğıt ölçüleri A4'e sığmak için küçüktür (tema.css @media print:
+     başlık 9px, hücre 10px, rakam 10,5px). Posta ekranda okunur, o sınır
+     yoktur. Ölçüler ~1,5 kat büyütülür; DÜZEN AYNI KALIR — kolon sırası,
+     satırlar, hizalar, çizgiler ve renkler kâğıttakinin aynısıdır.
+     Kâğıt genişliği de aynı oranda açılır, yoksa büyüyen başlıklar
+     kolonları alt alta kırar, "TOPLAM" bile ikiye bölünürdü (ölçüldü). */
+  var MAIL_OLCEK = 1.5;
+  var MAIL_GENISLIK = Math.round(KAGIT_GENISLIK * MAIL_OLCEK);   /* 1188px */
+  var MAIL_BUYUTME =
+    '.yu-tablo th{font-size:14px !important;padding:8px 10px !important}' +
+    '.yu-tablo td{font-size:15px !important;padding:8px 10px !important}' +
+    '.yu-tablo td .yu-mono,.yu-tablo td .yu-guclu{font-size:15.5px !important}' +
+    '.yu-baski-sig thead th{font-size:14px !important;padding:8px 10px !important}' +
+    '.yu-baski-sig tbody td{font-size:15px !important;padding:8px 10px !important}' +
+    '.yu-baski-sig tbody td .yu-mono{font-size:15.5px !important}' +
+    '.yu-baski-sig .yu-rozet{font-size:13.5px !important;padding:2px 9px !important}' +
+    /* Panel başlıkları ("Silo Bazında Stok") tabloyla birlikte büyür. */
+    '.yu-panel-baslik{font-size:20px !important}' +
+    /* Künye bir kademe daha büyük (kullanıcı isteği, 03.09.2026): kurum adı,
+       rapor adı, tarih ve kampanya satırı. Kâğıttaki ölçüler sırasıyla
+       9,5 / 15 / 12 / 10px'tir; postada ~1,55 kat okunur. */
+    '.yu-baski-ad{font-size:23px !important}' +
+    '.yu-baski-tarih{font-size:17px !important}' +
+    '.yu-baski-kurum{font-size:14px !important;margin-bottom:7px !important}' +
+    '.yu-baski-alt{font-size:15px !important;margin-top:5px !important}';
+
+  /* tema.css içindeki her "@media print { … }" bloğunun İÇİ. Yorumlar önce
+     atılır: içlerinde küme parantezi geçerse eşleme şaşardı. */
+  function baskiKurallari(css) {
+    var m = String(css || '').replace(/\/\*[\s\S]*?\*\//g, '');
+    var cikti = '', i = 0, k, a, d, j, c;
+    while ((k = m.indexOf('@media print', i)) >= 0) {
+      a = m.indexOf('{', k);
+      if (a < 0) break;
+      d = 1; j = a + 1;
+      while (j < m.length && d > 0) {
+        c = m.charAt(j);
+        if (c === '{') d++; else if (c === '}') d--;
+        j++;
       }
+      cikti += m.slice(a + 1, j - 1) + '\n';
+      i = j;
     }
-    var govdeSatirlari = tablo.querySelectorAll('tbody tr');
-    for (i = 0; i < govdeSatirlari.length; i++) {
-      tr = govdeSatirlari[i];
-      if (tr.style && tr.style.display === 'none') continue;
-      satir = [];
-      for (j = 0; j < tr.cells.length; j++) {
-        td = tr.cells[j];
-        satir.push(td.style && td.style.display === 'none' ? '' : duzMetin(td));
-      }
-      satirlar.push(satir);
-    }
-    return { sutunlar: sutunlar, sagaYasli: sagaYasli, satirlar: satirlar };
+    return cikti;
   }
 
-  /* Hücrenin metni: iç içe span'lar tek boşlukla birleşir ("1.000 kg"). */
-  function duzMetin(hucre) {
-    var parca = [];
-    (function gez(n) {
-      var i;
-      if (n.nodeType === 3) {
-        var t = String(n.textContent).replace(/\s+/g, ' ').trim();
-        if (t) parca.push(t);
-        return;
+  /* Renk adını / oklch'yi posta programının anladığı #rrggbb'ye çevirir:
+     tuval (canvas) tarayıcının çözdüğü rengi normalize edip geri verir. */
+  var renkTuvali = null;
+  function renkHex(deger) {
+    var v = String(deger || '').trim();
+    if (!v || v === 'transparent' || v === 'rgba(0, 0, 0, 0)' || v === 'none') return null;
+    if (!renkTuvali) renkTuvali = document.createElement('canvas').getContext('2d');
+    renkTuvali.fillStyle = '#000000';
+    renkTuvali.fillStyle = v;
+    return renkTuvali.fillStyle;
+  }
+
+  var STIL_METIN = ['font-family', 'font-size', 'font-weight', 'font-style', 'line-height',
+    'letter-spacing', 'text-transform', 'text-align', 'vertical-align', 'white-space',
+    'text-decoration-line', 'font-variant-numeric'];
+  var STIL_KUTU = ['padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+    'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
+    'border-top-width', 'border-right-width', 'border-bottom-width', 'border-left-width',
+    'border-top-style', 'border-right-style', 'border-bottom-style', 'border-left-style',
+    'border-top-left-radius', 'border-top-right-radius', 'border-bottom-right-radius', 'border-bottom-left-radius'];
+  var STIL_RENK = ['color', 'background-color',
+    'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color'];
+  var VARSAYILAN = { '0px': 1, 'normal': 1, 'none': 1, 'auto': 1, 'baseline': 1 };
+
+  /* Bir öğenin hesaplanmış stilinden satır içi stil parçaları. Varsayılan
+     değerler atlanır — dosya boşuna şişmesin. */
+  function stilParcalari(hs) {
+    var st = [], i, ad, v;
+    for (i = 0; i < STIL_METIN.length; i++) {
+      ad = STIL_METIN[i]; v = hs.getPropertyValue(ad);
+      if (!v || VARSAYILAN[v]) continue;
+      if (ad === 'text-align') { if (v === 'start') v = 'left'; else if (v === 'end') v = 'right'; }
+      st.push(ad + ':' + v);
+    }
+    for (i = 0; i < STIL_KUTU.length; i++) {
+      ad = STIL_KUTU[i]; v = hs.getPropertyValue(ad);
+      if (!v || VARSAYILAN[v]) continue;
+      st.push(ad + ':' + v);
+    }
+    for (i = 0; i < STIL_RENK.length; i++) {
+      ad = STIL_RENK[i];
+      /* Kenar rengi yalnız kenar çizgisi varken yazılır. */
+      if (ad.indexOf('border-') === 0 && hs.getPropertyValue(ad.replace('-color', '-style')) === 'none') continue;
+      v = renkHex(hs.getPropertyValue(ad));
+      if (v) st.push(ad + ':' + v);
+    }
+    return st;
+  }
+
+  /* SVG ikon → PNG resim (veri adresi). Posta programı <svg> ve <use>
+     tanımaz; ikon tuvalde çizilip resme çevrilir. Sembol çerçevedeki sprite
+     kopyasından okunur, "currentColor" hesaplanmış renkle değiştirilir. */
+  function svgResmeCevir(svgEl, olcum, belge) {
+    var w = Math.round(olcum.kutu.width) || 16, h = Math.round(olcum.kutu.height) || w;
+    var resim = belge.createElement('img');
+    resim.setAttribute('width', String(w));
+    resim.setAttribute('height', String(h));
+    resim.setAttribute('alt', '');
+    resim.setAttribute('style', 'display:inline-block;vertical-align:middle;width:' + w + 'px;height:' + h + 'px;border:0');
+    svgEl.parentNode.replaceChild(resim, svgEl);
+    function kaldir() { if (resim.parentNode) resim.parentNode.removeChild(resim); }
+
+    var use = svgEl.querySelector('use');
+    var id = use ? (use.getAttribute('href') || use.getAttribute('xlink:href')) : null;
+    var sembol = null;
+    try { sembol = id ? belge.querySelector(id) : null; } catch (e) { sembol = null; }
+    if (!sembol) { kaldir(); return Promise.resolve(); }
+
+    var renk = renkHex(olcum.renk) || '#000000';
+    var nitelik = '', i, a;
+    for (i = 0; i < sembol.attributes.length; i++) {
+      a = sembol.attributes[i];
+      if (a.name === 'id') continue;
+      nitelik += ' ' + a.name + '="' + a.value.replace(/currentColor/g, renk) + '"';
+    }
+    var xml = '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '"' + nitelik + '>' +
+      sembol.innerHTML.replace(/currentColor/g, renk) + '</svg>';
+    return new Promise(function (coz) {
+      var im = new Image();
+      im.onload = function () {
+        try {
+          var olcek = 3, tuval = document.createElement('canvas');
+          tuval.width = w * olcek; tuval.height = h * olcek;
+          tuval.getContext('2d').drawImage(im, 0, 0, tuval.width, tuval.height);
+          resim.setAttribute('src', tuval.toDataURL('image/png'));
+        } catch (e) { kaldir(); }
+        coz();
+      };
+      im.onerror = function () { kaldir(); coz(); };
+      im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
+    });
+  }
+
+  /* ÖNCE ÖLÇ, SONRA DEĞİŞTİR — iki ayrı geçiş.
+
+     ZORUNLU: düzleştirme, öğenin sınıfını siler. Tek geçişte yapılırsa üst
+     kabın sınıfı çocuklardan ÖNCE silinir ve ".yu-baski-sig tbody td" gibi
+     soy zincirine dayanan kâğıt kuralları artık eşleşmez; çocuklar kâğıt
+     stilini değil EKRAN stilini alır. Ölçüldü (03.09.2026): tek geçişte
+     hücre 14,5px yazı / 14px dolgu, tablo 848px çıkıyordu — kâğıtta ise
+     10px / 6px ve 788px. Bu yüzden bütün ölçüler önce toplanır. */
+  function olcumleriTopla(kok, pencere, olcumler) {
+    (function gez(el) {
+      var hs = pencere.getComputedStyle(el);
+      olcumler.set(el, {
+        display: hs.display,
+        gorunurluk: hs.visibility,
+        stil: stilParcalari(hs),
+        hiza: hs.alignItems === 'center' ? 'middle' : (hs.alignItems === 'baseline' ? 'baseline' : 'top'),
+        dagit: hs.justifyContent,
+        yon: hs.flexDirection,
+        bosluk: parseFloat(hs.columnGap) || 0,
+        kenarBirlesik: hs.borderCollapse,
+        kenarAralik: hs.borderSpacing,
+        renk: hs.color,
+        genislik: parseFloat(hs.width),
+        kutu: el.getBoundingClientRect()
+      });
+      for (var i = 0; i < el.children.length; i++) gez(el.children[i]);
+    })(kok);
+  }
+
+  /* Öğeyi ve altındakileri satır içi stile indirger. Gizli öğe atılır;
+     sınıf, kimlik, ipucu gibi ekran nitelikleri silinir. Stil değerleri
+     olcumleriTopla'nın bıraktığı haritadan okunur — canlı sorgu YAPILMAZ. */
+  function ogeyiDuzlestir(el, olcumler, belge, isler) {
+    var o = olcumler.get(el);
+    var etiket = el.tagName.toLowerCase();
+    if (!o || o.display === 'none' || o.gorunurluk === 'hidden' ||
+        etiket === 'colgroup' || etiket === 'col' || etiket === 'script' || etiket === 'style' ||
+        etiket === 'button' || etiket === 'input' || etiket === 'select' || etiket === 'textarea') {
+      if (el.parentNode) el.parentNode.removeChild(el);
+      return;
+    }
+    if (etiket === 'svg') { isler.push(svgResmeCevir(el, o, belge)); return; }
+
+    var st = o.stil.slice(), g = o.display, i, c;
+    var cocuklar = [];
+    for (i = 0; i < el.children.length; i++) cocuklar.push(el.children[i]);
+
+    /* FLEX KUTULAR: posta programı flex bilmez. Kap blok / satır içi blok
+       olur; çocuklar satır içi blok dizilir, aradaki boşluk (gap) sağ kenar
+       boşluğuna döner. İki çocuklu "space-between" satır (künyedeki rapor
+       adı · tarih) iki hücreli tabloya çevrilir — sağa yaslama postada
+       ancak böyle güvenilir. */
+    if (g === 'flex' || g === 'inline-flex') {
+      if (g === 'flex' && o.dagit === 'space-between' && cocuklar.length === 2) {
+        var tablo = belge.createElement('table'), tr = belge.createElement('tr'), td;
+        for (i = 0; i < 2; i++) {
+          td = belge.createElement('td');
+          td.setAttribute('style', 'padding:0;vertical-align:' + o.hiza + ';text-align:' + (i ? 'right' : 'left'));
+          td.appendChild(cocuklar[i]);
+          tr.appendChild(td);
+        }
+        tablo.appendChild(tr);
+        tablo.setAttribute('style', 'width:100%;border-collapse:collapse;border-spacing:0');
+        el.appendChild(tablo);
+        st.push('display:block');
+        /* Çocuklar taşındı ama ÖLÇÜLERİ duruyor: aşağıdaki döngü yine
+           onlara iner, araya giren sarmalayıcı tabloya değil. */
+      } else {
+        st.push('display:' + (g === 'flex' ? 'block' : 'inline-block'));
+        /* BOŞLUK MARGIN'LE DEĞİL, BOŞLUK KARAKTERİYLE (kullanıcı bildirimi,
+           03.09.2026: taslakta "100.000 kg" -> "100.000kg" oluyordu).
+           Outlook'un taslak düzenleyicisi satır içi öğelerdeki margin'i
+           siliyor; bölünmez boşluk (\u00a0) ise metnin parçası olduğu için
+           hiçbir düzenleyici tarafından atılmaz. Yalnız satır içi dizilen
+           kaplarda ve gerçekten boşluk olan yerde eklenir. */
+        /* BOŞLUK YALNIZ MARGIN'LE VERİLMEZ (kullanıcı bildirimi, 03.09.2026:
+           taslakta "100.000 kg" -> "100.000kg" oluyordu). Outlook'un taslak
+           düzenleyicisi satır içi öğelerdeki margin'i siliyor; bölünmez
+           boşluk metnin parçası olduğu için hiçbir düzenleyici onu atmaz.
+           Yan yana dizilen (satır yönlü) kaplarda araya bir bölünmez boşluk
+           konur, margin de o kadar kısalır — tarayıcıda toplam aynı kalır.
+
+           DÜĞÜM DÜĞÜM bakılır, çocuk ELEMENTLERE değil: ölçü hücresi
+           "1.000" + <span>kg</span> biçimindedir, rakam düz metindir ve
+           el.children onu hiç görmüyordu (ölçüldü).
+
+           Sütun yönlü kaplar (paneller alt alta) DIŞARIDA kalır; oradaki
+           boşluk satır arasıdır, araya metin konmaz. */
+        var yanYana = o.yon !== 'column' && o.yon !== 'column-reverse';
+        var bosluk = yanYana ? o.bosluk : 0;
+        var NBSP_PX = 4;   /* bölünmez boşluğun bu ölçülerdeki yaklaşık eni */
+        if (bosluk > 0) {
+          var dugumler = [], dn;
+          for (i = 0; i < el.childNodes.length; i++) {
+            dn = el.childNodes[i];
+            if (dn.nodeType === 1 || (dn.nodeType === 3 && String(dn.nodeValue).trim())) dugumler.push(dn);
+          }
+          for (i = 1; i < dugumler.length; i++) {
+            el.insertBefore(belge.createTextNode('\u00a0'), dugumler[i]);
+          }
+        }
+        for (i = 0; i < cocuklar.length; i++) {
+          cocuklar[i].__yuSatirIci = {
+            hiza: o.hiza,
+            sag: (bosluk > NBSP_PX && i < cocuklar.length - 1) ? (bosluk - NBSP_PX) : 0
+          };
+        }
       }
-      for (i = 0; i < n.childNodes.length; i++) gez(n.childNodes[i]);
-    })(hucre);
-    return parca.join(' ');
+    } else if (g && g !== 'inline' && g.indexOf('table') !== 0 && g !== 'list-item') {
+      st.push('display:' + g);
+    }
+
+    /* Üst kap flex idiyse çocuğun yerleşimi onun dediği gibi olur. */
+    if (el.__yuSatirIci) {
+      st = st.filter(function (s) {
+        return s.indexOf('display:') !== 0 && s.indexOf('vertical-align:') !== 0 && s.indexOf('margin-right:') !== 0;
+      });
+      st.push('display:inline-block');
+      st.push('vertical-align:' + el.__yuSatirIci.hiza);
+      if (el.__yuSatirIci.sag) st.push('margin-right:' + el.__yuSatirIci.sag + 'px');
+    }
+
+    /* TABLO ÖLÇÜLERİ SABİTLENİR: kolon genişlikleri kâğıttaki ölçüyle
+       yazılır, yerleşim "fixed" olur — posta penceresi ne kadar geniş
+       olursa olsun kolonlar kâğıttaki yerinde durur. */
+    if (etiket === 'table') {
+      st.push('border-collapse:' + o.kenarBirlesik);
+      st.push('border-spacing:' + o.kenarAralik);
+      st.push('table-layout:fixed');
+      st.push('width:' + Math.round(o.kutu.width) + 'px');
+      st.push('max-width:100%');   /* dar okuma bölmesinde taşmasın */
+    } else if (etiket === 'th' || etiket === 'td') {
+      st.push('box-sizing:border-box');
+      if (etiket === 'th') st.push('width:' + Math.round(o.kutu.width) + 'px');
+    } else if (g === 'block' && o.genislik === 0 && String(el.textContent).trim()) {
+      /* Kâğıt kuralı (tema.css .yu-satir-yavru): sıfır genişlikli blok,
+         yazısı sağa taşar ama kolonu şişirmez. Aynen taşınır. */
+      st.push('width:0px');
+      st.push('min-width:0px');
+      st.push('overflow:visible');
+    }
+    /* Metinsiz, çocuksuz kutu (yavru satırın bağ çizgisi gibi) ölçüsünü
+       taşır; ölçüsü de yoksa atılır. */
+    if (!cocuklar.length && !String(el.textContent).trim() && etiket !== 'img' && etiket !== 'br' && etiket !== 'td' && etiket !== 'th') {
+      if (o.kutu.width < 1 && o.kutu.height < 1) { el.parentNode.removeChild(el); return; }
+      st.push('width:' + Math.round(o.kutu.width) + 'px');
+      st.push('height:' + Math.round(o.kutu.height) + 'px');
+      if (g === 'inline' || g === 'inline-block') {
+        st = st.filter(function (s) { return s.indexOf('display:') !== 0; });
+        st.push('display:inline-block');
+      }
+    }
+
+    var atilacak = [], n;
+    for (i = 0; i < el.attributes.length; i++) {
+      n = el.attributes[i].name;
+      if (n === 'colspan' || n === 'rowspan' || n === 'src' || n === 'width' || n === 'height' || n === 'alt') continue;
+      atilacak.push(n);
+    }
+    for (i = 0; i < atilacak.length; i++) el.removeAttribute(atilacak[i]);
+    el.setAttribute('style', st.join(';'));
+
+    for (i = 0; i < cocuklar.length; i++) {
+      c = cocuklar[i];
+      if (c.parentNode) ogeyiDuzlestir(c, olcumler, belge, isler);
+    }
+  }
+
+  /* Kâğıttaki raporun satır içi stilli HTML'i (Promise: ikonlar resme
+     çevrilirken kısa bir bekleme olur). tarihIso: raporun günü. */
+  function kagitRaporuHtml(cssMetni, tarihIso) {
+    return new Promise(function (coz, reddet) {
+      var cerceve = document.createElement('iframe');
+      cerceve.setAttribute('aria-hidden', 'true');
+      cerceve.setAttribute('tabindex', '-1');
+      cerceve.style.cssText = 'position:fixed;left:-30000px;top:0;width:' + (MAIL_GENISLIK + 60) +
+        'px;height:1600px;border:0;opacity:0;pointer-events:none';
+      document.body.appendChild(cerceve);
+      function bitir(hata, sonuc) {
+        if (cerceve.parentNode) cerceve.parentNode.removeChild(cerceve);
+        if (hata) reddet(hata); else coz(sonuc);
+      }
+      try {
+        var belge = cerceve.contentDocument, pencere = cerceve.contentWindow;
+        belge.open();
+        /* data-tema="acik": koyu temada bile kâğıt beyazdır. */
+        belge.write('<!doctype html><html lang="tr" data-tema="acik"><head><meta charset="utf-8"><style>' +
+          (cssMetni || '') + '\n' + baskiKurallari(cssMetni) + '\n' + MAIL_BUYUTME +
+          '\nhtml,body{margin:0;padding:0;background:#fff}</style></head><body></body></html>');
+        belge.close();
+
+        /* İkon sembolleri (index.html'deki sprite) çerçeveye de kopyalanır;
+           yoksa <use href="#ic-…"> boş kalır. */
+        var ornekIkon = document.getElementById('ic-doc');
+        var sprite = ornekIkon ? ornekIkon.closest('svg') : null;
+        if (sprite) belge.body.appendChild(belge.importNode(sprite, true));
+
+        /* Künye: 10-kabuk.js'teki .yu-baski-bas'ın aynısı. Kurum adı
+           ekrandaki künyeden okunur (kabuk sabiti dışarı açık değil). */
+        var kurumEl = document.querySelector('.yu-baski-kurum');
+        var kurum = kurumEl && kurumEl.textContent ? kurumEl.textContent : 'Doğuş Afyon Şeker Fabrikası';
+        var tanim = YU.sayfalar && YU.sayfalar.anasayfa;
+        var raporAdi = (tanim && tanim.baskiBasligi) || 'Yan Ürünler Stok Durum Raporu';
+        var donem = null;
+        try { donem = YU.donem.aktif(); } catch (e) { donem = null; }
+        var kunye = YU.h('div', { sinif: 'yu-baski-bas yu-yalniz-baski' },
+          YU.h('div', { sinif: 'yu-baski-kurum', metin: kurum }),
+          YU.h('div', { sinif: 'yu-baski-satir' },
+            YU.h('div', { sinif: 'yu-baski-ad', metin: raporAdi }),
+            YU.h('div', { sinif: 'yu-baski-tarih', metin: YU.fmt.tarih(tarihIso) })),
+          YU.h('div', { sinif: 'yu-baski-alt', metin: donem ? 'Kampanya ' + donem.ad : '' })
+        );
+
+        /* Paneller Ana Sayfa'daki çağrının aynısı (20-anasayfa.js); yalnız
+           gün, panelin seçili günüdür. */
+        var silo = typeof YU.siloStokPaneli === 'function' ? YU.siloStokPaneli(tarihIso) : null;
+        var malzeme = typeof YU.malzemeStokPaneli === 'function' ? YU.malzemeStokPaneli(tarihIso) : null;
+        if (!silo && !malzeme) { bitir(new Error('Rapor tabloları kurulamadı.')); return; }
+        var kap = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '12px' } }, silo, malzeme);
+        var icerik = YU.h('div', { sinif: 'yu-icerik', stil: { width: MAIL_GENISLIK + 'px' } }, kunye, kap);
+        belge.body.appendChild(icerik);
+
+        /* Yerleşim otursun diye kısa bir bekleme; sonra ölçülür. */
+        pencere.setTimeout(function () {
+          try {
+            var isler = [], olcumler = new Map();
+            olcumleriTopla(icerik, pencere, olcumler);   /* ÖNCE ölç (gerekçe yukarıda) */
+            ogeyiDuzlestir(icerik, olcumler, belge, isler);
+            Promise.all(isler).then(function () {
+              /* Kök kâğıt genişliğinde kalır: içindeki tablolar sabit
+                 ölçülü, kap da onlarla aynı genişlikte olsun. */
+              icerik.setAttribute('style', icerik.getAttribute('style') + ';width:' + MAIL_GENISLIK + 'px;max-width:100%');
+              bitir(null, {
+                html: icerik.outerHTML,
+                genislik: MAIL_GENISLIK,
+                yukseklik: Math.ceil(icerik.getBoundingClientRect().height)
+              });
+            }, function (e) { bitir(e); });
+          } catch (e) { bitir(e); }
+        }, 30);
+      } catch (e) { bitir(e); }
+    });
+  }
+
+  /* Dışarıdan da çağrılabilir: kâğıttaki raporun kopyası (test ve yeniden
+     kullanım için) — {html, xml, genislik, yukseklik}. */
+  YU.mailRaporHtml = function (tarihIso) {
+    return temaCssHazir().then(function (css) { return kagitRaporuHtml(css, tarihIso); });
+  };
+
+  /* Kullanıcının mesajı: satırlar korunur, HTML kaçışlanır. */
+  var MESAJ_STIL = 'margin:0 0 10px;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;' +
+    'font-size:15px;line-height:1.5;color:#000000';
+
+  function mesajHtml(metin) {
+    var m = String(metin || '').replace(/\r\n?/g, '\n').replace(/\s+$/, '');
+    if (!m) return '';
+    var kacis = m.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    var paragraflar = kacis.split(/\n{2,}/), cikti = '', i;
+    for (i = 0; i < paragraflar.length; i++) {
+      cikti += '<p style="' + MESAJ_STIL + '">' +
+        paragraflar[i].replace(/\n/g, '<br>') + '</p>';
+    }
+    return cikti;
+  }
+
+  /* Postanın gövdesi: üstte rapor, altında ayraç ve kullanıcının mesajı
+     (paneldeki sırayla — 26.08.2026: "altına da bizim mesajımız").
+
+     RAPOR CANLI HTML'DİR, RESİM DEĞİL (kullanıcı direktifi, 03.09.2026:
+     "raporu görsel olarak olmasın"). Aynı gün resim yolu da denenmişti:
+     görüntü birebir oluyordu ama ileti çok parçalı (multipart/related)
+     olmak zorundaydı ve YENİ OUTLOOK bu biçimde "Kime" satırını
+     düşürüyordu — alıcılar taslakta boş geliyordu (ölçüldü). Tek parçalı
+     HTML hem alıcıları taşır hem metni seçilebilir bırakır. */
+  function postaGovdesi(raporHtml, mesaj) {
+    var msj = mesajHtml(mesaj);
+    return '<!doctype html><html lang="tr"><head><meta charset="utf-8"></head>' +
+      '<body style="margin:0;padding:0;background:#ffffff">' + raporHtml +
+      (msj ? '<div style="width:' + MAIL_GENISLIK + 'px;max-width:100%;margin-top:18px;' +
+             'padding-top:14px;border-top:2px solid #a89878">' + msj + '</div>' : '') +
+      '</body></html>';
+  }
+
+  /* ------------------------------------------------------------------
+     .EML TASLAĞI (RFC 822). "X-Unsent: 1" başlığı posta programına "bu
+     ileti henüz gönderilmedi" der; Outlook onu okuma penceresinde değil,
+     GÖNDERİLEBİLİR taslak penceresinde açar. Message-ID şart: yeni Outlook
+     kimliksiz taslağı kaydedemiyordu (Microsoft Q&A 5594291, 2026 başı).
+     Türkçe konu RFC 2047 ile, gövde base64 ile kodlanır — dosya tamamen
+     ASCII kalır, hiçbir posta programı karakter setini şaşırmaz.
+     ------------------------------------------------------------------ */
+  function utf8Bayt(metin) { return new TextEncoder().encode(String(metin)); }
+
+  function base64(baytlar) {
+    var s = '', i, parca = 8192;
+    for (i = 0; i < baytlar.length; i += parca) {
+      s += String.fromCharCode.apply(null, baytlar.subarray(i, i + parca));
+    }
+    return btoa(s);
+  }
+
+  /* Kodlu başlık parçaları 45 bayttan uzun olamaz (RFC 2047 · 75 karakter
+     sınırı) ve çok baytlı bir harf ikiye bölünemez; parçalar harf harf
+     doldurulur. Parçalar arasındaki katlama boşluğunu alıcı yok sayar. */
+  function kodluBaslik(metin) {
+    var parcalar = [], simdiki = '', i, ch, aday;
+    for (i = 0; i < metin.length; i++) {
+      ch = metin.charAt(i);
+      aday = simdiki + ch;
+      if (utf8Bayt(aday).length > 45) { parcalar.push(simdiki); simdiki = ch; }
+      else simdiki = aday;
+    }
+    if (simdiki) parcalar.push(simdiki);
+    return parcalar.map(function (p) { return '=?UTF-8?B?' + base64(utf8Bayt(p)) + '?='; }).join('\r\n ');
+  }
+
+  function emlUret(alicilar, konu, html) {
+    var CRLF = '\r\n';
+    var kimlik = (window.crypto && typeof window.crypto.randomUUID === 'function')
+      ? window.crypto.randomUUID()
+      : (Date.now().toString(36) + Math.random().toString(36).slice(2));
+    var govde = base64(utf8Bayt(html)).replace(/(.{76})/g, '$1' + CRLF);
+    return [
+      'X-Unsent: 1',
+      'Message-ID: <' + kimlik + '@yanurunler.local>',
+      'Date: ' + new Date().toUTCString().replace(/GMT$/, '+0000'),
+      /* From yalnız MIME geçerli olsun diye; Outlook taslağı kendi hesabıyla
+         açar ve bu satırı kullanmaz (ölçüldü). */
+      'From: Yan Urunler Stok Takip <rapor@yanurunler.local>',
+      'To: ' + alicilar.join(', '),
+      'Subject: ' + kodluBaslik(konu),
+      'MIME-Version: 1.0',
+      'Content-Type: text/html; charset=utf-8',
+      'Content-Transfer-Encoding: base64',
+      '',
+      govde
+    ].join(CRLF) + CRLF;
+  }
+
+  function emlIndir(dosyaAdi, eml) {
+    var blob = new Blob([eml], { type: 'message/rfc822' });
+    var url = URL.createObjectURL(blob);
+    var bag = document.createElement('a');
+    bag.href = url; bag.download = dosyaAdi;
+    document.body.appendChild(bag); bag.click(); document.body.removeChild(bag);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
   }
 
   /* ACİL DURUM YEDEĞİ — gerçek tema.css HENÜZ YÜKLENMEDİYSE kullanılır
@@ -406,23 +855,10 @@
     var seciliTarih = YU.donem && YU.donem.gorunumSonu ? YU.donem.gorunumSonu() : YU.tarih.bugun();
     function tarihMetniniAl() { return YU.fmt.tarih(seciliTarih); }
 
-    /* İMZA (kullanıcı isteği, 28.08.2026): gönderilen mesajın SONUNA, o an
-       PROGRAMA giriş yapan kişinin ad soyadı eklenir — hesap Gmail'i kim
-       bağladıysa değil, ekranda kim oturum açtıysa o (Ahmet girdiyse
-       Ahmet'in adı). Kutuda GÖRÜNMEZ (kullanıcı düzeltmesi, aynı gün:
-       "burada gözükmesin"): kullanıcı istediğini yazar, imza yalnız
-       GÖNDERİLİRKEN metnin sonuna eklenir — gerçekten en son satır olur,
-       boş kutuda tuhaf durmaz. */
-    function mesajMetni() {
-      var yazilan = String(mesajAlani.value).replace(/\s+$/, '');
-      var k = YU.oturum && YU.oturum.kullanici;
-      var adSoyad = k ? String(k.AdSoyad || '').trim() : '';
-      if (!adSoyad) return yazilan;
-      /* "Gönderen : Ad Soyad" biçimi (kullanıcı isteği, 28.08.2026) —
-         yalnız isim değil, kim gönderdiği açıkça söylenir. */
-      var imza = 'Gönderen : ' + adSoyad;
-      return yazilan ? (yazilan + '\n\n' + imza) : imza;
-    }
+    /* İMZA YOK (kullanıcı direktifi, 03.09.2026: "Gönderen : X kişisi
+       yazmasın, bunu kaldır"). 28.08'de eklenen "Gönderen : Ad Soyad" satırı
+       kaldırıldı; gövdeye yalnız kullanıcının yazdığı gider. */
+    function mesajMetni() { return String(mesajAlani.value).replace(/\s+$/, ''); }
     var alicilar = aliciListesi();
     var secim = { silo: true, malzeme: true };
     var gonderDugmesi = null;
@@ -632,367 +1068,59 @@
       gonderDugmesi.disabled = kac === 0;
       gonderDugmesi.title = kac === 0
         ? 'Önce en az bir alıcı seçin'
-        : (sunucuDurumu === 'postali'
-            ? 'Posta doğrudan sunucudan gider, rapor PDF olarak ekte'
-            : 'Mail hesabı tanımlı değil — rapor PDF olarak iner (Yönetim Paneli › Mail Hesabı)');
+        : 'Outlook\'ta taslak olarak açılır; gönderme oradan yapılır';
     }
 
     /* ---------------- eylemler ---------------- */
 
-    /* Gövdeye rapor METNİ yazılmaz (kullanıcı kararı): yalnız kullanıcının
-       mesajı gider. Otomatik "— … raporu (…) ekte —" satırı da KALKTI
-       (kullanıcı isteği, 28.08.2026): tarih ve rapor adı zaten konu
-       satırında yazıyor, gövdede ikinci kez tekrarlanıyordu. Gövde artık
-       yalnız kullanıcının yazdığıdır; boşsa boş gider. */
-    function mailiAc() {
+    /* GÖNDER = TASLAĞI AÇ (kullanıcı direktifi, 03.09.2026). Program posta
+       göndermez: alıcılar, konu, kâğıttaki raporun HTML kopyası ve mesaj
+       bir .eml taslağına yazılır. Sunucu aynı makinedeyse dosyayı yeni
+       Outlook'a verir (api/mail/taslak); değilse ya da sunucu yoksa dosya
+       iner, kullanıcı açınca Outlook taslak olarak getirir.
+       "Gönderildi" bildirimi YOKTUR (aynı direktif): son adım postadadır. */
+    function taslagiAc() {
       var adresler = seciliAdresler();
       if (!adresler.length) return;
-      /* KESİN KURAL (kullanıcı direktifi, 28.08.2026: "outlook hiç
-         açılmamalı"): programın kendisi HİÇBİR koşulda bir posta
-         uygulaması açmaz. Hesap girilmişse doğrudan gönderilir; hesap
-         yoksa yalnız PDF iner, kullanıcı onu kendi mail programından
-         kendisi ekler — otomatik pencere/mailto tetiklenmez. */
-      sunucuKipi().then(function (kip) {
-        if (kip === 'postali') sunucudanGonder(adresler);
-        else pdfIndirVeAc(adresler);
-      });
-    }
-
-    /* HESAP YOKKEN TEK YOL — rapor PDF'i sunucuda (Ctrl+P ile aynı
-       motorla) üretilir ve DOSYA OLARAK İNER. Hiçbir posta uygulaması
-       AÇILMAZ (kullanıcı direktifi, 28.08.2026: "outlook hiç açılmamalı");
-       kullanıcı inen dosyayı istediği posta programına kendi ekler. */
-    function pdfIndirVeAc(adresler) {
       var tarihMetni = tarihMetniniAl();
-      var dosyaAdi = 'Gunluk-Stok-Durumu-' + seciliTarih + '.pdf';
+      var dosyaAdi = 'Gunluk-Stok-Durumu-' + seciliTarih + '.eml';
       var eskiMetin = gonderDugmesi ? gonderDugmesi.textContent : '';
-      if (gonderDugmesi) { gonderDugmesi.disabled = true; gonderDugmesi.textContent = 'PDF hazirlaniyor...'; }
-
-      /* Gerçek tema.css BEKLENİR (kullanıcı bildirimi, 28.08.2026: "hizası
-         çok kötü") — bu PDF kullanıcının eline geçecek gerçek dosya; kaba
-         yedek stille asla üretilmez, gecikirse birkaç yüz milisaniye beklenir. */
-      temaCssHazir().then(function (css) {
-      fetch('api/rapor/pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          html: raporHtml(tarihMetni, secim, seciliTarih, css),
-          bolumler: raporVerisi(),
-          baslik: 'Gunluk Stok Durumu - ' + tarihMetni,
-          altBaslik: donemAltBasligi(),
-          dosyaAdi: dosyaAdi
-        })
-      }).then(function (c) {
-        if (!c.ok) throw new Error('sunucu ' + c.status);
-        return c.blob();
-      }).then(function (blob) {
+      if (gonderDugmesi) { gonderDugmesi.disabled = true; gonderDugmesi.textContent = 'Taslak hazırlanıyor…'; }
+      function geriAl() {
         if (gonderDugmesi) gonderDugmesi.textContent = eskiMetin;
         durumuTazele();
-        var url = URL.createObjectURL(blob);
-        var bag = document.createElement('a');
-        bag.href = url; bag.download = dosyaAdi;
-        document.body.appendChild(bag); bag.click(); document.body.removeChild(bag);
-        setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
-        /* Posta uygulaması AÇILMAZ (kullanıcı direktifi, 28.08.2026) —
-           yalnız dosya iner, kullanıcı kendi programına kendi ekler. */
-        YU.ui.bildir('Rapor PDF olarak indi (' + dosyaAdi +
-          '). Postanıza kendiniz ekleyin ya da üstteki formdan giriş yapıp otomatik gönderin.', 'basari');
-      })['catch'](function () {
-        if (gonderDugmesi) gonderDugmesi.textContent = eskiMetin;
-        durumuTazele();
-        sunucuDurumu = 'yok';
-        raporSekmesindeGoster(adresler);
-      });
-      });
-    }
-
-    /* Sunucuya gidecek yedek tablo verisi (yazdirma motoru yoksa kullanilir). */
-    function raporVerisi() {
-      var ham = raporBolumleri(secim, seciliTarih), liste = [], i, v;
-      for (i = 0; i < ham.length; i++) {
-        v = tabloVerisi(ham[i].tablo);
-        liste.push({ ad: ham[i].ad, sutunlar: v.sutunlar, satirlar: v.satirlar, sagaYasli: v.sagaYasli });
       }
-      return liste;
-    }
-
-    /* GÖNDERİM SONUCU ORTADAKİ PENCEREDE (kullanıcı isteği, 28.08.2026:
-       "sağ altta bildirim değil, ortaya panel gelsin; başarılı olanlar,
-       başarısız olanlar ve nedeni yazsın").
-
-       Köşe bildirimi tek cümleydi: kaç alıcıya gittiğini söylüyor, kimin
-       alamadığını söylemiyordu. Sunucu artık alıcı başına sonuç döndürüyor
-       (Postaci.GonderTekTek), pencere de onu satır satır yazar. Sebep
-       cümlesi sunucudan OLDUĞU GİBİ gelir — kısaltılmaz, çünkü düzeltmeyi
-       yapacak olan kullanıcıdır. */
-    /* ------------------------------------------------------------------
-       TESLİM İZLEME (kullanıcı direktifi, 31.08.2026: "gönderilemeyen olursa
-       tüm ekrana orta panel gelsin, aynı şekilde bu maile gönderilemedi diye")
-
-       SORUN: "Gönderildi" ile "ulaştı" aynı şey değil. SMTP iletiyi ALIR,
-       teslimi sonra dener. Alıcının kutusu yoksa bunu ancak dakikalar sonra
-       gelen TESLİMSİZLİK POSTASI söyler — o da kullanıcının gelen kutusuna
-       düşer, programın haberi olmazdı.
-
-       NEDEN BAŞKA YOL YOK (ölçüldü, 31.08.2026):
-         · Alan adı kontrolü (sunucu · alan_sorunu) yalnız ALANI doğrular;
-           hotmail.com gerçek bir alan, sorun kutuda.
-         · Alıcının kendi sunucusuna "bu kutu var mı" diye sormak (RCPT):
-           bu ağdan 25. port dışarı KAPALI, zaman aşımına düşüyor.
-
-       ÇÖZÜM: gönderimden sonra sunucu, aynı hesabın gelen kutusunu IMAP ile
-       yoklar (yalnız teslimsizlik iletileri, yalnız okuma). Bir tanesi bizim
-       alıcımıza aitse ekranın ortasında pencere açılır.
-
-       YOKLAMA PENCERESİ 5 DAKİKA: teslimsizlik genellikle saniyeler içinde
-       gelir; 5 dakikada gelmediyse posta yolda demektir ve sessizce durulur —
-       sonsuz yoklama tarayıcıyı ve posta sunucusunu boşuna yorar. */
-    var TESLIM_ARALIK = 15000;   /* ms — iki yoklama arası */
-    var TESLIM_ADET = 20;        /* 20 × 15 sn = 5 dakika */
-
-    function teslimIzlemeyiDurdur() {
-      if (YU.__teslimSayaci) { clearTimeout(YU.__teslimSayaci); YU.__teslimSayaci = null; }
-    }
-
-    /* Sayaç MODÜL DIŞINDA (YU üzerinde) tutulur: ekran yeniden çizilince bu
-       kapanış yenilenir, eskisinin sayacı elde kalmazdı ve iki yoklama zinciri
-       birden koşup pencereyi iki kez açardı (31.08.2026). */
-    function teslimIzle(adresler) {
-      teslimIzlemeyiDurdur();
-      if (!adresler || !adresler.length || typeof fetch !== 'function') return;
-      var gun = YU.tarih.bugun();
-      var kalan = TESLIM_ADET;
-
-      function sor() {
-        YU.__teslimSayaci = null;
-        fetch('api/mail/teslimsiz?gun=' + encodeURIComponent(gun) +
-              '&alicilar=' + encodeURIComponent(adresler.join(',')), { cache: 'no-store' })
-          .then(function (c) { return c.ok ? c.json() : null; })
-          .then(function (g) {
-            var liste = (g && g.teslimsizler) || [];
-            if (liste.length) { teslimsizPenceresi(liste); return; }   /* bulundu — dur */
-            if (--kalan > 0) YU.__teslimSayaci = setTimeout(sor, TESLIM_ARALIK);
-          })
-          ['catch'](function () {
-            /* Sunucuya ulaşılamadı: susarız. "Gönderilemedi" demek için
-               KANIT gerekir; yokluğu kanıt değildir. */
-            if (--kalan > 0) YU.__teslimSayaci = setTimeout(sor, TESLIM_ARALIK);
+      temaCssHazir()
+        .then(function (css) { return kagitRaporuHtml(css, seciliTarih); })
+        .then(function (rapor) {
+          var eml = emlUret(adresler, konuMetni(tarihMetni),
+            postaGovdesi(rapor.html, mesajMetni()));
+          return sunucudaAc(dosyaAdi, eml).then(function (acildi) {
+            geriAl();
+            if (modal && modal.kapat) modal.kapat();
+            if (acildi) return;   /* Outlook açıldı — bildirim yok */
+            emlIndir(dosyaAdi, eml);
+            YU.ui.bildir('Taslak indi: ' + dosyaAdi + '. Dosyayı açın; Outlook taslak olarak getirir.', 'bilgi');
           });
-      }
-      YU.__teslimSayaci = setTimeout(sor, TESLIM_ARALIK);
+        })
+        ['catch'](function (e) {
+          geriAl();
+          YU.ui.bildir('Taslak hazırlanamadı: ' + ((e && e.message) || e), 'hata');
+        });
     }
 
-    /* Ekranın ortasında, gönderim sonucu penceresiyle aynı dilde. */
-    function teslimsizPenceresi(liste) {
-      var kap = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '14px' } });
-      kap.appendChild(YU.h('div', {
-        metin: liste.length === 1
-          ? 'Rapor postası bu adrese ulaşmadı:'
-          : 'Rapor postası şu adreslere ulaşmadı:',
-        stil: { font: '400 14px/1.5 var(--font)', color: 'var(--metin-2)' }
-      }));
-      for (var i = 0; i < liste.length; i++) {
-        kap.appendChild(YU.h('div', {
-          stil: { display: 'flex', gap: '9px', alignItems: 'baseline', minWidth: '0' }
-        },
-          YU.h('span', {
-            metin: '✕', 'aria-hidden': 'true',
-            stil: { flex: 'none', fontWeight: '700', color: 'var(--olumsuz)' }
-          }),
-          YU.h('div', { stil: { minWidth: '0' } },
-            YU.h('div', { sinif: 'yu-guclu', metin: liste[i].adres, stil: { wordBreak: 'break-all' } }),
-            YU.h('div', {
-              metin: liste[i].sebep || 'Teslim edilemedi.',
-              stil: { font: '400 13px/1.45 var(--font)', color: 'var(--olumsuz)', marginTop: '2px' }
-            })
-          )
-        ));
-      }
-      YU.ui.modal({
-        baslik: 'Teslim Edilemedi',
-        baslikAlt: mailHesabi ? mailHesabi.adres : '',
-        genislik: 480,
-        govde: kap,
-        dugmeler: [{ metin: 'Tamam', tur: 'birincil' }]
-      });
-    }
-
-    function sonucPenceresi(g) {
-      g = g || {};
-      var sonuclar = g.sonuclar || [];
-      var basarili = [], hatali = [], i;
-      for (i = 0; i < sonuclar.length; i++) {
-        (sonuclar[i].tamam ? basarili : hatali).push(sonuclar[i]);
-      }
-
-      function bolum(baslik, liste, olumlu) {
-        if (!liste.length) return null;
-        var kap = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '8px' } },
-          YU.h('div', { sinif: 'yu-etiket', metin: baslik }));
-        for (var j = 0; j < liste.length; j++) {
-          var s = liste[j];
-          kap.appendChild(YU.h('div', {
-            stil: { display: 'flex', gap: '9px', alignItems: 'baseline', minWidth: '0' }
-          },
-            YU.h('span', {
-              metin: olumlu ? '✓' : '✕', 'aria-hidden': 'true',
-              stil: {
-                flex: 'none', fontWeight: '700',
-                color: olumlu ? 'var(--olumlu)' : 'var(--olumsuz)'
-              }
-            }),
-            YU.h('div', { stil: { minWidth: '0' } },
-              YU.h('div', { sinif: 'yu-guclu', metin: s.adres, stil: { wordBreak: 'break-all' } }),
-              (!olumlu && s.hata)
-                ? YU.h('div', {
-                    metin: s.hata,
-                    stil: { font: '400 13px/1.45 var(--font)', color: 'var(--olumsuz)', marginTop: '2px' }
-                  })
-                : null
-            )
-          ));
-        }
-        return kap;
-      }
-
-      var baslik = !basarili.length ? 'Gönderilemedi'
-        : (hatali.length ? 'Kısmen Gönderildi' : 'Gönderildi');
-
-      YU.ui.modal({
-        baslik: baslik,
-        /* Hangi hesaptan çıktığı başlığın altında: aynı programı iki farklı
-           mail hesabıyla kullanan kullanıcı hangisinden gittiğini görür. */
-        baslikAlt: g.gonderen || '',
-        genislik: 480,
-        govde: YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '16px' } },
-          bolum('Gönderildi', basarili, true),
-          (basarili.length && hatali.length)
-            ? YU.h('div', { stil: { height: '1px', background: 'var(--ayrac-2)' } })
-            : null,
-          bolum('Gönderilemedi', hatali, false)
-        ),
-        dugmeler: [{ metin: 'Tamam', tur: 'birincil' }]
-      });
-    }
-
-    /* A YOLU — sunucu postalar. Rapor PDF olarak EKTE gider; konu ve
-       kullanıcının yazısı da postada durur. Outlook hiç açılmaz. */
-    function sunucudanGonder(adresler) {
-      var tarihMetni = tarihMetniniAl();
-      var bolumler = raporVerisi();
-      var eskiMetin = gonderDugmesi ? gonderDugmesi.textContent : '';
-      if (gonderDugmesi) { gonderDugmesi.disabled = true; gonderDugmesi.textContent = 'Gonderiliyor...'; }
-
-      /* Gerçek tema.css BEKLENİR (raporHtml notu) — postaya giden PDF
-         asla kaba yedek stille üretilmez. */
-      temaCssHazir().then(function (css) {
-      fetch('api/mail', {
+    /* Sunucu dosyayı KENDİ makinesinde açar; uzak istemciye 403 döner,
+       sunucu yoksa istek düşer — iki durumda da false: dosya indirilir. */
+    function sunucudaAc(dosyaAdi, eml) {
+      if (typeof fetch !== 'function') return Promise.resolve(false);
+      return fetch('api/mail/taslak', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          alicilar: adresler,
-          konu: konuMetni(tarihMetni),
-          mesaj: mesajMetni(),
-          baslik: 'Gunluk Stok Durumu - ' + tarihMetni,
-          altBaslik: donemAltBasligi(),
-          dosyaAdi: 'Gunluk-Stok-Durumu-' + seciliTarih + '.pdf',
-          /* EKTEKI PDF, EKRANDAKI "Yazdir" CIKTISININ AYNISIDIR (kullanici
-             istegi, 28.08.2026): sunucuya tablo verisi degil, Ctrl+P ile
-             basilan HTML'in TA KENDISI gider ve orada ayni yazdirma
-             motoruyla basilir. bolumler yalniz yedek yol icin durur:
-             sunucuda tarayici yoksa tablo oradan dizilir. */
-          html: raporHtml(tarihMetni, secim, seciliTarih, css),
-          bolumler: bolumler
-        })
+        body: JSON.stringify({ dosyaAdi: dosyaAdi, eml: eml })
       }).then(function (c) {
-        return c.text().then(function (m) {
-          var g = null;
-          if (m) { try { g = JSON.parse(m); } catch (e) { g = null; } }
-          return { kod: c.status, govde: g };
-        });
-      }).then(function (y) {
-        if (gonderDugmesi) gonderDugmesi.textContent = eskiMetin;
-        durumuTazele();
-        if (y.kod === 200) {
-          if (modal && modal.kapat) modal.kapat();
-          sonucPenceresi(y.govde);
-          /* SMTP "aldım" dedi; gerçekten ULAŞTI mı, teslimsizlik postası
-             söyler. Yalnız BAŞARILI görünen adresler izlenir (31.08.2026). */
-          var izlenecek = [];
-          var sonuclar = (y.govde && y.govde.sonuclar) || [];
-          for (var si = 0; si < sonuclar.length; si++) {
-            if (sonuclar[si].tamam) izlenecek.push(sonuclar[si].adres);
-          }
-          teslimIzle(izlenecek);
-          return;
-        }
-        /* Hepsi başarısız: sunucu 502 ile alıcı listesini yine döner —
-           köşe bildirimi yerine aynı pencere açılır, sebep satır satır
-           yazar (kullanıcı isteği, 28.08.2026). */
-        if (y.kod === 502 && y.govde && y.govde.sonuclar) {
-          if (modal && modal.kapat) modal.kapat();
-          sonucPenceresi(y.govde);
-          return;
-        }
-        /* 503 = hesap silinmiş/ayar bozulmuş: PDF-indirme yoluna düşülür,
-           HİÇBİR posta uygulaması açılmaz. sunucuDurumu = null (BOOLEAN
-           false DEĞİL — 28.08.2026 kusuru): false hiçbir string kip
-           koşuluyla eşleşmiyordu, bir kez buraya düşen kullanıcı başarılı
-           giriş yapsa bile SONSUZA KADAR bu dala düşüyordu. null, bir
-           sonraki denemede sunucuya yeniden sorulmasını sağlar. */
-        if (y.kod === 503) { sunucuDurumu = null; pdfIndirVeAc(adresler); return; }
-        YU.ui.bildir('Posta gonderilemedi: ' +
-          ((y.govde && y.govde.hata) || ('sunucu ' + y.kod)), 'hata');
-      })['catch'](function (e) {
-        if (gonderDugmesi) gonderDugmesi.textContent = eskiMetin;
-        durumuTazele();
-        /* Ag koptuysa is durmasin: eski akis hala calisir. Ayni sebeple
-           null yazilir (yukaridaki nota bak) — false degil. Posta
-           uygulaması açılmaz; PDF-indirme yolu denenir. */
-        sunucuDurumu = null;
-        pdfIndirVeAc(adresler);
-      });
-      });
-    }
-
-    /* Kagidin ust satiri: kampanya adi. Ekrandaki alt baslikla ayni dil. */
-    function donemAltBasligi() {
-      var d = null;
-      try { d = YU.donem.aktif(); } catch (e) { d = null; }
-      return d ? ('Kampanya ' + d.ad) : '';
-    }
-
-    /* SON ÇARE — sunucuya hiç ulaşılamıyor (PDF üretimi bile başarısız).
-       HİÇBİR POSTA UYGULAMASI AÇILMAZ (kullanıcı direktifi, 28.08.2026:
-       "outlook hiç açılmamalı"). Yapılabilecek tek şey: raporu yazdırma
-       görünümünde göstermek — kullanıcı isterse Ctrl+P ile kendi kaydeder,
-       postayı da kendi eliyle gönderir. */
-    function raporSekmesindeGoster(adresler) {
-      var tarihMetni = tarihMetniniAl();
-      var bolumler = raporBolumleri(secim, seciliTarih);
-      if (bolumler.length) raporuAc(tarihMetni, secim, seciliTarih);
-      YU.ui.bildir(bolumler.length
-        ? 'Sunucuya ulaşılamadı: rapor gönderilemedi. Açılan sekmede Ctrl+P ile kaydedip postanıza kendiniz ekleyin.'
-        : 'Sunucuya ulaşılamadı: rapor gönderilemedi.', 'hata');
-    }
-
-    /* CSV, kopyalanan tablonun HÜCRELERİNDEN üretilir: ekranda ne varsa
-       dosyada da o olur, ikinci bir hesap yapılmaz. */
-    /* Hücre iç içedir: TD > DIV > iki SPAN ("420.000" ve "22.07.2026").
-       Yalnız birinci düzey çocuklara bakmak yetmiyordu, textContent ikisini
-       yapıştırıyordu. METİN DÜĞÜMLERİNE kadar inilir, aralarına boşluk. */
-    function hucreMetni(hucre) {
-      var parca = [];
-      (function gez(n) {
-        var i;
-        if (n.nodeType === 3) {
-          var t = String(n.textContent).replace(/\s+/g, ' ').trim();
-          if (t) parca.push(t);
-          return;
-        }
-        for (i = 0; i < n.childNodes.length; i++) gez(n.childNodes[i]);
-      })(hucre);
-      return parca.join(' ');
+        if (!c.ok) return false;
+        return c.json().then(function (g) { return !!(g && g.acildi); }, function () { return false; });
+      }, function () { return false; });
     }
 
     /* ---------------- yerleşim ---------------- */
@@ -1079,134 +1207,13 @@
       govde: [govdeKap],
       dugmeler: [
         { metin: 'Kapat', tur: 'tehlike' },
-        { metin: 'Gönder', ikon: '#ic-doc', tur: 'birincil', onClick: mailiAc }
+        { metin: 'Gönder', ikon: '#ic-doc', tur: 'birincil', onClick: taslagiAc }
       ]
     });
 
-    /* ================================================================
-       MİNİ DURUM ŞERİDİ (kullanıcı direktifi, 28.08.2026: "mail
-       gönderdeki panelde giriş çıkış bilgisi olmasın, sadece mail girişi
-       yapılı gibi mini bilgi... smtp.gmail.com:587 bu bilgi de olsun").
-
-       Hesap TEK BİR MASTER'DIR (aynı direktif: "programı kullanan tüm
-       kullanıcılarda tanımlı olmalı") ve YÖNETİMİ (giriş/çıkış/sınama)
-       artık Yönetim Paneli › Mail Hesabı ekranındadır (js/37-mail-hesabi.js,
-       yalnız Yönetici). Burada form YOK — yalnız bağlı mı ve sunucu:port
-       okunur; bağlı değilse yönetim ekranına yönlendiren tek satır durur.
-       ================================================================ */
-    var durumSeridi = YU.h('div', {
-      stil: {
-        gridColumn: '1 / -1',
-        display: 'flex', alignItems: 'center', gap: '9px',
-        margin: '0 0 14px', padding: '10px 14px', borderRadius: 'var(--r)',
-        border: '1px solid var(--kenar)', background: 'var(--yuzey-2)',
-        font: '400 13.5px/1.4 var(--font)'
-      }
-    });
-    govdeKap.insertBefore(durumSeridi, govdeKap.firstChild);
-
-    /* Seridin tiklanabilirligi tek yerden kurulur: bagli DEGILKEN serit
-       kirmiziya doner, imlec el olur ve ustune gelince zemin koyulasir --
-       "burasi bir eksigi soyluyor, cozumu bir tik otede" (kullanici istegi,
-       28.08.2026). Bagliyken hover YOKTUR: yesil serit bir bilgi satiridir,
-       gidilecek yer degil. */
-    /* Serit metinleri tek yerde: kodlama kazasi olmasin diye sabit. */
-    var MSJ_BAGLI   = 'Mail girişi yapılı';
-    var MSJ_YOK     = 'Mail hesabı tanımlı değil';
-    var MSJ_YONERGE = "Yönetim Paneli › Mail Hesabı'ndan bağlanın.";
-    var MSJ_YETKI   = 'Bu ayara yalnız Yöneticinin erişimi var.';
-
-    function seritHoverKur(acik) {
-      durumSeridi.onmouseenter = null;
-      durumSeridi.onmouseleave = null;
-      durumSeridi.style.cursor = acik ? 'pointer' : '';
-      durumSeridi.style.transition = 'background-color .12s ease';
-      if (!acik) return;
-      durumSeridi.onmouseenter = function () {
-        /* Taban --olumsuz-zemin (koyu temada %12 saydam kirmizi). Hover
-           SAYDAMLIGI artirir: iki temada da ayni yonde koyulasir ve
-           tabandan gozle ayrilir -- yuzey tokenine karistirmak koyu
-           temada farki yok denecek kadar kucuk birakiyordu (olculdu). */
-        durumSeridi.style.backgroundColor = 'color-mix(in srgb, var(--olumsuz) 30%, transparent)';
-      };
-      durumSeridi.onmouseleave = function () {
-        durumSeridi.style.backgroundColor = 'var(--olumsuz-zemin)';
-      };
-    }
-
-    function durumSeridiniCiz(kip) {
-      var bagli = kip === 'postali';
-      YU.bos(durumSeridi);
-      durumSeridi.onclick = null;
-      /* Eksik hesap artik KIRMIZI okunur (kullanici istegi, 28.08.2026):
-         onceki notr zemin, "bir sey eksik" mesajini vermiyordu. */
-      durumSeridi.style.backgroundColor = bagli ? 'var(--olumlu-zemin)' : 'var(--olumsuz-zemin)';
-      durumSeridi.style.borderColor = bagli ? 'var(--olumlu)' : 'var(--olumsuz)';
-      durumSeridi.appendChild(YU.h('span', {
-        stil: { display: 'flex', flex: 'none', color: bagli ? 'var(--olumlu)' : 'var(--olumsuz)' }
-      }, YU.svg(bagli ? '#ic-checklist' : '#ic-alert', 16)));
-      durumSeridi.appendChild(YU.h('span', {
-        metin: bagli ? MSJ_BAGLI : MSJ_YOK,
-        stil: {
-          font: '600 13.5px/1.3 var(--font)',
-          color: bagli ? 'var(--metin-2)' : 'var(--olumsuz)'
-        }
-      }));
-
-      if (bagli) {
-        seritHoverKur(false);
-        if (mailHesabi) {
-          durumSeridi.appendChild(YU.h('span', {
-            metin: mailHesabi.sunucu + ':' + mailHesabi.port,
-            stil: { font: '400 13px/1.3 var(--font)', color: 'var(--metin-4)' }
-          }));
-        }
-        return;
-      }
-
-      /* Mail Hesabi ekrani YALNIZ Yonetici'ye acik (37-mail-hesabi ·
-         rol: 'Yonetici'). Operatore baglanti verilseydi tiklayinca yetki
-         duvarina carpardi; ona duz metin kalir. */
-      var kullanici = YU.oturum && YU.oturum.kullanici;
-      if (!kullanici || kullanici.Rol !== 'Yonetici') {
-        seritHoverKur(false);
-        durumSeridi.appendChild(YU.h('span', {
-          metin: MSJ_YETKI,
-          stil: { font: '400 13px/1.3 var(--font)', color: 'var(--olumsuz-silik)' }
-        }));
-        return;
-      }
-
-      /* Gercek adres verilir: orta tus / Ctrl+tik YENI SEKMEDE acar
-         (21-kuru-kuspe-giris.js baglanti deseninin ayni). Sol tik pencereyi
-         kapatip ayni sekmede gider -- arkada kalan pencere yeni ekranin
-         ustunu ortmesin. */
-      function git() {
-        if (modal && modal.kapat) modal.kapat();
-        YU.git('mail-hesabi');
-      }
-      durumSeridi.appendChild(YU.h('a', {
-        href: YU.adres('mail-hesabi'),
-        metin: MSJ_YONERGE,
-        stil: {
-          font: '600 13px/1.3 var(--font)', color: 'var(--olumsuz)',
-          textDecoration: 'underline', textUnderlineOffset: '2px'
-        },
-        onClick: function (e) {
-          if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button === 1) return;
-          e.preventDefault();
-          e.stopPropagation();   /* seridin kendi tiklamasi ikinci kez gitmesin */
-          git();
-        }
-      }));
-      seritHoverKur(true);
-      durumSeridi.onclick = git;   /* seridin her yeri tiklanir -- hover bunu vaat ediyor */
-    }
-
-    sunucuKipi().then(function (kip) {
-      durumSeridiniCiz(kip);
-      durumuTazele();
-    });
+    /* SMTP durum şeridi ("Mail girişi yapılı / tanımlı değil") KALDIRILDI
+       (kullanıcı kararı, 03.09.2026): gönderim sunucudan değil Outlook'tan
+       yapılıyor, şerit yanıltırdı. Mail Hesabı ekranı da menüden kalktı. */
 
     /* Alt bardaki gerçek Gönder düğmesi: kilit ona uygulanır. */
     gonderDugmesi = (function () {
