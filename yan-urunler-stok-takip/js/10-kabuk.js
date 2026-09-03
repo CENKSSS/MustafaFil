@@ -278,6 +278,24 @@
     return null;
   }
 
+  /* OTURUM MÜHRÜ (kullanıcı bildirimi, 03.09.2026: "başka bilgisayardan
+     açılan hesaba benim bilgisayarımdan girilince doğrudan login olundu").
+
+     SEBEP: kayıtlı oturum yalnız {Id, KullaniciAdi} idi ve bu ikisi PAYLAŞILAN
+     veriden okunuyordu. Veri sıfırlanınca Id sayacı da sıfırlanır (01-cekirdek
+     · depo.sayaclar), yeni açılan ilk hesap yine Id 1 olur. Böylece bir
+     makinede kalmış ESKİ oturum kaydı, artık bambaşka bir kişiye ait olan
+     Id 1 satırını buluyor ve parola sorulmadan onun hesabını açıyordu.
+
+     ÇÖZÜM: oturuma satırın DEĞİŞMEYEN kimliği de yazılır — Id + hesabın
+     açılış anı. Hesap silinip yeniden açılırsa açılış anı başkadır, mühür
+     tutmaz ve oturum reddedilir. Kişi e-postasını ya da parolasını
+     değiştirdiğinde mühür değişmez; boşuna dışarı atılmaz. */
+  function oturumMuhru(satir) {
+    if (!satir) return '';
+    return String(satir.Id) + '|' + String(satir.OlusturmaTarihi || '');
+  }
+
   /* Oturumda satırın tamamı değil KİMLİĞİ saklanır: rol depoda değişirse bir
      sonraki açılışta güncel rol okunur, eskimiş kopya yetki vermez.
 
@@ -295,7 +313,7 @@
   YU.oturumAc = function (kullanici, hatirla) {
     if (!kullanici) return;
     YU.oturum.kullanici = kullanici;
-    var paket = JSON.stringify({ Id: kullanici.Id, KullaniciAdi: kullanici.KullaniciAdi });
+    var paket = JSON.stringify({ Id: kullanici.Id, KullaniciAdi: kullanici.KullaniciAdi, Muhur: oturumMuhru(kullanici) });
     if (hatirla) { seansSil(OTURUM_ANAHTAR); yaz(OTURUM_ANAHTAR, paket); }
     else { sil(OTURUM_ANAHTAR); seansYaz(OTURUM_ANAHTAR, paket); }
   };
@@ -329,16 +347,21 @@
     if (!ham) return null;
     var k = null;
     try { k = JSON.parse(ham); } catch (e) { k = null; }
-    /* Önce Id; bulunamazsa kullanıcı adı — eski biçimde yazılmış oturumlar
-       da açılabilsin. */
+    /* MÜHÜRSÜZ KAYIT KABUL EDİLMEZ (03.09.2026). 03.09.2026 öncesi yazılmış
+       oturumlar mühür taşımaz; hangi hesaba ait olduğu kanıtlanamadığı için
+       silinir ve bir kereye mahsus yeniden giriş istenir. Eski biçime uyum
+       adına açık bırakmak, bu hatanın ta kendisiydi. */
+    if (!k || !k.Muhur) { sil(OTURUM_ANAHTAR); seansSil(OTURUM_ANAHTAR); return null; }
+    /* Önce Id; bulunamazsa kullanıcı adı. Hangisi bulursa bulsun satır
+       mühürden geçer. */
     var satir = null;
-    if (k && k.Id !== undefined && k.Id !== null) satir = kullaniciIdBul(k.Id);
-    if (!satir && k && k.KullaniciAdi) satir = kullaniciBul(k.KullaniciAdi);
-    if (satir && satir.Aktif !== false) {
+    if (k.Id !== undefined && k.Id !== null) satir = kullaniciIdBul(k.Id);
+    if (!satir && k.KullaniciAdi) satir = kullaniciBul(k.KullaniciAdi);
+    if (satir && satir.Aktif !== false && oturumMuhru(satir) === k.Muhur) {
       YU.oturum.kullanici = satir;
       /* Ad değişmişse kayıtlı oturum tazelenir. */
-      if (!k || k.Id !== satir.Id || k.KullaniciAdi !== satir.KullaniciAdi) {
-        var paket = JSON.stringify({ Id: satir.Id, KullaniciAdi: satir.KullaniciAdi });
+      if (k.KullaniciAdi !== satir.KullaniciAdi) {
+        var paket = JSON.stringify({ Id: satir.Id, KullaniciAdi: satir.KullaniciAdi, Muhur: oturumMuhru(satir) });
         if (hatirlanan) yaz(OTURUM_ANAHTAR, paket); else seansYaz(OTURUM_ANAHTAR, paket);
       }
       return satir;
