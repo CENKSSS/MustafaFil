@@ -1373,9 +1373,12 @@
     } else {
       kutu.appendChild(popupBaslik('Oturum'));
     }
-    /* "Rol Değiştir" -> "Hesap Değiştir" (26.08.2026): giriş artık rol
-       seçimiyle değil kullanıcı adı + parolayla yapılıyor. */
-    kutu.appendChild(popupSatir('#ic-users', 'Hesap Değiştir', 'Çıkış yapıp başka bir hesapla girin.', function () { YU.oturumKapat(); }));
+    /* "Hesap Değiştir" KALDIRILDI (kullanıcı isteği, 03.09.2026: "zaten
+       çıkış yapmak hesap değiştir anlamına da geliyor"). İki satır da aynı
+       işi (YU.oturumKapat) yapıyordu; menüde tek satır kaldı.
+       TARİHÇE: satır 26.08.2026'da "Rol Değiştir"den adlandırılmıştı.
+       Erişim engellendi ekranındaki aynı adlı düğmeye DOKUNULMADI — istek
+       üst şerit içindi (KURAL 5.1). */
     /* "Oturumu Kapat · Kayıtlı oturum silinir" veri siliniyor sanılıyordu;
        sadece "Çıkış Yap" yazar (kullanıcı isteği, 24.08.2026). */
     kutu.appendChild(popupSatir('#ic-percent', 'Çıkış Yap', null, function () { YU.oturumKapat(); }, 'olumsuz'));
