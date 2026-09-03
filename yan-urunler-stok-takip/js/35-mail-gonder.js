@@ -664,9 +664,20 @@
     return temaCssHazir().then(function (css) { return kagitRaporuHtml(css, tarihIso); });
   };
 
-  /* Kullanıcının mesajı: satırlar korunur, HTML kaçışlanır. */
-  var MESAJ_STIL = 'margin:0 0 10px;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;' +
-    'font-size:15px;line-height:1.5;color:#000000';
+  /* Kullanıcının mesajı: satırlar korunur, HTML kaçışlanır.
+
+     TIRNAK TEK OLMAK ZORUNDA (kullanıcı bildirimi, 03.09.2026: "yazdıklarım
+     silik gözüküyor"). Yazı silik değildi — STİL HİÇ UYGULANMIYORDU:
+     font-family'deki ÇİFT tırnak ("Helvetica Neue") style="…" özniteliğini
+     erkenden kapatıyordu. Tarayıcı yalnız 'margin:0 0 10px;font-family:'
+     kısmını okuyor, geri kalanı bozuk öznitelik sanıyordu; punto ve renk
+     düşünce paragraf postanın varsayılan ufak gri yazısıyla çiziliyordu.
+     Tablolarda aynı kusur yok: onların stili setAttribute ile konur,
+     tarayıcı serileştirirken tırnağı kendisi kaçışlar.
+
+     Ölçü kullanıcı isteğidir: Helvetica Neue, 12px, düz siyah. */
+  var MESAJ_STIL = "margin:0 0 10px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;" +
+    'font-size:12px;font-weight:400;line-height:1.5;color:#000000';
 
   function mesajHtml(metin) {
     var m = String(metin || '').replace(/\r\n?/g, '\n').replace(/\s+$/, '');
