@@ -437,6 +437,15 @@
         kenarAralik: hs.borderSpacing,
         renk: hs.color,
         genislik: parseFloat(hs.width),
+        /* Boş bir kutunun ekranda İZİ var mı? Zemini ya da kenar çizgisi
+           varsa vardır (yavru satırın dirsek çizgisi böyledir); yoksa yok
+           ve mailde taşımaya değmez (aşağıdaki temizlik kuralı). */
+        izVar: (function () {
+          var z = hs.backgroundColor;
+          if (z && z !== 'transparent' && z !== 'rgba(0, 0, 0, 0)') return true;
+          return ['borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth']
+            .some(function (a) { return parseFloat(hs[a]) > 0; });
+        })(),
         kutu: el.getBoundingClientRect()
       });
       for (var i = 0; i < el.children.length; i++) gez(el.children[i]);
@@ -515,7 +524,19 @@
             el.insertBefore(belge.createTextNode('\u00a0'), dugumler[i]);
           }
         }
+        /* SÜTUN YÖNLÜ KAP: çocuklar BLOK kalır (kullanıcı bildirimi,
+           03.09.2026: Malzeme tablosu dar pencerede 933px'in altına
+           inmiyordu). ÖLÇÜLDÜ: panelin sarmalayıcısı inline-block olunca
+           kutu içeriğine göre daralıp genişliyor; tablodaki width:100%
+           700px'lik pencereye değil, sarmalayıcının aldığı 933px'e
+           çözülüyor ve tablo pencereden taşıyordu. Blok kap, kullanılabilir
+           genişliği aynen geçirir. Satır yönlü kaplarda inline-block
+           gerekiyor (öğeler yan yana dizilsin), orada değişmez. */
         for (i = 0; i < cocuklar.length; i++) {
+          if (!yanYana) {
+            cocuklar[i].__yuSutun = { alt: (i < cocuklar.length - 1) ? o.bosluk : 0 };
+            continue;
+          }
           cocuklar[i].__yuSatirIci = {
             hiza: o.hiza,
             sag: (bosluk > NBSP_PX && i < cocuklar.length - 1) ? (bosluk - NBSP_PX) : 0
@@ -524,6 +545,19 @@
       }
     } else if (g && g !== 'inline' && g.indexOf('table') !== 0 && g !== 'list-item') {
       st.push('display:' + g);
+    }
+
+    /* Üst kap SÜTUN yönlü flex idiyse çocuk tam genişlikte blok kalır;
+       aradaki boşluk (gap) alt kenar boşluğuna döner — dikey margin'i
+       Outlook silmiyor, sildiği satır içi öğelerin margin'iydi. */
+    if (el.__yuSutun) {
+      st = st.filter(function (s) {
+        return s.indexOf('display:') !== 0 && s.indexOf('margin-bottom:') !== 0;
+      });
+      st.push('display:block');
+      st.push('width:100%');
+      st.push('box-sizing:border-box');
+      if (el.__yuSutun.alt) st.push('margin-bottom:' + el.__yuSutun.alt + 'px');
     }
 
     /* Üst kap flex idiyse çocuğun yerleşimi onun dediği gibi olur. */
@@ -536,18 +570,43 @@
       if (el.__yuSatirIci.sag) st.push('margin-right:' + el.__yuSatirIci.sag + 'px');
     }
 
-    /* TABLO ÖLÇÜLERİ SABİTLENİR: kolon genişlikleri kâğıttaki ölçüyle
-       yazılır, yerleşim "fixed" olur — posta penceresi ne kadar geniş
-       olursa olsun kolonlar kâğıttaki yerinde durur. */
+    /* KOLON GENİŞLİĞİ YÜZDEYLE YAZILIR, PİKSELLE DEĞİL (kullanıcı
+       bildirimi, 03.09.2026: "çıkan maildeki başlık satır kısmı pek hizalı
+       değil… tarayıcıda değil Outlook uygulamasında sorun oluyor").
+
+       SEBEP ÖLÇÜLDÜ: tablo 1188px olarak yazılıyordu, Outlook'un yazma
+       penceresi ise ~790px içerik genişliğinde. Outlook sığmayan tabloyu
+       KENDİ yeniden diziyor ve sabit piksel genişliklerini yok sayıyor;
+       başlık hücreleri (uzun, satır saran yazı) ile gövde hücreleri
+       (nowrap rakam) farklı paylar alınca başlık satırı gövdeyle
+       hizasını kaybediyordu. Tarayıcıda sorun görünmüyordu, çünkü orada
+       tablo 1188px'e sığıyor ve piksel ölçüleri aynen uygulanıyordu.
+
+       ÇÖZÜM: genişlik oransal verilir. Tablo %100, her BAŞLIK hücresi
+       kâğıttaki payı kadar yüzde alır. Böylece pencere ne kadar dar
+       olursa olsun kolonlar aynı oranda küçülür; başlık ile gövde tek
+       kolon tanımını paylaştığı için hiza bozulamaz. Kâğıttaki oranlar
+       birebir korunur, yalnız mutlak ölçü pencereye uyar. */
     if (etiket === 'table') {
       st.push('border-collapse:' + o.kenarBirlesik);
       st.push('border-spacing:' + o.kenarAralik);
       st.push('table-layout:fixed');
-      st.push('width:' + Math.round(o.kutu.width) + 'px');
-      st.push('max-width:100%');   /* dar okuma bölmesinde taşmasın */
+      st.push('width:100%');
+      el.__yuTabloEni = o.kutu.width;
     } else if (etiket === 'th' || etiket === 'td') {
       st.push('box-sizing:border-box');
-      if (etiket === 'th') st.push('width:' + Math.round(o.kutu.width) + 'px');
+      /* Yüzde, hücrenin kendi tablosunun enine göre hesaplanır. colspan
+         taşıyan hücre (yavru satırın başlığı) kendi payını zaten birden
+         çok kolondan alır — ona genişlik yazılmaz, yoksa colspan'ın
+         hesabıyla çakışır. */
+      if (etiket === 'th' && el.colSpan === 1) {
+        var tabloEl = el.parentNode;
+        while (tabloEl && tabloEl.tagName !== 'TABLE') tabloEl = tabloEl.parentNode;
+        var tabloEni = tabloEl && tabloEl.__yuTabloEni ? tabloEl.__yuTabloEni : 0;
+        if (tabloEni > 0) {
+          st.push('width:' + (Math.round(o.kutu.width / tabloEni * 10000) / 100) + '%');
+        }
+      }
     } else if (g === 'block' && o.genislik === 0 && String(el.textContent).trim()) {
       /* Kâğıt kuralı (tema.css .yu-satir-yavru): sıfır genişlikli blok,
          yazısı sağa taşar ama kolonu şişirmez. Aynen taşınır. */
@@ -558,7 +617,14 @@
     /* Metinsiz, çocuksuz kutu (yavru satırın bağ çizgisi gibi) ölçüsünü
        taşır; ölçüsü de yoksa atılır. */
     if (!cocuklar.length && !String(el.textContent).trim() && etiket !== 'img' && etiket !== 'br' && etiket !== 'td' && etiket !== 'th') {
-      if (o.kutu.width < 1 && o.kutu.height < 1) { el.parentNode.removeChild(el); return; }
+      /* SIFIR GENİŞLİKLİ İZSİZ KUTU ATILIR (kullanıcı bildirimi,
+         03.09.2026: rapor dar pencerede yine taşıyordu). ÖLÇÜLDÜ: Malzeme
+         panelinin başlık şeridinde, tarih rozetinin kaldırıldığı BOŞ bir
+         kutu kalıyor; eni 0 ama x=914'te duruyor ve sayfanın kaydırma
+         genişliğini 790'dan 914'e çıkarıyordu — görünmeyen bir öğe yüzünden
+         Outlook'ta yatay kaydırma çubuğu çıkardı. Zemini ya da kenar
+         çizgisi olan boş kutular (yavru satırın dirsek çizgisi) DURUR. */
+      if (o.kutu.width < 1 && (o.kutu.height < 1 || !o.izVar)) { el.parentNode.removeChild(el); return; }
       st.push('width:' + Math.round(o.kutu.width) + 'px');
       st.push('height:' + Math.round(o.kutu.height) + 'px');
       if (g === 'inline' || g === 'inline-block') {
@@ -579,6 +645,23 @@
     for (i = 0; i < cocuklar.length; i++) {
       c = cocuklar[i];
       if (c.parentNode) ogeyiDuzlestir(c, olcumler, belge, isler);
+    }
+
+    /* ÇOCUKLARI GİDEN KUTU DA GİDER — temizlik çocuklardan SONRA yapılır
+       (kullanıcı bildirimi, 03.09.2026: rapor dar pencerede yatay kayıyordu).
+       ÖLÇÜLDÜ: panel başlığının sağ yuvası, ekranda tarih rozetini taşıyor;
+       kâğıt kuralı rozeti gizlediği için yuva BOŞALIYOR ama yukarıdaki
+       "çocuksuz kutu" temizliğine takılmıyordu — o kontrol çalıştığı anda
+       çocuklar HENÜZ duruyordu. Geriye eni sıfır, ama flex'in
+       "margin-left:auto"su piksele çevrildiği için 894px sağa itilmiş boş
+       bir kutu kalıyordu; sayfanın kaydırma genişliğini 790'dan 914'e
+       çıkarıp Outlook'ta yatay kaydırma çubuğu çıkarıyordu.
+       Zemini ya da kenar çizgisi olan boş kutular (yavru satırın dirsek
+       çizgisi) DURUR — onların ekranda izi var. */
+    if (!el.children.length && !String(el.textContent).trim() &&
+        etiket !== 'img' && etiket !== 'br' && etiket !== 'td' && etiket !== 'th' && !o.izVar &&
+        el.parentNode) {
+      el.parentNode.removeChild(el);
     }
   }
 
@@ -633,7 +716,7 @@
         var malzeme = typeof YU.malzemeStokPaneli === 'function' ? YU.malzemeStokPaneli(tarihIso) : null;
         if (!silo && !malzeme) { bitir(new Error('Rapor tabloları kurulamadı.')); return; }
         var kap = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '12px' } }, silo, malzeme);
-        var icerik = YU.h('div', { sinif: 'yu-icerik', stil: { width: MAIL_GENISLIK + 'px' } }, kunye, kap);
+        var icerik = YU.h('div', { sinif: 'yu-icerik', stil: { width: MAIL_GENISLIK + 'px' } }, kunye, kap);   /* ÖLÇÜM için sabit; çıktıda yüzdeye çevrilir (aşağıda) */
         belge.body.appendChild(icerik);
 
         /* Yerleşim otursun diye kısa bir bekleme; sonra ölçülür. */
@@ -643,9 +726,12 @@
             olcumleriTopla(icerik, pencere, olcumler);   /* ÖNCE ölç (gerekçe yukarıda) */
             ogeyiDuzlestir(icerik, olcumler, belge, isler);
             Promise.all(isler).then(function () {
-              /* Kök kâğıt genişliğinde kalır: içindeki tablolar sabit
-                 ölçülü, kap da onlarla aynı genişlikte olsun. */
-              icerik.setAttribute('style', icerik.getAttribute('style') + ';width:' + MAIL_GENISLIK + 'px;max-width:100%');
+              /* Kök SABİT DEĞİL, ESNEK: genişlik yerine üst sınır yazılır.
+                 Outlook'un yazma penceresi 1188px'den darsa (ki genelde
+                 öyle) rapor pencereye uyar; genişse kâğıt oranını korur.
+                 Sabit genişlik yazılsaydı Outlook tabloyu kendi yeniden
+                 dizer ve başlık hizası bozulurdu (kolon yüzdesi notu). */
+              icerik.setAttribute('style', icerik.getAttribute('style') + ';width:100%;max-width:' + MAIL_GENISLIK + 'px');
               bitir(null, {
                 html: icerik.outerHTML,
                 genislik: MAIL_GENISLIK,
@@ -709,7 +795,7 @@
     var msj = mesajHtml(mesaj);
     return '<!doctype html><html lang="tr"><head><meta charset="utf-8"></head>' +
       '<body style="margin:0;padding:0;background:#ffffff">' + raporHtml +
-      (msj ? '<div style="width:' + MAIL_GENISLIK + 'px;max-width:100%;margin-top:18px;' +
+      (msj ? '<div style="width:100%;max-width:' + MAIL_GENISLIK + 'px;margin-top:18px;' +
              'padding-top:14px;border-top:2px solid #a89878">' + msj + '</div>' : '') +
       '</body></html>';
   }
@@ -770,14 +856,10 @@
     ].join(CRLF) + CRLF;
   }
 
-  function emlIndir(dosyaAdi, eml) {
-    var blob = new Blob([eml], { type: 'message/rfc822' });
-    var url = URL.createObjectURL(blob);
-    var bag = document.createElement('a');
-    bag.href = url; bag.download = dosyaAdi;
-    document.body.appendChild(bag); bag.click(); document.body.removeChild(bag);
-    setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
-  }
+  /* .EML İNDİRME KALDIRILDI (kullanıcı direktifi, 03.09.2026: "eml
+     indirilmesin, indirme işlemi olmayacak, taslak indirme bu fonksiyonu
+     kaldır"). Taslak ya posta uygulamasında açılır ya da açılamaz; ikinci
+     durumda dosya indirilmez, sebebi yazan bir hata penceresi çıkar. */
 
   /* ACİL DURUM YEDEĞİ — gerçek tema.css HENÜZ YÜKLENMEDİYSE kullanılır
      (aşağıya bak). Normal akışta hiç devreye girmez. */
@@ -1111,35 +1193,121 @@
         .then(function (rapor) {
           var eml = emlUret(adresler, konuMetni(tarihMetni),
             postaGovdesi(rapor.html, mesajMetni()));
-          return sunucudaAc(dosyaAdi, eml).then(function (acildi) {
+          return sunucudaAc(dosyaAdi, eml).then(function (sonuc) {
             geriAl();
-            if (modal && modal.kapat) modal.kapat();
-            if (acildi) return;   /* Outlook açıldı — bildirim yok */
-            emlIndir(dosyaAdi, eml);
-            YU.ui.bildir('Taslak indi: ' + dosyaAdi + '. Dosyayı açın; Outlook taslak olarak getirir.', 'bilgi');
+            if (sonuc.acildi) {
+              /* Outlook taslakla açıldı — bildirim YOK (kullanıcı
+                 direktifi, 03.09.2026): son adım postadadır. */
+              if (modal && modal.kapat) modal.kapat();
+              return;
+            }
+            /* AÇILAMADI: dosya İNDİRİLMEZ, sebep söylenir. Pencere açık
+               kalır — kullanıcı adresleri ve mesajı kaybetmesin. */
+            gonderilemediPenceresi(sonuc);
           });
         })
         ['catch'](function (e) {
           geriAl();
-          YU.ui.bildir('Taslak hazırlanamadı: ' + ((e && e.message) || e), 'hata');
+          gonderilemediPenceresi({
+            baslik: 'Rapor Hazırlanamadı',
+            sebep: (e && e.message) ? e.message : String(e),
+            cozum: 'Sayfayı yenileyip yeniden deneyin. Sürerse gün seçimini değiştirip bakın.'
+          });
         });
+    }
+
+    /* GÖNDERİLEMEDİ PENCERESİ (kullanıcı direktifi, 03.09.2026: "eğer
+       gönderilemiyorsa direkt gönderilemedi diye hata ver, taslak indirildi
+       diye yapma, nedenini söyle"). Sebep ve çözüm ayrı satırlarda durur;
+       sunucudan gelen cümle kısaltılmadan yazılır — düzeltmeyi yapacak
+       olan kullanıcıdır. */
+    function gonderilemediPenceresi(s) {
+      var govde = YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '14px' } },
+        YU.h('div', {
+          stil: { display: 'flex', gap: '10px', alignItems: 'flex-start' }
+        },
+          YU.h('span', {
+            stil: { flex: 'none', display: 'flex', color: 'var(--olumsuz)', marginTop: '1px' }
+          }, YU.svg('#ic-alert', 18)),
+          YU.h('div', { stil: { minWidth: '0' } },
+            YU.h('div', { sinif: 'yu-etiket', metin: 'Sebep' }),
+            YU.h('div', {
+              metin: s.sebep,
+              stil: { font: '400 14px/1.5 var(--font)', color: 'var(--metin-2)', marginTop: '3px' }
+            }))
+        ),
+        s.cozum ? YU.h('div', { stil: { height: '1px', background: 'var(--ayrac-2)' } }) : null,
+        s.cozum ? YU.h('div', null,
+          YU.h('div', { sinif: 'yu-etiket', metin: 'Ne Yapmalı' }),
+          YU.h('div', {
+            metin: s.cozum,
+            stil: { font: '400 14px/1.5 var(--font)', color: 'var(--metin-2)', marginTop: '3px' }
+          })) : null
+      );
+      YU.ui.modal({
+        baslik: s.baslik || 'Gönderilemedi',
+        genislik: 520,
+        govde: govde,
+        dugmeler: [{ metin: 'Tamam', tur: 'birincil' }]
+      });
     }
 
     /* Sunucu dosyayı KENDİ makinesinde açar; uzak istemciye 403 döner,
        sunucu yoksa istek düşer — iki durumda da false: dosya indirilir. */
     function sunucudaAc(dosyaAdi, eml) {
-      if (typeof fetch !== 'function') return Promise.resolve(false);
+      var YEREL_DEGIL = {
+        baslik: 'Bu Bilgisayarda Gönderilemiyor',
+        sebep: 'Taslağı açan Outlook, programın kurulu olduğu SUNUCU makinesindedir. ' +
+               'Siz uygulamaya ağ üzerinden bağlandığınız için sunucu, taslağı sizin ' +
+               'ekranınızda açamaz — açsaydı pencere sunucunun başında oturan kişiye görünürdü.',
+        cozum: 'Raporu sunucunun başındaki bilgisayardan gönderin.'
+      };
+      if (typeof fetch !== 'function') {
+        return Promise.resolve({ acildi: false, baslik: 'Gönderilemedi',
+          sebep: 'Tarayıcı sunucuya istek gönderemiyor (fetch desteklenmiyor).',
+          cozum: 'Güncel bir tarayıcı kullanın.' });
+      }
       return fetch('api/mail/taslak', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dosyaAdi: dosyaAdi, eml: eml })
       }).then(function (c) {
-        if (!c.ok) return false;
-        return c.json().then(function (g) { return !!(g && g.acildi); }, function () { return false; });
-      }, function () { return false; });
+        if (c.ok) {
+          return c.json().then(function (g) {
+            if (g && g.acildi) return { acildi: true };
+            return { acildi: false, baslik: 'Gönderilemedi',
+              sebep: 'Sunucu taslağı açtığını bildirmedi.',
+              cozum: 'Yeniden deneyin.' };
+          }, function () {
+            return { acildi: false, baslik: 'Gönderilemedi',
+              sebep: 'Sunucunun cevabı okunamadı.', cozum: 'Yeniden deneyin.' };
+          });
+        }
+        /* 403 = istek sunucunun kendi makinesinden gelmedi. */
+        if (c.status === 403) { var y = {}; for (var a in YEREL_DEGIL) y[a] = YEREL_DEGIL[a]; y.acildi = false; return y; }
+        return c.text().then(function (metin) {
+          var g = null;
+          if (metin) { try { g = JSON.parse(metin); } catch (e) { g = null; } }
+          return {
+            acildi: false,
+            baslik: 'Gönderilemedi',
+            sebep: (g && g.hata) ? g.hata : ('Sunucu ' + c.status + ' döndü.'),
+            cozum: c.status === 400
+              ? 'Alıcı listesini ve mesajı kontrol edip yeniden deneyin.'
+              : 'Posta uygulamasının kurulu olduğundan emin olun; sürerse sunucuyu yeniden başlatın.'
+          };
+        }, function () {
+          return { acildi: false, baslik: 'Gönderilemedi',
+            sebep: 'Sunucu ' + c.status + ' döndü.', cozum: 'Yeniden deneyin.' };
+        });
+      }, function () {
+        return { acildi: false, baslik: 'Sunucuya Ulaşılamadı',
+          sebep: 'Program sunucusuna bağlanılamadı; ağ bağlantısı kopmuş ya da sunucu kapanmış olabilir.',
+          cozum: 'Sayfayı yenileyin. Açılmıyorsa sunucunun çalıştığını doğrulayın.' };
+      });
     }
 
-    /* ---------------- yerleşim ---------------- */
+    /* ---------------- yerleşim ---------------- */    /* ---------------- yerleşim ---------------- */
 
     function bolumBasligi(metin) {
       return YU.h('div', {
