@@ -651,7 +651,11 @@
         : (degisen
             ? YU.fmt.sayi(degisen) + ' satır değişecek · henüz kaydedilmedi'
             : 'Kaydedilmemiş değişiklik yok');
-      kaydetDugmesi.disabled = degisen === 0 || !!kilitliAd;
+      /* "En az bir rakam girilmeden Kaydet kapalı" kuralı KALDIRILDI
+         (kullanıcı isteği, 03.09.2026). Düğme yalnız kampanya kilitliyken
+         kapanır. Yeni kampanya kurulurken hiç rakam yazılmazsa devirler 0
+         olarak oluşturulur (degisiklikleriTopla). */
+      kaydetDugmesi.disabled = !!kilitliAd;
       geriDugmesi.disabled = degisen === 0 && !durum.yeniKampanya;
       /* Çıkış engeli: kaydedilmemiş satır ya da bekleyen yeni kampanya
          kurulumu varsa her çıkış yolu sorulur (kullanıcı isteği, 27.08.2026). */
@@ -743,13 +747,28 @@
      Kaydetme — önce önizleme
      ------------------------------------------------------------------ */
 
+  /* YENİ KAMPANYADA BOŞ SATIR 0 YAZILIR (kullanıcı kararı, 03.09.2026:
+     "boş devir değil de 0 olarak devirler oluşturulacak"). Kampanya kurulurken
+     hiç rakam girilmese de her silo ve malzeme için 0 devir satırı açılır;
+     böylece kampanyanın devri eksik kalmaz, ekranlar boş kampanyaya özel
+     kural gerektirmez. Var olan bir kampanyada boş satır eskisi gibi
+     DOKUNULMAZ sayılır — orada 0 yazmak kaydı silmek anlamına gelirdi.
+     Dökme kuru küspe DIŞARIDA kalır: devri elle girilemez, silo devirlerinin
+     toplamıdır (Şartname §5 · 03-dogrulama · devirDenetle). */
   function degisiklikleriTopla(alanlar) {
-    var liste = [], i, a, ham, deger;
+    var liste = [], i, a, ham, deger, sifirlanan = 0;
+    var yeniKampanya = !!durum.yeniKampanya;
     for (i = 0; i < alanlar.length; i++) {
       a = alanlar[i];
       a.alan.hataGoster('');
       ham = String(a.alan.girdi.value).trim();
-      if (ham === '') continue;                       /* boş satır: kayıt açılmaz, silinmez */
+      if (ham === '') {
+        var turetilmisSatir = !siloMu(a.tip) && a.sahip.OzelTip === 'DokmeKuruKuspe';
+        if (!yeniKampanya || a.kayit || turetilmisSatir) continue;
+        liste.push({ tip: a.tip, sahip: a.sahip, kayit: null, eski: null, yeni: 0 });
+        sifirlanan++;
+        continue;
+      }
       deger = a.alan.deger();
       if (isNaN(deger)) {
         a.alan.hataGoster('Miktar sayı olmalı (örn. 240.000 veya 1.234,56).');
@@ -768,7 +787,7 @@
         yeni: YU.yuvarla(deger)
       });
     }
-    return { hata: false, liste: liste };
+    return { hata: false, liste: liste, sifirlanan: sifirlanan };
   }
 
   function okluDeger(eski, yeni) {
@@ -830,6 +849,16 @@
       ],
       satirlar: satirlar
     }));
+
+    /* Rakam girilmeden kurulan kampanyada kullanıcı ne kaydettiğini bilsin. */
+    if (sonuc.sifirlanan) {
+      govde.push(YU.ui.serit({
+        tur: 'bilgi', ikon: '#ic-wallet',
+        baslik: 'Miktar Girilmeyen Satırlar 0 Kaydedilir',
+        metin: YU.fmt.sayi(sonuc.sifirlanan) + ' satıra rakam yazılmadı; devirleri 0 olarak açılır. ' +
+          'Miktarları sonradan bu ekrandan düzeltebilirsiniz.'
+      }));
+    }
 
     if (!YU.hesap.esit(oncekiDokme, sonrakiDokme)) {
       govde.push(YU.ui.serit({

@@ -381,6 +381,15 @@
       if (!n) return YU.h('span', { sinif: 'yu-zayif', metin: '—' });
       return deger(n);
     }
+    /* DEVİR KOLONU 0'I YAZAR (kullanıcı isteği, 03.09.2026). Devir kaydı
+       varsa rakam yazılır, 0 bile olsa: kampanya 0 devirle kurulabiliyor ve
+       "—" o satırı "devri girilmemiş" gibi gösteriyordu. Kayıt hiç yoksa
+       "—" durur. Öbür kolonlar degerHucre'yi kullanmayı sürdürür: orada 0
+       "o gün hareket olmadı" demektir, çizgi doğru okumadır. */
+    function devirHucre(kayitVar, n) {
+      if (!kayitVar) return YU.h('span', { sinif: 'yu-zayif', metin: '—' });
+      return deger(n);
+    }
     function degerGuclu(n) {
       if (!birimli) return YU.h('span', { sinif: 'yu-mono yu-guclu', metin: YU.fmt.kg(n) });
       var el = YU.ui.olcu([{ sayi: YU.fmt.kg(n), birim: 'kg' }]);
@@ -418,14 +427,14 @@
            düzen tarihi devrin altına küçük satır olarak koyuyordu; kapatmak
            isteyen devirTarihiAyri:false geçer, o yol aşağıda durur. */
         tarihAyri
-          ? degerHucre(s.devir)
+          ? devirHucre(!!devir, s.devir)
           : (devir
               ? YU.h('div', { stil: { display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-end' } },
                   deger(s.devir),
                   YU.h('span', { sinif: 'yu-yardim', stil: { margin: '0' },
                     metin: YU.fmt.tarih(devir.DevirTarihi) })
                 )
-              : degerHucre(s.devir)),
+              : devirHucre(false, s.devir)),
         tarihAyri
           ? (devir ? mono(YU.fmt.tarih(devir.DevirTarihi)) : YU.h('span', { sinif: 'yu-zayif', metin: '—' }))
           : null,

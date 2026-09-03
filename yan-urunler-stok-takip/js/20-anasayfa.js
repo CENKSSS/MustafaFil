@@ -561,19 +561,12 @@
     var yonetici = YU.yonetici();
     var eylemler = [];
 
+    /* "Günlük Giriş" düğmesi KALDIRILDI (kullanıcı isteği, 03.09.2026).
+       Panelde yalnız devir düğmesi kalır; adım kartları eskisi gibi durur. */
     if (yonetici) {
       eylemler.push(YU.ui.dugme({
         metin: 'Devir Stok Tanımla', ikon: '#ic-wallet', tur: 'birincil',
         onClick: function () { YU.git('devir-stok'); }
-      }));
-      eylemler.push(YU.ui.dugme({
-        metin: 'Günlük Giriş', ikon: '#ic-plus', tur: 'ikincil',
-        onClick: function () { YU.git('kuru-kuspe'); }
-      }));
-    } else {
-      eylemler.push(YU.ui.dugme({
-        metin: 'Günlük Giriş', ikon: '#ic-plus', tur: 'birincil',
-        onClick: function () { YU.git('kuru-kuspe'); }
       }));
     }
 
