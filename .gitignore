@@ -54,3 +54,16 @@ npm-debug.log*
 
 # Ortak veri paketi (gelistirme sunucusu) — gercek veridir, depoya girmez.
 veri-paket.json
+
+# ---------------------------------------------------------------------------
+# BELGELER DEPOYA GİRMEZ (kullanıcı isteği, 03.09.2026)
+# Depoda yalnız ÇALIŞAN kod durur: js, css, html, cs, py.
+# Not, plan, sözleşme ve şartname makinede kalır; git'e gitmez.
+# ---------------------------------------------------------------------------
+*.md
+*.txt
+*.docx
+
+# Şartname — hem Word hâli hem HTML hâli hem düz metni.
+docs/yan-urunler-sartname-v2.html
+sartname*
