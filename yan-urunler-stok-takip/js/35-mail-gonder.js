@@ -17,10 +17,20 @@
        aynı görünen künye + iki tablo postanın gövdesinde durur,
      · "Gönderen : Ad Soyad" imzası KALKTI,
      · "gönderildi" bildirimi YOK — son adım postada.
-   NASIL: RFC 822 biçiminde bir .eml dosyası kurulur (X-Unsent: 1 başlığı
-   "taslak" demektir). Sunucu aynı makinedeyse dosya yeni Outlook'a
-   (olk.exe) verilir; değilse dosya iner, kullanıcı açar. mailto:
-   kullanılmaz — o yol HTML gövde taşıyamaz (protokol sınırı).
+   NASIL (kullanıcı kararı, 03.09.2026 — "B yolu"): RFC 822 biçiminde bir
+   .eml dosyası kurulur (X-Unsent: 1 başlığı "taslak" demektir) ve tarayıcı
+   bunu İNDİRİR. Kullanıcının bilgisayarında .eml yeni Outlook'a bağlıysa
+   ve Chrome "bu türü hep aç" ayarındaysa dosya inince Outlook taslakla
+   KENDİLİĞİNDEN açılır; değilse kullanıcı inen dosyaya bir kez tıklar.
+   Her bilgisayarda bir kez yapılan iki ayar budur.
+
+   NEDEN SUNUCU AÇMIYOR: Outlook'u açan kod sunucuda çalışsaydı pencere
+   sunucunun ekranında açılırdı; ağ üzerinden bağlanan 3-4 kullanıcı kendi
+   bilgisayarında hiçbir şey görmezdi (ölçüldü: uzak istekte 403). Web
+   sayfası kullanıcının bilgisayarında program açamaz; elinde yalnız
+   mailto: (düz metin, HTML taşımaz) ve dosya indirme vardır. Rapor HTML
+   olacaksa tek yol indirmedir. Sunucudaki /api/mail/taslak ucu artık
+   ÇAĞRILMIYOR; kod yerinde duruyor.
    ÖLÇÜLDÜ (03.09.2026): yeni Outlook 1.2026.818, HTML gövdeli .eml'i
    düzenlenebilir taslak olarak açıyor; alıcı, konu, tablo çizgileri,
    renkler ve Türkçe harfler doğru geliyor.
@@ -843,9 +853,12 @@
       'X-Unsent: 1',
       'Message-ID: <' + kimlik + '@yanurunler.local>',
       'Date: ' + new Date().toUTCString().replace(/GMT$/, '+0000'),
-      /* From yalnız MIME geçerli olsun diye; Outlook taslağı kendi hesabıyla
-         açar ve bu satırı kullanmaz (ölçüldü). */
-      'From: Yan Urunler Stok Takip <rapor@yanurunler.local>',
+      /* FROM BAŞLIĞI YAZILMAZ (kullanıcı bildirimi, 03.09.2026: "kimden
+         kısmına demo olarak bir mail girilmiş"). Başlık MIME geçerliliği
+         için konmuştu ve Outlook'un onu yok saydığı sanılıyordu; taslak
+         açılınca Kimden kutusunda rapor@yanurunler.local görünüyordu.
+         Satır olmayınca Outlook kutuyu kendi varsayılan hesabıyla doldurur;
+         kullanıcı isterse oradan değiştirir. */
       'To: ' + alicilar.join(', '),
       'Subject: ' + kodluBaslik(konu),
       'MIME-Version: 1.0',
@@ -856,10 +869,20 @@
     ].join(CRLF) + CRLF;
   }
 
-  /* .EML İNDİRME KALDIRILDI (kullanıcı direktifi, 03.09.2026: "eml
-     indirilmesin, indirme işlemi olmayacak, taslak indirme bu fonksiyonu
-     kaldır"). Taslak ya posta uygulamasında açılır ya da açılamaz; ikinci
-     durumda dosya indirilmez, sebebi yazan bir hata penceresi çıkar. */
+  /* .EML İNDİRME (kullanıcı kararı, 03.09.2026 — "B yolu"). Aynı gün önce
+     kaldırılmış, sonra 3-4 kullanıcının kendi bilgisayarından gönderebilmesi
+     için geri getirilmişti: tarayıcının HTML taslağı kullanıcının
+     Outlook'una ulaştırabildiği tek yol bu (dosya başındaki not).
+     MIME türü message/rfc822 — Windows'un .eml → Outlook bağı ve Chrome'un
+     "bu türü hep aç" ayarı bu türe bakar. */
+  function emlIndir(dosyaAdi, eml) {
+    var blob = new Blob([eml], { type: 'message/rfc822' });
+    var url = URL.createObjectURL(blob);
+    var bag = document.createElement('a');
+    bag.href = url; bag.download = dosyaAdi;
+    document.body.appendChild(bag); bag.click(); document.body.removeChild(bag);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
+  }
 
   /* ACİL DURUM YEDEĞİ — gerçek tema.css HENÜZ YÜKLENMEDİYSE kullanılır
      (aşağıya bak). Normal akışta hiç devreye girmez. */
@@ -1166,17 +1189,19 @@
       gonderDugmesi.disabled = kac === 0;
       gonderDugmesi.title = kac === 0
         ? 'Önce en az bir alıcı seçin'
-        : 'Outlook\'ta taslak olarak açılır; gönderme oradan yapılır';
+        : 'Taslak dosyası iner, Outlook onu taslak olarak açar; gönderme oradan yapılır';
     }
 
     /* ---------------- eylemler ---------------- */
 
-    /* GÖNDER = TASLAĞI AÇ (kullanıcı direktifi, 03.09.2026). Program posta
-       göndermez: alıcılar, konu, kâğıttaki raporun HTML kopyası ve mesaj
-       bir .eml taslağına yazılır. Sunucu aynı makinedeyse dosyayı yeni
-       Outlook'a verir (api/mail/taslak); değilse ya da sunucu yoksa dosya
-       iner, kullanıcı açınca Outlook taslak olarak getirir.
-       "Gönderildi" bildirimi YOKTUR (aynı direktif): son adım postadadır. */
+    /* GÖNDER = TASLAĞI İNDİR (kullanıcı kararı, 03.09.2026 — "B yolu").
+       Program posta göndermez ve sunucuya "Outlook aç" demez: alıcılar,
+       konu, kâğıttaki raporun HTML kopyası ve mesaj bir .eml dosyasına
+       yazılır, dosya İNER. Kullanıcının bilgisayarı ayarlıysa Outlook
+       taslağı kendiliğinden açar; son Gönder oradadır.
+       Her yerde AYNI davranır — sunucunun başında da, ağdaki bilgisayarda
+       da. "Gönderildi / taslak indirildi" bildirimi YOKTUR (kullanıcı
+       direktifi): pencere kapanır, gerisi Outlook'ta olur. */
     function taslagiAc() {
       var adresler = seciliAdresler();
       if (!adresler.length) return;
@@ -1193,20 +1218,13 @@
         .then(function (rapor) {
           var eml = emlUret(adresler, konuMetni(tarihMetni),
             postaGovdesi(rapor.html, mesajMetni()));
-          return sunucudaAc(dosyaAdi, eml).then(function (sonuc) {
-            geriAl();
-            if (sonuc.acildi) {
-              /* Outlook taslakla açıldı — bildirim YOK (kullanıcı
-                 direktifi, 03.09.2026): son adım postadadır. */
-              if (modal && modal.kapat) modal.kapat();
-              return;
-            }
-            /* AÇILAMADI: dosya İNDİRİLMEZ, sebep söylenir. Pencere açık
-               kalır — kullanıcı adresleri ve mesajı kaybetmesin. */
-            gonderilemediPenceresi(sonuc);
-          });
+          emlIndir(dosyaAdi, eml);
+          geriAl();
+          if (modal && modal.kapat) modal.kapat();
         })
         ['catch'](function (e) {
+          /* Rapor kurulamadıysa dosya İNMEZ; sebep pencerede yazar, mail
+             penceresi açık kalır — adresler ve mesaj kaybolmasın. */
           geriAl();
           gonderilemediPenceresi({
             baslik: 'Rapor Hazırlanamadı',
@@ -1252,62 +1270,7 @@
       });
     }
 
-    /* Sunucu dosyayı KENDİ makinesinde açar; uzak istemciye 403 döner,
-       sunucu yoksa istek düşer — iki durumda da false: dosya indirilir. */
-    function sunucudaAc(dosyaAdi, eml) {
-      var YEREL_DEGIL = {
-        baslik: 'Bu Bilgisayarda Gönderilemiyor',
-        sebep: 'Taslağı açan Outlook, programın kurulu olduğu SUNUCU makinesindedir. ' +
-               'Siz uygulamaya ağ üzerinden bağlandığınız için sunucu, taslağı sizin ' +
-               'ekranınızda açamaz — açsaydı pencere sunucunun başında oturan kişiye görünürdü.',
-        cozum: 'Raporu sunucunun başındaki bilgisayardan gönderin.'
-      };
-      if (typeof fetch !== 'function') {
-        return Promise.resolve({ acildi: false, baslik: 'Gönderilemedi',
-          sebep: 'Tarayıcı sunucuya istek gönderemiyor (fetch desteklenmiyor).',
-          cozum: 'Güncel bir tarayıcı kullanın.' });
-      }
-      return fetch('api/mail/taslak', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dosyaAdi: dosyaAdi, eml: eml })
-      }).then(function (c) {
-        if (c.ok) {
-          return c.json().then(function (g) {
-            if (g && g.acildi) return { acildi: true };
-            return { acildi: false, baslik: 'Gönderilemedi',
-              sebep: 'Sunucu taslağı açtığını bildirmedi.',
-              cozum: 'Yeniden deneyin.' };
-          }, function () {
-            return { acildi: false, baslik: 'Gönderilemedi',
-              sebep: 'Sunucunun cevabı okunamadı.', cozum: 'Yeniden deneyin.' };
-          });
-        }
-        /* 403 = istek sunucunun kendi makinesinden gelmedi. */
-        if (c.status === 403) { var y = {}; for (var a in YEREL_DEGIL) y[a] = YEREL_DEGIL[a]; y.acildi = false; return y; }
-        return c.text().then(function (metin) {
-          var g = null;
-          if (metin) { try { g = JSON.parse(metin); } catch (e) { g = null; } }
-          return {
-            acildi: false,
-            baslik: 'Gönderilemedi',
-            sebep: (g && g.hata) ? g.hata : ('Sunucu ' + c.status + ' döndü.'),
-            cozum: c.status === 400
-              ? 'Alıcı listesini ve mesajı kontrol edip yeniden deneyin.'
-              : 'Posta uygulamasının kurulu olduğundan emin olun; sürerse sunucuyu yeniden başlatın.'
-          };
-        }, function () {
-          return { acildi: false, baslik: 'Gönderilemedi',
-            sebep: 'Sunucu ' + c.status + ' döndü.', cozum: 'Yeniden deneyin.' };
-        });
-      }, function () {
-        return { acildi: false, baslik: 'Sunucuya Ulaşılamadı',
-          sebep: 'Program sunucusuna bağlanılamadı; ağ bağlantısı kopmuş ya da sunucu kapanmış olabilir.',
-          cozum: 'Sayfayı yenileyin. Açılmıyorsa sunucunun çalıştığını doğrulayın.' };
-      });
-    }
-
-    /* ---------------- yerleşim ---------------- */    /* ---------------- yerleşim ---------------- */
+    /* ---------------- yerleşim ---------------- */
 
     function bolumBasligi(metin) {
       return YU.h('div', {
